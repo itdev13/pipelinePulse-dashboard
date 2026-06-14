@@ -39,12 +39,17 @@ export default function FunnelView({ filters }) {
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={funnelData} layout="vertical" margin={{ left: 8, right: 32 }}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" />
+              <XAxis type="number" allowDecimals={false} />
               <YAxis type="category" dataKey="stage_name" width={130} tick={{ fontSize: 12 }} />
-              <Tooltip formatter={(v, k) => (k === 'entered' ? [num(v), 'Entered'] : v)} />
+              <Tooltip
+                formatter={(v, _k, item) => [
+                  `${num(v)}  (${item?.payload?.pct_of_top_stage ?? 0}% of top stage)`,
+                  'Entered',
+                ]}
+              />
               <Bar dataKey="entered" radius={[0, 6, 6, 0]}>
                 {funnelData.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
-                <LabelList dataKey="pct_of_top_stage" position="right" formatter={(v) => `${v}%`} fontSize={11} />
+                <LabelList dataKey="entered" position="right" formatter={(v) => num(v)} fontSize={11} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>

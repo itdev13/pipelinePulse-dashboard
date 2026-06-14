@@ -12,8 +12,12 @@ body {
     Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #f5f7fb;
   color: #1f2328;
+  /* Subtle top-light gradient gives the page depth without distracting. */
+  background:
+    radial-gradient(1200px 420px at 50% -160px, #e9f0ff 0%, rgba(233,240,255,0) 70%),
+    #f5f7fb;
+  background-attachment: fixed;
 }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }

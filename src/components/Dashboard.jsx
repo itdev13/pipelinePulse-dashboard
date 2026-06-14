@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
-import { Tabs } from 'antd'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   FunnelPlotOutlined, TrophyOutlined, TeamOutlined, MessageOutlined,
+  FundOutlined, DollarOutlined, AimOutlined, RiseOutlined,
 } from '@ant-design/icons'
 import Header from './Header'
 import FilterBar from './FilterBar'
@@ -12,7 +12,25 @@ import RevenueView from '../views/RevenueView'
 import ManagersView from '../views/ManagersView'
 import MessagesView from '../views/MessagesView'
 import { metricsAPI } from '../api/metrics'
-import { money, num, pct } from '../utils/format'
+
+// Section header — gives each band of charts a clear identity so the page
+// reads as a top-to-bottom report rather than a wall of graphs.
+function Section({ icon, title, desc, children }) {
+  return (
+    <section className="mb-8">
+      <div className="flex items-center gap-2.5 mb-3">
+        <span className="w-8 h-8 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center text-base">
+          {icon}
+        </span>
+        <div>
+          <h2 className="text-base font-bold text-gray-900 m-0 leading-tight">{title}</h2>
+          <p className="text-xs text-gray-500 m-0 leading-tight">{desc}</p>
+        </div>
+      </div>
+      {children}
+    </section>
+  )
+}
 
 export default function Dashboard() {
   const qc = useQueryClient()
@@ -31,13 +49,6 @@ export default function Dashboard() {
 
   const refreshAll = () => qc.invalidateQueries()
 
-  const tabs = [
-    { key: 'funnel', label: <span><FunnelPlotOutlined /> Pipeline</span>, children: <FunnelView filters={filters} /> },
-    { key: 'revenue', label: <span><TrophyOutlined /> Win &amp; Revenue</span>, children: <RevenueView filters={filters} /> },
-    { key: 'managers', label: <span><TeamOutlined /> Managers</span>, children: <ManagersView filters={filters} /> },
-    { key: 'messages', label: <span><MessageOutlined /> Messages</span>, children: <MessagesView filters={filters} /> },
-  ]
-
   return (
     <div className="min-h-full">
       <Header />
@@ -51,30 +62,61 @@ export default function Dashboard() {
         </div>
 
         {/* KPI strip */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <KpiCard
-            title="Open pipeline value" loading={revenue.isLoading}
+            title="Open pipeline value" loading={revenue.isLoading} icon={<FundOutlined />}
             value={rev.open_pipeline_value || 0} prefix="£" accent="#3563e9"
             hint="Sum of monetary_value across all open opportunities"
           />
           <KpiCard
-            title="Won revenue" loading={revenue.isLoading}
+            title="Won revenue" loading={revenue.isLoading} icon={<DollarOutlined />}
             value={rev.won_revenue || 0} prefix="£" accent="#22c55e"
             hint="Sum of monetary_value across all won opportunities"
           />
           <KpiCard
-            title="Overall win rate" loading={winRate.isLoading}
+            title="Overall win rate" loading={winRate.isLoading} icon={<AimOutlined />}
             value={overallWinPct} suffix="%" accent="#a855f7"
             hint="Won ÷ total opportunities across all starting stages"
           />
           <KpiCard
-            title="Open deals" loading={revenue.isLoading}
+            title="Open deals" loading={revenue.isLoading} icon={<RiseOutlined />}
             value={rev.open || 0} accent="#f59e0b"
             hint="Count of currently-open opportunities"
           />
         </div>
 
-        <Tabs items={tabs} size="large" />
+        {/* All sections stacked — no tabs, everything visible top-to-bottom. */}
+        <Section
+          icon={<FunnelPlotOutlined />}
+          title="Pipeline health"
+          desc="How opportunities flow through stages and where they stall"
+        >
+          <FunnelView filters={filters} />
+        </Section>
+
+        <Section
+          icon={<TrophyOutlined />}
+          title="Win &amp; revenue"
+          desc="Conversion outcomes and where revenue is concentrated"
+        >
+          <RevenueView filters={filters} />
+        </Section>
+
+        <Section
+          icon={<TeamOutlined />}
+          title="Sales manager performance"
+          desc="Compare reps on deals, win rate, and revenue closed"
+        >
+          <ManagersView filters={filters} />
+        </Section>
+
+        <Section
+          icon={<MessageOutlined />}
+          title="Messaging &amp; delivery"
+          desc="Conversation volume and SMS delivery health by stage"
+        >
+          <MessagesView filters={filters} />
+        </Section>
       </div>
     </div>
   )
