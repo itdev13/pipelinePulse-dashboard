@@ -15,6 +15,7 @@ import MessagesView from '../views/MessagesView'
 import LostView from '../views/LostView'
 import AttributionView from '../views/AttributionView'
 import { metricsAPI } from '../api/metrics'
+import { currencySymbol } from '../utils/format'
 
 // Section header — gives each band of charts a clear identity so the page
 // reads as a top-to-bottom report rather than a wall of graphs.
@@ -68,12 +69,12 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <KpiCard
             title="Open pipeline value" loading={revenue.isLoading} icon={<FundOutlined />}
-            value={rev.open_pipeline_value || 0} prefix="£" accent="#3563e9"
+            value={rev.open_pipeline_value || 0} prefix={currencySymbol()} accent="#3563e9"
             hint="Sum of monetary_value across all open opportunities"
           />
           <KpiCard
             title="Won revenue" loading={revenue.isLoading} icon={<DollarOutlined />}
-            value={rev.won_revenue || 0} prefix="£" accent="#22c55e"
+            value={rev.won_revenue || 0} prefix={currencySymbol()} accent="#22c55e"
             hint="Sum of monetary_value across all won opportunities"
           />
           <KpiCard

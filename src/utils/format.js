@@ -1,11 +1,43 @@
-// Shared formatters. The client is UK-based (Crittall) → £ + en-GB.
-const gbp = new Intl.NumberFormat('en-GB', {
-  style: 'currency', currency: 'GBP', maximumFractionDigits: 0,
-})
+// Shared formatters. Currency is resolved per sub-account from GHL (the
+// location's `currency` flows through the session). Defaults to GBP until the
+// session sets it. setCurrency() is called once from AuthContext on login.
+let CURRENCY = 'GBP'
+let fmtMoney = makeMoneyFmt(CURRENCY)
+let fmtMoneyK = CURRENCY
 
-export const money = (v) => (v == null ? '—' : gbp.format(Number(v)))
+function makeMoneyFmt(code) {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency', currency: code, maximumFractionDigits: 0,
+    })
+  } catch {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 })
+  }
+}
 
-export const num = (v) => (v == null ? '—' : new Intl.NumberFormat('en-GB').format(Number(v)))
+export function setCurrency(code) {
+  if (!code || code === CURRENCY) return
+  CURRENCY = code
+  fmtMoney = makeMoneyFmt(code)
+  fmtMoneyK = code
+}
+
+export const money = (v) => (v == null ? '—' : fmtMoney.format(Number(v)))
+
+// The lone currency SYMBOL (e.g. "£", "$") for KPI prefixes / axis ticks,
+// derived from the active currency via Intl so it tracks setCurrency().
+export const currencySymbol = () => {
+  try {
+    return fmtMoney.formatToParts(0).find((p) => p.type === 'currency')?.value || '£'
+  } catch {
+    return '£'
+  }
+}
+
+// Compact money for axis ticks, e.g. "£12k" / "$12k".
+export const moneyK = (v) => `${currencySymbol()}${(Number(v) / 1000).toFixed(0)}k`
+
+export const num = (v) => (v == null ? '—' : new Intl.NumberFormat(undefined).format(Number(v)))
 
 export const pct = (v) => (v == null ? '—' : `${Number(v).toFixed(1)}%`)
 

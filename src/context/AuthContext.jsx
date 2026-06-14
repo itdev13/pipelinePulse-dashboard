@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { useGHLContext } from '../hooks/useGHLContext'
 import { authAPI } from '../api/auth'
+import { setCurrency } from '../utils/format'
 
 const AuthContext = createContext(null)
 
@@ -41,6 +42,8 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('sessionToken', res.sessionToken)
       setSession({ token: res.sessionToken, user: res.user, locationId: res.location.id })
       setLocation(res.location)
+      // Apply the sub-account's currency to all money formatters.
+      if (res.location?.currency) setCurrency(res.location.currency)
       setError(null)
       setLoading(false)
     } catch (err) {

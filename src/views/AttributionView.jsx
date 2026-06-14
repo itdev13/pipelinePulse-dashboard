@@ -6,7 +6,7 @@ import {
 import ChartCard from '../components/ChartCard'
 import RecordsModal from '../components/RecordsModal'
 import { metricsAPI } from '../api/metrics'
-import { num, pct, money } from '../utils/format'
+import { num, pct, money, moneyK } from '../utils/format'
 
 // UTM attribution (query 7.13). Which marketing sources/campaigns produce
 // revenue — the "where should we spend more?" view for ad-running agencies.
@@ -61,7 +61,7 @@ export default function AttributionView({ filters }) {
           <BarChart data={bySource} margin={{ left: 8, right: 8 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="utm_source" tick={{ fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={70} />
-            <YAxis tickFormatter={(v) => `£${(v / 1000).toFixed(0)}k`} />
+            <YAxis tickFormatter={(v) => moneyK(v)} />
             <Tooltip formatter={(v, k) => (k === 'won_revenue' ? [money(v), 'Won revenue'] : [num(v), k])} />
             <Legend />
             <Bar dataKey="won_revenue" name="Won revenue" fill="#22c55e" radius={[6, 6, 0, 0]} />

@@ -7,7 +7,7 @@ import {
 import ChartCard from '../components/ChartCard'
 import RecordsModal from '../components/RecordsModal'
 import { metricsAPI } from '../api/metrics'
-import { num, pct, money } from '../utils/format'
+import { num, pct, money, moneyK } from '../utils/format'
 
 // "Show data" for managers = the full per-rep leaderboard (the data the bar
 // chart is built from, with all metrics at once), filterable by name.
@@ -68,7 +68,7 @@ export default function ManagersView({ filters }) {
           <BarChart data={data} margin={{ left: 8, right: 8 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="assigned_to_name" tick={{ fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={70} />
-            <YAxis tickFormatter={(v) => (metric === 'won_revenue' ? `£${(v / 1000).toFixed(0)}k` : metric === 'win_pct' ? `${v}%` : v)} />
+            <YAxis tickFormatter={(v) => (metric === 'won_revenue' ? moneyK(v) : metric === 'win_pct' ? `${v}%` : v)} />
             <Tooltip
               formatter={(v) =>
                 metric === 'won_revenue' ? [money(v), metricLabel]
