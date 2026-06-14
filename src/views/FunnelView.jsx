@@ -57,19 +57,19 @@ export default function FunnelView({ filters }) {
           emptyHint="As opportunities enter stages, the funnel builds automatically."
         >
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={funnelData} layout="vertical" margin={{ left: 8, right: 32 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" allowDecimals={false} />
-              <YAxis type="category" dataKey="stage_name" width={130} tick={{ fontSize: 12 }} />
+            <BarChart data={funnelData} margin={{ left: 8, right: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="stage_name" tick={{ fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={60} />
+              <YAxis allowDecimals={false} />
               <Tooltip
                 formatter={(v, _k, item) => [
                   `${num(v)}  (${item?.payload?.pct_of_top_stage ?? 0}% of top stage)`,
                   'Entered',
                 ]}
               />
-              <Bar dataKey="entered" radius={[0, 6, 6, 0]}>
+              <Bar dataKey="entered" radius={[6, 6, 0, 0]}>
                 {funnelData.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
-                <LabelList dataKey="entered" position="right" formatter={(v) => num(v)} fontSize={11} />
+                <LabelList dataKey="entered" position="top" formatter={(v) => num(v)} fontSize={11} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
