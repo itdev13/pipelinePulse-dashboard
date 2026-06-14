@@ -31,3 +31,15 @@ body {
   border: 1px solid #e5e7eb !important;
   box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important;
 }
+
+/* In the Expand modal, make the chart fill the tall body regardless of the
+   ResponsiveContainer's own height prop (and any wrapping flex div the view
+   uses, e.g. the donut + summary layout). */
+.chart-expanded,
+.chart-expanded > div {
+  height: 100% !important;
+}
+.chart-expanded .recharts-responsive-container {
+  height: 100% !important;
+  min-height: 100% !important;
+}
