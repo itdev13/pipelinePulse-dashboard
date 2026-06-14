@@ -1,6 +1,6 @@
 import React from 'react'
 import { Card, Button, Skeleton, Alert, Tooltip } from 'antd'
-import { ArrowsAltOutlined, InfoCircleOutlined, InboxOutlined } from '@ant-design/icons'
+import { ArrowsAltOutlined, InfoCircleOutlined, InboxOutlined, TableOutlined } from '@ant-design/icons'
 
 // Standard wrapper for every chart on the dashboard. Handles the four states
 // (loading / error / empty / data) uniformly and exposes the "expand" affordance
@@ -14,6 +14,7 @@ export default function ChartCard({
   error,
   isEmpty,
   onExpand,
+  onShowData,
   extra,
   children,
   emptyTitle,
@@ -38,6 +39,11 @@ export default function ChartCard({
       extra={
         <div className="flex items-center gap-2">
           {extra}
+          {onShowData && (
+            <Button size="small" icon={<TableOutlined />} onClick={onShowData}>
+              Show data
+            </Button>
+          )}
           {onExpand && (
             <Button size="small" icon={<ArrowsAltOutlined />} onClick={onExpand}>
               Expand

@@ -6,6 +6,8 @@ import {
   PieChart, Pie, Cell,
 } from 'recharts'
 import ChartCard from '../components/ChartCard'
+import RecordsModal from '../components/RecordsModal'
+import { opportunityColumns } from '../components/opportunityColumns'
 import { metricsAPI } from '../api/metrics'
 import { STATUS_COLORS, num, pct, money } from '../utils/format'
 
@@ -13,6 +15,7 @@ import { STATUS_COLORS, num, pct, money } from '../utils/format'
 // winners, and where is revenue concentrated?"
 export default function RevenueView({ filters }) {
   const [expanded, setExpanded] = useState(false)
+  const [showData, setShowData] = useState(false)
   const winRate = useQuery({ queryKey: ['winRate', filters], queryFn: () => metricsAPI.winRate(filters) })
   const revenue = useQuery({ queryKey: ['revenue', filters], queryFn: () => metricsAPI.revenue(filters) })
 
@@ -36,6 +39,9 @@ export default function RevenueView({ filters }) {
           error={winRate.error?.message}
           isEmpty={!wr.length}
           onExpand={() => setExpanded(true)}
+          onShowData={() => setShowData(true)}
+          emptyTitle="No opportunities yet"
+          emptyHint="Win rates appear once opportunities are created and resolved."
         >
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={wr} margin={{ left: 8, right: 8 }}>
@@ -59,6 +65,9 @@ export default function RevenueView({ filters }) {
           loading={revenue.isLoading}
           error={revenue.error?.message}
           isEmpty={!pie.length}
+          onShowData={() => setShowData(true)}
+          emptyTitle="No opportunities yet"
+          emptyHint="The outcome breakdown fills in as deals are won, lost, or abandoned."
         >
           <div className="flex items-center justify-around" style={{ height: 300 }}>
             <ResponsiveContainer width="55%" height="100%">
@@ -114,6 +123,16 @@ export default function RevenueView({ filters }) {
           ]}
         />
       </Modal>
+
+      <RecordsModal
+        open={showData}
+        onClose={() => setShowData(false)}
+        title="Opportunities — records"
+        queryKey={['records', 'opps', filters]}
+        fetchFn={() => metricsAPI.recordsOpportunities({ ...filters })}
+        columns={opportunityColumns}
+        rowKey="opportunity_id"
+      />
     </>
   )
 }

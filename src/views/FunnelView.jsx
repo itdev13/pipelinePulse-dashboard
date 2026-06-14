@@ -5,6 +5,8 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, LabelList,
 } from 'recharts'
 import ChartCard from '../components/ChartCard'
+import RecordsModal from '../components/RecordsModal'
+import { opportunityColumns } from '../components/opportunityColumns'
 import { metricsAPI } from '../api/metrics'
 import { PALETTE, hours, num, money, pct } from '../utils/format'
 
@@ -12,6 +14,7 @@ import { PALETTE, hours, num, money, pct } from '../utils/format'
 // drill-down for that stage — the "why is this stage slow / leaky?" answer.
 export default function FunnelView({ filters }) {
   const [expanded, setExpanded] = useState(false)
+  const [showData, setShowData] = useState(false)
   const [metric, setMetric] = useState('avg_hours')
 
   const funnel = useQuery({ queryKey: ['funnel', filters], queryFn: () => metricsAPI.funnel(filters) })
@@ -35,6 +38,9 @@ export default function FunnelView({ filters }) {
           loading={funnel.isLoading}
           error={funnel.error?.message}
           isEmpty={!funnelData.length}
+          onShowData={() => setShowData(true)}
+          emptyTitle="No stage activity yet"
+          emptyHint="As opportunities enter stages, the funnel builds automatically."
         >
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={funnelData} layout="vertical" margin={{ left: 8, right: 32 }}>
@@ -63,6 +69,9 @@ export default function FunnelView({ filters }) {
           error={velocity.error?.message}
           isEmpty={!velocityData.length}
           onExpand={() => setExpanded(true)}
+          onShowData={() => setShowData(true)}
+          emptyTitle="No completed stage moves yet"
+          emptyHint="Velocity needs deals that have moved out of a stage at least once."
           extra={
             <Segmented
               size="small"
@@ -114,6 +123,16 @@ export default function FunnelView({ filters }) {
           ]}
         />
       </Modal>
+
+      <RecordsModal
+        open={showData}
+        onClose={() => setShowData(false)}
+        title="Opportunities — records"
+        queryKey={['records', 'funnelOpps', filters]}
+        fetchFn={() => metricsAPI.recordsOpportunities({ ...filters })}
+        columns={opportunityColumns}
+        rowKey="opportunity_id"
+      />
     </>
   )
 }

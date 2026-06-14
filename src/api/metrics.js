@@ -27,4 +27,16 @@ export const metricsAPI = {
   pipelines: () => apiClient.get('/api/metrics/pipelines'),
   opportunityTimeline: (id) => apiClient.get(`/api/metrics/opportunity/${encodeURIComponent(id)}/timeline`),
   opportunityMessages: (id) => apiClient.get(`/api/metrics/opportunity/${encodeURIComponent(id)}/messages`),
+  // Raw records behind a chart. params merges shared filters + extras
+  // (stage, channel, direction, status, firstStage, owner).
+  recordsMessages: (params = {}) => {
+    const p = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => v != null && v !== '' && p.set(k, v))
+    return apiClient.get(`/api/metrics/records/messages?${p.toString()}`)
+  },
+  recordsOpportunities: (params = {}) => {
+    const p = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => v != null && v !== '' && p.set(k, v))
+    return apiClient.get(`/api/metrics/records/opportunities?${p.toString()}`)
+  },
 }

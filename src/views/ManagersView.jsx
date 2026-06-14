@@ -5,6 +5,8 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from 'recharts'
 import ChartCard from '../components/ChartCard'
+import RecordsModal from '../components/RecordsModal'
+import { opportunityColumns } from '../components/opportunityColumns'
 import { metricsAPI } from '../api/metrics'
 import { num, pct, money } from '../utils/format'
 
@@ -12,6 +14,7 @@ import { num, pct, money } from '../utils/format'
 // who needs coaching — the single most-requested rep view.
 export default function ManagersView({ filters }) {
   const [expanded, setExpanded] = useState(false)
+  const [showData, setShowData] = useState(false)
   const [metric, setMetric] = useState('won_revenue')
   const q = useQuery({ queryKey: ['managers', filters], queryFn: () => metricsAPI.managers(filters) })
   const data = q.data?.data || []
@@ -30,6 +33,9 @@ export default function ManagersView({ filters }) {
         error={q.error?.message}
         isEmpty={!data.length}
         onExpand={() => setExpanded(true)}
+        onShowData={() => setShowData(true)}
+        emptyTitle="No assigned opportunities yet"
+        emptyHint="Once opportunities have an owner, per-manager performance appears here."
         height={340}
         extra={
           <Segmented
@@ -88,6 +94,16 @@ export default function ManagersView({ filters }) {
           ]}
         />
       </Modal>
+
+      <RecordsModal
+        open={showData}
+        onClose={() => setShowData(false)}
+        title="Assigned opportunities — records"
+        queryKey={['records', 'mgrOpps', filters]}
+        fetchFn={() => metricsAPI.recordsOpportunities({ ...filters })}
+        columns={opportunityColumns}
+        rowKey="opportunity_id"
+      />
     </>
   )
 }

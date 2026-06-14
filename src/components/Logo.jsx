@@ -29,13 +29,8 @@ export default function Logo() {
   return (
     <div className="flex items-center gap-2.5">
       <LogoMark />
-      <div className="leading-tight">
-        <div className="font-extrabold text-gray-900 text-[15px] tracking-tight">
-          Pipeline<span className="text-primary-600">Pulse</span>
-        </div>
-        <div className="text-[10.5px] uppercase tracking-[0.12em] text-gray-400 font-semibold">
-          Pipeline analytics
-        </div>
+      <div className="font-extrabold text-gray-900 text-lg tracking-tight">
+        Dashboard
       </div>
     </div>
   )
