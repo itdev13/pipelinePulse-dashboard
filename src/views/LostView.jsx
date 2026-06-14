@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Tag } from 'antd'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LabelList, Cell,
 } from 'recharts'

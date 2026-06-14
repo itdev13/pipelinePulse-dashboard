@@ -6,6 +6,7 @@ import {
 } from 'recharts'
 import ChartCard from '../components/ChartCard'
 import RecordsModal from '../components/RecordsModal'
+import TimelineModal from '../components/TimelineModal'
 import { opportunityColumns, opportunityFilters } from '../components/opportunityColumns'
 import { metricsAPI } from '../api/metrics'
 import { PALETTE, hours, num } from '../utils/format'
@@ -32,6 +33,7 @@ const stalledFilters = [
 export default function FunnelView({ filters }) {
   const [showOpps, setShowOpps] = useState(false)
   const [showStalled, setShowStalled] = useState(false)
+  const [deal, setDeal] = useState(null)
   const [metric, setMetric] = useState('avg_hours')
 
   const funnel = useQuery({ queryKey: ['funnel', filters], queryFn: () => metricsAPI.funnel(filters) })
@@ -118,6 +120,7 @@ export default function FunnelView({ filters }) {
         columns={opportunityColumns}
         filters={opportunityFilters}
         rowKey="opportunity_id"
+        onRowClick={(r) => setDeal(r)}
       />
 
       {/* Velocity "Show data" → stalled deals (> 7 days in current stage) */}
@@ -130,6 +133,14 @@ export default function FunnelView({ filters }) {
         columns={stalledColumns}
         filters={stalledFilters}
         rowKey="opportunity_id"
+        onRowClick={(r) => setDeal({ opportunity_id: r.opportunity_id, name: r.opportunity_name })}
+      />
+
+      <TimelineModal
+        open={!!deal}
+        onClose={() => setDeal(null)}
+        opportunityId={deal?.opportunity_id}
+        name={deal?.name}
       />
     </>
   )

@@ -6,6 +6,7 @@ import {
 } from 'recharts'
 import ChartCard from '../components/ChartCard'
 import RecordsModal from '../components/RecordsModal'
+import TimelineModal from '../components/TimelineModal'
 import { opportunityColumns, opportunityFilters } from '../components/opportunityColumns'
 import { metricsAPI } from '../api/metrics'
 import { STATUS_COLORS, num, money } from '../utils/format'
@@ -14,6 +15,7 @@ import { STATUS_COLORS, num, money } from '../utils/format'
 // winners, and where is revenue concentrated?"
 export default function RevenueView({ filters }) {
   const [showData, setShowData] = useState(false)
+  const [deal, setDeal] = useState(null)
   const winRate = useQuery({ queryKey: ['winRate', filters], queryFn: () => metricsAPI.winRate(filters) })
   const revenue = useQuery({ queryKey: ['revenue', filters], queryFn: () => metricsAPI.revenue(filters) })
 
