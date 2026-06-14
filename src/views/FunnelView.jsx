@@ -1,0 +1,114 @@
+import React, { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Modal, Table, Tag, Segmented } from 'antd'
+import {
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, LabelList,
+} from 'recharts'
+import ChartCard from '../components/ChartCard'
+import { metricsAPI } from '../api/metrics'
+import { PALETTE, hours, num, money, pct } from '../utils/format'
+
+// Pipeline funnel + stage velocity. Clicking a stage bar opens the stalled-deals
+// drill-down for that stage — the "why is this stage slow / leaky?" answer.
+export default function FunnelView({ filters }) {
+  const [expanded, setExpanded] = useState(false)
+  const [metric, setMetric] = useState('avg_hours')
+
+  const funnel = useQuery({ queryKey: ['funnel', filters], queryFn: () => metricsAPI.funnel(filters) })
+  const velocity = useQuery({ queryKey: ['velocity', filters], queryFn: () => metricsAPI.velocity(filters) })
+  const stalled = useQuery({
+    queryKey: ['stalled', filters],
+    queryFn: () => metricsAPI.stalled(filters, 7),
+    enabled: expanded,
+  })
+
+  const funnelData = funnel.data?.data || []
+  const velocityData = velocity.data?.data || []
+
+  return (
+    <>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ChartCard
+          title="Conversion funnel"
+          subtitle="Opportunities that entered each stage"
+          hint="Counts every time an opp entered a stage (from stage_history). The top stage = 100%."
+          loading={funnel.isLoading}
+          error={funnel.error?.message}
+          isEmpty={!funnelData.length}
+        >
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={funnelData} layout="vertical" margin={{ left: 8, right: 32 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+              <XAxis type="number" />
+              <YAxis type="category" dataKey="stage_name" width={130} tick={{ fontSize: 12 }} />
+              <Tooltip formatter={(v, k) => (k === 'entered' ? [num(v), 'Entered'] : v)} />
+              <Bar dataKey="entered" radius={[0, 6, 6, 0]}>
+                {funnelData.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
+                <LabelList dataKey="pct_of_top_stage" position="right" formatter={(v) => `${v}%`} fontSize={11} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard
+          title="Stage velocity"
+          subtitle="How long deals sit in each stage"
+          hint="Computed from closed stage occupancies. Switch between average, median, and P95."
+          loading={velocity.isLoading}
+          error={velocity.error?.message}
+          isEmpty={!velocityData.length}
+          onExpand={() => setExpanded(true)}
+          extra={
+            <Segmented
+              size="small"
+              value={metric}
+              onChange={setMetric}
+              options={[
+                { label: 'Avg', value: 'avg_hours' },
+                { label: 'Median', value: 'median_hours' },
+                { label: 'P95', value: 'p95_hours' },
+              ]}
+            />
+          }
+        >
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={velocityData} margin={{ left: 8, right: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="stage_name" tick={{ fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={60} />
+              <YAxis tickFormatter={(v) => `${v}h`} />
+              <Tooltip formatter={(v) => [hours(v), 'Time in stage']} />
+              <Bar dataKey={metric} fill="#3563e9" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
+
+      <Modal
+        title="Stalled deals — sitting in stage > 7 days"
+        open={expanded}
+        onCancel={() => setExpanded(false)}
+        footer={null}
+        width={900}
+      >
+        <Table
+          rowKey="opportunity_id"
+          size="small"
+          loading={stalled.isLoading}
+          dataSource={stalled.data?.data || []}
+          pagination={{ pageSize: 10 }}
+          columns={[
+            { title: 'Opportunity', dataIndex: 'opportunity_name', ellipsis: true },
+            { title: 'Owner', dataIndex: 'owner', render: (v) => v || <span className="text-gray-400">Unassigned</span> },
+            { title: 'Stuck in', dataIndex: 'stuck_in', render: (v) => <Tag>{v}</Tag> },
+            {
+              title: 'Days stuck', dataIndex: 'days_stuck', sorter: (a, b) => a.days_stuck - b.days_stuck,
+              defaultSortOrder: 'descend',
+              render: (v) => <span className={v > 30 ? 'text-red-600 font-semibold' : ''}>{Number(v).toFixed(1)}</span>,
+            },
+            { title: 'Value', dataIndex: 'monetary_value', align: 'right', render: money },
+          ]}
+        />
+      </Modal>
+    </>
+  )
+}
