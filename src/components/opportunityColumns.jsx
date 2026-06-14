@@ -18,3 +18,19 @@ export const opportunityColumns = [
   { title: 'Value', dataIndex: 'monetary_value', align: 'right', width: 110, render: money, sorter: (a, b) => (a.monetary_value || 0) - (b.monetary_value || 0) },
   { title: 'Updated', dataIndex: 'updated_at', width: 140, render: (v) => v ? dayjs(v).format('DD MMM YY') : '—' },
 ]
+
+// Filters available inside opportunity record modals (client-side over the
+// fetched rows). Options auto-populate from the data when not given.
+export const opportunityFilters = [
+  { key: 'q', label: 'Search name', type: 'search', dataIndex: 'name' },
+  {
+    key: 'status', label: 'Status', type: 'select', dataIndex: 'status',
+    options: [
+      { label: 'Won', value: 'won' }, { label: 'Lost', value: 'lost' },
+      { label: 'Open', value: 'open' }, { label: 'Abandoned', value: 'abandoned' },
+    ],
+  },
+  { key: 'current_stage_name', label: 'Current stage', type: 'select', dataIndex: 'current_stage_name' },
+  { key: 'first_stage_name', label: 'Started in', type: 'select', dataIndex: 'first_stage_name' },
+  { key: 'assigned_to_name', label: 'Owner', type: 'select', dataIndex: 'assigned_to_name' },
+]

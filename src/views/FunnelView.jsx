@@ -1,29 +1,41 @@
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Modal, Table, Tag, Segmented } from 'antd'
+import { Tag, Segmented } from 'antd'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, LabelList,
 } from 'recharts'
 import ChartCard from '../components/ChartCard'
 import RecordsModal from '../components/RecordsModal'
-import { opportunityColumns } from '../components/opportunityColumns'
+import { opportunityColumns, opportunityFilters } from '../components/opportunityColumns'
 import { metricsAPI } from '../api/metrics'
-import { PALETTE, hours, num, money, pct } from '../utils/format'
+import { PALETTE, hours, num } from '../utils/format'
 
-// Pipeline funnel + stage velocity. Clicking a stage bar opens the stalled-deals
-// drill-down for that stage — the "why is this stage slow / leaky?" answer.
+// Columns for the stalled-deals records view (velocity card's "Show data").
+const stalledColumns = [
+  { title: 'Opportunity', dataIndex: 'opportunity_name', ellipsis: true },
+  { title: 'Owner', dataIndex: 'owner', width: 150, render: (v) => v || <span className="text-gray-400">Unassigned</span> },
+  { title: 'Stuck in', dataIndex: 'stuck_in', width: 160, render: (v) => <Tag>{v}</Tag> },
+  {
+    title: 'Days stuck', dataIndex: 'days_stuck', align: 'right', width: 110,
+    sorter: (a, b) => a.days_stuck - b.days_stuck, defaultSortOrder: 'descend',
+    render: (v) => <span className={v > 30 ? 'text-red-600 font-semibold' : ''}>{Number(v).toFixed(1)}</span>,
+  },
+]
+const stalledFilters = [
+  { key: 'q', label: 'Search opportunity', type: 'search', dataIndex: 'opportunity_name' },
+  { key: 'stuck_in', label: 'Stage', type: 'select', dataIndex: 'stuck_in' },
+  { key: 'owner', label: 'Owner', type: 'select', dataIndex: 'owner' },
+]
+
+// Pipeline funnel + stage velocity. Each card's "Show data" reveals the rows
+// behind it — the funnel shows opportunities, velocity shows stalled deals.
 export default function FunnelView({ filters }) {
-  const [expanded, setExpanded] = useState(false)
-  const [showData, setShowData] = useState(false)
+  const [showOpps, setShowOpps] = useState(false)
+  const [showStalled, setShowStalled] = useState(false)
   const [metric, setMetric] = useState('avg_hours')
 
   const funnel = useQuery({ queryKey: ['funnel', filters], queryFn: () => metricsAPI.funnel(filters) })
   const velocity = useQuery({ queryKey: ['velocity', filters], queryFn: () => metricsAPI.velocity(filters) })
-  const stalled = useQuery({
-    queryKey: ['stalled', filters],
-    queryFn: () => metricsAPI.stalled(filters, 7),
-    enabled: expanded,
-  })
 
   const funnelData = funnel.data?.data || []
   const velocityData = velocity.data?.data || []
@@ -38,7 +50,7 @@ export default function FunnelView({ filters }) {
           loading={funnel.isLoading}
           error={funnel.error?.message}
           isEmpty={!funnelData.length}
-          onShowData={() => setShowData(true)}
+          onShowData={() => setShowOpps(true)}
           emptyTitle="No stage activity yet"
           emptyHint="As opportunities enter stages, the funnel builds automatically."
         >
@@ -68,8 +80,7 @@ export default function FunnelView({ filters }) {
           loading={velocity.isLoading}
           error={velocity.error?.message}
           isEmpty={!velocityData.length}
-          onExpand={() => setExpanded(true)}
-          onShowData={() => setShowData(true)}
+          onShowData={() => setShowStalled(true)}
           emptyTitle="No completed stage moves yet"
           emptyHint="Velocity needs deals that have moved out of a stage at least once."
           extra={
@@ -97,40 +108,27 @@ export default function FunnelView({ filters }) {
         </ChartCard>
       </div>
 
-      <Modal
-        title="Stalled deals — sitting in stage > 7 days"
-        open={expanded}
-        onCancel={() => setExpanded(false)}
-        footer={null}
-        width={900}
-      >
-        <Table
-          rowKey="opportunity_id"
-          size="small"
-          loading={stalled.isLoading}
-          dataSource={stalled.data?.data || []}
-          pagination={{ pageSize: 10 }}
-          columns={[
-            { title: 'Opportunity', dataIndex: 'opportunity_name', ellipsis: true },
-            { title: 'Owner', dataIndex: 'owner', render: (v) => v || <span className="text-gray-400">Unassigned</span> },
-            { title: 'Stuck in', dataIndex: 'stuck_in', render: (v) => <Tag>{v}</Tag> },
-            {
-              title: 'Days stuck', dataIndex: 'days_stuck', sorter: (a, b) => a.days_stuck - b.days_stuck,
-              defaultSortOrder: 'descend',
-              render: (v) => <span className={v > 30 ? 'text-red-600 font-semibold' : ''}>{Number(v).toFixed(1)}</span>,
-            },
-            { title: 'Value', dataIndex: 'monetary_value', align: 'right', render: money },
-          ]}
-        />
-      </Modal>
-
+      {/* Funnel "Show data" → opportunity records */}
       <RecordsModal
-        open={showData}
-        onClose={() => setShowData(false)}
+        open={showOpps}
+        onClose={() => setShowOpps(false)}
         title="Opportunities — records"
         queryKey={['records', 'funnelOpps', filters]}
         fetchFn={() => metricsAPI.recordsOpportunities({ ...filters })}
         columns={opportunityColumns}
+        filters={opportunityFilters}
+        rowKey="opportunity_id"
+      />
+
+      {/* Velocity "Show data" → stalled deals (> 7 days in current stage) */}
+      <RecordsModal
+        open={showStalled}
+        onClose={() => setShowStalled(false)}
+        title="Stalled deals — sitting in stage > 7 days"
+        queryKey={['records', 'stalled', filters]}
+        fetchFn={() => metricsAPI.stalled(filters, 7)}
+        columns={stalledColumns}
+        filters={stalledFilters}
         rowKey="opportunity_id"
       />
     </>

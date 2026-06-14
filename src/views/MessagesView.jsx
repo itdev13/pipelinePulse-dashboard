@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Modal, Table, Tag } from 'antd'
+import { Tag } from 'antd'
 import dayjs from 'dayjs'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -8,7 +8,6 @@ import {
 import ChartCard from '../components/ChartCard'
 import RecordsModal from '../components/RecordsModal'
 import { metricsAPI } from '../api/metrics'
-import { num, pct } from '../utils/format'
 
 // Columns shared by the "Show data" message tables.
 const messageColumns = [
@@ -25,8 +24,16 @@ const messageColumns = [
 
 // Message + delivery analytics. The delivery-rate-per-stage chart is what turns
 // "are our texts even landing?" into a number agencies can act on.
+// Filters available inside the message record modals.
+const messageFilters = [
+  { key: 'q', label: 'Search message', type: 'search', dataIndex: 'body_preview' },
+  { key: 'stage', label: 'Stage', type: 'select', dataIndex: 'stage_name' },
+  { key: 'direction', label: 'Direction', type: 'select', dataIndex: 'message_direction' },
+  { key: 'channel', label: 'Channel', type: 'select', dataIndex: 'message_channel' },
+  { key: 'status', label: 'Status', type: 'select', dataIndex: 'message_status' },
+]
+
 export default function MessagesView({ filters }) {
-  const [expanded, setExpanded] = useState(false)
   const [showDelivery, setShowDelivery] = useState(false)
   const [showVolume, setShowVolume] = useState(false)
 
@@ -46,7 +53,6 @@ export default function MessagesView({ filters }) {
           loading={delivery.isLoading}
           error={delivery.error?.message}
           isEmpty={!del.length}
-          onExpand={() => setExpanded(true)}
           onShowData={() => setShowDelivery(true)}
           emptyTitle="No outbound SMS yet"
           emptyHint="Once SMS messages are sent in a stage, their delivery status appears here."
@@ -90,29 +96,7 @@ export default function MessagesView({ filters }) {
         </ChartCard>
       </div>
 
-      {/* Expand → per-stage delivery summary */}
-      <Modal title="SMS delivery detail by stage" open={expanded} onCancel={() => setExpanded(false)} footer={null} width={820}>
-        <Table
-          rowKey="stage_name"
-          size="small"
-          dataSource={del}
-          pagination={false}
-          columns={[
-            { title: 'Stage', dataIndex: 'stage_name' },
-            { title: 'Sent', dataIndex: 'sent', align: 'right', render: num },
-            { title: 'Delivered', dataIndex: 'delivered', align: 'right', render: num },
-            { title: 'Failed', dataIndex: 'failed', align: 'right', render: (v) => v ? <Tag color="red">{v}</Tag> : '0' },
-            { title: 'Other', dataIndex: 'other', align: 'right', render: (v) => v ? <Tag>{v}</Tag> : '0' },
-            {
-              title: 'Delivery %', dataIndex: 'delivery_pct', align: 'right',
-              render: (v) => <span className={v < 90 ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}>{pct(v)}</span>,
-              sorter: (a, b) => (a.delivery_pct || 0) - (b.delivery_pct || 0),
-            },
-          ]}
-        />
-      </Modal>
-
-      {/* Show data → raw message records */}
+      {/* Show data → raw message records, with in-modal filters */}
       <RecordsModal
         open={showDelivery}
         onClose={() => setShowDelivery(false)}
@@ -120,6 +104,7 @@ export default function MessagesView({ filters }) {
         queryKey={['records', 'sms', filters]}
         fetchFn={() => metricsAPI.recordsMessages({ ...filters, channel: 'SMS', direction: 'outbound' })}
         columns={messageColumns}
+        filters={messageFilters.filter((f) => !['channel', 'direction'].includes(f.key))}
         rowKey={(r, i) => `${r.opportunity_id}-${r.message_timestamp}-${i}`}
       />
       <RecordsModal
@@ -129,6 +114,7 @@ export default function MessagesView({ filters }) {
         queryKey={['records', 'allmsg', filters]}
         fetchFn={() => metricsAPI.recordsMessages({ ...filters })}
         columns={messageColumns}
+        filters={messageFilters}
         rowKey={(r, i) => `${r.opportunity_id}-${r.message_timestamp}-${i}`}
       />
     </>

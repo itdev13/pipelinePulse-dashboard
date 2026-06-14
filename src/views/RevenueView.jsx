@@ -1,20 +1,18 @@
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Modal, Table } from 'antd'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   PieChart, Pie, Cell,
 } from 'recharts'
 import ChartCard from '../components/ChartCard'
 import RecordsModal from '../components/RecordsModal'
-import { opportunityColumns } from '../components/opportunityColumns'
+import { opportunityColumns, opportunityFilters } from '../components/opportunityColumns'
 import { metricsAPI } from '../api/metrics'
-import { STATUS_COLORS, num, pct, money } from '../utils/format'
+import { STATUS_COLORS, num, money } from '../utils/format'
 
 // Win rate by starting stage + outcome mix. Answers "which entry points produce
 // winners, and where is revenue concentrated?"
 export default function RevenueView({ filters }) {
-  const [expanded, setExpanded] = useState(false)
   const [showData, setShowData] = useState(false)
   const winRate = useQuery({ queryKey: ['winRate', filters], queryFn: () => metricsAPI.winRate(filters) })
   const revenue = useQuery({ queryKey: ['revenue', filters], queryFn: () => metricsAPI.revenue(filters) })
@@ -38,7 +36,6 @@ export default function RevenueView({ filters }) {
           loading={winRate.isLoading}
           error={winRate.error?.message}
           isEmpty={!wr.length}
-          onExpand={() => setExpanded(true)}
           onShowData={() => setShowData(true)}
           emptyTitle="No opportunities yet"
           emptyHint="Win rates appear once opportunities are created and resolved."
@@ -97,33 +94,6 @@ export default function RevenueView({ filters }) {
         </ChartCard>
       </div>
 
-      <Modal
-        title="Win rate by starting stage"
-        open={expanded}
-        onCancel={() => setExpanded(false)}
-        footer={null}
-        width={820}
-      >
-        <Table
-          rowKey="first_stage_name"
-          size="small"
-          dataSource={wr}
-          pagination={false}
-          columns={[
-            { title: 'Starting stage', dataIndex: 'first_stage_name', render: (v) => v || '—' },
-            { title: 'Total', dataIndex: 'total_opps', align: 'right', render: num },
-            { title: 'Won', dataIndex: 'won', align: 'right', render: num },
-            { title: 'Lost', dataIndex: 'lost', align: 'right', render: num },
-            { title: 'Open', dataIndex: 'still_open', align: 'right', render: num },
-            {
-              title: 'Win %', dataIndex: 'win_pct', align: 'right',
-              sorter: (a, b) => (a.win_pct || 0) - (b.win_pct || 0), defaultSortOrder: 'descend',
-              render: (v) => <span className="font-semibold">{pct(v)}</span>,
-            },
-          ]}
-        />
-      </Modal>
-
       <RecordsModal
         open={showData}
         onClose={() => setShowData(false)}
@@ -131,6 +101,7 @@ export default function RevenueView({ filters }) {
         queryKey={['records', 'opps', filters]}
         fetchFn={() => metricsAPI.recordsOpportunities({ ...filters })}
         columns={opportunityColumns}
+        filters={opportunityFilters}
         rowKey="opportunity_id"
       />
     </>

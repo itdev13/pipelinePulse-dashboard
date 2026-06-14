@@ -1,19 +1,34 @@
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Modal, Table, Segmented } from 'antd'
+import { Segmented } from 'antd'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from 'recharts'
 import ChartCard from '../components/ChartCard'
 import RecordsModal from '../components/RecordsModal'
-import { opportunityColumns } from '../components/opportunityColumns'
 import { metricsAPI } from '../api/metrics'
 import { num, pct, money } from '../utils/format'
+
+// "Show data" for managers = the full per-rep leaderboard (the data the bar
+// chart is built from, with all metrics at once), filterable by name.
+const managerColumns = [
+  { title: 'Manager', dataIndex: 'assigned_to_name' },
+  { title: 'Deals', dataIndex: 'opps_owned', align: 'right', render: num, sorter: (a, b) => a.opps_owned - b.opps_owned },
+  { title: 'Won', dataIndex: 'won', align: 'right', render: num },
+  { title: 'Lost', dataIndex: 'lost', align: 'right', render: num },
+  { title: 'Win %', dataIndex: 'win_pct', align: 'right', render: pct, sorter: (a, b) => (a.win_pct || 0) - (b.win_pct || 0) },
+  { title: 'Avg deal', dataIndex: 'avg_deal_size', align: 'right', render: money },
+  {
+    title: 'Won revenue', dataIndex: 'won_revenue', align: 'right', render: money,
+    sorter: (a, b) => (a.won_revenue || 0) - (b.won_revenue || 0), defaultSortOrder: 'descend',
+  },
+]
+
+const managerFilters = [{ key: 'q', label: 'Search manager', type: 'search', dataIndex: 'assigned_to_name' }]
 
 // Per-sales-manager performance. Agencies use this to spot who's closing and
 // who needs coaching — the single most-requested rep view.
 export default function ManagersView({ filters }) {
-  const [expanded, setExpanded] = useState(false)
   const [showData, setShowData] = useState(false)
   const [metric, setMetric] = useState('won_revenue')
   const q = useQuery({ queryKey: ['managers', filters], queryFn: () => metricsAPI.managers(filters) })
@@ -32,7 +47,6 @@ export default function ManagersView({ filters }) {
         loading={q.isLoading}
         error={q.error?.message}
         isEmpty={!data.length}
-        onExpand={() => setExpanded(true)}
         onShowData={() => setShowData(true)}
         emptyTitle="No assigned opportunities yet"
         emptyHint="Once opportunities have an owner, per-manager performance appears here."
@@ -68,41 +82,15 @@ export default function ManagersView({ filters }) {
         </ResponsiveContainer>
       </ChartCard>
 
-      <Modal
-        title="Sales manager performance"
-        open={expanded}
-        onCancel={() => setExpanded(false)}
-        footer={null}
-        width={920}
-      >
-        <Table
-          rowKey="assigned_to_name"
-          size="small"
-          dataSource={data}
-          pagination={false}
-          columns={[
-            { title: 'Manager', dataIndex: 'assigned_to_name' },
-            { title: 'Deals', dataIndex: 'opps_owned', align: 'right', render: num, sorter: (a, b) => a.opps_owned - b.opps_owned },
-            { title: 'Won', dataIndex: 'won', align: 'right', render: num },
-            { title: 'Lost', dataIndex: 'lost', align: 'right', render: num },
-            { title: 'Win %', dataIndex: 'win_pct', align: 'right', render: pct, sorter: (a, b) => (a.win_pct || 0) - (b.win_pct || 0) },
-            { title: 'Avg deal', dataIndex: 'avg_deal_size', align: 'right', render: money },
-            {
-              title: 'Won revenue', dataIndex: 'won_revenue', align: 'right', render: money,
-              sorter: (a, b) => (a.won_revenue || 0) - (b.won_revenue || 0), defaultSortOrder: 'descend',
-            },
-          ]}
-        />
-      </Modal>
-
       <RecordsModal
         open={showData}
         onClose={() => setShowData(false)}
-        title="Assigned opportunities — records"
-        queryKey={['records', 'mgrOpps', filters]}
-        fetchFn={() => metricsAPI.recordsOpportunities({ ...filters })}
-        columns={opportunityColumns}
-        rowKey="opportunity_id"
+        title="Sales manager performance — records"
+        queryKey={['managers', filters]}
+        fetchFn={() => metricsAPI.managers(filters)}
+        columns={managerColumns}
+        filters={managerFilters}
+        rowKey="assigned_to_name"
       />
     </>
   )
