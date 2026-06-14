@@ -1,9 +1,12 @@
 // Shared formatters. Currency is resolved per sub-account from GHL (the
-// location's `currency` flows through the session). Defaults to GBP until the
-// session sets it. setCurrency() is called once from AuthContext on login.
-let CURRENCY = 'GBP'
+// location's `currency` flows through the session). Until the session sets it,
+// we fall back to DEFAULT_CURRENCY. setCurrency() is called once from
+// AuthContext on login. Change DEFAULT_CURRENCY here to switch the fallback.
+export const DEFAULT_CURRENCY = 'GBP'
+const DEFAULT_SYMBOL = '£'
+
+let CURRENCY = DEFAULT_CURRENCY
 let fmtMoney = makeMoneyFmt(CURRENCY)
-let fmtMoneyK = CURRENCY
 
 function makeMoneyFmt(code) {
   try {
@@ -11,7 +14,7 @@ function makeMoneyFmt(code) {
       style: 'currency', currency: code, maximumFractionDigits: 0,
     })
   } catch {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 })
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: DEFAULT_CURRENCY, maximumFractionDigits: 0 })
   }
 }
 
@@ -19,7 +22,6 @@ export function setCurrency(code) {
   if (!code || code === CURRENCY) return
   CURRENCY = code
   fmtMoney = makeMoneyFmt(code)
-  fmtMoneyK = code
 }
 
 export const money = (v) => (v == null ? '—' : fmtMoney.format(Number(v)))
@@ -28,9 +30,9 @@ export const money = (v) => (v == null ? '—' : fmtMoney.format(Number(v)))
 // derived from the active currency via Intl so it tracks setCurrency().
 export const currencySymbol = () => {
   try {
-    return fmtMoney.formatToParts(0).find((p) => p.type === 'currency')?.value || '£'
+    return fmtMoney.formatToParts(0).find((p) => p.type === 'currency')?.value || DEFAULT_SYMBOL
   } catch {
-    return '£'
+    return DEFAULT_SYMBOL
   }
 }
 
