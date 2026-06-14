@@ -13,7 +13,7 @@ import { useQuery } from '@tanstack/react-query'
 //    'select' filters the rows client-side by exact match on dataIndex;
 //    'search' does a case-insensitive substring match on dataIndex.
 export default function RecordsModal({
-  open, onClose, title, queryKey, fetchFn, columns, rowKey, filters = [],
+  open, onClose, title, queryKey, fetchFn, columns, rowKey, filters = [], onRowClick,
 }) {
   const q = useQuery({ queryKey, queryFn: fetchFn, enabled: open })
   const allRows = q.data?.data || []
@@ -82,6 +82,9 @@ export default function RecordsModal({
           )}
         </div>
       )}
+      {onRowClick && (
+        <div className="text-xs text-gray-400 mb-2">Tip: click a row to see its full deal journey.</div>
+      )}
       <Table
         size="small"
         loading={q.isLoading}
@@ -91,6 +94,10 @@ export default function RecordsModal({
         pagination={{ pageSize: 12, showSizeChanger: false, showTotal: (t) => `${t} record${t === 1 ? '' : 's'}` }}
         locale={{ emptyText: <Empty description={q.isLoading ? 'Loading…' : 'No matching records'} /> }}
         scroll={{ x: true }}
+        onRow={onRowClick ? (record) => ({
+          onClick: () => onRowClick(record),
+          style: { cursor: 'pointer' },
+        }) : undefined}
       />
     </Modal>
   )

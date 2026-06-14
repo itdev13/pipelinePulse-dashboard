@@ -15,8 +15,9 @@ export const opportunityColumns = [
   { title: 'Current stage', dataIndex: 'current_stage_name', width: 160, ellipsis: true, render: (v) => v || '—' },
   { title: 'Started in', dataIndex: 'first_stage_name', width: 160, ellipsis: true, render: (v) => v || '—' },
   { title: 'Owner', dataIndex: 'assigned_to_name', width: 140, render: (v) => v || <span className="text-gray-400">Unassigned</span> },
+  { title: 'Product', dataIndex: 'product_system', width: 120, render: (v) => v || '—' },
   { title: 'Value', dataIndex: 'monetary_value', align: 'right', width: 110, render: money, sorter: (a, b) => (a.monetary_value || 0) - (b.monetary_value || 0) },
-  { title: 'Updated', dataIndex: 'updated_at', width: 140, render: (v) => v ? dayjs(v).format('DD MMM YY') : '—' },
+  { title: 'Updated', dataIndex: 'updated_at', width: 130, render: (v) => v ? dayjs(v).format('DD MMM YY') : '—' },
 ]
 
 // Filters available inside opportunity record modals (client-side over the
@@ -33,4 +34,6 @@ export const opportunityFilters = [
   { key: 'current_stage_name', label: 'Current stage', type: 'select', dataIndex: 'current_stage_name' },
   { key: 'first_stage_name', label: 'Started in', type: 'select', dataIndex: 'first_stage_name' },
   { key: 'assigned_to_name', label: 'Owner', type: 'select', dataIndex: 'assigned_to_name' },
+  { key: 'product_system', label: 'Product line', type: 'select', dataIndex: 'product_system' },
+  { key: 'product_type', label: 'Product type', type: 'select', dataIndex: 'product_type' },
 ]
