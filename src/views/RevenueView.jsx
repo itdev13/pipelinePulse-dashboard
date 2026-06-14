@@ -105,6 +105,13 @@ export default function RevenueView({ filters }) {
         columns={opportunityColumns}
         filters={opportunityFilters}
         rowKey="opportunity_id"
+        onRowClick={(r) => setDeal(r)}
+      />
+      <TimelineModal
+        open={!!deal}
+        onClose={() => setDeal(null)}
+        opportunityId={deal?.opportunity_id}
+        name={deal?.name}
       />
     </>
   )

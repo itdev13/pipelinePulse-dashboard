@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   FunnelPlotOutlined, TrophyOutlined, TeamOutlined, MessageOutlined,
   FundOutlined, DollarOutlined, AimOutlined, RiseOutlined,
+  FallOutlined, GlobalOutlined,
 } from '@ant-design/icons'
 import Header from './Header'
 import FilterBar from './FilterBar'
@@ -11,6 +12,8 @@ import FunnelView from '../views/FunnelView'
 import RevenueView from '../views/RevenueView'
 import ManagersView from '../views/ManagersView'
 import MessagesView from '../views/MessagesView'
+import LostView from '../views/LostView'
+import AttributionView from '../views/AttributionView'
 import { metricsAPI } from '../api/metrics'
 
 // Section header — gives each band of charts a clear identity so the page
@@ -103,11 +106,27 @@ export default function Dashboard() {
         </Section>
 
         <Section
+          icon={<FallOutlined />}
+          title="Lost-deal analysis"
+          desc="Where in the funnel opportunities are being lost"
+        >
+          <LostView filters={filters} />
+        </Section>
+
+        <Section
           icon={<TeamOutlined />}
           title="Sales manager performance"
           desc="Compare reps on deals, win rate, and revenue closed"
         >
           <ManagersView filters={filters} />
+        </Section>
+
+        <Section
+          icon={<GlobalOutlined />}
+          title="Marketing attribution"
+          desc="Which UTM sources and campaigns produce revenue"
+        >
+          <AttributionView filters={filters} />
         </Section>
 
         <Section
