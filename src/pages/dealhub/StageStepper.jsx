@@ -18,6 +18,9 @@ export default function StageStepper({ stages, onStageClick }) {
         display: 'flex',
         borderTop: '1px solid var(--border-default)',
         borderRadius: '0 0 var(--radius-md) var(--radius-md)',
+        // Clip only the stepper itself so chevrons don't bleed past the
+        // rounded corners. Kept off the parent card so the deal-switcher
+        // dropdown can hang below without being clipped.
         overflow: 'hidden'
       }}
     >

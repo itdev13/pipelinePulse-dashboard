@@ -199,8 +199,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
           style={{
             border: '1px solid var(--border-default)',
             borderRadius: 'var(--radius-md)',
-            background: '#fff', boxShadow: 'var(--shadow-card)',
-            overflow: 'hidden'
+            background: '#fff', boxShadow: 'var(--shadow-card)'
           }}
         >
         <div
@@ -243,7 +242,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
             {switcherOpen && (
               <div
                 style={{
-                  position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 30,
+                  position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50,
                   width: 340, maxHeight: 420, overflowY: 'auto',
                   border: '1px solid var(--border-strong)',
                   borderRadius: 'var(--radius-md)',
