@@ -70,8 +70,11 @@
   --text-link: var(--green-600);
   --border-default: var(--gray-200);
   --border-strong: var(--gray-300);
+  --border-prominent: 2px solid var(--gray-800);
   --focus-ring: 0 0 0 3px rgba(31, 122, 92, 0.25);
   --brand-primary: var(--green-500);
+  --brand-primary-hover: var(--green-600);
+  --brand-primary-active: var(--green-700);
 
   /* Typography */
   --font-sans: 'Poppins', -apple-system, 'Segoe UI', sans-serif;
