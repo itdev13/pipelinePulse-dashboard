@@ -252,13 +252,15 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
           </span>
 
           {/* Deal switcher */}
-          <div ref={switcherRef} style={{ position: 'relative' }}>
+          <div ref={switcherRef} style={{ position: 'relative', minWidth: 0, maxWidth: 420, flex: '0 1 auto' }}>
             <button
               onClick={() => setSwitcherOpen((o) => !o)}
+              title={deal ? deal.dealTag : undefined}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 8,
                 cursor: 'pointer',
                 height: 34, padding: '0 12px',
+                maxWidth: '100%',
                 border: '1px solid var(--border-strong)',
                 borderRadius: 'var(--radius-md)',
                 background: '#fff',
@@ -266,9 +268,16 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                 color: 'var(--text-heading)', fontWeight: 600
               }}
             >
-              <span className="ms" style={{ fontSize: 16, color: 'var(--accent-pine)' }}>sell</span>
-              {deal ? deal.dealTag : 'Select a deal…'}
-              <span className="ms" style={{ fontSize: 18, color: 'var(--text-faint)' }}>
+              <span className="ms" style={{ fontSize: 16, color: 'var(--accent-pine)', flex: 'none' }}>sell</span>
+              <span
+                style={{
+                  minWidth: 0, flex: 1,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                }}
+              >
+                {deal ? deal.dealTag : 'Select a deal…'}
+              </span>
+              <span className="ms" style={{ fontSize: 18, color: 'var(--text-faint)', flex: 'none' }}>
                 expand_more
               </span>
             </button>
@@ -353,6 +362,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                   return (
                     <button
                       key={d.id}
+                      title={d.dealTag}
                       onClick={() => {
                         onSwitchDeal(d.id)
                         setSwitcherOpen(false)
