@@ -1,0 +1,141 @@
+/*
+ * Deal Hub design tokens — verbatim from the EverGreen Junction design system.
+ * Scoped under [data-dealhub] so they don't leak into the existing dashboard
+ * (which uses Ant Design). Any page that opts into the Deal Hub UI wraps its
+ * root in <div data-dealhub> and inherits these variables.
+ *
+ * Full source of truth: Deal Hub v3 prototype, _ds/tokens/*.css.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0..1,0');
+
+[data-dealhub] {
+  /* Neutrals */
+  --white: #ffffff;
+  --gray-25: #fafbfc;
+  --gray-50: #f5f6f8;
+  --gray-100: #eceef1;
+  --gray-200: #dcdfe4;
+  --gray-300: #c3c8d0;
+  --gray-400: #9aa1ad;
+  --gray-500: #676f7c;
+  --gray-600: #4b515c;
+  --gray-700: #323844;
+  --gray-800: #1f2430;
+
+  /* Primary — evergreen */
+  --green-50: #e9f4f0;
+  --green-100: #cfe7de;
+  --green-300: #6fae97;
+  --green-500: #1f7a5c;
+  --green-600: #186349;
+  --green-700: #124d39;
+
+  /* Section accents — one per group / topic */
+  --accent-pine: #1f7a5c;
+  --accent-sky: #2470c2;
+  --accent-plum: #7b5cc9;
+  --accent-clay: #c95d2e;
+  --accent-gold: #b8860b;
+  --accent-rose: #c23a5f;
+  --accent-teal: #0f7f8b;
+
+  /* Section-accent tints */
+  --tint-pine: #e9f4f0;
+  --tint-sky: #e8f1fb;
+  --tint-plum: #f1ecfa;
+  --tint-clay: #fbeee6;
+  --tint-gold: #faf3e0;
+  --tint-rose: #fbe9ee;
+  --tint-teal: #e6f4f6;
+
+  /* Status */
+  --status-done: #00a25b;
+  --status-working: #f5a300;
+  --status-stuck: #d83a52;
+  --status-hold: #7b5cc9;
+  --status-none: #c3c8d0;
+
+  /* Semantic aliases */
+  --surface-page: var(--white);
+  --surface-card: var(--white);
+  --surface-sunken: var(--gray-50);
+  --surface-hover: var(--gray-50);
+  --surface-selected: var(--green-50);
+  --text-heading: var(--gray-800);
+  --text-body: var(--gray-700);
+  --text-muted: var(--gray-500);
+  --text-faint: var(--gray-400);
+  --text-link: var(--green-600);
+  --border-default: var(--gray-200);
+  --border-strong: var(--gray-300);
+  --focus-ring: 0 0 0 3px rgba(31, 122, 92, 0.25);
+  --brand-primary: var(--green-500);
+
+  /* Typography */
+  --font-sans: 'Poppins', -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+
+  /* Shadows */
+  --shadow-card: 0 1px 2px rgba(31, 36, 48, 0.06);
+  --shadow-raised: 0 4px 12px rgba(31, 36, 48, 0.1);
+  --shadow-overlay: 0 8px 28px rgba(31, 36, 48, 0.16);
+
+  /* Control sizes */
+  --control-h-sm: 28px;
+  --control-h-md: 36px;
+  --control-h-lg: 44px;
+  --row-h: 40px;
+
+  font-family: var(--font-sans);
+  color: var(--text-body);
+  background: var(--surface-page);
+}
+
+/* Material Symbols Rounded — utility class */
+[data-dealhub] .ms {
+  font-family: 'Material Symbols Rounded';
+  font-weight: normal;
+  font-style: normal;
+  display: inline-block;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  -webkit-font-smoothing: antialiased;
+  font-size: 20px;
+}
+[data-dealhub] .ms.ms-fill {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Type resets for the Deal Hub subtree */
+[data-dealhub] h1,
+[data-dealhub] h2,
+[data-dealhub] h3,
+[data-dealhub] h4 {
+  color: var(--text-heading);
+  line-height: 1.2;
+  margin: 0;
+  font-weight: 600;
+}

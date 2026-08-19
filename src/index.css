@@ -1,3 +1,8 @@
+/* Deal Hub tokens are scoped under [data-dealhub] so they don't leak
+   into the existing Ant Design dashboard chrome. Must come BEFORE @tailwind
+   because CSS @import has to precede other statements. */
+@import './styles/dealhub-tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
