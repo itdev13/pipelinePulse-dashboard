@@ -37,6 +37,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
 
   // Deal switcher dropdown open/close
   const [switcherOpen, setSwitcherOpen] = useState(false)
+  const [switcherQ, setSwitcherQ] = useState('')
   const switcherRef = useRef(null)
 
   // Load the deal list once — used by the switcher and the auto-select.
@@ -89,9 +90,13 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
     return () => { alive = false }
   }, [dealId])
 
-  // Close the switcher on outside click
+  // Close the switcher on outside click. Also clear its search when closed
+  // so the next open starts fresh.
   useEffect(() => {
-    if (!switcherOpen) return
+    if (!switcherOpen) {
+      if (switcherQ) setSwitcherQ('')
+      return
+    }
     const handler = (e) => {
       if (switcherRef.current && !switcherRef.current.contains(e.target)) {
         setSwitcherOpen(false)
@@ -99,6 +104,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [switcherOpen])
 
   const toggleIncluded = (m) => {
@@ -267,17 +273,65 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
               </span>
             </button>
 
-            {switcherOpen && (
+            {switcherOpen && (() => {
+              const q = switcherQ.trim().toLowerCase()
+              const visible = q
+                ? deals.filter((d) =>
+                    [d.dealTag, d.contact?.firstName, d.contact?.lastName, d.contact?.business, d.stage, d.owner]
+                      .filter(Boolean).join(' ').toLowerCase().includes(q)
+                  )
+                : deals
+              return (
               <div
                 style={{
                   position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50,
-                  width: 340, maxHeight: 420, overflowY: 'auto',
+                  width: 380, maxHeight: 460,
                   border: '1px solid var(--border-strong)',
                   borderRadius: 'var(--radius-md)',
                   background: '#fff', boxShadow: 'var(--shadow-overlay)',
-                  padding: 6
+                  display: 'flex', flexDirection: 'column'
                 }}
               >
+                {/* Search — sticky at the top of the dropdown */}
+                <div
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '10px 12px',
+                    borderBottom: '1px solid var(--border-default)'
+                  }}
+                >
+                  <span className="ms" style={{ fontSize: 17, color: 'var(--text-muted)' }}>search</span>
+                  <input
+                    autoFocus
+                    value={switcherQ}
+                    onChange={(e) => setSwitcherQ(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Escape' && setSwitcherOpen(false)}
+                    placeholder="Search deals, contacts, business…"
+                    style={{
+                      flex: 1, minWidth: 0,
+                      border: 'none', outline: 'none', background: 'transparent',
+                      fontFamily: 'var(--font-sans)', fontSize: 13,
+                      color: 'var(--text-body)'
+                    }}
+                  />
+                  {switcherQ && (
+                    <button
+                      onClick={() => setSwitcherQ('')}
+                      title="Clear"
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        width: 22, height: 22,
+                        border: 'none', borderRadius: 'var(--radius-sm)',
+                        background: 'var(--gray-50)', cursor: 'pointer',
+                        color: 'var(--text-muted)'
+                      }}
+                    >
+                      <span className="ms" style={{ fontSize: 14 }}>close</span>
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ overflowY: 'auto', padding: 6 }}>
                 <div
                   style={{
                     padding: '6px 8px',
@@ -285,9 +339,16 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                     textTransform: 'uppercase', color: 'var(--text-muted)'
                   }}
                 >
-                  Open deals ({deals.length})
+                  {q
+                    ? `${visible.length} of ${deals.length} match`
+                    : `Open deals (${deals.length})`}
                 </div>
-                {deals.map((d) => {
+                {visible.length === 0 && q && (
+                  <div style={{ padding: '10px 8px', fontSize: 12.5, color: 'var(--text-muted)' }}>
+                    No deals match "{switcherQ}"
+                  </div>
+                )}
+                {visible.map((d) => {
                   const active = d.id === dealId
                   return (
                     <button
@@ -334,8 +395,10 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                     </button>
                   )
                 })}
+                </div>
               </div>
-            )}
+              )
+            })()}
           </div>
 
           {deal && deal.value && (
