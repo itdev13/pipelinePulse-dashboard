@@ -2,9 +2,11 @@ import React from 'react'
 
 // One deal's merged message timeline.
 //
-// Per the Deal Hub v3 prototype, each row has two visual signals:
+// Row framing:
 //   • the LEFT gutter square = the channel (email / sms / whatsapp / …)
-//   • the CARD's 5px top border = the SENDER (Sarah = sky, Mark = plum, …)
+//   • the CARD's top + bottom stripes = the channel accent (frames the row)
+//   • the SENDER accent shows as a coloured dot beside the name
+//   • the DEAL TAG lives on the bottom stripe as a pill footer
 //
 // The person filter narrows the merged thread (rule 7) but never splits it —
 // group messages stay visible under every recipient, so filtering here is a
@@ -199,17 +201,23 @@ function MessageRow({ m, highlighted, onToggleIncluded, onJumpAttachment }) {
         </div>
       </div>
 
-      {/* Card */}
+      {/* Card — channel-accent frames the row (top + bottom stripes) */}
       <div
         style={{
-          display: 'grid', gridTemplateColumns: '24px 1fr', gap: 12,
-          padding: isEvent ? '8px 16px' : '12px 16px',
           border: '1px solid var(--border-strong)',
-          borderTop: `5px solid ${senderCol}`,
+          borderTop: `4px solid ${channelCol}`,
+          borderBottom: `4px solid ${channelCol}`,
           borderRadius: 'var(--radius-md)',
           opacity,
           background: highlighted ? 'var(--tint-gold)' : '#fff',
           transition: 'background 0.4s ease-out',
+          overflow: 'hidden',
+        }}
+      >
+      <div
+        style={{
+          display: 'grid', gridTemplateColumns: '24px 1fr', gap: 12,
+          padding: isEvent ? '8px 16px' : '12px 16px',
         }}
       >
         {/* Inclusion checkbox column */}
@@ -323,31 +331,6 @@ function MessageRow({ m, highlighted, onToggleIncluded, onJumpAttachment }) {
                 Excluded by {m.excludedBy}
               </span>
             )}
-
-            {/* Deal-tag pill — anchored right */}
-            <div
-              style={{
-                marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6,
-              }}
-            >
-              <button
-                title={`Part of ${m.dealTag} — click to reassign`}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  padding: '3px 8px 3px 9px',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: 'var(--radius-pill)',
-                  background: 'var(--gray-50)',
-                  cursor: 'pointer', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap',
-                }}
-              >
-                <span className="ms" style={{ fontSize: 13, color: 'var(--text-muted)' }}>sell</span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>
-                  {m.dealTag}
-                </span>
-                <span className="ms" style={{ fontSize: 14, color: 'var(--text-faint)' }}>expand_more</span>
-              </button>
-            </div>
           </div>
 
           {/* Call-only note when unreadable */}
@@ -420,6 +403,47 @@ function MessageRow({ m, highlighted, onToggleIncluded, onJumpAttachment }) {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Footer strip — sits between the body and the bottom channel stripe.
+          Anchors the deal-tag pill so every row surfaces which opp it's on
+          in exactly the same spot, no matter how tall the body is. */}
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '6px 12px 6px 16px',
+          background: channelTint,
+          borderTop: '1px solid var(--border-default)',
+        }}
+      >
+        <span
+          style={{
+            fontSize: 10, fontWeight: 600, letterSpacing: '0.05em',
+            textTransform: 'uppercase', color: channelCol,
+          }}
+        >
+          {CH_LABEL[m.channel]}
+        </span>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            title={`Part of ${m.dealTag} — click to reassign`}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '3px 8px 3px 9px',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-pill)',
+              background: '#fff',
+              cursor: 'pointer', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap',
+            }}
+          >
+            <span className="ms" style={{ fontSize: 13, color: 'var(--text-muted)' }}>sell</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>
+              {m.dealTag}
+            </span>
+            <span className="ms" style={{ fontSize: 14, color: 'var(--text-faint)' }}>expand_more</span>
+          </button>
+        </div>
+      </div>
       </div>
     </div>
   )

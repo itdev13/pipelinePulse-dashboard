@@ -252,7 +252,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
           </span>
 
           {/* Deal switcher */}
-          <div ref={switcherRef} style={{ position: 'relative', minWidth: 0, maxWidth: 420, flex: '0 1 auto' }}>
+          <div ref={switcherRef} style={{ position: 'relative', width: 420, flex: 'none' }}>
             <button
               onClick={() => setSwitcherOpen((o) => !o)}
               title={deal ? deal.dealTag : undefined}
@@ -260,7 +260,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                 display: 'inline-flex', alignItems: 'center', gap: 8,
                 cursor: 'pointer',
                 height: 34, padding: '0 12px',
-                maxWidth: '100%',
+                width: '100%',
                 border: '1px solid var(--border-strong)',
                 borderRadius: 'var(--radius-md)',
                 background: '#fff',
@@ -293,8 +293,8 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
               return (
               <div
                 style={{
-                  position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50,
-                  width: 380, maxHeight: 460,
+                  position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 50,
+                  maxHeight: 460,
                   border: '1px solid var(--border-strong)',
                   borderRadius: 'var(--radius-md)',
                   background: '#fff', boxShadow: 'var(--shadow-overlay)',

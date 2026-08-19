@@ -6,6 +6,7 @@ import TasksTab from './tabs/TasksTab'
 import NotesTab from './tabs/NotesTab'
 import ControlCentreTab from './tabs/ControlCentreTab'
 import { summaryAPI } from '../api/summary'
+import { useAuth } from '../context/AuthContext'
 
 // Top-nav shell for the Deal Hub app.
 //
@@ -32,6 +33,8 @@ const TABS = [
 ]
 
 export default function DealHubShell() {
+  const { location } = useAuth()
+  const locationName = location?.name || location?.id || ''
   const [activeTab, setActiveTab] = useState('hub')
   const [selectedDealId, setSelectedDealId] = useState(null)
   // Location-wide totals for the top-nav pill counters. One fetch on mount.
@@ -63,9 +66,10 @@ export default function DealHubShell() {
         }}
       >
         <span
+          title={locationName}
           style={{ fontWeight: 600, fontSize: 16, color: 'var(--text-heading)' }}
         >
-          EverGreen Junction
+          {locationName}
         </span>
 
         {/* Tab chips */}
