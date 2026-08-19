@@ -80,10 +80,33 @@ export default function PeopleSection({
   )
 }
 
+// Contacts in GHL are often skeletal — sometimes just a phone or an email,
+// no name at all. Rather than falling back to a generic "Contact" label
+// (which the user can't tell apart from every other unnamed person), pick
+// the best identifier we actually have, in this order:
+//   1. first + last  (e.g. "Mark Whitmore")
+//   2. first only    (e.g. "Mark")
+//   3. last only     (e.g. "Whitmore")
+//   4. email         (e.g. "mark@example.com")
+//   5. phone         (e.g. "+447338628553")
+//   6. business      (e.g. "SSEN")
+//   7. "Contact"     — genuine last resort, no data at all
+// Initials follow the same fallback: initials of a real name if we have
+// one, else first char of the chosen identifier, else "?".
+function displayFor(p) {
+  const first = (p.firstName || '').trim()
+  const last  = (p.lastName || '').trim()
+  if (first && last) return { name: `${first} ${last}`, initials: (first[0] + last[0]).toUpperCase() }
+  if (first)         return { name: first, initials: first[0].toUpperCase() }
+  if (last)          return { name: last, initials: last[0].toUpperCase() }
+  if (p.email)       return { name: p.email, initials: p.email[0].toUpperCase() }
+  if (p.phone)       return { name: p.phone, initials: '#' }
+  if (p.business)    return { name: p.business, initials: p.business[0].toUpperCase() }
+  return { name: 'Contact', initials: '?' }
+}
+
 function PersonCard({ p, filterActive, onShowInThread, allowRemove }) {
-  const initials =
-    ((p.firstName?.[0] || '') + (p.lastName?.[0] || '')).toUpperCase() || '?'
-  const fullName = [p.firstName, p.lastName].filter(Boolean).join(' ') || 'Contact'
+  const { name: fullName, initials } = displayFor(p)
   const accent = `var(--accent-${p.accent})`
   const tint = `var(--tint-${p.accent})`
 
