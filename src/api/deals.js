@@ -6,6 +6,7 @@ export const dealsAPI = {
   list: (params = {}) => apiClient.get('/api/deals', { params }),
   get: (id) => apiClient.get(`/api/deals/${encodeURIComponent(id)}`),
   timeline: (id) => apiClient.get(`/api/deals/${encodeURIComponent(id)}/timeline`),
+  stages: (id) => apiClient.get(`/api/deals/${encodeURIComponent(id)}/stages`),
   reassignmentTargets: (id) =>
     apiClient.get(`/api/deals/${encodeURIComponent(id)}/reassignment-targets`)
 }

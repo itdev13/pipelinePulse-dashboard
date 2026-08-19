@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
 import Timeline from '../dealhub/Timeline'
+import StageStepper from '../dealhub/StageStepper'
 import { dealsAPI } from '../../api/deals'
 
 // Deal Hub tab — the core view.
@@ -21,6 +22,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
 
   // The one active deal
   const [deal, setDeal] = useState(null)
+  const [stages, setStages] = useState(null)
   const [messages, setMessages] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -57,10 +59,12 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
     let alive = true
     setLoading(true)
     setError(null)
-    Promise.all([dealsAPI.get(dealId), dealsAPI.timeline(dealId)])
-      .then(([d, t]) => {
+    setStages(null)
+    Promise.all([dealsAPI.get(dealId), dealsAPI.timeline(dealId), dealsAPI.stages(dealId)])
+      .then(([d, t, s]) => {
         if (!alive) return
         setDeal(d)
+        setStages(s.stages || [])
         const nameById = Object.fromEntries(
           (d.people || []).map((p) => [p.id, p.firstName || p.lastName || 'Contact'])
         )
@@ -189,13 +193,18 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
 
   return (
     <div>
-      {/* Deal-switcher dropdown + opportunity header */}
+      {/* Deal-switcher dropdown + opportunity header + stage stepper */}
       <div style={{ padding: '14px 20px 0' }}>
         <div
           style={{
             border: '1px solid var(--border-default)',
             borderRadius: 'var(--radius-md)',
             background: '#fff', boxShadow: 'var(--shadow-card)',
+            overflow: 'hidden'
+          }}
+        >
+        <div
+          style={{
             padding: '10px 14px',
             display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap'
           }}
@@ -315,9 +324,15 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                 fontSize: 12, color: 'var(--text-muted)', marginLeft: 'auto'
               }}
             >
-              {[deal.location, deal.stage, deal.owner].filter(Boolean).join(' · ')}
+              {[deal.location, deal.owner].filter(Boolean).join(' · ')}
             </span>
           )}
+        </div>
+
+        {/* Stage stepper — per pipeline, current stage highlighted */}
+        {stages && stages.length > 0 && (
+          <StageStepper stages={stages} />
+        )}
         </div>
       </div>
 
