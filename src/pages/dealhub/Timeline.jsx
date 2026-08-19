@@ -66,6 +66,62 @@ function AttachmentChip({ att, channelAccent, onClick }) {
   )
 }
 
+// Compact one-line renderer for system events and TYPE_ACTIVITY_* rows
+// (opp created, task completed, invoice paid, etc). No card, no checkbox,
+// just a thin line with icon + label + date on the spine.
+function EventRow({ m }) {
+  const gutter = formatDateGutter(m.ts)
+  const col = accentVar(m.channelAccent)
+  return (
+    <div
+      id={`tl-${m.id}`}
+      style={{
+        position: 'relative',
+        display: 'grid', gridTemplateColumns: '40px 1fr',
+        alignItems: 'center', marginBottom: 6, opacity: 0.7
+      }}
+    >
+      {/* Gutter — smaller square for events */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, paddingTop: 3 }}>
+        <div
+          title={m.channel}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 22, height: 22, boxSizing: 'border-box',
+            border: `1px solid ${col}`, borderRadius: 'var(--radius-sm)',
+            background: 'var(--surface-page)'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 12, color: col }}>{m.channelIcon}</span>
+        </div>
+        <div
+          style={{
+            textAlign: 'center', fontSize: 9, fontWeight: 500, lineHeight: 1.2,
+            color: 'var(--text-faint)'
+          }}
+        >
+          {gutter.day} {gutter.mon}
+        </div>
+      </div>
+
+      {/* Event line — thin, muted */}
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '4px 12px',
+          fontSize: 12, color: 'var(--text-muted)',
+          minHeight: 24
+        }}
+      >
+        <span style={{ fontWeight: 500 }}>{m.body || m.channel}</span>
+        {m.senderName && (
+          <span style={{ color: 'var(--text-faint)' }}>· {m.senderName}</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function MessageRow({ m, highlighted, onToggleIncluded, onJumpAttachment }) {
   const gutter = formatDateGutter(m.ts)
   const channelCol = accentVar(m.channelAccent)
@@ -399,15 +455,19 @@ export default function Timeline({
             background: 'var(--border-default)',
           }}
         />
-        {messages.map((m) => (
-          <MessageRow
-            key={m.id}
-            m={m}
-            highlighted={highlightedId === m.id}
-            onToggleIncluded={onToggleIncluded}
-            onJumpAttachment={onJumpAttachment}
-          />
-        ))}
+        {messages.map((m) =>
+          m.event ? (
+            <EventRow key={m.id} m={m} />
+          ) : (
+            <MessageRow
+              key={m.id}
+              m={m}
+              highlighted={highlightedId === m.id}
+              onToggleIncluded={onToggleIncluded}
+              onJumpAttachment={onJumpAttachment}
+            />
+          )
+        )}
       </div>
     </section>
   )

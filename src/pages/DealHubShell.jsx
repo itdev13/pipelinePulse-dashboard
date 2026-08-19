@@ -30,6 +30,11 @@ const TABS = [
 export default function DealHubShell() {
   const [activeTab, setActiveTab] = useState('hub')
   const [selectedDealId, setSelectedDealId] = useState(null)
+  // Per-opp counters — the DealHub tab pushes its loaded deal's counts here
+  // so the top-nav chips show "Contacts 3 · Deals 2 · Tasks 1 · Notes 5" for
+  // the current deal. The Deals tab shows global counts instead (handled by
+  // the fallback below when no deal is selected or no counts landed yet).
+  const [dealCounts, setDealCounts] = useState(null)
 
   const openDeal = (dealId) => {
     setSelectedDealId(dealId)
@@ -57,6 +62,15 @@ export default function DealHubShell() {
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {TABS.map((t) => {
             const active = activeTab === t.id
+            // Per-opp count shown on Contacts / Deals / Tasks / Notes chips
+            // when the current deal has loaded. Deal-hub chip has no count.
+            const countMap = {
+              contacts: dealCounts?.contacts,
+              deals:    dealCounts?.deals,
+              tasks:    dealCounts?.tasks,
+              notes:    dealCounts?.notes
+            }
+            const count = countMap[t.id]
             return (
               <button
                 key={t.id}
@@ -78,6 +92,21 @@ export default function DealHubShell() {
               >
                 <span className="ms" style={{ fontSize: 16 }}>{t.icon}</span>
                 {t.label}
+                {typeof count === 'number' && (
+                  <span
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      minWidth: 20, height: 20, padding: '0 6px',
+                      borderRadius: 'var(--radius-pill)',
+                      background: active ? 'var(--brand-primary)' : 'var(--gray-100)',
+                      color: active ? '#fff' : 'var(--text-muted)',
+                      fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600,
+                      marginLeft: 2
+                    }}
+                  >
+                    {count}
+                  </span>
+                )}
               </button>
             )
           })}
@@ -120,6 +149,7 @@ export default function DealHubShell() {
           <DealHubTab
             dealId={selectedDealId}
             onSwitchDeal={setSelectedDealId}
+            onCountsChange={setDealCounts}
           />
         )}
         {activeTab === 'deals' && <DealsTab onOpenDeal={openDeal} />}
