@@ -124,9 +124,12 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
   // messages so a Rear-Elevation-with-only-emails doesn't show a WhatsApp
   // chip. Event rows (ACTIVITY/TASK/SYSTEM) don't count — the filter chips
   // are for real conversation channels.
+  //
+  // Always returns a Map (never an array) so downstream `.has()` / `.get()`
+  // calls work before messages have loaded.
   const dealChannels = useMemo(() => {
-    if (!messages) return []
     const counts = new Map()
+    if (!messages) return counts
     for (const m of messages) {
       if (m.event) continue
       counts.set(m.channel, (counts.get(m.channel) || 0) + 1)
