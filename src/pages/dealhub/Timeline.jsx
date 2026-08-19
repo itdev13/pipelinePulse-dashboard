@@ -104,20 +104,47 @@ function EventRow({ m }) {
         </div>
       </div>
 
-      {/* Event line — thin, muted */}
-      <div
-        style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '4px 12px',
-          fontSize: 12, color: 'var(--text-muted)',
-          minHeight: 24
-        }}
-      >
-        <span style={{ fontWeight: 500 }}>{m.body || m.channel}</span>
-        {m.senderName && (
-          <span style={{ color: 'var(--text-faint)' }}>· {m.senderName}</span>
-        )}
-      </div>
+      {/* Event line — thin, muted. Two parts:
+            1. LABEL (bold-ish) — "Opportunity" / "Invoice" / "Appointment"
+            2. BODY (regular)   — the human phrase GHL sends, e.g.
+                                  "created" / "Task completed — Send brochure"
+          If the body already starts with the label (e.g. "Opportunity
+          created"), we drop the label to avoid "Opportunity · Opportunity
+          created". */}
+      {(() => {
+        const label = m.eventLabel || m.channel || 'Event'
+        const body = m.body || ''
+        const bodyStartsWithLabel = body.toLowerCase().startsWith(label.toLowerCase())
+        return (
+          <div
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '4px 12px',
+              fontSize: 12, color: 'var(--text-muted)',
+              minHeight: 24
+            }}
+          >
+            {!bodyStartsWithLabel && (
+              <span
+                style={{
+                  fontSize: 10, fontWeight: 600, letterSpacing: '0.05em',
+                  textTransform: 'uppercase', color: col,
+                  padding: '1px 6px', borderRadius: 'var(--radius-sm)',
+                  background: 'var(--surface-sunken)'
+                }}
+              >
+                {label}
+              </span>
+            )}
+            <span style={{ fontWeight: 500, color: 'var(--text-body)' }}>
+              {body || label}
+            </span>
+            {m.senderName && m.senderName !== 'Rep' && m.senderName !== 'Contact' && (
+              <span style={{ color: 'var(--text-faint)' }}>· {m.senderName}</span>
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }
