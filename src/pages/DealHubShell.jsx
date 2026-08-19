@@ -119,35 +119,9 @@ export default function DealHubShell() {
           })}
         </div>
 
-        {/* Search (⌘K) — right-anchored */}
-        <div
-          role="search"
-          style={{
-            marginLeft: 'auto',
-            display: 'flex', alignItems: 'center', gap: 8,
-            height: 34, padding: '0 12px', minWidth: 280,
-            border: '1px solid var(--border-strong)',
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--gray-50)',
-            color: 'var(--text-muted)', fontSize: 13,
-            cursor: 'not-allowed'
-          }}
-          title="Search — coming next"
-        >
-          <span className="ms" style={{ fontSize: 17 }}>search</span>
-          Search deals
-          <span
-            style={{
-              marginLeft: 'auto',
-              fontFamily: 'var(--font-mono)', fontSize: 11,
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '1px 5px', background: '#fff'
-            }}
-          >
-            ⌘K
-          </span>
-        </div>
+        {/* Global search (⌘K across all tabs) is intentionally deferred
+            until each tab's scoped search proves insufficient. Every tab
+            already has its own in-page search that fits its content. */}
       </header>
 
       {/* Tab content */}
