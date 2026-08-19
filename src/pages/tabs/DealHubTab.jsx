@@ -616,11 +616,17 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
         )}
         {!loading && !error && messages && (
           <>
-            <div style={{ marginBottom: 14 }}>
-              <CommitmentsSection />
-            </div>
-            <div style={{ marginBottom: 14 }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 2fr) minmax(320px, 1fr)',
+                gap: 14,
+                alignItems: 'start',
+                marginBottom: 14
+              }}
+            >
               <Timeline messages={filtered} onToggleIncluded={toggleIncluded} />
+              <CommitmentsSection />
             </div>
             <AskDeal dealId={dealId} chatCount={0} />
           </>
