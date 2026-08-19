@@ -19,10 +19,13 @@ import { summaryAPI } from '../api/summary'
 // when a user clicks a deal card, and it flips activeTab to 'hub'
 // automatically. That's the "click a deal card → jump into deal hub" flow.
 
+// Order: Deal hub → Deals (the paired opp views) → Contacts → Tasks → Notes → Control.
+// Deal hub and Deals both centre on opportunities, so they sit side by side;
+// Contacts and everything else follow.
 const TABS = [
   { id: 'hub',      label: 'Deal hub',       icon: 'space_dashboard' },
-  { id: 'contacts', label: 'Contacts',       icon: 'group' },
   { id: 'deals',    label: 'Deals',          icon: 'sell' },
+  { id: 'contacts', label: 'Contacts',       icon: 'group' },
   { id: 'tasks',    label: 'Tasks',          icon: 'task_alt' },
   { id: 'notes',    label: 'Notes',          icon: 'sticky_note_2' },
   { id: 'control',  label: 'Control centre', icon: 'tune' }

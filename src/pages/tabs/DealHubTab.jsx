@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
 import Timeline from '../dealhub/Timeline'
 import StageStepper from '../dealhub/StageStepper'
+import PeopleSection from '../dealhub/PeopleSection'
 import { dealsAPI } from '../../api/deals'
 
 // Deal Hub tab — the core view.
@@ -27,9 +28,11 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
+  // Left-rail tabs — People / Deal / Media. Only People is real for now.
+  const [leftRail, setLeftRail] = useState('people')
+
   // Filter state
   const [channelFilter, setChannelFilter] = useState(null)
-  const [statusFilter, setStatusFilter] = useState('all')
   const [peopleFilter, setPeopleFilter] = useState([])
 
   // Deal switcher dropdown open/close
@@ -76,7 +79,6 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
         setLoading(false)
         // Reset filters when the deal changes.
         setChannelFilter(null)
-        setStatusFilter('all')
         setPeopleFilter([])
       })
       .catch((err) => {
@@ -109,8 +111,6 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
     if (!messages) return []
     return messages.filter((m) => {
       if (channelFilter && m.channel !== channelFilter) return false
-      if (statusFilter === 'inc' && !(m.readable && m.included)) return false
-      if (statusFilter === 'exc' && m.readable && m.included) return false
       if (peopleFilter.length > 0) {
         const senderMatch = m.senderId && peopleFilter.includes(m.senderId)
         const recipientMatch = (m.toIds || []).some((cid) => peopleFilter.includes(cid))
@@ -118,7 +118,32 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
       }
       return true
     })
-  }, [messages, channelFilter, statusFilter, peopleFilter])
+  }, [messages, channelFilter, peopleFilter])
+
+  // Channels that ACTUALLY appear on this deal. Derived from the fetched
+  // messages so a Rear-Elevation-with-only-emails doesn't show a WhatsApp
+  // chip. Event rows (ACTIVITY/TASK/SYSTEM) don't count — the filter chips
+  // are for real conversation channels.
+  const dealChannels = useMemo(() => {
+    if (!messages) return []
+    const counts = new Map()
+    for (const m of messages) {
+      if (m.event) continue
+      counts.set(m.channel, (counts.get(m.channel) || 0) + 1)
+    }
+    return counts
+  }, [messages])
+
+  // Chip presentation order — keep the fixed order across deals so users
+  // don't hunt for a channel that moved position. We just skip channels
+  // that don't exist on the current deal.
+  const CHANNEL_CHIPS = [
+    ['Email',    'EMAIL'],
+    ['WhatsApp', 'WHATSAPP'],
+    ['SMS',      'SMS'],
+    ['iMessage', 'IMESSAGE'],
+    ['Call',     'CALL']
+  ]
 
   const chip = (label, active, onClick, extra) => (
     <button
@@ -335,7 +360,66 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
         </div>
       </div>
 
-      {/* People chips */}
+      {/* Left-rail tabs (People / Deal / Media). Only People rendered
+          for now — Deal + Media come next iterations. */}
+      {deal && (
+        <div
+          style={{
+            padding: '14px 20px 0',
+            maxWidth: 1660, margin: '0 auto', boxSizing: 'border-box'
+          }}
+        >
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+            {[
+              ['people', 'People',        'group'],
+              ['deal',   'Deal',          'person'],
+              ['media',  'Media',         'folder_open']
+            ].map(([id, label, icon]) => {
+              const active = leftRail === id
+              const disabled = id !== 'people'
+              return (
+                <button
+                  key={id}
+                  onClick={() => !disabled && setLeftRail(id)}
+                  disabled={disabled}
+                  title={disabled ? 'Coming next' : undefined}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 7,
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    height: 32, padding: '0 12px',
+                    border: active
+                      ? '1.5px solid var(--brand-primary)'
+                      : '1px solid var(--border-strong)',
+                    borderRadius: 'var(--radius-pill)',
+                    background: active ? 'var(--surface-selected)' : '#fff',
+                    color: active
+                      ? 'var(--brand-primary)'
+                      : disabled
+                      ? 'var(--text-faint)'
+                      : 'var(--text-body)',
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: 12.5, fontWeight: active ? 600 : 400,
+                    opacity: disabled ? 0.55 : 1
+                  }}
+                >
+                  <span className="ms" style={{ fontSize: 16 }}>{icon}</span>
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+
+          {leftRail === 'people' && (
+            <PeopleSection
+              people={deal.people || []}
+              peopleFilter={peopleFilter}
+              onPeopleFilterChange={setPeopleFilter}
+            />
+          )}
+        </div>
+      )}
+
+      {/* People filter chips (below the section — narrows the timeline) */}
       {deal && deal.people?.length > 0 && (
         <div
           style={{
@@ -384,7 +468,12 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
         </div>
       )}
 
-      {/* Content chips */}
+      {/* Channel filter chips.
+          Note chips (Included / Excluded only) are deferred until Stage 4 AI
+          extraction is live — right now every readable message defaults to
+          `included: true` and there's no user-facing toggle, so those chips
+          would be misleading. `Note` filter is redundant with the dedicated
+          Notes pane / tab. */}
       <div
         style={{
           padding: '10px 20px 0',
@@ -392,23 +481,26 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
         }}
       >
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {chip('All', statusFilter === 'all' && !channelFilter, () => {
-            setStatusFilter('all')
-            setChannelFilter(null)
-          })}
-          {chip('Included only', statusFilter === 'inc', () => setStatusFilter('inc'))}
-          {chip('Excluded only', statusFilter === 'exc', () => setStatusFilter('exc'))}
-          {[
-            ['Email', 'EMAIL'],
-            ['WhatsApp', 'WHATSAPP'],
-            ['SMS', 'SMS'],
-            ['iMessage', 'IMESSAGE'],
-            ['Call', 'CALL'],
-            ['Note', 'NOTE']
-          ].map(([label, ch]) =>
-            chip(label, channelFilter === ch, () =>
-              setChannelFilter(channelFilter === ch ? null : ch)
+          {(() => {
+            // Total conversation-channel messages on this deal (excludes
+            // events, tasks, system rows). Used for the All chip's count.
+            let allCount = 0
+            for (const n of dealChannels.values()) allCount += n
+            return chip(
+              `All${allCount ? ` · ${allCount}` : ''}`,
+              !channelFilter,
+              () => setChannelFilter(null)
             )
+          })()}
+          {CHANNEL_CHIPS.filter(([, ch]) => dealChannels.has(ch)).map(
+            ([label, ch]) => {
+              const n = dealChannels.get(ch) || 0
+              return chip(
+                `${label} · ${n}`,
+                channelFilter === ch,
+                () => setChannelFilter(channelFilter === ch ? null : ch)
+              )
+            }
           )}
         </div>
       </div>
