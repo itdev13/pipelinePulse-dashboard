@@ -274,7 +274,8 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
               <span
                 style={{
                   minWidth: 0, flex: 1,
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  textAlign: 'left'
                 }}
               >
                 {deal ? deal.dealTag : 'Select a deal…'}
