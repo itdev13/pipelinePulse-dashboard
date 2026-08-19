@@ -15,7 +15,7 @@ import { dealsAPI } from '../../api/deals'
 //   • Filter chips (people + channels + inclusion) narrow the timeline
 //     client-side per rule 7 — never a round-trip.
 
-export default function DealHubTab({ dealId, onSwitchDeal, onCountsChange }) {
+export default function DealHubTab({ dealId, onSwitchDeal }) {
   // Deal list for the switcher dropdown
   const [deals, setDeals] = useState(null)
   const [dealsError, setDealsError] = useState(null)
@@ -60,15 +60,11 @@ export default function DealHubTab({ dealId, onSwitchDeal, onCountsChange }) {
     setLoading(true)
     setError(null)
     setStages(null)
-    if (onCountsChange) onCountsChange(null)
     Promise.all([dealsAPI.get(dealId), dealsAPI.timeline(dealId), dealsAPI.stages(dealId)])
       .then(([d, t, s]) => {
         if (!alive) return
         setDeal(d)
         setStages(s.stages || [])
-        // Push per-opp counts up to the shell so the top-nav pill counters
-        // reflect THIS deal. Cleared when the deal changes (below).
-        if (onCountsChange) onCountsChange(d.counts || null)
         const nameById = Object.fromEntries(
           (d.people || []).map((p) => [p.id, p.firstName || p.lastName || 'Contact'])
         )

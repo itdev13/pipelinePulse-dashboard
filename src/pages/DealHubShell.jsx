@@ -1,10 +1,11 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import DealHubTab from './tabs/DealHubTab'
 import DealsTab from './tabs/DealsTab'
 import ContactsTab from './tabs/ContactsTab'
 import TasksTab from './tabs/TasksTab'
 import NotesTab from './tabs/NotesTab'
 import ControlCentreTab from './tabs/ControlCentreTab'
+import { summaryAPI } from '../api/summary'
 
 // Top-nav shell for the Deal Hub app.
 //
@@ -30,11 +31,17 @@ const TABS = [
 export default function DealHubShell() {
   const [activeTab, setActiveTab] = useState('hub')
   const [selectedDealId, setSelectedDealId] = useState(null)
-  // Per-opp counters — the DealHub tab pushes its loaded deal's counts here
-  // so the top-nav chips show "Contacts 3 · Deals 2 · Tasks 1 · Notes 5" for
-  // the current deal. The Deals tab shows global counts instead (handled by
-  // the fallback below when no deal is selected or no counts landed yet).
-  const [dealCounts, setDealCounts] = useState(null)
+  // Location-wide totals for the top-nav pill counters. One fetch on mount.
+  // Matches what each tab actually shows (Deals 343 = every open opp, etc).
+  const [counts, setCounts] = useState(null)
+
+  useEffect(() => {
+    let alive = true
+    summaryAPI.counts()
+      .then((c) => alive && setCounts(c))
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
 
   const openDeal = (dealId) => {
     setSelectedDealId(dealId)
@@ -62,13 +69,13 @@ export default function DealHubShell() {
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {TABS.map((t) => {
             const active = activeTab === t.id
-            // Per-opp count shown on Contacts / Deals / Tasks / Notes chips
-            // when the current deal has loaded. Deal-hub chip has no count.
+            // Location-wide count on each section chip. Deal-hub + Control
+            // centre chips don't have a meaningful total, so we skip them.
             const countMap = {
-              contacts: dealCounts?.contacts,
-              deals:    dealCounts?.deals,
-              tasks:    dealCounts?.tasks,
-              notes:    dealCounts?.notes
+              contacts: counts?.contacts,
+              deals:    counts?.deals,
+              tasks:    counts?.tasks,
+              notes:    counts?.notes
             }
             const count = countMap[t.id]
             return (
@@ -149,7 +156,6 @@ export default function DealHubShell() {
           <DealHubTab
             dealId={selectedDealId}
             onSwitchDeal={setSelectedDealId}
-            onCountsChange={setDealCounts}
           />
         )}
         {activeTab === 'deals' && <DealsTab onOpenDeal={openDeal} />}
