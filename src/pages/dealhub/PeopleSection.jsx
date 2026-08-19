@@ -93,6 +93,7 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove }) {
         minWidth: 0,
         padding: '14px 16px',
         borderRight: '1px solid var(--border-default)',
+        borderBottom: '2px solid var(--accent-sky)',
         borderTop: `3px solid ${accent}`,
         // filter-active state — subtle green ring around the card
         boxShadow: filterActive ? '0 0 0 2px var(--brand-primary) inset' : 'none'
