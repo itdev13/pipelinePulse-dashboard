@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState, useRef } from 'react'
 import Timeline from '../dealhub/Timeline'
 import StageStepper from '../dealhub/StageStepper'
 import PeopleSection from '../dealhub/PeopleSection'
+import AskDeal from '../dealhub/AskDeal'
+import CommitmentsSection from '../dealhub/CommitmentsSection'
 import { dealsAPI } from '../../api/deals'
 
 // Deal Hub tab — the core view.
@@ -613,7 +615,15 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
           </div>
         )}
         {!loading && !error && messages && (
-          <Timeline messages={filtered} onToggleIncluded={toggleIncluded} />
+          <>
+            <div style={{ marginBottom: 14 }}>
+              <AskDeal dealId={dealId} chatCount={0} />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <CommitmentsSection />
+            </div>
+            <Timeline messages={filtered} onToggleIncluded={toggleIncluded} />
+          </>
         )}
       </div>
     </div>
