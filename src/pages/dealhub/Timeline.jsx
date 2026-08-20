@@ -156,10 +156,14 @@ function MessageRow({ m, highlighted, onToggleIncluded, onJumpAttachment }) {
   const channelCol = accentVar(m.channelAccent)
   const channelTint = tintVar(m.channelAccent)
   const senderCol = accentVar(m.senderAccent)
-  const showDot = m.direction === 'in' || m.direction === 'out'
+  // The API passes messages.message_direction straight through, which the
+  // writers store as 'inbound' / 'outbound'.
+  const inbound = m.direction === 'inbound'
+  const outbound = m.direction === 'outbound'
+  const showDot = inbound || outbound
   const isEvent = m.event || m.channel === 'TASK' || m.channel === 'SYSTEM'
-  const dirLabel = m.direction === 'in' ? 'In ←' : m.direction === 'out' ? '→ Out' : null
-  const dirColor = m.direction === 'in' ? 'var(--green-600)' : 'var(--text-muted)'
+  const dirLabel = inbound ? 'In ←' : outbound ? '→ Out' : null
+  const dirColor = inbound ? 'var(--green-600)' : 'var(--text-muted)'
   const many = m.toIds && m.toIds.length > 1
   const showCheckbox = m.channel !== 'TASK' && m.channel !== 'SYSTEM'
   const cbDisabled = !m.readable
@@ -280,7 +284,7 @@ function MessageRow({ m, highlighted, onToggleIncluded, onJumpAttachment }) {
                 to {m.toNames.join(', ')}
               </span>
             )}
-            {!many && m.direction === 'out' && m.toNames && m.toNames.length === 1 && (
+            {!many && outbound && m.toNames && m.toNames.length === 1 && (
               <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>to {m.toNames[0]}</span>
             )}
             {m.ambiguous && (
