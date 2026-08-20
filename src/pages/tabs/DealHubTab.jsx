@@ -49,6 +49,8 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
   // Filter state
   const [channelFilter, setChannelFilter] = useState(null)
   const [peopleFilter, setPeopleFilter] = useState([])
+  // null = all, true = included only, false = excluded only.
+  const [inclusionFilter, setInclusionFilter] = useState(null)
 
   // Deal switcher dropdown open/close
   const [switcherOpen, setSwitcherOpen] = useState(false)
@@ -105,6 +107,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
         // Reset filters when the deal changes.
         setChannelFilter(null)
         setPeopleFilter([])
+        setInclusionFilter(null)
       })
       .catch((err) => {
         if (!alive) return
@@ -141,6 +144,11 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
     if (!messages) return []
     return messages.filter((m) => {
       if (channelFilter && m.channel !== channelFilter) return false
+      // Inclusion applies to real messages only — events have no checkbox,
+      // so filtering them by it would silently hide the deal's history.
+      if (inclusionFilter !== null && !m.event) {
+        if (!!m.included !== inclusionFilter) return false
+      }
       if (peopleFilter.length > 0) {
         const senderMatch = m.senderId && peopleFilter.includes(m.senderId)
         const recipientMatch = (m.toIds || []).some((cid) => peopleFilter.includes(cid))
@@ -148,7 +156,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
       }
       return true
     })
-  }, [messages, channelFilter, peopleFilter])
+  }, [messages, channelFilter, peopleFilter, inclusionFilter])
 
   // Channels that ACTUALLY appear on this deal. Derived from the fetched
   // messages so a Rear-Elevation-with-only-emails doesn't show a WhatsApp
@@ -175,8 +183,24 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
     ['WhatsApp', 'WHATSAPP'],
     ['SMS',      'SMS'],
     ['iMessage', 'IMESSAGE'],
-    ['Call',     'CALL']
+    ['Call',     'CALL'],
+    ['Note',     'NOTE']
   ]
+
+  // Inclusion filter — which messages the AI reads. `included` is per-message
+  // state the Timeline checkbox toggles, so these chips filter on something
+  // real. Counts come from readable rows only: an untranscribed call can't be
+  // included either way, so counting it would make the numbers not add up.
+  const inclusionCounts = useMemo(() => {
+    let included = 0
+    let excluded = 0
+    for (const m of messages || []) {
+      if (m.event || !m.readable) continue
+      if (m.included) included++
+      else excluded++
+    }
+    return { included, excluded }
+  }, [messages])
 
   // `key` defaults to the label, but callers must pass an explicit one when
   // labels can repeat — two unnamed contacts both render as "Contact", and a
@@ -532,17 +556,16 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
         </div>
       )}
 
-      {/* Filter bar — people + channel groups on one line.
-          Both narrow the same timeline, so they read as one control strip
-          rather than three stacked rows. Each group is its own flex box with
-          nowrap chips, and the outer row wraps group-by-group when the
-          window is too narrow — so a group never splits mid-way with its
-          label orphaned on the line above.
+      {/* Filter bar — everything that narrows the timeline, plus the section
+          index for the panels below it.
 
-          Channel note chips (Included / Excluded) are deferred until Stage 4
-          AI extraction is live — every readable message currently defaults to
-          `included: true` with no user-facing toggle, so those chips would be
-          misleading. A `Note` filter is redundant with the Notes tab. */}
+          Two rows on the left:
+            1. People  — who sent/received
+            2. Sources — inclusion (what the AI reads) + channel + add-a-source
+
+          The section tabs sit right, wrapping under themselves rather than
+          pushing the filters around. They aren't filters: they choose which
+          discovery panel renders below, so they stay visually separate. */}
       {deal && (
         <div
           style={{
@@ -557,17 +580,15 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
               columnGap: 24, rowGap: 12
             }}
           >
-            {/* Left column: the two timeline filters, stacked. They do the
-                same job (narrow the thread) so they group together and share
-                a column. */}
+            {/* Left: the filter stack */}
             <div
               style={{
                 display: 'flex', flexDirection: 'column',
-                gap: 8, minWidth: 0
+                gap: 8, minWidth: 0, flex: '1 1 520px'
               }}
             >
               {deal.people?.length > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span
                     style={{
                       fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
@@ -611,43 +632,67 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                 </div>
               )}
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span
-                  style={{
-                    fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
-                    textTransform: 'uppercase', color: 'var(--text-muted)'
-                  }}
-                >
-                  Channel
-                </span>
+              {/* Sources row: inclusion + channel + add-a-source. All three
+                  answer "which messages am I looking at", so they share a
+                  line. */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 {(() => {
-                  // Total conversation-channel messages on this deal (excludes
-                  // events, tasks, system rows). Used for the All chip's count.
                   let allCount = 0
                   for (const n of dealChannels.values()) allCount += n
                   return chip(
                     `All${allCount ? ` · ${allCount}` : ''}`,
-                    !channelFilter,
-                    () => setChannelFilter(null)
+                    !channelFilter && inclusionFilter === null,
+                    () => { setChannelFilter(null); setInclusionFilter(null) },
+                    null,
+                    'all'
                   )
                 })()}
+                {chip(
+                  `Included only${inclusionCounts.included ? ` · ${inclusionCounts.included}` : ''}`,
+                  inclusionFilter === true,
+                  () => setInclusionFilter(inclusionFilter === true ? null : true),
+                  null,
+                  'inc'
+                )}
+                {chip(
+                  `Excluded only${inclusionCounts.excluded ? ` · ${inclusionCounts.excluded}` : ''}`,
+                  inclusionFilter === false,
+                  () => setInclusionFilter(inclusionFilter === false ? null : false),
+                  null,
+                  'exc'
+                )}
                 {CHANNEL_CHIPS.filter(([, ch]) => dealChannels.has(ch)).map(
                   ([label, ch]) => {
                     const n = dealChannels.get(ch) || 0
                     return chip(
                       `${label} · ${n}`,
                       channelFilter === ch,
-                      () => setChannelFilter(channelFilter === ch ? null : ch)
+                      () => setChannelFilter(channelFilter === ch ? null : ch),
+                      null,
+                      ch
                     )
                   }
                 )}
+                <button
+                  title="Attach a message or document the sync missed — coming next"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    height: 30, padding: '0 14px',
+                    border: '1px dashed var(--border-strong)',
+                    borderRadius: 'var(--radius-pill)',
+                    background: '#fff', color: 'var(--text-body)',
+                    fontFamily: 'var(--font-sans)', fontSize: 13,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <span className="ms" style={{ fontSize: 16 }}>add</span>
+                  Add a source
+                </button>
               </div>
             </div>
 
-            {/* Right: section index for the content below the timeline.
-                Not a filter — it selects which discovery section renders, so
-                it sits apart from the filter column rather than in it. */}
-            <div style={{ marginLeft: 'auto', minWidth: 0 }}>
+            {/* Right: section index for the panels below the timeline. */}
+            <div style={{ minWidth: 0, flex: '0 1 auto', maxWidth: '100%' }}>
               <DealSectionTabs
                 counts={{
                   tasksOpen: deal?.counts?.tasksOpen ?? deal?.counts?.tasks_open,
