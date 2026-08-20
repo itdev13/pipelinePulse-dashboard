@@ -6,6 +6,9 @@ import DealSection from '../dealhub/DealSection'
 import AskDeal from '../dealhub/AskDeal'
 import CommitmentsSection from '../dealhub/CommitmentsSection'
 import DealSectionTabs from '../dealhub/DealSectionTabs'
+import {
+  DealHubSkeleton, DealBodySkeleton, SkeletonStyles
+} from '../dealhub/Skeleton'
 import { dealsAPI } from '../../api/deals'
 
 // Deal Hub tab — the core view.
@@ -268,13 +271,9 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
     )
   }
 
-  if (!deals) {
-    return (
-      <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
-        Loading deals…
-      </div>
-    )
-  }
+  // First load: no switcher or header to frame yet, so the skeleton stands
+  // in for the whole tab.
+  if (!deals) return <DealHubSkeleton />
 
   return (
     <div>
@@ -463,14 +462,17 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
             })()}
           </div>
 
-          {deal && deal.value && (
+          {/* Header facts belong to the loaded deal — during a switch `deal`
+              still holds the previous one, so gate on !loading or the value
+              briefly reads as the new deal's. */}
+          {deal && !loading && deal.value && (
             <span
               style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-muted)' }}
             >
               {deal.value}
             </span>
           )}
-          {deal && (
+          {deal && !loading && (
             <span
               style={{
                 fontSize: 12, color: 'var(--text-muted)', marginLeft: 'auto'
@@ -481,16 +483,29 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
           )}
         </div>
 
-        {/* Stage stepper — per pipeline, current stage highlighted */}
-        {stages && stages.length > 0 && (
-          <StageStepper stages={stages} />
+        {/* Stage stepper — per pipeline, current stage highlighted. `stages`
+            is cleared on switch, so hold the row's height with a placeholder
+            instead of letting the header collapse and rebound. */}
+        {loading ? (
+          <div style={{ display: 'flex', gap: 8, paddingTop: 10 }}>
+            <SkeletonStyles />
+            {[96, 112, 88, 104, 92].map((w, i) => (
+              <span
+                key={i}
+                className="pp-sk"
+                style={{ display: 'block', width: w, height: 26, borderRadius: 'var(--radius-pill)' }}
+              />
+            ))}
+          </div>
+        ) : (
+          stages && stages.length > 0 && <StageStepper stages={stages} />
         )}
         </div>
       </div>
 
       {/* Left-rail tabs (People / Deal / Media). Only People rendered
           for now — Deal + Media come next iterations. */}
-      {deal && (
+      {deal && !loading && (
         <div
           style={{
             padding: '14px 20px 0',
@@ -566,7 +581,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
           The section tabs sit right, wrapping under themselves rather than
           pushing the filters around. They aren't filters: they choose which
           discovery panel renders below, so they stay visually separate. */}
-      {deal && (
+      {deal && !loading && (
         <div
           style={{
             padding: '14px 20px 0',
@@ -708,23 +723,19 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
         </div>
       )}
 
+      {/* Switching deals swaps every panel below the header at once. Render
+          the body's shape while it loads rather than leaving the previous
+          deal on screen — otherwise you can't tell whether you're looking at
+          the deal you just picked or the one before it. */}
+      {loading && <DealBodySkeleton />}
+
       {/* Timeline */}
       <div
         style={{
-          padding: '14px 20px 24px',
+          padding: loading ? 0 : '14px 20px 24px',
           maxWidth: 1660, margin: '0 auto', boxSizing: 'border-box'
         }}
       >
-        {loading && (
-          <div
-            style={{
-              padding: 40, textAlign: 'center',
-              color: 'var(--text-muted)', fontSize: 14
-            }}
-          >
-            Loading deal…
-          </div>
-        )}
         {error && (
           <div
             style={{
