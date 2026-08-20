@@ -178,9 +178,12 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
     ['Call',     'CALL']
   ]
 
-  const chip = (label, active, onClick, extra) => (
+  // `key` defaults to the label, but callers must pass an explicit one when
+  // labels can repeat — two unnamed contacts both render as "Contact", and a
+  // duplicate React key would collapse them into one element.
+  const chip = (label, active, onClick, extra, key) => (
     <button
-      key={label}
+      key={key ?? label}
       onClick={onClick}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 7,
@@ -529,91 +532,112 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
         </div>
       )}
 
-      {/* People filter chips (below the section — narrows the timeline) */}
-      {deal && deal.people?.length > 0 && (
+      {/* Filter bar — people + channel groups on one line.
+          Both narrow the same timeline, so they read as one control strip
+          rather than three stacked rows. Each group is its own flex box with
+          nowrap chips, and the outer row wraps group-by-group when the
+          window is too narrow — so a group never splits mid-way with its
+          label orphaned on the line above.
+
+          Channel note chips (Included / Excluded) are deferred until Stage 4
+          AI extraction is live — every readable message currently defaults to
+          `included: true` with no user-facing toggle, so those chips would be
+          misleading. A `Note` filter is redundant with the Notes tab. */}
+      {deal && (
         <div
           style={{
             padding: '14px 20px 0',
             maxWidth: 1660, margin: '0 auto', boxSizing: 'border-box'
           }}
         >
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-            <span
-              style={{
-                fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
-                textTransform: 'uppercase', color: 'var(--text-muted)', marginRight: 4
-              }}
-            >
-              People
-            </span>
-            {chip(
-              'Everyone',
-              peopleFilter.length === 0,
-              () => setPeopleFilter([]),
-              <span
-                style={{
-                  width: 8, height: 8, borderRadius: '50%',
-                  background: 'transparent'
-                }}
-              />
-            )}
-            {deal.people.map((p) => {
-              const active = peopleFilter.includes(p.id)
-              return chip(
-                p.firstName || 'Contact',
-                active,
-                () =>
-                  setPeopleFilter((prev) =>
-                    active ? prev.filter((x) => x !== p.id) : [...prev, p.id]
-                  ),
+          <div
+            style={{
+              display: 'flex', flexWrap: 'wrap',
+              alignItems: 'center',
+              // Wider gap between groups than between chips, so the two
+              // groups stay legible as separate controls on one line.
+              columnGap: 20, rowGap: 10
+            }}
+          >
+            {deal.people?.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span
                   style={{
-                    width: 8, height: 8, borderRadius: '50%',
-                    background: `var(--accent-${p.accent})`
+                    fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
+                    textTransform: 'uppercase', color: 'var(--text-muted)'
                   }}
-                />
-              )
-            })}
+                >
+                  People
+                </span>
+                {chip(
+                  'Everyone',
+                  peopleFilter.length === 0,
+                  () => setPeopleFilter([]),
+                  <span
+                    style={{
+                      width: 8, height: 8, borderRadius: '50%',
+                      background: 'transparent'
+                    }}
+                  />
+                )}
+                {deal.people.map((p) => {
+                  const active = peopleFilter.includes(p.id)
+                  return chip(
+                    // Two unnamed contacts both rendering as "Contact" is
+                    // unusable as a filter — fall back through the same
+                    // identifier chain PeopleSection uses.
+                    chipNameFor(p),
+                    active,
+                    () =>
+                      setPeopleFilter((prev) =>
+                        active ? prev.filter((x) => x !== p.id) : [...prev, p.id]
+                      ),
+                    <span
+                      style={{
+                        width: 8, height: 8, borderRadius: '50%',
+                        background: `var(--accent-${p.accent})`
+                      }}
+                    />,
+                    p.id
+                  )
+                })}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span
+                style={{
+                  fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
+                  textTransform: 'uppercase', color: 'var(--text-muted)'
+                }}
+              >
+                Channel
+              </span>
+              {(() => {
+                // Total conversation-channel messages on this deal (excludes
+                // events, tasks, system rows). Used for the All chip's count.
+                let allCount = 0
+                for (const n of dealChannels.values()) allCount += n
+                return chip(
+                  `All${allCount ? ` · ${allCount}` : ''}`,
+                  !channelFilter,
+                  () => setChannelFilter(null)
+                )
+              })()}
+              {CHANNEL_CHIPS.filter(([, ch]) => dealChannels.has(ch)).map(
+                ([label, ch]) => {
+                  const n = dealChannels.get(ch) || 0
+                  return chip(
+                    `${label} · ${n}`,
+                    channelFilter === ch,
+                    () => setChannelFilter(channelFilter === ch ? null : ch)
+                  )
+                }
+              )}
+            </div>
           </div>
         </div>
       )}
-
-      {/* Channel filter chips.
-          Note chips (Included / Excluded only) are deferred until Stage 4 AI
-          extraction is live — right now every readable message defaults to
-          `included: true` and there's no user-facing toggle, so those chips
-          would be misleading. `Note` filter is redundant with the dedicated
-          Notes pane / tab. */}
-      <div
-        style={{
-          padding: '10px 20px 0',
-          maxWidth: 1660, margin: '0 auto', boxSizing: 'border-box'
-        }}
-      >
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {(() => {
-            // Total conversation-channel messages on this deal (excludes
-            // events, tasks, system rows). Used for the All chip's count.
-            let allCount = 0
-            for (const n of dealChannels.values()) allCount += n
-            return chip(
-              `All${allCount ? ` · ${allCount}` : ''}`,
-              !channelFilter,
-              () => setChannelFilter(null)
-            )
-          })()}
-          {CHANNEL_CHIPS.filter(([, ch]) => dealChannels.has(ch)).map(
-            ([label, ch]) => {
-              const n = dealChannels.get(ch) || 0
-              return chip(
-                `${label} · ${n}`,
-                channelFilter === ch,
-                () => setChannelFilter(channelFilter === ch ? null : ch)
-              )
-            }
-          )}
-        </div>
-      </div>
 
       {/* Timeline */}
       <div
@@ -676,4 +700,18 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
       </div>
     </div>
   )
+}
+
+// Short label for a people filter chip. Prefers a first name (chips are
+// narrow), then any other identifier we hold, so two unnamed contacts stay
+// tellable apart. Mirrors PeopleSection's displayFor() fallback chain.
+function chipNameFor(p) {
+  const first = (p.firstName || '').trim()
+  if (first) return first
+  const last = (p.lastName || '').trim()
+  if (last) return last
+  if (p.email) return p.email.split('@')[0]
+  if (p.phone) return p.phone
+  if (p.business) return p.business
+  return 'Contact'
 }

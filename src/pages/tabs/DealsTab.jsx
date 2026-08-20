@@ -1,9 +1,17 @@
 import React, { useEffect, useState } from 'react'
 import { dealsAPI } from '../../api/deals'
+import {
+  Shell, PageHeader, SearchInput, StateMessage,
+  formatDate, initialsFor, nameFor
+} from '../shared/ListChrome'
 
-// Deals tab — a stacked list of open deals for this location.
-// Clicking a card fires onOpenDeal(id) which the shell interprets as
-// "flip to Deal hub tab and show that deal".
+// Deals tab — one card per open deal, each showing the facts a rep scans for
+// and the full contact list on the deal.
+//
+// Value / expected close / stage / owner render as controls per the design.
+// /api/deals is read-only (no PATCH route yet), so they hold local state and
+// carry a "coming next" title — same convention as PeopleSection's Make
+// primary / Remove and the Deal Hub's stage dropdown.
 
 export default function DealsTab({ onOpenDeal }) {
   const [deals, setDeals] = useState(null)
@@ -21,160 +29,315 @@ export default function DealsTab({ onOpenDeal }) {
   const filtered = (deals || []).filter((d) => {
     if (!q.trim()) return true
     const needle = q.toLowerCase()
-    return [d.dealTag, d.contact?.firstName, d.contact?.lastName, d.contact?.email, d.contact?.business]
+    const people = (d.people || []).map(nameFor).join(' ')
+    return [d.dealTag, d.stage, d.owner, d.product, people]
       .filter(Boolean).join(' ').toLowerCase().includes(needle)
   })
 
   return (
-    <div
-      style={{
-        maxWidth: 1240, width: '100%', boxSizing: 'border-box',
-        margin: '0 auto', padding: '16px 20px 28px', display: 'grid', gap: 14
-      }}
-    >
-      {/* Title + search */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-        <h1 style={{ fontSize: 24 }}>Deals</h1>
-        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-          {deals ? `${deals.length} open` : 'Loading…'}
-        </span>
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by deal name, contact or business"
-          style={{
-            marginLeft: 'auto',
-            width: 320, height: 36, boxSizing: 'border-box',
-            padding: '0 12px',
-            border: '1px solid var(--border-strong)',
-            borderRadius: 'var(--radius-md)',
-            background: '#fff', fontSize: 13, color: 'var(--text-body)'
-          }}
-        />
-      </div>
+    <Shell maxWidth={1240}>
+      <PageHeader
+        title="Deals"
+        subtitle="Value, expected close, stage and owner are editable inline"
+        action={
+          <SearchInput
+            value={q}
+            onChange={setQ}
+            placeholder="Search deal, contact or product"
+            width={320}
+          />
+        }
+      />
 
-      {error && (
+      {(error || !deals || filtered.length === 0) && (
         <div
           style={{
-            padding: 16,
-            border: '1px solid var(--status-stuck)',
+            border: '1px solid var(--border-default)',
             borderRadius: 'var(--radius-md)',
-            background: 'var(--tint-rose)', color: 'var(--status-stuck)', fontSize: 13
+            background: '#fff', overflow: 'hidden'
           }}
         >
-          {error}
-        </div>
-      )}
-
-      {deals && filtered.length === 0 && !error && (
-        <div style={{ padding: 24, color: 'var(--text-muted)', fontSize: 13 }}>
-          No deals match — clear the search to see everything.
+          <StateMessage
+            loading={!deals && !error}
+            error={error}
+            empty={deals && filtered.length === 0}
+            emptyText={
+              q.trim()
+                ? 'No deals match — clear the search to see everything.'
+                : 'No open deals in this sub-account.'
+            }
+            loadingText="Loading deals…"
+          />
         </div>
       )}
 
       {filtered.map((d) => (
-        <div
-          key={d.id}
-          style={{
-            border: '2px solid var(--accent-pine)',
-            borderRadius: 'var(--radius-md)',
-            background: '#fff', padding: 16, display: 'grid', gap: 12
-          }}
+        <DealCard key={d.id} deal={d} onOpenDeal={onOpenDeal} />
+      ))}
+    </Shell>
+  )
+}
+
+function DealCard({ deal, onOpenDeal }) {
+  const [value, setValue] = useState(deal.value || '')
+  const [closeDate, setCloseDate] = useState(
+    deal.forecastCloseDate ? toDateInput(deal.forecastCloseDate) : ''
+  )
+  const [stage, setStage] = useState(deal.stage || '')
+
+  const people = deal.people || []
+  const daysInStage = daysSince(deal.currentStageEnteredAt)
+
+  // The strip under the controls: what it is, where it came from, how long
+  // it's sat there. Only facts we actually have — no "—" filler.
+  const facts = [
+    deal.product,
+    deal.leadSource,
+    daysInStage != null ? `${daysInStage} ${daysInStage === 1 ? 'day' : 'days'} in stage` : null,
+    deal.pipeline
+  ].filter(Boolean)
+
+  return (
+    <section
+      style={{
+        border: '2px solid var(--accent-pine)',
+        borderRadius: 'var(--radius-md)',
+        background: '#fff', overflow: 'hidden'
+      }}
+    >
+      <header
+        style={{
+          display: 'flex', alignItems: 'flex-start', gap: 12,
+          flexWrap: 'wrap', padding: '14px 16px 0'
+        }}
+      >
+        <span
+          className="ms"
+          style={{ fontSize: 20, color: 'var(--accent-pine)', marginTop: 2 }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <span className="ms" style={{ fontSize: 20, color: 'var(--accent-pine)' }}>sell</span>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--text-heading)' }}>
-                {d.dealTag}
-              </div>
-              <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 2 }}>
-                {[d.pipeline, d.stage, d.owner].filter(Boolean).join(' · ')}
-              </div>
-            </div>
-            <button
-              onClick={() => onOpenDeal(d.id)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer',
-                height: 32, padding: '0 14px',
-                border: '1px solid transparent',
-                borderRadius: 'var(--radius-md)',
-                background: 'var(--brand-primary)', color: '#fff',
-                fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 500
-              }}
-            >
-              Open deal
-              <span className="ms" style={{ fontSize: 16 }}>arrow_forward</span>
-            </button>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                Value
-              </div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 15, color: 'var(--text-heading)', marginTop: 2 }}>
-                {d.value || '—'}
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                Stage
-              </div>
-              <div style={{ fontSize: 13, marginTop: 2 }}>{d.stage || '—'}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                Owner
-              </div>
-              <div style={{ fontSize: 13, marginTop: 2 }}>{d.owner || '—'}</div>
-            </div>
-          </div>
-
-          {d.contact && (
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 6 }}>
-                Contact
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                <span
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 7,
-                    padding: '5px 10px 5px 5px',
-                    border: '1px solid var(--border-default)',
-                    borderRadius: 'var(--radius-pill)',
-                    background: '#fff', fontSize: 12
-                  }}
-                >
-                  <span
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      width: 22, height: 22, flex: 'none',
-                      borderRadius: '50%',
-                      background: `var(--tint-${d.contact.accent})`,
-                      color: `var(--accent-${d.contact.accent})`,
-                      fontSize: 10, fontWeight: 600
-                    }}
-                  >
-                    {(d.contact.firstName?.[0] || '')}{(d.contact.lastName?.[0] || '')}
-                  </span>
-                  <span style={{ fontWeight: 600, color: 'var(--text-heading)' }}>
-                    {[d.contact.firstName, d.contact.lastName].filter(Boolean).join(' ') || 'Contact'}
-                  </span>
-                  {d.contact.business && (
-                    <span style={{ color: 'var(--text-muted)' }}>· {d.contact.business}</span>
-                  )}
-                </span>
-              </div>
-            </div>
+          sell
+        </span>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <h2
+            style={{
+              fontSize: 18, fontWeight: 600, color: 'var(--text-heading)',
+              margin: 0, lineHeight: 1.3
+            }}
+          >
+            {deal.dealTag || '(unnamed deal)'}
+          </h2>
+          {deal.opportunityName && deal.opportunityName !== deal.dealTag && (
+            <p style={{ margin: '3px 0 0', fontSize: 12.5, color: 'var(--text-muted)' }}>
+              {deal.opportunityName}
+            </p>
           )}
         </div>
-      ))}
 
-      {!deals && !error && (
-        <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
-          Loading deals…
+        <button
+          onClick={() => onOpenDeal && onOpenDeal(deal.id)}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 7,
+            height: 34, padding: '0 15px',
+            border: 'none', borderRadius: 'var(--radius-md)',
+            background: 'var(--green-600)', color: '#fff',
+            fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 500,
+            cursor: 'pointer', flex: 'none'
+          }}
+        >
+          Open deal
+          <span className="ms" style={{ fontSize: 16 }}>arrow_forward</span>
+        </button>
+      </header>
+
+      {/* Inline-editable fields */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: 12, padding: '12px 16px 0'
+        }}
+      >
+        <Field label="Value">
+          <Control
+            value={value}
+            onChange={setValue}
+            mono
+            title="Value — write flow coming next"
+          />
+        </Field>
+        <Field label="Expected close">
+          <Control
+            type="date"
+            value={closeDate}
+            onChange={setCloseDate}
+            title="Expected close — write flow coming next"
+          />
+        </Field>
+        <Field label="Stage">
+          <Control
+            value={stage}
+            onChange={setStage}
+            title="Stage — write flow coming next"
+          />
+        </Field>
+        <Field label="Owner">
+          <Control
+            value={deal.owner || ''}
+            readOnly
+            title="Reassigning an owner writes back to GoHighLevel — coming next"
+          />
+        </Field>
+      </div>
+
+      {facts.length > 0 && (
+        <p
+          style={{
+            margin: 0, padding: '10px 16px 0',
+            fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.5
+          }}
+        >
+          {facts.join(' · ')}
+          {deal.lastCustomerContactAt && (
+            <> · last contact {formatDate(deal.lastCustomerContactAt)}</>
+          )}
+        </p>
+      )}
+
+      {people.length > 0 && (
+        <div style={{ padding: '12px 16px 16px' }}>
+          <span
+            style={{
+              display: 'block', marginBottom: 7,
+              fontSize: 10, fontWeight: 600, letterSpacing: '0.08em',
+              textTransform: 'uppercase', color: 'var(--text-muted)'
+            }}
+          >
+            {people.length === 1 ? 'Contact on this deal' : 'Contacts on this deal'}
+          </span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {people.map((p) => (
+              <PersonPill key={p.id} person={p} />
+            ))}
+          </div>
         </div>
       )}
+    </section>
+  )
+}
+
+function PersonPill({ person }) {
+  const accent = `var(--accent-${person.accent || 'sky'})`
+  const tint = `var(--tint-${person.accent || 'sky'})`
+  const name = nameFor(person)
+
+  return (
+    <span
+      title={person.business || undefined}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 9,
+        maxWidth: 300,
+        padding: '6px 12px 6px 6px',
+        border: '1px solid var(--border-default)',
+        borderRadius: 'var(--radius-pill)',
+        background: '#fff'
+      }}
+    >
+      <span
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 28, height: 28, flex: 'none',
+          borderRadius: '50%',
+          background: tint, color: accent,
+          fontSize: 10.5, fontWeight: 600
+        }}
+      >
+        {initialsFor(person.firstName, person.lastName, name)}
+      </span>
+      <span style={{ minWidth: 0 }}>
+        <span
+          style={{
+            display: 'block',
+            fontSize: 13, fontWeight: 600, color: 'var(--text-heading)',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+          }}
+        >
+          {name}
+        </span>
+        {(person.contactType || person.business) && (
+          <span
+            style={{
+              display: 'block', fontSize: 11, color: 'var(--text-muted)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+            }}
+          >
+            {person.contactType || person.business}
+          </span>
+        )}
+      </span>
+      {person.primary && (
+        <span
+          style={{
+            flex: 'none',
+            fontSize: 9.5, fontWeight: 600, letterSpacing: '0.05em',
+            textTransform: 'uppercase',
+            padding: '2px 7px', borderRadius: 'var(--radius-sm)',
+            background: 'var(--green-50)', color: 'var(--green-600)'
+          }}
+        >
+          Primary
+        </span>
+      )}
+    </span>
+  )
+}
+
+function Field({ label, children }) {
+  return (
+    <div style={{ minWidth: 0 }}>
+      <span
+        style={{
+          display: 'block', marginBottom: 5,
+          fontSize: 10, fontWeight: 600, letterSpacing: '0.08em',
+          textTransform: 'uppercase', color: 'var(--text-muted)'
+        }}
+      >
+        {label}
+      </span>
+      {children}
     </div>
   )
+}
+
+function Control({ value, onChange, type = 'text', mono, title, readOnly }) {
+  return (
+    <input
+      type={type}
+      value={value}
+      readOnly={readOnly}
+      title={title}
+      onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+      style={{
+        width: '100%', height: 36, boxSizing: 'border-box',
+        padding: '0 11px',
+        border: '1px solid var(--border-strong)',
+        borderRadius: 'var(--radius-md)',
+        background: readOnly ? 'var(--gray-25)' : '#fff',
+        fontFamily: mono ? 'var(--font-mono)' : 'var(--font-sans)',
+        fontSize: 13.5, color: 'var(--text-heading)'
+      }}
+    />
+  )
+}
+
+function toDateInput(ts) {
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toISOString().slice(0, 10)
+}
+
+function daysSince(ts) {
+  if (!ts) return null
+  const then = new Date(ts).getTime()
+  if (Number.isNaN(then)) return null
+  return Math.max(0, Math.floor((Date.now() - then) / 86400000))
 }

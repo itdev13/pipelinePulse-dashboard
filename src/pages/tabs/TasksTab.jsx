@@ -1,9 +1,25 @@
 import React, { useEffect, useState } from 'react'
 import { tasksAPI } from '../../api/tasks'
+import {
+  Shell, PageHeader, Panel, Row, ContactChip, DealChip, RowAction,
+  PrimaryAction, FilterChip, StateMessage, formatDue
+} from '../shared/ListChrome'
 
-// Tasks tab — queue view. Filter chips (Due) + a list.
-// Backend does the heavy lifting; frontend just paints.
-export default function TasksTab() {
+// Tasks tab — the queue. Due filters run server-side (routes/tasks.js
+// translates them to SQL windows), so changing a chip refetches.
+//
+// The checkbox is rendered but inert: completing a task means writing to GHL,
+// and there's no write endpoint yet. It carries a title saying so rather than
+// looking broken, matching how PeopleSection handles Make primary / Remove.
+
+const DUE_FILTERS = [
+  ['all', 'All'],
+  ['overdue', 'Overdue'],
+  ['week', 'Due this week'],
+  ['month', 'Due next 30 days']
+]
+
+export default function TasksTab({ onOpenDeal }) {
   const [tasks, setTasks] = useState(null)
   const [error, setError] = useState(null)
   const [dueFilter, setDueFilter] = useState('all')
@@ -18,210 +34,140 @@ export default function TasksTab() {
     return () => { alive = false }
   }, [dueFilter])
 
-  const chip = (label, id) => {
-    const active = dueFilter === id
-    return (
-      <button
-        key={id}
-        onClick={() => setDueFilter(id)}
-        style={{
-          cursor: 'pointer',
-          height: 30, padding: '0 14px',
-          border: active ? '2px solid var(--brand-primary)' : '1px solid var(--border-strong)',
-          borderRadius: 'var(--radius-pill)',
-          background: active ? 'var(--surface-selected)' : '#fff',
-          color: active ? 'var(--brand-primary)' : 'var(--text-body)',
-          fontFamily: 'var(--font-sans)',
-          fontSize: 13, fontWeight: active ? 500 : 400
-        }}
-      >
-        {label}
-      </button>
-    )
-  }
-
-  const formatDue = (iso) => {
-    if (!iso) return null
-    const d = new Date(iso)
-    const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-    return `${d.getDate()} ${M[d.getMonth()]}`
-  }
+  const openCount = (tasks || []).length
 
   return (
-    <div
-      style={{
-        maxWidth: 1080, width: '100%', boxSizing: 'border-box',
-        margin: '0 auto', padding: '16px 20px 28px', display: 'grid', gap: 14
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-        <h1 style={{ fontSize: 24 }}>Tasks</h1>
-        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-          {tasks ? `${tasks.length} open` : 'Loading…'}
-        </span>
-      </div>
+    <Shell>
+      <PageHeader
+        title="Tasks"
+        subtitle="Tasks come first — each one links to its contact and its deal; click a task to see it on the deal hub"
+      />
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <span
           style={{
-            fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
-            textTransform: 'uppercase', color: 'var(--text-muted)', marginRight: 4
+            fontSize: 10.5, fontWeight: 600, letterSpacing: '0.08em',
+            textTransform: 'uppercase', color: 'var(--text-muted)', marginRight: 2
           }}
         >
           Due
         </span>
-        {chip('All', 'all')}
-        {chip('Overdue', 'overdue')}
-        {chip('Due this week', 'week')}
-        {chip('Due next 30 days', 'month')}
+        {DUE_FILTERS.map(([id, label]) => (
+          <FilterChip
+            key={id}
+            label={label}
+            active={dueFilter === id}
+            onClick={() => setDueFilter(id)}
+          />
+        ))}
       </div>
 
-      <section
-        style={{
-          border: '2px solid var(--accent-rose)',
-          borderRadius: 'var(--radius-md)',
-          background: '#fff', overflow: 'hidden'
-        }}
+      <Panel
+        icon="task_alt"
+        title="Task queue"
+        accent="rose"
+        meta={tasks ? `${openCount} open` : null}
+        toolbar={
+          <PrimaryAction onClick={undefined} icon="add">
+            Add task
+          </PrimaryAction>
+        }
       >
-        <header
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '12px 16px',
-            borderBottom: '1px solid var(--border-default)'
-          }}
-        >
-          <span className="ms" style={{ fontSize: 20, color: 'var(--accent-rose)' }}>task_alt</span>
-          <h3
-            style={{
-              fontSize: 18, fontWeight: 600, color: 'var(--accent-rose)',
-              margin: 0, flex: 1
-            }}
-          >
-            Task queue
-          </h3>
-          <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-            {tasks ? tasks.length : ''}
-          </span>
-        </header>
+        <StateMessage
+          loading={!tasks && !error}
+          error={error}
+          empty={tasks && openCount === 0}
+          emptyText={
+            dueFilter === 'all'
+              ? 'No open tasks — you’re clear.'
+              : 'Nothing in this window — try another filter.'
+          }
+          loadingText="Loading tasks…"
+        />
 
-        {error && (
-          <div style={{ padding: 16, background: 'var(--tint-rose)', color: 'var(--status-stuck)', fontSize: 13 }}>
-            {error}
-          </div>
-        )}
-
-        {tasks && tasks.length === 0 && !error && (
-          <div style={{ padding: 24, color: 'var(--text-muted)', fontSize: 13 }}>
-            Nothing matches these filters — you're clear.
-          </div>
-        )}
-
-        {!tasks && !error && (
-          <div style={{ padding: 24, color: 'var(--text-muted)', fontSize: 13 }}>
-            Loading tasks…
-          </div>
-        )}
-
-        {(tasks || []).map((t) => (
-          <div
-            key={t.id}
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '18px 1fr auto',
-              gap: 12, alignItems: 'start',
-              padding: '12px 16px',
-              borderBottom: '1px solid var(--border-default)'
-            }}
-          >
-            {/* Checkbox slot (visual only for now — server write not wired) */}
+        {(tasks || []).map((t, i) => (
+          <Row key={t.id} last={i === openCount - 1}>
             <input
               type="checkbox"
               disabled
-              style={{ marginTop: 3, width: 18, height: 18, accentColor: 'var(--brand-primary)' }}
+              title="Completing a task writes back to GoHighLevel — coming next"
+              style={{
+                marginTop: 2, width: 17, height: 17, flex: 'none',
+                accentColor: 'var(--brand-primary)', cursor: 'not-allowed'
+              }}
             />
 
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-heading)', lineHeight: 1.4 }}>
-                {t.title || '(no title)'}
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div
+                style={{
+                  fontSize: 14, fontWeight: 600, color: 'var(--text-heading)',
+                  lineHeight: 1.35
+                }}
+              >
+                {t.title || '(untitled task)'}
               </div>
+
               {t.body && (
-                <div style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)', marginTop: 2 }}>
+                <p
+                  style={{
+                    margin: '4px 0 0', maxWidth: 680,
+                    fontSize: 13, lineHeight: 1.5, color: 'var(--text-body)'
+                  }}
+                >
                   {t.body}
-                </div>
+                </p>
               )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-                {t.dueAt && (
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    Due {formatDue(t.dueAt)}
-                  </span>
-                )}
-                {t.owner && (
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    · {t.owner}
-                  </span>
-                )}
-                {t.overdue && (
-                  <span
-                    style={{
-                      fontSize: 11, fontWeight: 600,
-                      padding: '2px 8px', borderRadius: 'var(--radius-sm)',
-                      background: 'var(--status-stuck)', color: '#fff'
-                    }}
-                  >
-                    Overdue
-                  </span>
-                )}
-                {t.dueToday && !t.overdue && (
-                  <span
-                    style={{
-                      fontSize: 11, fontWeight: 600,
-                      padding: '2px 8px', borderRadius: 'var(--radius-sm)',
-                      background: 'var(--status-working)', color: '#fff'
-                    }}
-                  >
-                    Due today
-                  </span>
-                )}
+
+              <div
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  flexWrap: 'wrap', marginTop: 5
+                }}
+              >
+                <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                  {[formatDue(t.dueAt), t.owner].filter(Boolean).join(' · ')}
+                </span>
+                {t.overdue && <StatusPill tone="overdue">Overdue</StatusPill>}
+                {t.dueToday && !t.overdue && <StatusPill tone="today">Due today</StatusPill>}
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-              {t.contact && (
-                <span
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 5,
-                    padding: '4px 10px',
-                    border: '1px solid var(--border-default)',
-                    borderRadius: 'var(--radius-pill)',
-                    background: '#fff',
-                    fontSize: 11.5, fontWeight: 500, whiteSpace: 'nowrap',
-                    color: 'var(--text-body)'
-                  }}
-                >
-                  <span className="ms" style={{ fontSize: 13, color: 'var(--text-muted)' }}>person</span>
-                  {t.contact.name || 'Contact'}
-                </span>
-              )}
+            <div
+              style={{
+                display: 'flex', gap: 6, flexWrap: 'wrap',
+                justifyContent: 'flex-end', alignItems: 'center'
+              }}
+            >
+              {t.contact && <ContactChip name={t.contact.name} />}
               {t.deal && (
-                <span
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 5,
-                    padding: '4px 10px',
-                    border: '1px solid var(--green-300)',
-                    borderRadius: 'var(--radius-pill)',
-                    background: 'var(--green-50)',
-                    fontSize: 11.5, fontWeight: 500, whiteSpace: 'nowrap',
-                    color: 'var(--green-600)'
-                  }}
-                >
-                  <span className="ms" style={{ fontSize: 13 }}>sell</span>
-                  {t.deal.name}
-                </span>
+                <DealChip
+                  name={t.deal.name}
+                  onClick={onOpenDeal ? () => onOpenDeal(t.deal.id) : undefined}
+                />
               )}
+              <RowAction icon="edit" title="Edit task — coming next" />
             </div>
-          </div>
+          </Row>
         ))}
-      </section>
-    </div>
+      </Panel>
+    </Shell>
+  )
+}
+
+function StatusPill({ tone, children }) {
+  const overdue = tone === 'overdue'
+  return (
+    <span
+      style={{
+        display: 'inline-flex', alignItems: 'center',
+        height: 21, padding: '0 9px',
+        borderRadius: 'var(--radius-sm)',
+        background: overdue ? 'var(--status-stuck)' : 'var(--status-working)',
+        color: '#fff',
+        fontSize: 11, fontWeight: 600
+      }}
+    >
+      {children}
+    </span>
   )
 }
