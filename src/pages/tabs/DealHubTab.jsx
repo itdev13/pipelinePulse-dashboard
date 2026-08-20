@@ -4,6 +4,7 @@ import StageStepper from '../dealhub/StageStepper'
 import PeopleSection from '../dealhub/PeopleSection'
 import AskDeal from '../dealhub/AskDeal'
 import CommitmentsSection from '../dealhub/CommitmentsSection'
+import DealSectionTabs from '../dealhub/DealSectionTabs'
 import { dealsAPI } from '../../api/deals'
 
 // Deal Hub tab — the core view.
@@ -32,6 +33,11 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
 
   // Left-rail tabs — People / Deal / Media. Only People is real for now.
   const [leftRail, setLeftRail] = useState('people')
+
+  // Deal-section inner tabs — commitments / whys / qualification / next-step
+  // / tasks / notes. Purely visual right now: highlights the tab and (later)
+  // will scroll to the matching section as those sections get built.
+  const [activeSection, setActiveSection] = useState('commitments')
 
   // Filter state
   const [channelFilter, setChannelFilter] = useState(null)
@@ -617,6 +623,16 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
         )}
         {!loading && !error && messages && (
           <>
+            <DealSectionTabs
+              counts={{
+                tasksOpen: deal?.counts?.tasksOpen ?? deal?.counts?.tasks_open,
+                notes: deal?.counts?.notes
+                // commitmentsOverdue / qualificationMissing land once the
+                // AI extraction layer is wired — nothing to show for now.
+              }}
+              activeId={activeSection}
+              onSelect={setActiveSection}
+            />
             <div
               style={{
                 display: 'grid',
