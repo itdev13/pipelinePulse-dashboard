@@ -4,6 +4,7 @@ import ToneOfVoiceSection from '../control/ToneOfVoiceSection'
 import MeddicMappingSection from '../control/MeddicMappingSection'
 import ProductKnowledgeSection from '../control/ProductKnowledgeSection'
 import BusinessInfoSection from '../control/BusinessInfoSection'
+import { Bar, SkeletonStyles } from '../shared/ListChrome'
 
 // Control centre — everything a location teaches the AI about itself.
 //
@@ -49,7 +50,45 @@ export default function ControlCentreTab() {
   if (!data) {
     return (
       <Shell>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading…</p>
+        <SkeletonStyles />
+        {/* One block per section, in the real order, so the page keeps its
+            height while the config loads. */}
+        {[200, 260, 200, 170].map((h, i) => (
+          <div
+            key={i}
+            style={{
+              border: '2px solid var(--gray-200)',
+              borderRadius: 'var(--radius-md)',
+              background: '#fff', overflow: 'hidden'
+            }}
+          >
+            <div
+              style={{
+                display: 'flex', alignItems: 'center', gap: 9,
+                padding: '12px 16px'
+              }}
+            >
+              <Bar w={20} h={20} style={{ flex: 'none' }} />
+              <Bar w={i % 2 ? 168 : 132} h={15} />
+              <span style={{ marginLeft: 'auto' }}><Bar w={72} h={11} /></span>
+            </div>
+            <div
+              style={{
+                padding: '10px 16px',
+                borderTop: '1px solid var(--border-default)',
+                borderBottom: '1px solid var(--border-default)',
+                background: 'var(--gray-50)'
+              }}
+            >
+              <Bar w="72%" h={11} />
+            </div>
+            <div style={{ padding: 16, display: 'grid', gap: 10 }}>
+              <Bar w="100%" h={h / 4} r="var(--radius-md)" />
+              <Bar w="86%" h={14} />
+              <Bar w="64%" h={14} />
+            </div>
+          </div>
+        ))}
       </Shell>
     )
   }

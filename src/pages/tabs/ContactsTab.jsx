@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { contactsAPI } from '../../api/contacts'
+import { CardGridSkeleton } from '../shared/ListChrome'
 
 // Contacts tab — every contact in this location.
 // Grid of cards with editable-in-future fields; today they're read-only.
@@ -65,11 +66,10 @@ export default function ContactsTab() {
         </div>
       )}
 
-      {!contacts && !error && (
-        <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
-          Loading contacts…
-        </div>
-      )}
+      {/* Card grid, so the skeleton mirrors the card shape and the layout
+          doesn't jump when the real contacts land. minWidth matches the real
+          grid's 320px track. */}
+      {!contacts && !error && <CardGridSkeleton cards={9} minWidth={320} />}
 
       {contacts && filtered.length === 0 && !error && (
         <div style={{ padding: 24, color: 'var(--text-muted)', fontSize: 13 }}>

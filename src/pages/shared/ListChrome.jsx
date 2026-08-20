@@ -229,7 +229,13 @@ export function SearchInput({ value, onChange, placeholder, width = 300 }) {
 }
 
 // Loading / empty / error, so every tab words these the same way.
-export function StateMessage({ loading, error, empty, emptyText, loadingText }) {
+//
+// `loading` renders row skeletons rather than a text line: these panels are
+// the page's whole content, so a bare "Loading…" leaves the layout empty and
+// then snaps. Pass skeletonRows to match the density of the real rows.
+export function StateMessage({
+  loading, error, empty, emptyText, loadingText, skeletonRows = 4
+}) {
   if (error) {
     return (
       <div
@@ -244,12 +250,193 @@ export function StateMessage({ loading, error, empty, emptyText, loadingText }) 
     )
   }
   if (loading) {
-    return <Muted>{loadingText || 'Loading…'}</Muted>
+    return <RowSkeletons rows={skeletonRows} label={loadingText} />
   }
   if (empty) {
     return <Muted>{emptyText}</Muted>
   }
   return null
+}
+
+// ── Skeletons ─────────────────────────────────────────────────────────
+//
+// Shared with the Deal Hub's shimmer (pages/dealhub/Skeleton.jsx) via the
+// same .pp-sk class, so there's one animation definition in the app. This
+// module injects it too, since the list tabs render without the Deal Hub
+// mounted.
+
+const SHIMMER_CSS = `
+@keyframes pp-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.pp-sk {
+  background: linear-gradient(
+    90deg,
+    var(--gray-100) 25%,
+    var(--gray-50)  37%,
+    var(--gray-100) 63%
+  );
+  background-size: 200% 100%;
+  animation: pp-shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pp-sk { animation: none; }
+}
+`
+
+export function SkeletonStyles() {
+  return <style>{SHIMMER_CSS}</style>
+}
+
+export function Bar({ w = '100%', h = 12, r, style }) {
+  return (
+    <span
+      className="pp-sk"
+      style={{
+        display: 'block', width: w, height: h,
+        borderRadius: r ?? 'var(--radius-sm)',
+        ...style
+      }}
+    />
+  )
+}
+
+// Rows inside a Panel: icon block, two text lines, chips right. Matches the
+// shape of a Notes / Tasks row so the layout doesn't jump when data lands.
+export function RowSkeletons({ rows = 4, label }) {
+  return (
+    <>
+      <SkeletonStyles />
+      {label && (
+        <span
+          style={{
+            position: 'absolute', width: 1, height: 1,
+            overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap'
+          }}
+        >
+          {label}
+        </span>
+      )}
+      {Array.from({ length: rows }).map((_, i) => (
+        <div
+          key={i}
+          style={{
+            display: 'flex', alignItems: 'flex-start', gap: 12,
+            padding: '13px 16px',
+            borderBottom: i === rows - 1 ? 'none' : '1px solid var(--border-default)'
+          }}
+        >
+          <Bar w={30} h={30} r="var(--radius-md)" style={{ flex: 'none' }} />
+          <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: 7 }}>
+            {/* Widths vary per row so it reads as text arriving, not a table. */}
+            <Bar w={i % 2 ? '38%' : '52%'} h={13} />
+            <Bar w={i % 3 === 0 ? '78%' : '62%'} h={11} />
+            <Bar w={112} h={10} />
+          </div>
+          <div style={{ display: 'flex', gap: 6, flex: 'none' }}>
+            <Bar w={104} h={30} r="var(--radius-pill)" />
+            <Bar w={124} h={30} r="var(--radius-pill)" />
+            <Bar w={30} h={30} r="var(--radius-md)" />
+          </div>
+        </div>
+      ))}
+    </>
+  )
+}
+
+// Card-grid skeleton for the Contacts tab.
+export function CardGridSkeleton({ cards = 8, minWidth = 260 }) {
+  return (
+    <>
+      <SkeletonStyles />
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(auto-fill, minmax(${minWidth}px, 1fr))`,
+          gap: 12
+        }}
+      >
+        {Array.from({ length: cards }).map((_, i) => (
+          <div
+            key={i}
+            style={{
+              border: '1px solid var(--border-default)',
+              borderTop: '3px solid var(--gray-200)',
+              borderRadius: 'var(--radius-md)',
+              background: '#fff',
+              padding: 14, display: 'grid', gap: 10
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Bar w={34} h={34} r="50%" style={{ flex: 'none' }} />
+              <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: 6 }}>
+                <Bar w={i % 2 ? '58%' : '74%'} h={13} />
+                <Bar w="40%" h={10} />
+              </div>
+            </div>
+            <div style={{ display: 'grid', gap: 6 }}>
+              <Bar w="86%" h={11} />
+              <Bar w="64%" h={11} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
+// Deal cards on the Deals tab — header, four field controls, contact pills.
+export function DealCardsSkeleton({ cards = 3 }) {
+  return (
+    <>
+      <SkeletonStyles />
+      {Array.from({ length: cards }).map((_, i) => (
+        <section
+          key={i}
+          style={{
+            border: '2px solid var(--gray-200)',
+            borderRadius: 'var(--radius-md)',
+            background: '#fff', overflow: 'hidden'
+          }}
+        >
+          <div style={{ display: 'flex', gap: 12, padding: '14px 16px 0', alignItems: 'flex-start' }}>
+            <Bar w={20} h={20} style={{ flex: 'none', marginTop: 2 }} />
+            <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: 6 }}>
+              <Bar w={i % 2 ? '32%' : '44%'} h={17} />
+              <Bar w="58%" h={11} />
+            </div>
+            <Bar w={112} h={34} r="var(--radius-md)" style={{ flex: 'none' }} />
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gap: 12, padding: '12px 16px 0'
+            }}
+          >
+            {[0, 1, 2, 3].map((k) => (
+              <div key={k} style={{ display: 'grid', gap: 5 }}>
+                <Bar w={72} h={9} />
+                <Bar w="100%" h={36} r="var(--radius-md)" />
+              </div>
+            ))}
+          </div>
+          <div style={{ padding: '12px 16px 0' }}>
+            <Bar w="66%" h={11} />
+          </div>
+          <div style={{ padding: '12px 16px 16px', display: 'grid', gap: 7 }}>
+            <Bar w={132} h={9} />
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <Bar w={186} h={42} r="var(--radius-pill)" />
+              <Bar w={168} h={42} r="var(--radius-pill)" />
+            </div>
+          </div>
+        </section>
+      ))}
+    </>
+  )
 }
 
 function Muted({ children }) {

@@ -11,48 +11,10 @@ import React from 'react'
 // Deliberately not a spinner: a spinner says "something is happening
 // somewhere", a skeleton says "this panel, this shape, nearly there".
 
-// One shared shimmer keyframe, injected once. Scoped to the class so it
-// can't leak into the host page's styles.
-const SHIMMER_CSS = `
-@keyframes pp-shimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-.pp-sk {
-  background: linear-gradient(
-    90deg,
-    var(--gray-100) 25%,
-    var(--gray-50)  37%,
-    var(--gray-100) 63%
-  );
-  background-size: 200% 100%;
-  animation: pp-shimmer 1.4s ease-in-out infinite;
-  border-radius: var(--radius-sm);
-}
-@media (prefers-reduced-motion: reduce) {
-  .pp-sk { animation: none; }
-}
-`
-
-export function SkeletonStyles() {
-  return <style>{SHIMMER_CSS}</style>
-}
-
-// A single shimmering block. Width accepts any CSS length so callers can
-// vary line lengths — uniform bars read as a loading *pattern* rather than
-// text about to appear.
-export function Bar({ w = '100%', h = 12, r, style }) {
-  return (
-    <span
-      className="pp-sk"
-      style={{
-        display: 'block', width: w, height: h,
-        borderRadius: r ?? 'var(--radius-sm)',
-        ...style
-      }}
-    />
-  )
-}
+// Shimmer + Bar come from the shared list kit so the animation is defined
+// once for the whole app.
+export { SkeletonStyles, Bar } from '../shared/ListChrome'
+import { SkeletonStyles, Bar } from '../shared/ListChrome'
 
 export function Pill({ w = 90, h = 30 }) {
   return <Bar w={w} h={h} r="var(--radius-pill)" />
@@ -73,7 +35,7 @@ export function FilterBarSkeleton() {
           alignItems: 'flex-start', columnGap: 24, rowGap: 12
         }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: '1 1 520px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: '1 1 640px' }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <Bar w={44} h={10} />
             <Pill w={96} />
@@ -89,7 +51,12 @@ export function FilterBarSkeleton() {
             <Pill w={124} />
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', maxWidth: '100%' }}>
+        <div
+          style={{
+            display: 'flex', gap: 8, flexWrap: 'wrap',
+            justifyContent: 'flex-end', flex: '1 1 420px', maxWidth: '100%'
+          }}
+        >
           {[132, 116, 124, 104, 96, 88].map((w, i) => (
             <Pill key={i} w={w} />
           ))}

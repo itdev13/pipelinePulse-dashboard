@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { dealsAPI } from '../../api/deals'
 import {
-  Shell, PageHeader, SearchInput, StateMessage,
+  Shell, PageHeader, SearchInput, StateMessage, DealCardsSkeleton,
   formatDate, initialsFor, nameFor
 } from '../shared/ListChrome'
 
@@ -49,7 +49,11 @@ export default function DealsTab({ onOpenDeal }) {
         }
       />
 
-      {(error || !deals || filtered.length === 0) && (
+      {/* Cards, not rows — so the loading state mirrors the card shape
+          rather than the generic row skeleton. */}
+      {!deals && !error && <DealCardsSkeleton cards={3} />}
+
+      {(error || (deals && filtered.length === 0)) && (
         <div
           style={{
             border: '1px solid var(--border-default)',
@@ -58,7 +62,6 @@ export default function DealsTab({ onOpenDeal }) {
           }}
         >
           <StateMessage
-            loading={!deals && !error}
             error={error}
             empty={deals && filtered.length === 0}
             emptyText={
@@ -66,7 +69,6 @@ export default function DealsTab({ onOpenDeal }) {
                 ? 'No deals match — clear the search to see everything.'
                 : 'No open deals in this sub-account.'
             }
-            loadingText="Loading deals…"
           />
         </div>
       )}
