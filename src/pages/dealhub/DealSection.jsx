@@ -201,7 +201,18 @@ function StageColumn({ deal, stages, onStageChange }) {
       </select>
 
       <dl style={{ margin: '12px 0 0', display: 'grid', gap: 7 }}>
-        <Row label="Owner" value={deal.owner} />
+        <Row
+          label="Owner"
+          value={deal.owner}
+          // A deal still belongs to its owner after they leave the account
+          // — flag it rather than hiding it, so it's visibly reassignable.
+          suffix={deal.ownerActive === false ? 'left account' : null}
+          title={
+            deal.ownerActive === false
+              ? 'This user is no longer active on the sub-account'
+              : undefined
+          }
+        />
         <Row
           label="Days in stage"
           value={daysInStage != null ? daysInStage : null}
@@ -244,6 +255,11 @@ function ProductColumn({ deal, siblingDeals, onOpenDeal }) {
           </div>
         </>
       )}
+
+      <TagList
+        dealTags={deal.dealTags}
+        contactTags={deal.contactTags}
+      />
 
       {others.length > 0 && (
         <>
@@ -291,6 +307,92 @@ function ProductColumn({ deal, siblingDeals, onOpenDeal }) {
   )
 }
 
+// Tags. GHL's tag model is contact-scoped — confirmed against
+// vw_opportunity_effective_tags, which resolves a deal's tags through the
+// contact join. So contact tags are NOT second-class here: they're the tags
+// GHL's own opportunity modal displays, and they get the normal treatment.
+//
+// opportunities.tags is the rarer case (only populated when an opp event
+// carries a tags[] array). When a tag appears on both sides it renders once,
+// with the deal-scoped marker, since that's the more specific fact.
+// Collapses past six with a "+N" toggle, matching GHL's own overflow.
+function TagList({ dealTags = [], contactTags = [] }) {
+  const [expanded, setExpanded] = useState(false)
+
+  const deal = dealTags || []
+  const seen = new Set(deal)
+  const contact = (contactTags || []).filter((t) => !seen.has(t))
+  const all = [
+    ...deal.map((t) => ({ name: t, scope: 'deal' })),
+    ...contact.map((t) => ({ name: t, scope: 'contact' }))
+  ]
+  if (all.length === 0) return null
+
+  const LIMIT = 6
+  const shown = expanded ? all : all.slice(0, LIMIT)
+  const hidden = all.length - shown.length
+
+  return (
+    <>
+      <FieldLabel>Tags</FieldLabel>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+        {shown.map((t) => (
+          <span
+            key={`${t.scope}:${t.name}`}
+            title={
+              t.scope === 'deal'
+                ? 'Set on the opportunity record'
+                : 'Applied to the contact — GHL scopes tags to contacts'
+            }
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              maxWidth: '100%',
+              height: 24, padding: '0 9px',
+              borderRadius: 'var(--radius-pill)',
+              border: '1px solid var(--border-default)',
+              background: 'var(--gray-50)',
+              color: 'var(--text-body)',
+              fontSize: 11.5, fontWeight: 500
+            }}
+          >
+            {/* Deal-scoped tags are rare enough to be worth marking, but
+                not worth a second colour scheme — a dot reads as "more
+                specific" without implying contact tags are lesser. */}
+            {t.scope === 'deal' && (
+              <span
+                style={{
+                  width: 5, height: 5, flex: 'none',
+                  borderRadius: '50%', background: 'var(--accent-pine)'
+                }}
+              />
+            )}
+            <span
+              style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            >
+              {t.name}
+            </span>
+          </span>
+        ))}
+        {(hidden > 0 || expanded) && (
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            style={{
+              height: 24, padding: '0 9px',
+              border: '1px solid var(--border-strong)',
+              borderRadius: 'var(--radius-pill)',
+              background: '#fff', color: 'var(--text-muted)',
+              fontFamily: 'var(--font-sans)', fontSize: 11.5, fontWeight: 500,
+              cursor: 'pointer'
+            }}
+          >
+            {expanded ? 'Show less' : `+${hidden}`}
+          </button>
+        )}
+      </div>
+    </>
+  )
+}
+
 // ── Primitives ────────────────────────────────────────────────────────
 
 function Column({ label, children, last }) {
@@ -330,7 +432,7 @@ function FieldLabel({ children }) {
   )
 }
 
-function Row({ label, value, mono, tone, title }) {
+function Row({ label, value, mono, tone, title, suffix }) {
   const danger = tone === 'danger'
   return (
     <div
@@ -347,6 +449,19 @@ function Row({ label, value, mono, tone, title }) {
         }}
       >
         {value != null && value !== '' ? value : <span style={{ color: 'var(--text-faint)' }}>—</span>}
+        {suffix && (
+          <span
+            style={{
+              marginLeft: 6,
+              fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 600,
+              letterSpacing: '0.04em', textTransform: 'uppercase',
+              padding: '2px 6px', borderRadius: 'var(--radius-sm)',
+              background: 'var(--gray-100)', color: 'var(--text-muted)'
+            }}
+          >
+            {suffix}
+          </span>
+        )}
       </dd>
     </div>
   )
