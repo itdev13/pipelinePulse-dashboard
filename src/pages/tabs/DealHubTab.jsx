@@ -553,13 +553,64 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
           <div
             style={{
               display: 'flex', flexWrap: 'wrap',
-              alignItems: 'center',
-              // Wider gap between groups than between chips, so the two
-              // groups stay legible as separate controls on one line.
-              columnGap: 20, rowGap: 10
+              alignItems: 'flex-start',
+              columnGap: 24, rowGap: 12
             }}
           >
-            {deal.people?.length > 0 && (
+            {/* Left column: the two timeline filters, stacked. They do the
+                same job (narrow the thread) so they group together and share
+                a column. */}
+            <div
+              style={{
+                display: 'flex', flexDirection: 'column',
+                gap: 8, minWidth: 0
+              }}
+            >
+              {deal.people?.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span
+                    style={{
+                      fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
+                      textTransform: 'uppercase', color: 'var(--text-muted)'
+                    }}
+                  >
+                    People
+                  </span>
+                  {chip(
+                    'Everyone',
+                    peopleFilter.length === 0,
+                    () => setPeopleFilter([]),
+                    <span
+                      style={{
+                        width: 8, height: 8, borderRadius: '50%',
+                        background: 'transparent'
+                      }}
+                    />
+                  )}
+                  {deal.people.map((p) => {
+                    const active = peopleFilter.includes(p.id)
+                    return chip(
+                      // Two unnamed contacts both rendering as "Contact" is
+                      // unusable as a filter — fall back through the same
+                      // identifier chain PeopleSection uses.
+                      chipNameFor(p),
+                      active,
+                      () =>
+                        setPeopleFilter((prev) =>
+                          active ? prev.filter((x) => x !== p.id) : [...prev, p.id]
+                        ),
+                      <span
+                        style={{
+                          width: 8, height: 8, borderRadius: '50%',
+                          background: `var(--accent-${p.accent})`
+                        }}
+                      />,
+                      p.id
+                    )
+                  })}
+                </div>
+              )}
+
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span
                   style={{
@@ -567,73 +618,46 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                     textTransform: 'uppercase', color: 'var(--text-muted)'
                   }}
                 >
-                  People
+                  Channel
                 </span>
-                {chip(
-                  'Everyone',
-                  peopleFilter.length === 0,
-                  () => setPeopleFilter([]),
-                  <span
-                    style={{
-                      width: 8, height: 8, borderRadius: '50%',
-                      background: 'transparent'
-                    }}
-                  />
+                {(() => {
+                  // Total conversation-channel messages on this deal (excludes
+                  // events, tasks, system rows). Used for the All chip's count.
+                  let allCount = 0
+                  for (const n of dealChannels.values()) allCount += n
+                  return chip(
+                    `All${allCount ? ` · ${allCount}` : ''}`,
+                    !channelFilter,
+                    () => setChannelFilter(null)
+                  )
+                })()}
+                {CHANNEL_CHIPS.filter(([, ch]) => dealChannels.has(ch)).map(
+                  ([label, ch]) => {
+                    const n = dealChannels.get(ch) || 0
+                    return chip(
+                      `${label} · ${n}`,
+                      channelFilter === ch,
+                      () => setChannelFilter(channelFilter === ch ? null : ch)
+                    )
+                  }
                 )}
-                {deal.people.map((p) => {
-                  const active = peopleFilter.includes(p.id)
-                  return chip(
-                    // Two unnamed contacts both rendering as "Contact" is
-                    // unusable as a filter — fall back through the same
-                    // identifier chain PeopleSection uses.
-                    chipNameFor(p),
-                    active,
-                    () =>
-                      setPeopleFilter((prev) =>
-                        active ? prev.filter((x) => x !== p.id) : [...prev, p.id]
-                      ),
-                    <span
-                      style={{
-                        width: 8, height: 8, borderRadius: '50%',
-                        background: `var(--accent-${p.accent})`
-                      }}
-                    />,
-                    p.id
-                  )
-                })}
               </div>
-            )}
+            </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span
-                style={{
-                  fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
-                  textTransform: 'uppercase', color: 'var(--text-muted)'
+            {/* Right: section index for the content below the timeline.
+                Not a filter — it selects which discovery section renders, so
+                it sits apart from the filter column rather than in it. */}
+            <div style={{ marginLeft: 'auto', minWidth: 0 }}>
+              <DealSectionTabs
+                counts={{
+                  tasksOpen: deal?.counts?.tasksOpen ?? deal?.counts?.tasks_open,
+                  notes: deal?.counts?.notes
+                  // commitmentsOverdue / qualificationMissing land once the
+                  // AI extraction layer is wired — nothing to show for now.
                 }}
-              >
-                Channel
-              </span>
-              {(() => {
-                // Total conversation-channel messages on this deal (excludes
-                // events, tasks, system rows). Used for the All chip's count.
-                let allCount = 0
-                for (const n of dealChannels.values()) allCount += n
-                return chip(
-                  `All${allCount ? ` · ${allCount}` : ''}`,
-                  !channelFilter,
-                  () => setChannelFilter(null)
-                )
-              })()}
-              {CHANNEL_CHIPS.filter(([, ch]) => dealChannels.has(ch)).map(
-                ([label, ch]) => {
-                  const n = dealChannels.get(ch) || 0
-                  return chip(
-                    `${label} · ${n}`,
-                    channelFilter === ch,
-                    () => setChannelFilter(channelFilter === ch ? null : ch)
-                  )
-                }
-              )}
+                activeId={activeSection}
+                onSelect={setActiveSection}
+              />
             </div>
           </div>
         </div>
@@ -672,16 +696,6 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
         )}
         {!loading && !error && messages && (
           <>
-            <DealSectionTabs
-              counts={{
-                tasksOpen: deal?.counts?.tasksOpen ?? deal?.counts?.tasks_open,
-                notes: deal?.counts?.notes
-                // commitmentsOverdue / qualificationMissing land once the
-                // AI extraction layer is wired — nothing to show for now.
-              }}
-              activeId={activeSection}
-              onSelect={setActiveSection}
-            />
             <div
               style={{
                 display: 'grid',

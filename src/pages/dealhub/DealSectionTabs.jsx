@@ -65,10 +65,9 @@ const TABS = [
 export default function DealSectionTabs({ counts = {}, activeId, onSelect }) {
   return (
     <div
-      style={{
-        display: 'flex', flexWrap: 'wrap', gap: 8,
-        marginBottom: 14
-      }}
+      // No outer margin — spacing is the caller's concern, since this now
+      // sits inside the filter row rather than stacked above the timeline.
+      style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}
     >
       {TABS.map((t) => {
         const active = t.id === activeId
