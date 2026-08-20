@@ -425,10 +425,10 @@ function MessageRow({ m, highlighted, onToggleIncluded, onJumpAttachment }) {
           {CH_LABEL[m.channel]}
         </span>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-          {/* Deal-assignment pill. An opportunity with no name in GHL would
-              otherwise render an icon and a chevron with nothing between
-              them, which reads as a broken control rather than an unnamed
-              deal. */}
+          {/* Deal-assignment pill — the reassignment control. Renders the
+              deal name when we have one; with no name it's icon + chevron
+              only, since inventing a placeholder label says less than the
+              tooltip already does. */}
           <button
             title={
               m.dealTag
@@ -445,15 +445,16 @@ function MessageRow({ m, highlighted, onToggleIncluded, onJumpAttachment }) {
             }}
           >
             <span className="ms" style={{ fontSize: 13, color: 'var(--text-muted)' }}>sell</span>
-            <span
-              style={{
-                maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis',
-                fontSize: 11, fontWeight: 600,
-                color: m.dealTag ? 'var(--text-muted)' : 'var(--text-faint)',
-              }}
-            >
-              {m.dealTag || 'Unnamed deal'}
-            </span>
+            {m.dealTag && (
+              <span
+                style={{
+                  maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis',
+                  fontSize: 11, fontWeight: 600, color: 'var(--text-muted)',
+                }}
+              >
+                {m.dealTag}
+              </span>
+            )}
             <span className="ms" style={{ fontSize: 14, color: 'var(--text-faint)' }}>expand_more</span>
           </button>
         </div>
