@@ -595,11 +595,13 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
               columnGap: 24, rowGap: 12
             }}
           >
-            {/* Left: the filter stack */}
+            {/* Left: the filter stack. Grows to take whatever the section
+                tabs don't need, but never below a width that would push the
+                sources row onto a third line. */}
             <div
               style={{
                 display: 'flex', flexDirection: 'column',
-                gap: 8, minWidth: 0, flex: '1 1 520px'
+                gap: 8, minWidth: 0, flex: '1 1 640px'
               }}
             >
               {deal.people?.length > 0 && (
@@ -706,8 +708,11 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
               </div>
             </div>
 
-            {/* Right: section index for the panels below the timeline. */}
-            <div style={{ minWidth: 0, flex: '0 1 auto', maxWidth: '100%' }}>
+            {/* Right: section index for the panels below the timeline. Shrinks
+                and wraps its own chips rather than overflowing the container —
+                `flex: 0 1 auto` alone let it exceed the row and clip off the
+                right edge. */}
+            <div style={{ minWidth: 0, flex: '1 1 420px', maxWidth: '100%' }}>
               <DealSectionTabs
                 counts={{
                   tasksOpen: deal?.counts?.tasksOpen ?? deal?.counts?.tasks_open,
