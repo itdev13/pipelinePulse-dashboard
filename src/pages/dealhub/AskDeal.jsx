@@ -358,7 +358,7 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage }) {
             />
           ))}
 
-          <ChatHistoryFooter count={chatCount} />
+          <ChatHistoryFooter count={turns.filter((t) => t.role === 'user').length} />
         </div>
       </section>
     </div>
@@ -421,31 +421,26 @@ function PromptCard({ prompt, onPick }) {
 // Chat history is a placeholder — the transcript store lands with the
 // backend wiring. The count is passed through so the footer already
 // reflects state even though the drawer itself isn't built yet.
+// Footer under the prompt tiles. The transcript is scoped to the open deal
+// and resets when you switch — every question is still persisted server-side
+// in ai_runs, so nothing is lost, but there's no cross-deal history view yet.
 function ChatHistoryFooter({ count }) {
+  if (count === 0) return null
   return (
-    <button
+    <div
       style={{
         display: 'flex', alignItems: 'center', gap: 8,
-        cursor: 'pointer',
         padding: '10px 12px',
         border: '1px solid var(--border-default)',
         borderRadius: 'var(--radius-md)',
-        background: 'var(--surface-sunken)',
-        fontFamily: 'var(--font-sans)',
-        textAlign: 'left'
+        background: 'var(--surface-sunken)'
       }}
     >
       <span className="ms" style={{ fontSize: 17, color: 'var(--text-muted)' }}>history</span>
-      <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-body)', flex: 1 }}>
-        Chat history
+      <span style={{ fontSize: 12.5, color: 'var(--text-muted)', flex: 1 }}>
+        {count} {count === 1 ? 'question' : 'questions'} this session
       </span>
-      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-        {count} {count === 1 ? 'chat' : 'chats'}
-      </span>
-      <span className="ms" style={{ fontSize: 18, color: 'var(--text-faint)' }}>
-        expand_more
-      </span>
-    </button>
+    </div>
   )
 }
 
