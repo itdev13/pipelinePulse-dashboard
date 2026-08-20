@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, useRef } from 'react'
 import Timeline from '../dealhub/Timeline'
 import StageStepper from '../dealhub/StageStepper'
 import PeopleSection from '../dealhub/PeopleSection'
+import DealSection from '../dealhub/DealSection'
 import AskDeal from '../dealhub/AskDeal'
 import CommitmentsSection from '../dealhub/CommitmentsSection'
 import DealSectionTabs from '../dealhub/DealSectionTabs'
@@ -31,8 +32,14 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  // Left-rail tabs — People / Deal / Media. Only People is real for now.
+  // Left-rail tabs — People / Deal / Media. Media is still to come.
   const [leftRail, setLeftRail] = useState('people')
+
+  // Sibling open deals on the same contact — powers the "other open deals"
+  // chips in the Deal section. Reuses the reassignment-targets endpoint,
+  // which already answers exactly this question (every open opp on the
+  // contact) and includes the current deal, which DealSection filters out.
+  const [siblingDeals, setSiblingDeals] = useState([])
 
   // Deal-section inner tabs — commitments / whys / qualification / next-step
   // / tasks / notes. Purely visual right now: highlights the tab and (later)
@@ -72,11 +79,20 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
     setLoading(true)
     setError(null)
     setStages(null)
-    Promise.all([dealsAPI.get(dealId), dealsAPI.timeline(dealId), dealsAPI.stages(dealId)])
-      .then(([d, t, s]) => {
+    setSiblingDeals([])
+    Promise.all([
+      dealsAPI.get(dealId),
+      dealsAPI.timeline(dealId),
+      dealsAPI.stages(dealId),
+      // Siblings are decoration on one column — a failure here must not
+      // take the whole deal view down with it.
+      dealsAPI.reassignmentTargets(dealId).catch(() => ({ targets: [] }))
+    ])
+      .then(([d, t, s, r]) => {
         if (!alive) return
         setDeal(d)
         setStages(s.stages || [])
+        setSiblingDeals(r.targets || [])
         const nameById = Object.fromEntries(
           (d.people || []).map((p) => [p.id, p.firstName || p.lastName || 'Contact'])
         )
@@ -461,7 +477,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
               ['media',  'Media',         'folder_open']
             ].map(([id, label, icon]) => {
               const active = leftRail === id
-              const disabled = id !== 'people'
+              const disabled = id === 'media'
               return (
                 <button
                   key={id}
@@ -499,6 +515,15 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
               people={deal.people || []}
               peopleFilter={peopleFilter}
               onPeopleFilterChange={setPeopleFilter}
+            />
+          )}
+
+          {leftRail === 'deal' && (
+            <DealSection
+              deal={deal}
+              stages={stages || []}
+              siblingDeals={siblingDeals}
+              onOpenDeal={onSwitchDeal}
             />
           )}
         </div>
