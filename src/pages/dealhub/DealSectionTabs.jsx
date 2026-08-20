@@ -65,14 +65,11 @@ const TABS = [
 export default function DealSectionTabs({ counts = {}, activeId, onSelect }) {
   return (
     <div
-      // No outer margin — spacing is the caller's concern, since this now
-      // sits inside the filter row rather than stacked above the timeline.
-      // Right-aligned so the group hugs the container edge and wraps inward,
-      // matching how it reads against the filter stack on the left.
-      style={{
-        display: 'flex', flexWrap: 'wrap', gap: 8,
-        justifyContent: 'flex-end'
-      }}
+      // No outer margin — spacing is the caller's concern, since this sits
+      // inside the filter row rather than stacked above the timeline. Left-
+      // aligned: it occupies the Commitments column, so its first chip should
+      // start on that panel's left edge.
+      style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}
     >
       {TABS.map((t) => {
         const active = t.id === activeId

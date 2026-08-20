@@ -29,13 +29,17 @@ export function FilterBarSkeleton() {
         maxWidth: 1660, margin: '0 auto', boxSizing: 'border-box'
       }}
     >
+      {/* Same grid as the real filter bar and the content row below it, so
+          the skeleton doesn't flash a different layout. */}
       <div
         style={{
-          display: 'flex', flexWrap: 'wrap',
-          alignItems: 'flex-start', columnGap: 24, rowGap: 12
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 2fr) minmax(320px, 1fr)',
+          gap: 14,
+          alignItems: 'start'
         }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: '1 1 640px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <Bar w={44} h={10} />
             <Pill w={96} />
@@ -51,12 +55,7 @@ export function FilterBarSkeleton() {
             <Pill w={124} />
           </div>
         </div>
-        <div
-          style={{
-            display: 'flex', gap: 8, flexWrap: 'wrap',
-            justifyContent: 'flex-end', flex: '1 1 420px', maxWidth: '100%'
-          }}
-        >
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
           {[132, 116, 124, 104, 96, 88].map((w, i) => (
             <Pill key={i} w={w} />
           ))}

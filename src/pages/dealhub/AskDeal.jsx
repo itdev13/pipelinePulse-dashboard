@@ -1,4 +1,6 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
+import { aiAPI } from '../../api/ai'
+import { SkeletonStyles, Bar } from '../shared/ListChrome'
 
 // Deal Hub — Ask this deal panel.
 //
@@ -56,16 +58,93 @@ const PROMPTS = [
   }
 ]
 
-export default function AskDeal({ dealId, chatCount = 0, onAsk }) {
+export default function AskDeal({ dealId, onAsk, onJumpToMessage }) {
   const [q, setQ] = useState('')
+  // Transcript of this deal's Q&A. Client-held: it's scratch context for
+  // follow-ups, and every question is already persisted server-side in
+  // ai_runs for the audit trail.
+  const [turns, setTurns] = useState([])
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState(null)
+  const [available, setAvailable] = useState(null)
+  const scrollRef = useRef(null)
 
-  const submit = () => {
-    const value = q.trim()
-    if (!value) return
-    if (onAsk) onAsk(value)
-    // For now, just clear. Once the answer stream lands, we'll keep the
-    // question in the transcript and reset the input.
+  // Is the AI layer configured at all? Without this the panel would offer a
+  // button that always 503s.
+  useEffect(() => {
+    let alive = true
+    aiAPI.status()
+      .then((r) => alive && setAvailable(!!r.available))
+      .catch(() => alive && setAvailable(false))
+    return () => { alive = false }
+  }, [])
+
+  // Switching deals resets the conversation — the thread it was grounded in
+  // is gone.
+  useEffect(() => {
+    setTurns([])
+    setError(null)
     setQ('')
+  }, [dealId])
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [turns, pending])
+
+  const submit = async (override) => {
+    const value = String(override ?? q).trim()
+    if (!value || pending) return
+    if (onAsk) onAsk(value)
+
+    setQ('')
+    setError(null)
+    setPending(true)
+    // Show the question immediately; the answer lands under it.
+    setTurns((t) => [...t, { role: 'user', content: value }])
+
+    // Send only prior *answered* turns as history, so a failed attempt
+    // doesn't poison the follow-up context.
+    const history = turns
+      .filter((t) => t.role === 'user' || (t.role === 'assistant' && t.answerText))
+      .map((t) => ({
+        role: t.role,
+        content: t.role === 'user' ? t.content : t.answerText
+      }))
+
+    try {
+      const res = await aiAPI.ask(dealId, { question: value, history })
+      setTurns((t) => [
+        ...t,
+        {
+          role: 'assistant',
+          answerText: res.answerText,
+          citations: res.citations || [],
+          confidence: res.confidence,
+          answered: res.answered !== false,
+          coverage: res.coverage,
+          cached: res.cached,
+          runId: res.runId
+        }
+      ])
+    } catch (err) {
+      // Named failure states, never a permanent spinner (spec §5).
+      const code = err.code
+      setError(
+        code === 'AI_NOT_CONFIGURED'
+          ? 'The AI layer is not configured on the server yet.'
+          : code === 'TIMEOUT'
+          ? 'The model took too long. Try again — long threads can be slow.'
+          : code === 'MALFORMED'
+          ? 'The model returned something unreadable. Try rephrasing the question.'
+          : code === 'RATE_LIMITED'
+          ? 'Rate limited. Wait a moment and try again.'
+          : err.message || 'Could not get an answer.'
+      )
+    } finally {
+      setPending(false)
+    }
   }
 
   return (
@@ -106,17 +185,78 @@ export default function AskDeal({ dealId, chatCount = 0, onAsk }) {
         </header>
 
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <p
-            style={{
-              margin: 0, padding: '10px 12px',
-              background: 'var(--surface-sunken)',
-              borderRadius: 'var(--radius-sm)',
-              fontSize: 13, lineHeight: 1.5, color: 'var(--text-muted)'
-            }}
-          >
-            Ask a question about this deal, or pick a prompt on the right.
-            Answers read only the included messages.
-          </p>
+          {turns.length === 0 && (
+            <p
+              style={{
+                margin: 0, padding: '10px 12px',
+                background: 'var(--surface-sunken)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: 13, lineHeight: 1.5, color: 'var(--text-muted)'
+              }}
+            >
+              Ask a question about this deal, or pick a prompt on the right.
+              Answers read only the included messages, and every claim carries a
+              quote you can click through to.
+            </p>
+          )}
+
+          {available === false && (
+            <p
+              style={{
+                margin: 0, padding: '10px 12px',
+                borderLeft: '3px solid var(--status-working)',
+                background: 'var(--tint-gold)',
+                fontSize: 12.5, lineHeight: 1.5, color: 'var(--text-body)'
+              }}
+            >
+              The AI layer is not configured on this server yet — set
+              ANTHROPIC_API_KEY to enable it.
+            </p>
+          )}
+
+          {(turns.length > 0 || pending) && (
+            <div
+              ref={scrollRef}
+              style={{
+                display: 'grid', gap: 12,
+                maxHeight: 420, overflowY: 'auto'
+              }}
+            >
+              {turns.map((t, i) =>
+                t.role === 'user' ? (
+                  <p
+                    key={i}
+                    style={{
+                      margin: 0, justifySelf: 'end', maxWidth: '85%',
+                      padding: '9px 13px',
+                      borderRadius: 'var(--radius-md)',
+                      background: 'var(--surface-selected)',
+                      color: 'var(--text-heading)',
+                      fontSize: 13.5, lineHeight: 1.5
+                    }}
+                  >
+                    {t.content}
+                  </p>
+                ) : (
+                  <Answer key={i} turn={t} onJumpToMessage={onJumpToMessage} />
+                )
+              )}
+              {pending && <Thinking />}
+            </div>
+          )}
+
+          {error && (
+            <p
+              style={{
+                margin: 0, padding: '10px 12px',
+                borderLeft: '3px solid var(--status-stuck)',
+                background: 'var(--tint-rose)',
+                fontSize: 12.5, lineHeight: 1.5, color: 'var(--status-stuck)'
+              }}
+            >
+              {error}
+            </p>
+          )}
 
           <div
             style={{
@@ -132,7 +272,10 @@ export default function AskDeal({ dealId, chatCount = 0, onAsk }) {
                   submit()
                 }
               }}
-              placeholder="e.g. why has this deal stalled?"
+              disabled={pending || available === false}
+              placeholder={
+                pending ? 'Reading the thread…' : 'e.g. why has this deal stalled?'
+              }
               style={{
                 flex: 1, minWidth: 0,
                 height: 40, padding: '0 12px',
@@ -143,24 +286,29 @@ export default function AskDeal({ dealId, chatCount = 0, onAsk }) {
                 color: 'var(--text-body)'
               }}
             />
-            <button
-              onClick={submit}
-              disabled={!q.trim()}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                cursor: q.trim() ? 'pointer' : 'not-allowed',
-                height: 40, padding: '0 20px',
-                border: 'none',
-                borderRadius: 'var(--radius-md)',
-                background: q.trim() ? 'var(--brand-primary)' : 'var(--gray-200)',
-                color: '#fff',
-                fontFamily: 'var(--font-sans)',
-                fontSize: 14, fontWeight: 600,
-                transition: 'background 0.15s ease-out'
-              }}
-            >
-              Ask
-            </button>
+            {(() => {
+              const ready = !!q.trim() && !pending && available !== false
+              return (
+                <button
+                  onClick={() => submit()}
+                  disabled={!ready}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    cursor: ready ? 'pointer' : 'not-allowed',
+                    height: 40, padding: '0 20px',
+                    border: 'none',
+                    borderRadius: 'var(--radius-md)',
+                    background: ready ? 'var(--brand-primary)' : 'var(--gray-200)',
+                    color: '#fff',
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: 14, fontWeight: 600,
+                    transition: 'background 0.15s ease-out'
+                  }}
+                >
+                  {pending ? 'Reading…' : 'Ask'}
+                </button>
+              )
+            })()}
           </div>
         </div>
       </section>
@@ -298,5 +446,174 @@ function ChatHistoryFooter({ count }) {
         expand_more
       </span>
     </button>
+  )
+}
+
+// One answer turn: prose, the coverage stamp, and clickable citations.
+//
+// The coverage stamp is rendered above every AI output per spec §1F — it is
+// computed server-side in app code, never asked of the model, so it cannot be
+// hallucinated. It's also what makes a thin answer trustworthy: "read 6 of 8,
+// 2 calls not transcribed" tells the rep why the answer is thin.
+function Answer({ turn, onJumpToMessage }) {
+  const cov = turn.coverage
+  return (
+    <div
+      style={{
+        border: '1px solid var(--border-default)',
+        borderLeft: '3px solid var(--accent-teal)',
+        borderRadius: 'var(--radius-md)',
+        background: '#fff',
+        overflow: 'hidden'
+      }}
+    >
+      {cov && <CoverageStamp coverage={cov} cached={turn.cached} confidence={turn.confidence} />}
+
+      <p
+        style={{
+          margin: 0, padding: '12px 14px',
+          fontSize: 13.5, lineHeight: 1.6, color: 'var(--text-body)',
+          whiteSpace: 'pre-line'
+        }}
+      >
+        {turn.answerText}
+      </p>
+
+      {turn.citations?.length > 0 && (
+        <div
+          style={{
+            padding: '10px 14px 12px',
+            borderTop: '1px solid var(--border-default)',
+            background: 'var(--gray-25)'
+          }}
+        >
+          <span
+            style={{
+              display: 'block', marginBottom: 7,
+              fontSize: 10, fontWeight: 600, letterSpacing: '0.07em',
+              textTransform: 'uppercase', color: 'var(--text-muted)'
+            }}
+          >
+            {turn.citations.length === 1 ? 'Evidence' : `Evidence · ${turn.citations.length}`}
+          </span>
+          <div style={{ display: 'grid', gap: 6 }}>
+            {turn.citations.map((c, i) => (
+              <button
+                key={`${c.messageId}-${i}`}
+                onClick={() => onJumpToMessage && onJumpToMessage(c.messageId)}
+                title={onJumpToMessage ? 'Jump to this message in the timeline' : undefined}
+                style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 7,
+                  textAlign: 'left', width: '100%',
+                  padding: '7px 9px',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-sm)',
+                  background: '#fff',
+                  cursor: onJumpToMessage ? 'pointer' : 'default',
+                  fontFamily: 'var(--font-sans)'
+                }}
+              >
+                <span
+                  className="ms"
+                  style={{ fontSize: 14, color: 'var(--accent-teal)', flex: 'none', marginTop: 1 }}
+                >
+                  format_quote
+                </span>
+                <span
+                  style={{
+                    fontSize: 12.5, lineHeight: 1.5, color: 'var(--text-body)',
+                    fontStyle: 'italic'
+                  }}
+                >
+                  {c.quoteText}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* An answer with no citations is either "the thread doesn't say" — a
+          valid answer — or a claim we could not verify. Say which. */}
+      {turn.citations?.length === 0 && turn.answered && (
+        <p
+          style={{
+            margin: 0, padding: '8px 14px 12px',
+            fontSize: 11.5, color: 'var(--text-muted)'
+          }}
+        >
+          No verifiable quote was attached to this answer — treat it with care.
+        </p>
+      )}
+    </div>
+  )
+}
+
+function CoverageStamp({ coverage, cached, confidence }) {
+  const partial =
+    coverage.messagesRead != null &&
+    coverage.messagesTotal != null &&
+    coverage.messagesRead < coverage.messagesTotal
+
+  return (
+    <div
+      style={{
+        display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+        padding: '7px 14px',
+        borderBottom: '1px solid var(--border-default)',
+        background: partial ? 'var(--tint-gold)' : 'var(--gray-50)',
+        fontSize: 11.5, color: 'var(--text-muted)'
+      }}
+    >
+      <span className="ms" style={{ fontSize: 14 }}>
+        {partial ? 'visibility_off' : 'visibility'}
+      </span>
+      <span>
+        Read {coverage.messagesRead} of {coverage.messagesTotal}{' '}
+        {coverage.messagesTotal === 1 ? 'message' : 'messages'}
+      </span>
+      {coverage.unreadReasons?.length > 0 && (
+        <span style={{ color: 'var(--accent-clay)' }}>
+          · {coverage.unreadReasons.join(' · ')}
+        </span>
+      )}
+      {confidence && confidence !== 'high' && (
+        <span
+          style={{
+            padding: '1px 7px', borderRadius: 'var(--radius-pill)',
+            background: confidence === 'low' ? 'var(--tint-rose)' : 'var(--tint-gold)',
+            color: confidence === 'low' ? 'var(--status-stuck)' : 'var(--accent-gold)',
+            fontWeight: 600
+          }}
+        >
+          {confidence} confidence
+        </span>
+      )}
+      {cached && (
+        <span style={{ marginLeft: 'auto', color: 'var(--text-faint)' }}>cached</span>
+      )}
+    </div>
+  )
+}
+
+function Thinking() {
+  return (
+    <div
+      style={{
+        border: '1px solid var(--border-default)',
+        borderLeft: '3px solid var(--accent-teal)',
+        borderRadius: 'var(--radius-md)',
+        background: '#fff',
+        padding: '12px 14px', display: 'grid', gap: 8
+      }}
+    >
+      <SkeletonStyles />
+      <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+        Reading the thread…
+      </span>
+      <Bar w="88%" h={11} />
+      <Bar w="72%" h={11} />
+      <Bar w="54%" h={11} />
+    </div>
   )
 }

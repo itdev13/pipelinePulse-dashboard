@@ -137,6 +137,21 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [switcherOpen])
 
+  // AI citations reference the GHL message_id; the timeline's jump anchors are
+  // keyed on the row primary key (see routes/deals.js — `id` vs `messageId`).
+  // Translate, then scroll + highlight.
+  const [highlightedId, setHighlightedId] = useState(null)
+  const jumpToMessage = (ghlMessageId) => {
+    if (!ghlMessageId || !messages) return
+    const row = messages.find((m) => m.messageId === ghlMessageId)
+    if (!row) return
+    setHighlightedId(row.id)
+    const el = document.getElementById(`tl-${row.id}`)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    // Clear the highlight so a later jump to the same message re-triggers it.
+    window.setTimeout(() => setHighlightedId((cur) => (cur === row.id ? null : cur)), 2600)
+  }
+
   const toggleIncluded = (m) => {
     setMessages((prev) =>
       prev.map((x) => (x.id === m.id ? { ...x, included: !x.included } : x))
@@ -588,20 +603,24 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
             maxWidth: 1660, margin: '0 auto', boxSizing: 'border-box'
           }}
         >
+          {/* Same grid as the Timeline / Commitments row below (2fr · 1fr,
+              gap 14) so the section tabs start exactly on the Commitments
+              panel's left edge. A flex row with its own basis values can't
+              line up with a grid — the columns have to be declared the same
+              way to share an edge. */}
           <div
             style={{
-              display: 'flex', flexWrap: 'wrap',
-              alignItems: 'flex-start',
-              columnGap: 24, rowGap: 12
+              display: 'grid',
+              gridTemplateColumns: 'minmax(0, 2fr) minmax(320px, 1fr)',
+              gap: 14,
+              alignItems: 'start'
             }}
           >
-            {/* Left: the filter stack. Grows to take whatever the section
-                tabs don't need, but never below a width that would push the
-                sources row onto a third line. */}
+            {/* Left: the filter stack, in the Timeline column. */}
             <div
               style={{
                 display: 'flex', flexDirection: 'column',
-                gap: 8, minWidth: 0, flex: '1 1 640px'
+                gap: 8, minWidth: 0
               }}
             >
               {deal.people?.length > 0 && (
@@ -708,11 +727,10 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
               </div>
             </div>
 
-            {/* Right: section index for the panels below the timeline. Shrinks
-                and wraps its own chips rather than overflowing the container —
-                `flex: 0 1 auto` alone let it exceed the row and clip off the
-                right edge. */}
-            <div style={{ minWidth: 0, flex: '1 1 420px', maxWidth: '100%' }}>
+            {/* Right: section index for the panels below the timeline. Sits in
+                the Commitments column, so it starts on that panel's left
+                edge and wraps within its own width. */}
+            <div style={{ minWidth: 0 }}>
               <DealSectionTabs
                 counts={{
                   tasksOpen: deal?.counts?.tasksOpen ?? deal?.counts?.tasks_open,
@@ -766,10 +784,17 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                 marginBottom: 14
               }}
             >
-              <Timeline messages={filtered} onToggleIncluded={toggleIncluded} />
+              <Timeline
+                messages={filtered}
+                onToggleIncluded={toggleIncluded}
+                highlightedId={highlightedId}
+              />
               <CommitmentsSection />
             </div>
-            <AskDeal dealId={dealId} chatCount={0} />
+            <AskDeal
+              dealId={dealId}
+              onJumpToMessage={jumpToMessage}
+            />
           </>
         )}
       </div>
