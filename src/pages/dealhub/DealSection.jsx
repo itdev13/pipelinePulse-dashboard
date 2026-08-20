@@ -228,14 +228,6 @@ function StageColumn({ deal, stages, onStageChange }) {
               : undefined
           }
         />
-        {/* Creator is a different fact from owner: it never changes, and it's
-            populated even when Owner is unassigned — which is the common
-            case, so this is often the only person attributable to a deal. */}
-        <Row
-          label="Created by"
-          value={deal.createdBy}
-          title={deal.createdVia ? `Created via ${deal.createdVia}` : undefined}
-        />
         {deal.source && <Row label="Source" value={deal.source} />}
         {deal.quoteRevision != null && (
           <Row label="Quote revision" value={`Rev ${deal.quoteRevision}`} mono />
