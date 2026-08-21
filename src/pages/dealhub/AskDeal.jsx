@@ -123,7 +123,7 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
       )
     }
     if (excluded > 0) {
-      unreadReasons.push(`${excluded} unticked in the timeline`)
+      unreadReasons.push(`${excluded} excluded`)
     }
 
     return {

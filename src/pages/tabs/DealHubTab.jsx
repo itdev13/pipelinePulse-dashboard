@@ -729,18 +729,16 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                   )
                 })()}
                 {/* These filter the timeline VIEW by the AI checkbox — they
-                    don't change what the AI reads. Named "ticked/unticked for
-                    AI" rather than "included/excluded" so they can't be
-                    misread as the Ask panel's scope. */}
+                    narrow what's listed, not what the AI reads. */}
                 {chip(
-                  `Ticked for AI${inclusionCounts.included ? ` · ${inclusionCounts.included}` : ''}`,
+                  `Included${inclusionCounts.included ? ` · ${inclusionCounts.included}` : ''}`,
                   inclusionFilter === true,
                   () => setInclusionFilter(inclusionFilter === true ? null : true),
                   null,
                   'inc'
                 )}
                 {chip(
-                  `Unticked${inclusionCounts.excluded ? ` · ${inclusionCounts.excluded}` : ''}`,
+                  `Excluded${inclusionCounts.excluded ? ` · ${inclusionCounts.excluded}` : ''}`,
                   inclusionFilter === false,
                   () => setInclusionFilter(inclusionFilter === false ? null : false),
                   null,

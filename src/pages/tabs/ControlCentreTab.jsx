@@ -110,14 +110,9 @@ export default function ControlCentreTab() {
         }}
       />
 
-      <MeddicMappingSection
-        meddic={data.meddic}
-        fields={data.meddicFields || []}
-        onSave={async (meddic) => {
-          const res = await controlAPI.saveMeddic(meddic)
-          setData((d) => ({ ...d, meddic: res.meddic }))
-        }}
-      />
+      {/* Read-only: names and descriptions both come from GoHighLevel, so
+          there's nothing to save here. */}
+      <MeddicMappingSection fields={data.meddicFields || []} />
 
       <ProductKnowledgeSection
         products={data.products}
