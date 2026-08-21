@@ -140,7 +140,8 @@ export default function DealHubShell() {
           />
         )}
         {activeTab === 'deals' && <DealsTab onOpenDeal={openDeal} />}
-        {activeTab === 'contacts' && <ContactsTab />}
+        {/* Deal links on a contact record jump into the Deal hub. */}
+        {activeTab === 'contacts' && <ContactsTab onOpenDeal={openDeal} />}
         {/* Deal chips on tasks + notes jump to that deal in the hub, which
             is the "click a task to see it on the deal hub" flow. */}
         {activeTab === 'tasks' && <TasksTab onOpenDeal={openDeal} />}

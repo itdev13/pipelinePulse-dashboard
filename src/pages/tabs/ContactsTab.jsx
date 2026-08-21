@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from 'react'
 import { contactsAPI } from '../../api/contacts'
 import { CardGridSkeleton } from '../shared/ListChrome'
+import ContactDetail from '../contacts/ContactDetail'
 
 // Contacts tab — every contact in this location.
 // Grid of cards with editable-in-future fields; today they're read-only.
 // Each card leads with the contact's accent (top-edge stripe + avatar tint)
 // so the identity stays consistent with the rest of the app.
-export default function ContactsTab() {
+export default function ContactsTab({ onOpenDeal }) {
+  // Which contact's record is open. Null = the grid. Kept here rather than in
+  // the shell because it's local navigation within this tab.
+  const [openId, setOpenId] = useState(null)
   const [contacts, setContacts] = useState(null)
   const [error, setError] = useState(null)
   const [q, setQ] = useState('')
@@ -25,6 +29,16 @@ export default function ContactsTab() {
     return [c.name, c.email, c.phone, c.business, ...(c.tags || [])]
       .filter(Boolean).join(' ').toLowerCase().includes(needle)
   })
+
+  if (openId) {
+    return (
+      <ContactDetail
+        contactId={openId}
+        onBack={() => setOpenId(null)}
+        onOpenDeal={onOpenDeal}
+      />
+    )
+  }
 
   return (
     <div
@@ -89,7 +103,18 @@ export default function ContactsTab() {
           return (
             <div
               key={c.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => setOpenId(c.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setOpenId(c.id)
+                }
+              }}
+              title="Open contact record"
               style={{
+                cursor: 'pointer',
                 border: '1px solid var(--border-default)',
                 borderTop: `3px solid var(--accent-${c.accent})`,
                 borderRadius: 'var(--radius-md)',
