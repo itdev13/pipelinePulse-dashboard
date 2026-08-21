@@ -135,7 +135,10 @@ export default function ContactsTab() {
                     </div>
                   )}
                 </div>
+                <DndBadge dnd={c.dnd} />
               </div>
+
+              <ChannelRow dnd={c.dnd} hasEmail={!!c.email} hasPhone={!!c.phone} />
 
               <div style={{ display: 'grid', gap: 4, fontSize: 12, color: 'var(--text-body)' }}>
                 {c.business && (
@@ -205,4 +208,126 @@ export default function ContactsTab() {
       </div>
     </div>
   )
+}
+
+// Contact-permission badge. Counts channels the customer has switched off
+// (migration 052 promoted DND to columns; the API pre-computes the count).
+//
+// Loud on purpose: this is the difference between contacting someone who
+// asked us not to and respecting it, and the AI draft gate refuses these
+// channels outright (spec rule 7). A quiet grey chip would get missed.
+function DndBadge({ dnd }) {
+  if (!dnd) return null
+
+  if (dnd.all) {
+    return (
+      <span
+        title="This contact has asked not to be contacted on any channel"
+        style={{
+          flex: 'none',
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          height: 26, padding: '0 10px',
+          borderRadius: 'var(--radius-sm)',
+          background: 'var(--status-stuck)', color: '#fff',
+          fontSize: 11.5, fontWeight: 600
+        }}
+      >
+        <span className="ms" style={{ fontSize: 14 }}>block</span>
+        Do not contact
+      </span>
+    )
+  }
+
+  const n = dnd.blockedCount || 0
+  if (n === 0) return null
+  const which = (dnd.blockedChannels || []).map(labelFor).join(', ')
+  return (
+    <span
+      title={`Off: ${which}`}
+      style={{
+        flex: 'none',
+        display: 'inline-flex', alignItems: 'center',
+        height: 26, padding: '0 10px',
+        borderRadius: 'var(--radius-sm)',
+        background: 'var(--status-stuck)', color: '#fff',
+        fontSize: 11.5, fontWeight: 600
+      }}
+    >
+      {n} channel{n === 1 ? '' : 's'} off
+    </span>
+  )
+}
+
+// Which channels are reachable. Shows all four so an available channel is as
+// visible as a blocked one — a rep deciding how to follow up needs both.
+// A channel with no address (no email on file) reads as unavailable rather
+// than blocked: different reason, same practical outcome.
+function ChannelRow({ dnd, hasEmail, hasPhone }) {
+  if (!dnd) return null
+  const items = [
+    { key: 'email',    icon: 'mail',  label: 'Email',    has: hasEmail },
+    { key: 'sms',      icon: 'sms',   label: 'SMS',      has: hasPhone },
+    { key: 'call',     icon: 'call',  label: 'Call',     has: hasPhone },
+    { key: 'whatsapp', icon: 'chat',  label: 'WhatsApp', has: hasPhone }
+  ]
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+      {items.map((it) => {
+        const blocked = dnd.all || dnd.channels?.[it.key]
+        const missing = !it.has
+        const reason = blocked
+          ? dnd.reasons?.[it.key] || `${it.label} switched off by the contact`
+          : missing
+          ? `No ${it.key === 'email' ? 'email address' : 'phone number'} on file`
+          : `${it.label} available`
+        return (
+          <span
+            key={it.key}
+            title={reason}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              height: 22, padding: '0 8px',
+              borderRadius: 'var(--radius-pill)',
+              border: `1px solid ${blocked ? 'var(--tint-rose)' : 'var(--border-default)'}`,
+              background: blocked ? 'var(--tint-rose)' : missing ? 'var(--gray-50)' : '#fff',
+              color: blocked
+                ? 'var(--status-stuck)'
+                : missing
+                ? 'var(--text-faint)'
+                : 'var(--text-muted)',
+              fontSize: 10.5, fontWeight: 500,
+              textDecoration: blocked ? 'line-through' : 'none'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 12 }}>
+              {blocked ? 'block' : it.icon}
+            </span>
+            {it.label}
+          </span>
+        )
+      })}
+      {dnd.inbound && (
+        <span
+          title="This contact has inbound messages switched off"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            height: 22, padding: '0 8px',
+            borderRadius: 'var(--radius-pill)',
+            border: '1px solid var(--tint-gold)',
+            background: 'var(--tint-gold)', color: 'var(--accent-gold)',
+            fontSize: 10.5, fontWeight: 500
+          }}
+        >
+          <span className="ms" style={{ fontSize: 12 }}>call_received</span>
+          Inbound off
+        </span>
+      )}
+    </div>
+  )
+}
+
+function labelFor(k) {
+  if (k === 'sms') return 'SMS'
+  if (k === 'whatsapp') return 'WhatsApp'
+  return k.charAt(0).toUpperCase() + k.slice(1)
 }

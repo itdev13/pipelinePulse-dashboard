@@ -153,19 +153,25 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove }) {
               </span>
             )}
           </div>
-          {p.contactType && (
-            <span
-              style={{
-                display: 'inline-block', marginTop: 4,
-                fontSize: 10, fontWeight: 600, letterSpacing: '0.05em',
-                textTransform: 'uppercase',
-                padding: '2px 8px', borderRadius: 'var(--radius-sm)',
-                background: tint, color: accent
-              }}
-            >
-              {p.contactType}
-            </span>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+            {p.contactType && (
+              <span
+                style={{
+                  display: 'inline-block',
+                  fontSize: 10, fontWeight: 600, letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
+                  padding: '2px 8px', borderRadius: 'var(--radius-sm)',
+                  background: tint, color: accent
+                }}
+              >
+                {p.contactType}
+              </span>
+            )}
+            {/* Contact permissions. Shown on the card because this is where a
+                rep decides how to follow up — and the AI draft gate refuses
+                these channels, so the two must visibly agree. */}
+            <DndChip dnd={p.dnd} />
+          </div>
         </div>
       </div>
 
@@ -295,5 +301,45 @@ function AddContactFooter() {
         </span>
       )}
     </div>
+  )
+}
+
+// Blocked-channel chip for a person card. Reads the same payload the AI draft
+// gate uses (routes/deals.js people[].dnd), so a rep never sees "Email
+// available" next to a draft that refused to use email.
+function DndChip({ dnd }) {
+  if (!dnd) return null
+  if (dnd.all) {
+    return (
+      <span
+        title="This contact has asked not to be contacted on any channel"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          fontSize: 10, fontWeight: 600, letterSpacing: '0.04em',
+          textTransform: 'uppercase',
+          padding: '2px 8px', borderRadius: 'var(--radius-sm)',
+          background: 'var(--status-stuck)', color: '#fff'
+        }}
+      >
+        <span className="ms" style={{ fontSize: 12 }}>block</span>
+        Do not contact
+      </span>
+    )
+  }
+  const blocked = dnd.blockedChannels || []
+  if (blocked.length === 0) return null
+  return (
+    <span
+      title={`Switched off: ${blocked.map((b) => (b === 'sms' ? 'SMS' : b)).join(', ')}`}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        fontSize: 10, fontWeight: 600,
+        padding: '2px 8px', borderRadius: 'var(--radius-sm)',
+        background: 'var(--tint-rose)', color: 'var(--status-stuck)'
+      }}
+    >
+      <span className="ms" style={{ fontSize: 12 }}>block</span>
+      {blocked.length} off
+    </span>
   )
 }
