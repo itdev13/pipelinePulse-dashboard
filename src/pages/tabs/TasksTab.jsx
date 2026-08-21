@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import { tasksAPI } from '../../api/tasks'
+import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import {
   Shell, PageHeader, Panel, Row, ContactChip, DealChip, RowAction,
-  PrimaryAction, FilterChip, StateMessage, formatDue
+  PrimaryAction, FilterChip, StateMessage, LoadMore, formatDue
 } from '../shared/ListChrome'
 
 // Tasks tab — the queue. Due filters run server-side (routes/tasks.js
@@ -20,21 +21,18 @@ const DUE_FILTERS = [
 ]
 
 export default function TasksTab({ onOpenDeal }) {
-  const [tasks, setTasks] = useState(null)
-  const [error, setError] = useState(null)
   const [dueFilter, setDueFilter] = useState('all')
 
-  useEffect(() => {
-    let alive = true
-    setTasks(null)
-    setError(null)
-    tasksAPI.list({ status: 'open', due: dueFilter, limit: 500 })
-      .then((r) => alive && setTasks(r.tasks || []))
-      .catch((err) => alive && setError(err.message || 'Failed to load tasks'))
-    return () => { alive = false }
-  }, [dueFilter])
+  const fetchPage = useCallback(
+    ({ cursor }) => tasksAPI.list({ status: 'open', due: dueFilter, limit: 20, cursor }),
+    [dueFilter]
+  )
+  const { items, error, hasMore, loadingMore, loading, loadMore } =
+    usePagedList({ fetchPage, key: 'tasks', deps: [dueFilter] })
+  const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
-  const openCount = (tasks || []).length
+  const tasks = items || []
+  const openCount = tasks.length
 
   return (
     <Shell>
@@ -66,7 +64,7 @@ export default function TasksTab({ onOpenDeal }) {
         icon="task_alt"
         title="Task queue"
         accent="rose"
-        meta={tasks ? `${openCount} open` : null}
+        meta={loading ? null : `${openCount}${hasMore ? '+' : ''} open`}
         toolbar={
           <PrimaryAction onClick={undefined} icon="add">
             Add task
@@ -74,9 +72,9 @@ export default function TasksTab({ onOpenDeal }) {
         }
       >
         <StateMessage
-          loading={!tasks && !error}
+          loading={loading}
           error={error}
-          empty={tasks && openCount === 0}
+          empty={!loading && openCount === 0}
           emptyText={
             dueFilter === 'all'
               ? 'No open tasks — you’re clear.'
@@ -85,7 +83,7 @@ export default function TasksTab({ onOpenDeal }) {
           loadingText="Loading tasks…"
         />
 
-        {(tasks || []).map((t, i) => (
+        {tasks.map((t, i) => (
           <Row key={t.id} last={i === openCount - 1}>
             <input
               type="checkbox"
@@ -149,6 +147,16 @@ export default function TasksTab({ onOpenDeal }) {
             </div>
           </Row>
         ))}
+
+        {!loading && openCount > 0 && (
+          <LoadMore
+            sentinelRef={sentinelRef}
+            hasMore={hasMore}
+            loadingMore={loadingMore}
+            count={openCount}
+            noun="task"
+          />
+        )}
       </Panel>
     </Shell>
   )

@@ -210,11 +210,16 @@ export function FilterChip({ label, active, onClick }) {
   )
 }
 
-export function SearchInput({ value, onChange, placeholder, width = 300 }) {
+// Search now runs server-side (pagination means filtering the loaded page
+// would hide matches further down), so callers commit on Enter/blur rather
+// than on every keystroke — hence the extra handlers.
+export function SearchInput({ value, onChange, placeholder, width = 300, onKeyDown, onBlur }) {
   return (
     <input
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      onKeyDown={onKeyDown}
+      onBlur={onBlur}
       placeholder={placeholder}
       style={{
         width, maxWidth: '100%', height: 36, boxSizing: 'border-box',
@@ -522,4 +527,33 @@ export function nameFor(p) {
   const last = (p?.lastName || '').trim()
   if (first && last) return `${first} ${last}`
   return first || last || p?.email || p?.phone || p?.business || 'Contact'
+}
+
+// End-of-list sentinel + status. Render after the rows; the ref goes on the
+// element an IntersectionObserver watches, so reaching it loads the next page.
+export function LoadMore({ sentinelRef, hasMore, loadingMore, count, noun = 'item' }) {
+  return (
+    <div
+      ref={sentinelRef}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        gap: 8, padding: '16px',
+        fontSize: 12.5, color: 'var(--text-muted)'
+      }}
+    >
+      {loadingMore ? (
+        <>
+          <SkeletonStyles />
+          <Bar w={16} h={16} r="50%" />
+          <span>Loading more…</span>
+        </>
+      ) : hasMore ? (
+        <span>Scroll for more</span>
+      ) : count > 0 ? (
+        <span>
+          {count} {count === 1 ? noun : `${noun}s`} — that's everything
+        </span>
+      ) : null}
+    </div>
+  )
 }

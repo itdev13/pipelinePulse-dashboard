@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import { contactsAPI } from '../../api/contacts'
-import { CardGridSkeleton } from '../shared/ListChrome'
+import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
+import { CardGridSkeleton, LoadMore } from '../shared/ListChrome'
 import ContactDetail from '../contacts/ContactDetail'
 
 // Contacts tab — every contact in this location.
@@ -11,24 +12,20 @@ export default function ContactsTab({ onOpenDeal }) {
   // Which contact's record is open. Null = the grid. Kept here rather than in
   // the shell because it's local navigation within this tab.
   const [openId, setOpenId] = useState(null)
-  const [contacts, setContacts] = useState(null)
-  const [error, setError] = useState(null)
   const [q, setQ] = useState('')
+  // Server-side search: 19 contacts fits in one page today, but Crittall has
+  // thousands — filtering the loaded page would quietly miss most of them.
+  const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    let alive = true
-    contactsAPI.list({ limit: 500 })
-      .then((r) => alive && setContacts(r.contacts || []))
-      .catch((err) => alive && setError(err.message || 'Failed to load contacts'))
-    return () => { alive = false }
-  }, [])
+  const fetchPage = useCallback(
+    ({ cursor }) => contactsAPI.list({ limit: 20, cursor, q: search || undefined }),
+    [search]
+  )
+  const { items, error, hasMore, loadingMore, loading, loadMore } =
+    usePagedList({ fetchPage, key: 'contacts', deps: [search] })
+  const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
-  const filtered = (contacts || []).filter((c) => {
-    if (!q.trim()) return true
-    const needle = q.toLowerCase()
-    return [c.name, c.email, c.phone, c.business, ...(c.tags || [])]
-      .filter(Boolean).join(' ').toLowerCase().includes(needle)
-  })
+  const contacts = items || []
 
   if (openId) {
     return (
@@ -50,12 +47,14 @@ export default function ContactsTab({ onOpenDeal }) {
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
         <h1 style={{ fontSize: 24 }}>Contacts</h1>
         <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-          {contacts ? `${contacts.length} in this location` : 'Loading…'}
+          {loading ? 'Loading…' : `${contacts.length}${hasMore ? '+' : ''} in this location`}
         </span>
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search name, email, phone, business or tag"
+          onKeyDown={(e) => { if (e.key === 'Enter') setSearch(q.trim()) }}
+          onBlur={() => setSearch(q.trim())}
+          placeholder="Search name, email, phone or business — press Enter"
           style={{
             marginLeft: 'auto',
             width: 360, height: 36, boxSizing: 'border-box',
@@ -83,11 +82,13 @@ export default function ContactsTab({ onOpenDeal }) {
       {/* Card grid, so the skeleton mirrors the card shape and the layout
           doesn't jump when the real contacts land. minWidth matches the real
           grid's 320px track. */}
-      {!contacts && !error && <CardGridSkeleton cards={9} minWidth={320} />}
+      {loading && <CardGridSkeleton cards={9} minWidth={320} />}
 
-      {contacts && filtered.length === 0 && !error && (
+      {!loading && contacts.length === 0 && !error && (
         <div style={{ padding: 24, color: 'var(--text-muted)', fontSize: 13 }}>
-          No contacts match — clear the search to see everything.
+          {search
+            ? 'No contacts match — clear the search to see everything.'
+            : 'No contacts in this sub-account yet.'}
         </div>
       )}
 
@@ -98,7 +99,7 @@ export default function ContactsTab({ onOpenDeal }) {
           gap: 14
         }}
       >
-        {filtered.map((c) => {
+        {contacts.map((c) => {
           const initials = ((c.firstName?.[0] || '') + (c.lastName?.[0] || '')).toUpperCase() || '?'
           return (
             <div
@@ -231,6 +232,16 @@ export default function ContactsTab({ onOpenDeal }) {
           )
         })}
       </div>
+
+      {!loading && contacts.length > 0 && (
+        <LoadMore
+          sentinelRef={sentinelRef}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          count={contacts.length}
+          noun="contact"
+        />
+      )}
     </div>
   )
 }

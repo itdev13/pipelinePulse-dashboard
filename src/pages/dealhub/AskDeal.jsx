@@ -122,7 +122,9 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
         `${untranscribedCalls} call${untranscribedCalls === 1 ? '' : 's'} not transcribed`
       )
     }
-    if (excluded > 0) unreadReasons.push(`${excluded} excluded`)
+    if (excluded > 0) {
+      unreadReasons.push(`${excluded} unticked in the timeline`)
+    }
 
     return {
       readable,
@@ -983,7 +985,9 @@ function ChannelScope({ value, onChange, scope }) {
             onClick={() => toggle(key)}
             title={
               n != null
-                ? `${n} ${label} message${n === 1 ? '' : 's'} the AI can read`
+                ? `${n} ${label} message${n === 1 ? '' : 's'} the AI can read — ` +
+                  'excludes unticked rows and calls without a transcript, so this ' +
+                  'can be lower than the timeline filter above'
                 : undefined
             }
             style={{

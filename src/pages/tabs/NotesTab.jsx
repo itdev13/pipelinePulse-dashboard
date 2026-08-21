@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import { notesAPI } from '../../api/notes'
+import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import {
   Shell, PageHeader, Panel, Row, ContactChip, DealChip, Chip, RowAction,
-  PrimaryAction, SearchInput, StateMessage, relativeTime
+  PrimaryAction, SearchInput, StateMessage, LoadMore, relativeTime
 } from '../shared/ListChrome'
 
 // Notes tab — every note in the location, newest first.
@@ -14,24 +15,20 @@ import {
 // single-line note becomes the heading with no body, rather than a heading
 // duplicated as its own body text.
 export default function NotesTab({ onOpenDeal }) {
-  const [notes, setNotes] = useState(null)
-  const [error, setError] = useState(null)
   const [q, setQ] = useState('')
+  // Search runs server-side now: with pagination, filtering only the loaded
+  // page would hide matches sitting further down the list.
+  const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    let alive = true
-    notesAPI.list({ limit: 500 })
-      .then((r) => alive && setNotes(r.notes || []))
-      .catch((err) => alive && setError(err.message || 'Failed to load notes'))
-    return () => { alive = false }
-  }, [])
+  const fetchPage = useCallback(
+    ({ cursor }) => notesAPI.list({ limit: 20, cursor, q: search || undefined }),
+    [search]
+  )
+  const { items, error, hasMore, loadingMore, loading, loadMore } =
+    usePagedList({ fetchPage, key: 'notes', deps: [search] })
+  const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
-  const filtered = (notes || []).filter((n) => {
-    if (!q.trim()) return true
-    const needle = q.toLowerCase()
-    return [n.body, n.author, n.contact?.name, n.deal?.name]
-      .filter(Boolean).join(' ').toLowerCase().includes(needle)
-  })
+  const notes = items || []
 
   return (
     <Shell>
@@ -49,33 +46,35 @@ export default function NotesTab({ onOpenDeal }) {
         icon="sticky_note_2"
         title="All notes"
         accent="gold"
-        meta={notes ? `${filtered.length} ${filtered.length === 1 ? 'note' : 'notes'}` : null}
+        meta={loading ? null : `${notes.length}${hasMore ? '+' : ''} ${notes.length === 1 ? 'note' : 'notes'}`}
         toolbar={
           <SearchInput
             value={q}
-            onChange={setQ}
-            placeholder="Search note text, contact or deal"
+            onChange={(v) => setQ(v)}
+            onKeyDown={(e) => { if (e.key === 'Enter') setSearch(q.trim()) }}
+            onBlur={() => setSearch(q.trim())}
+            placeholder="Search note text — press Enter"
             width={340}
           />
         }
       >
         <StateMessage
-          loading={!notes && !error}
+          loading={loading}
           error={error}
-          empty={notes && filtered.length === 0}
+          empty={!loading && notes.length === 0}
           emptyText={
-            q.trim()
+            search
               ? 'No notes match — clear the search to see everything.'
               : 'No notes yet. Notes saved in GoHighLevel appear here.'
           }
           loadingText="Loading notes…"
         />
 
-        {filtered.map((n, i) => {
+        {notes.map((n, i) => {
           const { heading, rest } = splitNote(n.body)
           const byAI = isAIAuthored(n)
           return (
-            <Row key={n.id} last={i === filtered.length - 1}>
+            <Row key={n.id} last={i === notes.length - 1}>
               <span
                 style={{
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -145,6 +144,16 @@ export default function NotesTab({ onOpenDeal }) {
             </Row>
           )
         })}
+
+        {!loading && notes.length > 0 && (
+          <LoadMore
+            sentinelRef={sentinelRef}
+            hasMore={hasMore}
+            loadingMore={loadingMore}
+            count={notes.length}
+            noun="note"
+          />
+        )}
       </Panel>
     </Shell>
   )

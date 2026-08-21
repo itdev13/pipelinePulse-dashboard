@@ -223,6 +223,11 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
   //
   // Always returns a Map (never an array) so downstream `.has()` / `.get()`
   // calls work before messages have loaded.
+  // Counts every conversation message per channel, ticked or not — this chip
+  // filters the timeline VIEW, so it must promise the number of rows it will
+  // show. The Ask panel counts differently on purpose (only what the AI can
+  // read), which is why its chips are labelled "Ask about" rather than
+  // repeating these numbers.
   const dealChannels = useMemo(() => {
     const counts = new Map()
     if (!messages) return counts
@@ -723,15 +728,19 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                     'all'
                   )
                 })()}
+                {/* These filter the timeline VIEW by the AI checkbox — they
+                    don't change what the AI reads. Named "ticked/unticked for
+                    AI" rather than "included/excluded" so they can't be
+                    misread as the Ask panel's scope. */}
                 {chip(
-                  `Included only${inclusionCounts.included ? ` · ${inclusionCounts.included}` : ''}`,
+                  `Ticked for AI${inclusionCounts.included ? ` · ${inclusionCounts.included}` : ''}`,
                   inclusionFilter === true,
                   () => setInclusionFilter(inclusionFilter === true ? null : true),
                   null,
                   'inc'
                 )}
                 {chip(
-                  `Excluded only${inclusionCounts.excluded ? ` · ${inclusionCounts.excluded}` : ''}`,
+                  `Unticked${inclusionCounts.excluded ? ` · ${inclusionCounts.excluded}` : ''}`,
                   inclusionFilter === false,
                   () => setInclusionFilter(inclusionFilter === false ? null : false),
                   null,

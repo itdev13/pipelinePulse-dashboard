@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import { dealsAPI } from '../../api/deals'
+import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import {
-  Shell, PageHeader, SearchInput, StateMessage, DealCardsSkeleton,
+  Shell, PageHeader, SearchInput, StateMessage, DealCardsSkeleton, LoadMore,
   formatDate, initialsFor, nameFor
 } from '../shared/ListChrome'
 
@@ -14,25 +15,20 @@ import {
 // primary / Remove and the Deal Hub's stage dropdown.
 
 export default function DealsTab({ onOpenDeal }) {
-  const [deals, setDeals] = useState(null)
-  const [error, setError] = useState(null)
   const [q, setQ] = useState('')
+  // Server-side: filtering only the loaded page would hide matches further
+  // down the list.
+  const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    let alive = true
-    dealsAPI.list({ status: 'open', limit: 500 })
-      .then((r) => alive && setDeals(r.deals || []))
-      .catch((err) => alive && setError(err.message || 'Failed to load deals'))
-    return () => { alive = false }
-  }, [])
+  const fetchPage = useCallback(
+    ({ cursor }) => dealsAPI.list({ status: 'open', limit: 20, cursor, q: search || undefined }),
+    [search]
+  )
+  const { items, error, hasMore, loadingMore, loading, loadMore } =
+    usePagedList({ fetchPage, key: 'deals', deps: [search] })
+  const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
-  const filtered = (deals || []).filter((d) => {
-    if (!q.trim()) return true
-    const needle = q.toLowerCase()
-    const people = (d.people || []).map(nameFor).join(' ')
-    return [d.dealTag, d.stage, d.owner, d.product, people]
-      .filter(Boolean).join(' ').toLowerCase().includes(needle)
-  })
+  const deals = items || []
 
   return (
     <Shell maxWidth={1240}>
@@ -43,7 +39,9 @@ export default function DealsTab({ onOpenDeal }) {
           <SearchInput
             value={q}
             onChange={setQ}
-            placeholder="Search deal, contact or product"
+            onKeyDown={(e) => { if (e.key === 'Enter') setSearch(q.trim()) }}
+            onBlur={() => setSearch(q.trim())}
+            placeholder="Search deal name — press Enter"
             width={320}
           />
         }
@@ -51,9 +49,9 @@ export default function DealsTab({ onOpenDeal }) {
 
       {/* Cards, not rows — so the loading state mirrors the card shape
           rather than the generic row skeleton. */}
-      {!deals && !error && <DealCardsSkeleton cards={3} />}
+      {loading && <DealCardsSkeleton cards={3} />}
 
-      {(error || (deals && filtered.length === 0)) && (
+      {(error || (!loading && deals.length === 0)) && (
         <div
           style={{
             border: '1px solid var(--border-default)',
@@ -63,9 +61,9 @@ export default function DealsTab({ onOpenDeal }) {
         >
           <StateMessage
             error={error}
-            empty={deals && filtered.length === 0}
+            empty={!loading && deals.length === 0}
             emptyText={
-              q.trim()
+              search
                 ? 'No deals match — clear the search to see everything.'
                 : 'No open deals in this sub-account.'
             }
@@ -73,9 +71,19 @@ export default function DealsTab({ onOpenDeal }) {
         </div>
       )}
 
-      {filtered.map((d) => (
+      {deals.map((d) => (
         <DealCard key={d.id} deal={d} onOpenDeal={onOpenDeal} />
       ))}
+
+      {!loading && deals.length > 0 && (
+        <LoadMore
+          sentinelRef={sentinelRef}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          count={deals.length}
+          noun="deal"
+        />
+      )}
     </Shell>
   )
 }
