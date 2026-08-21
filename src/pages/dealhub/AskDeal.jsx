@@ -58,7 +58,7 @@ const PROMPTS = [
   }
 ]
 
-export default function AskDeal({ dealId, onAsk, onJumpToMessage }) {
+export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk }) {
   const [q, setQ] = useState('')
   // Transcript of this deal's Q&A. Client-held: it's scratch context for
   // follow-ups, and every question is already persisted server-side in
@@ -85,6 +85,14 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage }) {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [activeChatId, setActiveChatId] = useState(null)
   const [toast, setToast] = useState(null)
+  // Per-question channel scope. Transient: narrows this answer only, never
+  // changes the stored inclusion state the timeline checkboxes drive.
+  const [channels, setChannels] = useState([])
+  // Which run's "messages considered" modal is open.
+  const [inspectRunId, setInspectRunId] = useState(null)
+  // Per-channel counts of what the AI would read right now. Lets the chips
+  // show "SMS · 6" so a rep sees the scope before spending a call.
+  const [scope, setScope] = useState(null)
 
   const loadHistory = () => {
     if (!dealId) return Promise.resolve()
@@ -101,7 +109,13 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage }) {
     setQ('')
     setActiveChatId(null)
     setHistory([])
+    setChannels([])
+    setInspectRunId(null)
+    setScope(null)
     loadHistory()
+    if (dealId) {
+      aiAPI.scope(dealId).then((r) => setScope(r)).catch(() => {})
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dealId])
 
@@ -118,7 +132,8 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage }) {
         answered: chat.answered,
         coverage: chat.coverage,
         cached: true,
-        runId: chat.id
+        runId: chat.id,
+        readMessageIds: chat.readMessageIds || []
       }
     ])
     setActiveChatId(chat.id)
@@ -144,6 +159,13 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage }) {
     // Show the question immediately; the answer lands under it.
     setTurns((t) => [...t, { role: 'user', content: value }])
 
+    // Flush any pending include/exclude ticks first. The server derives the
+    // message set itself, so an unsaved checkbox would silently not apply to
+    // this question.
+    if (beforeAsk) {
+      try { await beforeAsk() } catch (err) { /* the toggle rolls itself back */ }
+    }
+
     // Send only prior *answered* turns as history, so a failed attempt
     // doesn't poison the follow-up context.
     const history = turns
@@ -154,7 +176,11 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage }) {
       }))
 
     try {
-      const res = await aiAPI.ask(dealId, { question: value, history })
+      const res = await aiAPI.ask(dealId, {
+        question: value,
+        history,
+        channels: channels.length ? channels : null
+      })
       setTurns((t) => [
         ...t,
         {
@@ -166,12 +192,16 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage }) {
           coverage: res.coverage,
           cached: res.cached,
           runId: res.runId,
-          readMessageIds: res.readMessageIds || []
+          readMessageIds: res.readMessageIds || [],
+          channelScope: res.channelScope || null
         }
       ])
       setActiveChatId(res.runId)
       // The answer is now a resumable chat — pull it into the list.
       loadHistory()
+      // Inclusion ticks were flushed just before this ask, so the counts may
+      // have moved.
+      aiAPI.scope(dealId).then((r) => setScope(r)).catch(() => {})
     } catch (err) {
       // Named failure states, never a permanent spinner (spec §5).
       const code = err.code
@@ -200,6 +230,14 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage }) {
         gap: 14
       }}
     >
+      {inspectRunId && (
+        <MessagesConsideredModal
+          runId={inspectRunId}
+          onClose={() => setInspectRunId(null)}
+          onJumpToMessage={onJumpToMessage}
+        />
+      )}
+
       {toast && (
         <div
           role="status"
@@ -303,7 +341,12 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage }) {
                     {t.content}
                   </p>
                 ) : (
-                  <Answer key={i} turn={t} onJumpToMessage={onJumpToMessage} />
+                  <Answer
+                    key={i}
+                    turn={t}
+                    onJumpToMessage={onJumpToMessage}
+                    onInspect={t.runId ? () => setInspectRunId(t.runId) : undefined}
+                  />
                 )
               )}
               {pending && <Thinking />}
@@ -322,6 +365,8 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage }) {
               {error}
             </p>
           )}
+
+          <ChannelScope value={channels} onChange={setChannels} scope={scope} />
 
           <div
             style={{
@@ -429,6 +474,7 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage }) {
             onToggle={() => setHistoryOpen((v) => !v)}
             activeId={activeChatId}
             onReopen={reopen}
+            onInspect={setInspectRunId}
           />
         </div>
       </section>
@@ -498,7 +544,7 @@ function PromptCard({ prompt, onPick }) {
 // Server-backed (ai_runs), not session state — that's the whole point: a rep
 // who reloads, switches deals and comes back, or picks the deal up tomorrow
 // still has the thread of what was already asked.
-function ChatHistory({ chats, open, onToggle, activeId, onReopen }) {
+function ChatHistory({ chats, open, onToggle, activeId, onReopen, onInspect }) {
   if (!chats || chats.length === 0) return null
   return (
     <div style={{ display: 'grid', gap: 8 }}>
@@ -570,6 +616,27 @@ function ChatHistory({ chats, open, onToggle, activeId, onReopen }) {
                 >
                   {c.answerText}
                 </span>
+                {c.readMessageIds?.length > 0 && (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); onInspect(c.id) }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault(); e.stopPropagation(); onInspect(c.id)
+                      }
+                    }}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      marginTop: 2, cursor: 'pointer',
+                      fontSize: 11, color: 'var(--text-link)'
+                    }}
+                  >
+                    <span className="ms" style={{ fontSize: 13 }}>visibility</span>
+                    {c.readMessageIds.length} message
+                    {c.readMessageIds.length === 1 ? '' : 's'} considered · show more
+                  </span>
+                )}
               </button>
             )
           })}
@@ -600,7 +667,7 @@ function askedAtLabel(ts) {
 // computed server-side in app code, never asked of the model, so it cannot be
 // hallucinated. It's also what makes a thin answer trustworthy: "read 6 of 8,
 // 2 calls not transcribed" tells the rep why the answer is thin.
-function Answer({ turn, onJumpToMessage }) {
+function Answer({ turn, onJumpToMessage, onInspect }) {
   const cov = turn.coverage
   return (
     <div
@@ -618,6 +685,8 @@ function Answer({ turn, onJumpToMessage }) {
           cached={turn.cached}
           confidence={turn.confidence}
           readMessageIds={turn.readMessageIds}
+          channelScope={turn.channelScope}
+          onInspect={onInspect}
         />
       )}
 
@@ -701,7 +770,7 @@ function Answer({ turn, onJumpToMessage }) {
   )
 }
 
-function CoverageStamp({ coverage, cached, confidence, readMessageIds }) {
+function CoverageStamp({ coverage, cached, confidence, readMessageIds, channelScope, onInspect }) {
   const partial =
     coverage.messagesRead != null &&
     coverage.messagesTotal != null &&
@@ -748,6 +817,33 @@ function CoverageStamp({ coverage, cached, confidence, readMessageIds }) {
           {confidence} confidence
         </span>
       )}
+      {channelScope?.length > 0 && (
+        <span
+          title="This answer was scoped to these channels"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            padding: '1px 7px', borderRadius: 'var(--radius-pill)',
+            background: 'var(--tint-teal)', color: 'var(--accent-teal)',
+            fontWeight: 600
+          }}
+        >
+          <span className="ms" style={{ fontSize: 12 }}>filter_alt</span>
+          {channelScope.map((c) => c.toUpperCase()).join(' · ')}
+        </span>
+      )}
+      {onInspect && (
+        <button
+          onClick={onInspect}
+          style={{
+            border: 'none', background: 'none', padding: 0,
+            cursor: 'pointer',
+            fontFamily: 'var(--font-sans)', fontSize: 11.5,
+            color: 'var(--text-link)', textDecoration: 'underline'
+          }}
+        >
+          Show more
+        </button>
+      )}
       {cached && (
         <span style={{ marginLeft: 'auto', color: 'var(--text-faint)' }}>cached</span>
       )}
@@ -775,4 +871,301 @@ function Thinking() {
       <Bar w="54%" h={11} />
     </div>
   )
+}
+
+// Per-question channel scope. "Ask about SMS only" without touching the
+// standing inclusion state the timeline checkboxes drive — two different
+// ideas, so two different controls.
+//
+// Nothing selected means every channel, which is why there's no explicit
+// "All" chip: an empty selection already says it, and an All chip that
+// deselects everything else invites the "did I mean none?" confusion.
+const SCOPE_CHANNELS = [
+  ['email', 'Email', 'mail'],
+  ['sms', 'SMS', 'sms'],
+  ['whatsapp', 'WhatsApp', 'chat'],
+  ['call', 'Calls', 'call'],
+  ['note', 'Notes', 'sticky_note_2']
+]
+
+function ChannelScope({ value, onChange, scope }) {
+  const toggle = (key) =>
+    onChange(value.includes(key) ? value.filter((v) => v !== key) : [...value, key])
+
+  const counts = scope?.byChannel || {}
+  // Notes aren't a message channel in the payload — they're separate evidence
+  // — so their count comes from its own field.
+  const countFor = (key) => (key === 'note' ? scope?.notes ?? null : counts[key] ?? null)
+
+  // How many messages this question will actually read. Nothing selected means
+  // everything, which is the number a rep most wants to see before asking.
+  const selectedCount = value.length === 0
+    ? scope?.readable ?? null
+    : value.reduce((n, k) => n + (countFor(k) || 0), 0)
+
+  // Only offer channels that exist on this deal — a chip reading "Email · 0"
+  // is a dead end, and offering it invites an empty answer.
+  const available = SCOPE_CHANNELS.filter(([key]) => {
+    if (!scope) return true          // pre-load: show all rather than flicker
+    return (countFor(key) || 0) > 0
+  })
+
+  if (scope && available.length === 0) return null
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+      <span
+        style={{
+          fontSize: 10, fontWeight: 600, letterSpacing: '0.07em',
+          textTransform: 'uppercase', color: 'var(--text-muted)', marginRight: 2
+        }}
+      >
+        Ask about
+      </span>
+      {available.map(([key, label, icon]) => {
+        const on = value.includes(key)
+        const n = countFor(key)
+        return (
+          <button
+            key={key}
+            onClick={() => toggle(key)}
+            title={
+              n != null
+                ? `${n} ${label} message${n === 1 ? '' : 's'} the AI can read`
+                : undefined
+            }
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              cursor: 'pointer',
+              height: 26, padding: '0 10px',
+              border: on ? '1.5px solid var(--accent-teal)' : '1px solid var(--border-strong)',
+              borderRadius: 'var(--radius-pill)',
+              background: on ? 'var(--tint-teal)' : '#fff',
+              color: on ? 'var(--accent-teal)' : 'var(--text-muted)',
+              fontFamily: 'var(--font-sans)',
+              fontSize: 11.5, fontWeight: on ? 600 : 400
+            }}
+          >
+            <span className="ms" style={{ fontSize: 13 }}>{icon}</span>
+            {label}
+            {n != null && (
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 10.5,
+                  opacity: 0.75
+                }}
+              >
+                {n}
+              </span>
+            )}
+          </button>
+        )
+      })}
+
+      {/* The number that matters: what this question will read. */}
+      {selectedCount != null && (
+        <span
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            fontSize: 11, fontWeight: 600,
+            color: selectedCount === 0 ? 'var(--status-stuck)' : 'var(--text-muted)'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 13 }}>visibility</span>
+          {selectedCount} message{selectedCount === 1 ? '' : 's'}
+          {value.length === 0 && ' (all channels)'}
+        </span>
+      )}
+
+      {value.length > 0 && (
+        <button
+          onClick={() => onChange([])}
+          style={{
+            border: 'none', background: 'none', padding: 0, cursor: 'pointer',
+            fontFamily: 'var(--font-sans)', fontSize: 11,
+            color: 'var(--text-link)', textDecoration: 'underline'
+          }}
+        >
+          clear
+        </button>
+      )}
+
+      {/* Excluded / unreadable messages are worth naming here too, so a low
+          count doesn't look like missing data. */}
+      {scope?.coverage?.unreadReasons?.length > 0 && (
+        <span style={{ fontSize: 10.5, color: 'var(--accent-clay)' }}>
+          · {scope.coverage.unreadReasons.join(' · ')}
+        </span>
+      )}
+    </div>
+  )
+}
+
+// "What did this answer actually read?" — resolved from the ids stored on the
+// run, not recomputed from the deal. So an old chat shows what it truly read
+// even after the thread has grown or the inclusion state changed.
+function MessagesConsideredModal({ runId, onClose, onJumpToMessage }) {
+  const [data, setData] = useState(null)
+  const [err, setErr] = useState(null)
+
+  useEffect(() => {
+    let alive = true
+    aiAPI.runMessages(runId)
+      .then((r) => alive && setData(r))
+      .catch((e) => alive && setErr(e.message || 'Could not load messages'))
+    return () => { alive = false }
+  }, [runId])
+
+  // Escape to close — a modal you can only dismiss by aiming at a small × is
+  // a modal people fight with.
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 50,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 24,
+        background: 'rgba(31, 36, 48, 0.45)'
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: 'min(760px, 100%)', maxHeight: '80vh',
+          display: 'flex', flexDirection: 'column',
+          borderRadius: 'var(--radius-lg)',
+          background: '#fff', boxShadow: 'var(--shadow-overlay)',
+          overflow: 'hidden'
+        }}
+      >
+        <header
+          style={{
+            display: 'flex', alignItems: 'flex-start', gap: 10,
+            padding: '14px 16px',
+            borderBottom: '1px solid var(--border-default)'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 20, color: 'var(--accent-teal)', marginTop: 1 }}>
+            visibility
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
+              Messages considered
+            </h3>
+            {data && (
+              <p style={{ margin: '3px 0 0', fontSize: 12.5, color: 'var(--text-muted)' }}>
+                {data.items.length} of {data.messagesTotal} on this deal
+                {data.unreadReasons?.length > 0 && ` · ${data.unreadReasons.join(' · ')}`}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              border: 'none', background: 'none', cursor: 'pointer',
+              color: 'var(--text-muted)', padding: 2
+            }}
+          >
+            <span className="ms" style={{ fontSize: 20 }}>close</span>
+          </button>
+        </header>
+
+        {data?.question && (
+          <p
+            style={{
+              margin: 0, padding: '10px 16px',
+              borderBottom: '1px solid var(--border-default)',
+              background: 'var(--gray-50)',
+              fontSize: 13, color: 'var(--text-body)'
+            }}
+          >
+            <strong style={{ fontWeight: 600 }}>Asked:</strong> {data.question}
+          </p>
+        )}
+
+        <div style={{ overflowY: 'auto', padding: '8px 0' }}>
+          {err && (
+            <p style={{ margin: 0, padding: 16, fontSize: 13, color: 'var(--status-stuck)' }}>
+              {err}
+            </p>
+          )}
+          {!data && !err && (
+            <p style={{ margin: 0, padding: 16, fontSize: 13, color: 'var(--text-muted)' }}>
+              Loading…
+            </p>
+          )}
+          {data?.items?.length === 0 && (
+            <p style={{ margin: 0, padding: 16, fontSize: 13, color: 'var(--text-muted)' }}>
+              This answer read no messages — it was based on the deal facts alone.
+            </p>
+          )}
+          {data?.items?.map((m) => (
+            <button
+              key={`${m.kind}-${m.id}`}
+              onClick={() => {
+                if (m.kind === 'message' && onJumpToMessage) {
+                  onJumpToMessage(m.id)
+                  onClose()
+                }
+              }}
+              style={{
+                display: 'grid', gap: 3, width: '100%', textAlign: 'left',
+                padding: '10px 16px',
+                border: 'none',
+                borderBottom: '1px solid var(--border-default)',
+                background: '#fff',
+                cursor: m.kind === 'message' && onJumpToMessage ? 'pointer' : 'default',
+                fontFamily: 'var(--font-sans)'
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+                <span
+                  style={{
+                    fontSize: 9.5, fontWeight: 600, letterSpacing: '0.05em',
+                    textTransform: 'uppercase',
+                    padding: '2px 6px', borderRadius: 'var(--radius-sm)',
+                    background: 'var(--gray-100)', color: 'var(--text-muted)'
+                  }}
+                >
+                  {m.channel}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                  {m.direction === 'in' ? 'In ←' : '→ Out'}
+                </span>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-heading)' }}>
+                  {m.who}
+                </span>
+                <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-faint)' }}>
+                  {shortDate(m.at)}
+                </span>
+              </span>
+              <span
+                style={{
+                  fontSize: 12.5, lineHeight: 1.45, color: 'var(--text-body)',
+                  display: '-webkit-box', WebkitLineClamp: 3,
+                  WebkitBoxOrient: 'vertical', overflow: 'hidden'
+                }}
+              >
+                {m.body || '(no readable text)'}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function shortDate(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }

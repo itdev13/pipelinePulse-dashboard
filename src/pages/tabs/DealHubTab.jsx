@@ -153,23 +153,50 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
     window.setTimeout(() => setHighlightedId((cur) => (cur === row.id ? null : cur)), 2600)
   }
 
-  // Include/exclude a message from what the AI reads. Optimistic: flip the
-  // checkbox immediately, then persist. On failure, roll back — a checkbox
-  // that silently didn't save is worse than one that visibly bounces, since
-  // the rep would believe they'd excluded something they hadn't.
-  const toggleIncluded = async (m) => {
+  // Pending inclusion changes, keyed by GHL message id. Ticking a box updates
+  // the UI instantly and records the intent here; nothing is sent until the
+  // rep asks something (or leaves the deal). Firing a PUT per click meant five
+  // round trips to tick five boxes, and the server state only actually matters
+  // at the moment a question is asked.
+  const pendingInclusions = useRef(new Map())
+
+  const toggleIncluded = (m) => {
     const next = !m.included
     setMessages((prev) =>
       prev.map((x) => (x.id === m.id ? { ...x, included: next } : x))
     )
+    pendingInclusions.current.set(m.messageId, next)
+  }
+
+  // Send whatever's pending. Returns a promise so callers can await it before
+  // asking — otherwise the context builder could read the old state.
+  const flushInclusions = async () => {
+    const pending = pendingInclusions.current
+    if (pending.size === 0) return
+    const changes = [...pending].map(([messageId, included]) => ({ messageId, included }))
+    // Clear before the request: a failure is rolled back below, and holding
+    // them would double-send on the next flush.
+    pending.clear()
     try {
-      await aiAPI.setInclusion(dealId, m.messageId, next)
+      await aiAPI.setInclusions(dealId, changes)
     } catch (err) {
+      // Roll the checkboxes back — a box that silently didn't save is worse
+      // than one that visibly bounces, since the rep would believe they'd
+      // excluded something they hadn't.
       setMessages((prev) =>
-        prev.map((x) => (x.id === m.id ? { ...x, included: !next } : x))
+        prev.map((x) => {
+          const c = changes.find((y) => y.messageId === x.messageId)
+          return c ? { ...x, included: !c.included } : x
+        })
       )
     }
   }
+
+  // Leaving the deal (switch or unmount) shouldn't lose the ticks.
+  useEffect(() => {
+    return () => { flushInclusions() }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dealId])
 
   const filtered = useMemo(() => {
     if (!messages) return []
@@ -807,6 +834,9 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
             <AskDeal
               dealId={dealId}
               onJumpToMessage={jumpToMessage}
+              // Pending checkbox changes must land before the question does,
+              // or the server builds context from the old inclusion state.
+              beforeAsk={flushInclusions}
             />
           </>
         )}
