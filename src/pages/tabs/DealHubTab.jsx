@@ -6,6 +6,7 @@ import DealSection from '../dealhub/DealSection'
 import AskDeal from '../dealhub/AskDeal'
 import CommitmentsSection from '../dealhub/CommitmentsSection'
 import QualificationSection from '../dealhub/QualificationSection'
+import { DealTasksSection, DealNotesSection } from '../dealhub/DealTasksSection'
 import DealSectionTabs from '../dealhub/DealSectionTabs'
 import {
   DealHubSkeleton, DealBodySkeleton, SkeletonStyles
@@ -840,11 +841,14 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                 onToggleIncluded={toggleIncluded}
                 highlightedId={highlightedId}
               />
-              {/* The right rail follows the section tabs above. Until now it
-                  always showed Commitments, so the tabs highlighted but
-                  changed nothing. */}
+              {/* The right rail follows the section tabs above. Sections
+                  without their own panel yet fall through to Commitments. */}
               {activeSection === 'qualification' ? (
                 <QualificationSection qualification={deal?.qualification || []} />
+              ) : activeSection === 'tasks' ? (
+                <DealTasksSection dealId={dealId} />
+              ) : activeSection === 'notes' ? (
+                <DealNotesSection dealId={dealId} />
               ) : (
                 <CommitmentsSection />
               )}

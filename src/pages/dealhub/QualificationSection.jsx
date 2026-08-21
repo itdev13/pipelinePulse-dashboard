@@ -122,7 +122,7 @@ export default function QualificationSection({ qualification = [] }) {
                 }}
               >
                 <span className="ms" style={{ fontSize: 15 }}>help</span>
-                Not answered yet
+                Not filled yet
               </span>
             )}
           </div>
@@ -138,8 +138,8 @@ export default function QualificationSection({ qualification = [] }) {
         }}
       >
         {missing.length === 0
-          ? 'Every heading answered on this deal.'
-          : `${missing.length} of ${qualification.length} headings have no answer on this deal — edit the opportunity in GoHighLevel to fill them in.`}
+          ? 'Every heading filled on this deal.'
+          : `${missing.length} of ${qualification.length} headings are not filled on this deal — edit the opportunity in GoHighLevel to fill them in.`}
       </p>
     </section>
   )
