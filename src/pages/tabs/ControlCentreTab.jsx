@@ -112,6 +112,7 @@ export default function ControlCentreTab() {
 
       <MeddicMappingSection
         meddic={data.meddic}
+        fields={data.meddicFields || []}
         onSave={async (meddic) => {
           const res = await controlAPI.saveMeddic(meddic)
           setData((d) => ({ ...d, meddic: res.meddic }))

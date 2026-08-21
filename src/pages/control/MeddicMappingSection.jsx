@@ -1,28 +1,29 @@
 import React, { useState } from 'react'
 import SectionCard, { PrimaryButton, TextField, SaveState } from './SectionCard'
 
-// MEDDIC mapping — what each of the six headings means in this business.
+// Qualification headings — read from GoHighLevel, not invented here.
 //
-// The AI reads these definitions to decide which heading a piece of
-// qualification evidence belongs under. Server whitelists exactly these six
-// keys (routes/control.js MEDDIC_KEYS), so the field list is the contract —
-// keep the keys in sync if a seventh heading is ever added.
+// The location already has these as opportunity custom fields
+// (opportunity.meddic_1 … meddic_10) with its own names: "1. Project Scope",
+// "8. Decision Criteria", "9. Deal Lost reason". Asking a user to retype
+// textbook MEDDIC into six boxes would have produced a second, conflicting
+// set of headings — so this lists the real fields and only collects the one
+// thing GHL can't tell us: what each one means in practice.
+//
+// Descriptions are optional. A heading with a name and no description is
+// still given to the model, because it needs to know the heading exists to
+// file evidence under it.
 
-const FIELDS = [
-  { key: 'metrics',           label: 'Metrics',           placeholder: 'What numbers matter — budget, target price, volume' },
-  { key: 'economic_buyer',    label: 'Economic buyer',    placeholder: 'Who actually signs off the spend' },
-  { key: 'decision_criteria', label: 'Decision criteria', placeholder: 'What they compare you on' },
-  { key: 'decision_process',  label: 'Decision process',  placeholder: 'The steps from enquiry to order' },
-  { key: 'identify_pain',     label: 'Identify pain',     placeholder: 'What is blocking them' },
-  { key: 'champion',          label: 'Champion',          placeholder: 'Who pushes for you internally' }
-]
-
-export default function MeddicMappingSection({ meddic = {}, onSave }) {
-  const [draft, setDraft] = useState(() => normalise(meddic))
+export default function MeddicMappingSection({ meddic = {}, fields = [], onSave }) {
+  const [draft, setDraft] = useState(() => normalise(meddic, fields))
   const [state, setState] = useState('idle')
   const [error, setError] = useState(null)
 
-  const dirty = FIELDS.some((f) => (draft[f.key] || '') !== (meddic[f.key] || ''))
+  const active = fields.filter((f) => f.active !== false)
+  const dirty = active.some(
+    (f) => (draft[f.fieldKey] || '') !== (meddic[f.fieldKey] || '')
+  )
+  const described = active.filter((f) => (draft[f.fieldKey] || '').trim()).length
 
   const save = async () => {
     setState('saving')
@@ -31,48 +32,98 @@ export default function MeddicMappingSection({ meddic = {}, onSave }) {
       await onSave(draft)
       setState('saved')
     } catch (err) {
-      setError(err.message || 'Could not save mapping')
+      setError(err.message || 'Could not save')
       setState('error')
     }
+  }
+
+  // No fields synced yet. This is a real state, not an error: the daily
+  // customFields cron may not have run for this location, and saying so beats
+  // an empty panel that looks broken.
+  if (active.length === 0) {
+    return (
+      <SectionCard
+        icon="checklist"
+        title="Qualification headings"
+        accent="gold"
+        help="These come from your opportunity custom fields in GoHighLevel."
+      >
+        <p
+          style={{
+            margin: 0, padding: '16px',
+            fontSize: 13, lineHeight: 1.55, color: 'var(--text-muted)'
+          }}
+        >
+          No qualification fields found for this sub-account yet. They're read
+          from your GoHighLevel opportunity custom fields (the ones named
+          <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}> meddic_1</code> onwards),
+          and sync once a day — so they'll appear here shortly after they're
+          created in GoHighLevel.
+        </p>
+      </SectionCard>
+    )
   }
 
   return (
     <SectionCard
       icon="checklist"
-      title="MEDDIC mapping"
+      title="Qualification headings"
       accent="gold"
-      help="Tell the AI what each MEDDIC field means in your business, so it files qualification evidence under the right heading."
+      meta={`${described} of ${active.length} described`}
+      help="These are your own opportunity fields from GoHighLevel. Add a line saying what each one means in your business, and the AI files evidence under the right heading."
       footer={
         <>
           <PrimaryButton onClick={save} disabled={!dirty || state === 'saving'}>
-            Save mapping
+            Save descriptions
           </PrimaryButton>
           <SaveState state={state === 'idle' && dirty ? 'dirty' : state} error={error} />
         </>
       }
     >
       <div style={{ display: 'grid', gap: 10, padding: '14px 16px' }}>
-        {FIELDS.map((f) => (
+        {active.map((f) => (
           <div
-            key={f.key}
+            key={f.fieldKey}
             style={{
               display: 'grid',
-              gridTemplateColumns: 'minmax(120px, 160px) 1fr',
+              gridTemplateColumns: 'minmax(150px, 210px) 1fr',
               gap: 14, alignItems: 'center'
             }}
           >
             <label
-              style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-heading)' }}
+              htmlFor={f.fieldKey}
+              title={f.fieldKey}
+              style={{ minWidth: 0 }}
             >
-              {f.label}
+              <span
+                style={{
+                  display: 'block',
+                  fontSize: 13, fontWeight: 600, color: 'var(--text-heading)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                }}
+              >
+                {f.name}
+              </span>
+              {/* The GHL key, so a rep can match this row to the field they
+                  see in GoHighLevel. */}
+              <span
+                style={{
+                  display: 'block', marginTop: 1,
+                  fontFamily: 'var(--font-mono)', fontSize: 10.5,
+                  color: 'var(--text-faint)'
+                }}
+              >
+                meddic_{f.index}
+              </span>
             </label>
             <TextField
-              value={draft[f.key]}
+              id={f.fieldKey}
+              value={draft[f.fieldKey]}
               onChange={(v) => {
-                setDraft((d) => ({ ...d, [f.key]: v }))
+                setDraft((d) => ({ ...d, [f.fieldKey]: v }))
                 if (state !== 'idle') setState('idle')
               }}
-              placeholder={f.placeholder}
+              placeholder="What this means in your business — optional"
             />
           </div>
         ))}
@@ -81,8 +132,10 @@ export default function MeddicMappingSection({ meddic = {}, onSave }) {
   )
 }
 
-function normalise(meddic) {
+// Keyed by GHL field_key, so adding an 11th field in GoHighLevel needs no
+// change here.
+function normalise(meddic, fields) {
   const out = {}
-  for (const f of FIELDS) out[f.key] = meddic?.[f.key] || ''
+  for (const f of fields) out[f.fieldKey] = meddic?.[f.fieldKey] || ''
   return out
 }

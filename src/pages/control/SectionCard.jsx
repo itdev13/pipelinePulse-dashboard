@@ -138,9 +138,10 @@ export function IconButton({ icon = 'close', onClick, title }) {
   )
 }
 
-export function TextField({ value, onChange, placeholder, mono }) {
+export function TextField({ value, onChange, placeholder, mono, id }) {
   return (
     <input
+      id={id}
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
