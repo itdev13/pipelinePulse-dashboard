@@ -9,5 +9,12 @@ export const aiAPI = {
       history
     }),
   feedback: (runId, payload) =>
-    apiClient.post(`/api/ai/runs/${encodeURIComponent(runId)}/feedback`, payload)
+    apiClient.post(`/api/ai/runs/${encodeURIComponent(runId)}/feedback`, payload),
+  askHistory: (dealId) =>
+    apiClient.get(`/api/ai/deals/${encodeURIComponent(dealId)}/ask/history`),
+  setInclusion: (dealId, messageId, included, reason) =>
+    apiClient.put(
+      `/api/ai/deals/${encodeURIComponent(dealId)}/messages/${encodeURIComponent(messageId)}/inclusion`,
+      { included, reason }
+    )
 }

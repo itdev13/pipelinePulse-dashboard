@@ -79,13 +79,53 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage }) {
     return () => { alive = false }
   }, [])
 
-  // Switching deals resets the conversation — the thread it was grounded in
-  // is gone.
+  // Past chats for this deal, from ai_runs. Loading these is what makes the
+  // panel resumable across reloads.
+  const [history, setHistory] = useState([])
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [activeChatId, setActiveChatId] = useState(null)
+  const [toast, setToast] = useState(null)
+
+  const loadHistory = () => {
+    if (!dealId) return Promise.resolve()
+    return aiAPI.askHistory(dealId)
+      .then((r) => setHistory(r.chats || []))
+      .catch(() => {})
+  }
+
+  // Switching deals clears the live transcript — the thread it was grounded
+  // in is gone — and pulls that deal's own history.
   useEffect(() => {
     setTurns([])
     setError(null)
     setQ('')
+    setActiveChatId(null)
+    setHistory([])
+    loadHistory()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dealId])
+
+  // Reopen a past chat into the live transcript. It becomes the conversation,
+  // so a follow-up carries its context.
+  const reopen = (chat) => {
+    setTurns([
+      { role: 'user', content: chat.question },
+      {
+        role: 'assistant',
+        answerText: chat.answerText,
+        citations: chat.citations || [],
+        confidence: chat.confidence,
+        answered: chat.answered,
+        coverage: chat.coverage,
+        cached: true,
+        runId: chat.id
+      }
+    ])
+    setActiveChatId(chat.id)
+    setError(null)
+    setToast('Chat reopened')
+    window.setTimeout(() => setToast(null), 2200)
+  }
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -128,6 +168,9 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage }) {
           runId: res.runId
         }
       ])
+      setActiveChatId(res.runId)
+      // The answer is now a resumable chat — pull it into the list.
+      loadHistory()
     } catch (err) {
       // Named failure states, never a permanent spinner (spec §5).
       const code = err.code
@@ -150,11 +193,32 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage }) {
   return (
     <div
       style={{
+        position: 'relative',
         display: 'grid',
         gridTemplateColumns: 'minmax(0, 2fr) minmax(320px, 1fr)',
         gap: 14
       }}
     >
+      {toast && (
+        <div
+          role="status"
+          style={{
+            position: 'absolute', right: 0, bottom: -6,
+            zIndex: 5,
+            display: 'flex', alignItems: 'center', gap: 7,
+            padding: '9px 14px',
+            borderRadius: 'var(--radius-md)',
+            background: '#fff',
+            boxShadow: 'var(--shadow-overlay)',
+            fontSize: 13, color: 'var(--text-heading)'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 17, color: 'var(--status-done)' }}>
+            check_circle
+          </span>
+          {toast}
+        </div>
+      )}
       {/* Left — Ask this deal */}
       <section
         style={{
@@ -358,7 +422,13 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage }) {
             />
           ))}
 
-          <ChatHistoryFooter count={turns.filter((t) => t.role === 'user').length} />
+          <ChatHistory
+            chats={history}
+            open={historyOpen}
+            onToggle={() => setHistoryOpen((v) => !v)}
+            activeId={activeChatId}
+            onReopen={reopen}
+          />
         </div>
       </section>
     </div>
@@ -421,27 +491,106 @@ function PromptCard({ prompt, onPick }) {
 // Chat history is a placeholder — the transcript store lands with the
 // backend wiring. The count is passed through so the footer already
 // reflects state even though the drawer itself isn't built yet.
-// Footer under the prompt tiles. The transcript is scoped to the open deal
-// and resets when you switch — every question is still persisted server-side
-// in ai_runs, so nothing is lost, but there's no cross-deal history view yet.
-function ChatHistoryFooter({ count }) {
-  if (count === 0) return null
+// Past Q&A for this deal, collapsed by default. Clicking one reopens it into
+// the live transcript so a follow-up carries its context.
+//
+// Server-backed (ai_runs), not session state — that's the whole point: a rep
+// who reloads, switches deals and comes back, or picks the deal up tomorrow
+// still has the thread of what was already asked.
+function ChatHistory({ chats, open, onToggle, activeId, onReopen }) {
+  if (!chats || chats.length === 0) return null
   return (
-    <div
-      style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '10px 12px',
-        border: '1px solid var(--border-default)',
-        borderRadius: 'var(--radius-md)',
-        background: 'var(--surface-sunken)'
-      }}
-    >
-      <span className="ms" style={{ fontSize: 17, color: 'var(--text-muted)' }}>history</span>
-      <span style={{ fontSize: 12.5, color: 'var(--text-muted)', flex: 1 }}>
-        {count} {count === 1 ? 'question' : 'questions'} this session
-      </span>
+    <div style={{ display: 'grid', gap: 8 }}>
+      <button
+        onClick={onToggle}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          cursor: 'pointer', width: '100%',
+          padding: '10px 12px',
+          border: '1px solid var(--border-default)',
+          borderRadius: 'var(--radius-md)',
+          background: 'var(--surface-sunken)',
+          fontFamily: 'var(--font-sans)', textAlign: 'left'
+        }}
+      >
+        <span className="ms" style={{ fontSize: 17, color: 'var(--text-muted)' }}>history</span>
+        <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-body)' }}>
+          Chat history
+        </span>
+        <span style={{ fontSize: 12, color: 'var(--text-muted)', flex: 1 }}>
+          {chats.length} {chats.length === 1 ? 'chat' : 'chats'}
+        </span>
+        <span className="ms" style={{ fontSize: 18, color: 'var(--text-faint)' }}>
+          {open ? 'expand_less' : 'expand_more'}
+        </span>
+      </button>
+
+      {open && (
+        <div style={{ display: 'grid', gap: 6 }}>
+          {chats.map((c) => {
+            const active = c.id === activeId
+            return (
+              <button
+                key={c.id}
+                onClick={() => onReopen(c)}
+                title="Reopen this chat"
+                style={{
+                  display: 'grid', gap: 3,
+                  cursor: 'pointer', width: '100%', textAlign: 'left',
+                  padding: '10px 12px',
+                  border: active
+                    ? '1.5px solid var(--brand-primary)'
+                    : '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-md)',
+                  background: active ? 'var(--surface-selected)' : '#fff',
+                  fontFamily: 'var(--font-sans)'
+                }}
+              >
+                <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <span
+                    style={{
+                      flex: 1, minWidth: 0,
+                      fontSize: 13, fontWeight: 600, color: 'var(--text-heading)',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {c.question}
+                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--text-faint)', flex: 'none' }}>
+                    {askedAtLabel(c.askedAt)}
+                  </span>
+                </span>
+                <span
+                  style={{
+                    fontSize: 12, lineHeight: 1.45, color: 'var(--text-muted)',
+                    display: '-webkit-box', WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical', overflow: 'hidden'
+                  }}
+                >
+                  {c.answerText}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
+}
+
+// "Yesterday · 16:20" near now, an absolute date further back — matching how
+// the design words it.
+function askedAtLabel(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return ''
+  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  const startOfToday = new Date()
+  startOfToday.setHours(0, 0, 0, 0)
+  const days = Math.round((startOfToday - new Date(d).setHours(0, 0, 0, 0)) / 86400000)
+  if (days === 0) return time
+  if (days === 1) return `Yesterday · ${time}`
+  return `${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · ${time}`
 }
 
 // One answer turn: prose, the coverage stamp, and clickable citations.

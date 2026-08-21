@@ -10,6 +10,7 @@ import {
   DealHubSkeleton, DealBodySkeleton, SkeletonStyles
 } from '../dealhub/Skeleton'
 import { dealsAPI } from '../../api/deals'
+import { aiAPI } from '../../api/ai'
 
 // Deal Hub tab — the core view.
 //
@@ -152,10 +153,22 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
     window.setTimeout(() => setHighlightedId((cur) => (cur === row.id ? null : cur)), 2600)
   }
 
-  const toggleIncluded = (m) => {
+  // Include/exclude a message from what the AI reads. Optimistic: flip the
+  // checkbox immediately, then persist. On failure, roll back — a checkbox
+  // that silently didn't save is worse than one that visibly bounces, since
+  // the rep would believe they'd excluded something they hadn't.
+  const toggleIncluded = async (m) => {
+    const next = !m.included
     setMessages((prev) =>
-      prev.map((x) => (x.id === m.id ? { ...x, included: !x.included } : x))
+      prev.map((x) => (x.id === m.id ? { ...x, included: next } : x))
     )
+    try {
+      await aiAPI.setInclusion(dealId, m.messageId, next)
+    } catch (err) {
+      setMessages((prev) =>
+        prev.map((x) => (x.id === m.id ? { ...x, included: !next } : x))
+      )
+    }
   }
 
   const filtered = useMemo(() => {
