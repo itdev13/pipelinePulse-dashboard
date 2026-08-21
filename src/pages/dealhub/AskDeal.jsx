@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { aiAPI } from '../../api/ai'
 import { SkeletonStyles, Bar } from '../shared/ListChrome'
 
@@ -58,7 +58,7 @@ const PROMPTS = [
   }
 ]
 
-export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk }) {
+export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, messages = [] }) {
   const [q, setQ] = useState('')
   // Transcript of this deal's Q&A. Client-held: it's scratch context for
   // follow-ups, and every question is already persisted server-side in
@@ -90,9 +90,47 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk }) {
   const [channels, setChannels] = useState([])
   // Which run's "messages considered" modal is open.
   const [inspectRunId, setInspectRunId] = useState(null)
-  // Per-channel counts of what the AI would read right now. Lets the chips
-  // show "SMS · 6" so a rep sees the scope before spending a call.
-  const [scope, setScope] = useState(null)
+  // Per-channel counts of what the AI would read right now, derived from the
+  // live timeline rows. Deliberately NOT fetched from the server: the
+  // inclusion checkbox is optimistic and batched, so a server count would lag
+  // behind unflushed ticks — and the stale number is precisely the one the rep
+  // is reading while deciding what to ask.
+  const scope = useMemo(() => {
+    const byChannel = {}
+    let readable = 0
+    let untranscribedCalls = 0
+    let excluded = 0
+    let notes = 0
+    let total = 0
+
+    for (const m of messages) {
+      // Events (opp created, DND enabled, …) aren't evidence and have no
+      // checkbox — they're not part of what the AI reads.
+      if (m.event) continue
+      total++
+      if (!m.included) { excluded++; continue }
+      if (!m.readable) { untranscribedCalls++; continue }
+      if (m.channel === 'NOTE') { notes++; readable++; continue }
+      const key = String(m.channel || '').toLowerCase()
+      byChannel[key] = (byChannel[key] || 0) + 1
+      readable++
+    }
+
+    const unreadReasons = []
+    if (untranscribedCalls > 0) {
+      unreadReasons.push(
+        `${untranscribedCalls} call${untranscribedCalls === 1 ? '' : 's'} not transcribed`
+      )
+    }
+    if (excluded > 0) unreadReasons.push(`${excluded} excluded`)
+
+    return {
+      readable,
+      notes,
+      byChannel,
+      coverage: { messagesTotal: total, messagesRead: readable, unreadReasons }
+    }
+  }, [messages])
 
   const loadHistory = () => {
     if (!dealId) return Promise.resolve()
@@ -111,11 +149,7 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk }) {
     setHistory([])
     setChannels([])
     setInspectRunId(null)
-    setScope(null)
     loadHistory()
-    if (dealId) {
-      aiAPI.scope(dealId).then((r) => setScope(r)).catch(() => {})
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dealId])
 
@@ -199,9 +233,6 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk }) {
       setActiveChatId(res.runId)
       // The answer is now a resumable chat — pull it into the list.
       loadHistory()
-      // Inclusion ticks were flushed just before this ask, so the counts may
-      // have moved.
-      aiAPI.scope(dealId).then((r) => setScope(r)).catch(() => {})
     } catch (err) {
       // Named failure states, never a permanent spinner (spec §5).
       const code = err.code

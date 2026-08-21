@@ -837,6 +837,10 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
               // Pending checkbox changes must land before the question does,
               // or the server builds context from the old inclusion state.
               beforeAsk={flushInclusions}
+              // The live timeline rows. AskDeal derives its channel counts
+              // from these so a checkbox tick updates them instantly —
+              // re-fetching from the server would lag behind unflushed ticks.
+              messages={messages || []}
             />
           </>
         )}

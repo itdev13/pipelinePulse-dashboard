@@ -9,7 +9,6 @@ export const aiAPI = {
       history,
       channels
     }),
-  scope: (dealId) => apiClient.get(`/api/ai/deals/${encodeURIComponent(dealId)}/scope`),
   runMessages: (runId) =>
     apiClient.get(`/api/ai/runs/${encodeURIComponent(runId)}/messages`),
   feedback: (runId, payload) =>
