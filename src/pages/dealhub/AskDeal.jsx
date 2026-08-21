@@ -227,7 +227,14 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk }) {
         position: 'relative',
         display: 'grid',
         gridTemplateColumns: 'minmax(0, 2fr) minmax(320px, 1fr)',
-        gap: 14
+        gap: 14,
+        // Both panels stretch to the taller of the two (grid default), and the
+        // Ask panel's inner flex column then pins its composer to the bottom
+        // of that height. A floor keeps the composer low even on a deal with no
+        // chat history yet, where the Prompts column would otherwise set a
+        // short height.
+        minHeight: 420,
+        alignItems: 'stretch'
       }}
     >
       {inspectRunId && (
@@ -287,7 +294,14 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk }) {
           </h3>
         </header>
 
-        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div
+          style={{
+            padding: 16, display: 'flex', flexDirection: 'column', gap: 12,
+            // Fill the panel: the transcript takes the slack (min-height 0 so
+            // it can shrink and scroll), the composer is pinned below it.
+            flex: 1, minHeight: 0
+          }}
+        >
           {turns.length === 0 && (
             <p
               style={{
@@ -322,7 +336,9 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk }) {
               ref={scrollRef}
               style={{
                 display: 'grid', gap: 12,
-                maxHeight: 420, overflowY: 'auto'
+                // Takes whatever height is going and scrolls inside itself, so
+                // a long conversation never pushes the composer off-panel.
+                flex: 1, minHeight: 0, overflowY: 'auto'
               }}
             >
               {turns.map((t, i) =>
@@ -366,6 +382,10 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk }) {
             </p>
           )}
 
+          {/* Composer — pinned to the bottom of the panel. marginTop:auto does
+              the pinning when the transcript is empty; once it has content the
+              transcript's flex:1 has already claimed the space. */}
+          <div style={{ marginTop: 'auto', flex: 'none', display: 'grid', gap: 10 }}>
           <ChannelScope value={channels} onChange={setChannels} scope={scope} />
 
           <div
@@ -419,6 +439,7 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk }) {
                 </button>
               )
             })()}
+          </div>
           </div>
         </div>
       </section>
