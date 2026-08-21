@@ -165,7 +165,8 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage }) {
           answered: res.answered !== false,
           coverage: res.coverage,
           cached: res.cached,
-          runId: res.runId
+          runId: res.runId,
+          readMessageIds: res.readMessageIds || []
         }
       ])
       setActiveChatId(res.runId)
@@ -611,7 +612,14 @@ function Answer({ turn, onJumpToMessage }) {
         overflow: 'hidden'
       }}
     >
-      {cov && <CoverageStamp coverage={cov} cached={turn.cached} confidence={turn.confidence} />}
+      {cov && (
+        <CoverageStamp
+          coverage={cov}
+          cached={turn.cached}
+          confidence={turn.confidence}
+          readMessageIds={turn.readMessageIds}
+        />
+      )}
 
       <p
         style={{
@@ -693,7 +701,7 @@ function Answer({ turn, onJumpToMessage }) {
   )
 }
 
-function CoverageStamp({ coverage, cached, confidence }) {
+function CoverageStamp({ coverage, cached, confidence, readMessageIds }) {
   const partial =
     coverage.messagesRead != null &&
     coverage.messagesTotal != null &&
@@ -712,7 +720,14 @@ function CoverageStamp({ coverage, cached, confidence }) {
       <span className="ms" style={{ fontSize: 14 }}>
         {partial ? 'visibility_off' : 'visibility'}
       </span>
-      <span>
+      <span
+        title={
+          readMessageIds?.length
+            ? `Message ids read:\n${readMessageIds.join('\n')}`
+            : undefined
+        }
+        style={{ cursor: readMessageIds?.length ? 'help' : 'default' }}
+      >
         Read {coverage.messagesRead} of {coverage.messagesTotal}{' '}
         {coverage.messagesTotal === 1 ? 'message' : 'messages'}
       </span>
