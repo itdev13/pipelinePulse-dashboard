@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 
 // Shared chrome for the list tabs (Notes / Tasks / Deals).
 //
@@ -556,4 +556,75 @@ export function LoadMore({ sentinelRef, hasMore, loadingMore, count, noun = 'ite
       ) : null}
     </div>
   )
+}
+
+// Note and task bodies. GHL's editor is rich text, so these are stored as
+// markup — render them as HTML rather than showing the user raw tags.
+//
+// The plain-text toggle is there because markup isn't always wanted: copying a
+// note into an email, or reading a body whose formatting is noise rather than
+// meaning. Stripping happens here in the browser — no server round trip and
+// nothing stored differently.
+export function RichBody({ html, maxWidth = 640, size = 13 }) {
+  const [plain, setPlain] = useState(false)
+  if (!html) return null
+
+  const text = plain ? toPlainText(html) : null
+  const base = {
+    margin: 0, maxWidth,
+    fontSize: size, lineHeight: 1.5, color: 'var(--text-body)'
+  }
+
+  return (
+    <div style={{ display: 'grid', gap: 4 }}>
+      {plain ? (
+        <p style={{ ...base, whiteSpace: 'pre-line' }}>{text}</p>
+      ) : (
+        <div
+          className="pp-rich"
+          style={{ ...base, overflowWrap: 'anywhere' }}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      )}
+
+      {/* Only worth offering when there IS markup to strip. */}
+      {hasMarkup(html) && (
+        <button
+          onClick={() => setPlain((v) => !v)}
+          style={{
+            justifySelf: 'start',
+            border: 'none', background: 'none', padding: 0, cursor: 'pointer',
+            fontFamily: 'var(--font-sans)', fontSize: 11,
+            color: 'var(--text-link)', textDecoration: 'underline'
+          }}
+        >
+          {plain ? 'Show formatted' : 'Show plain text'}
+        </button>
+      )}
+    </div>
+  )
+}
+
+// A real tag, not a stray "<" in prose — "keep it < 30k" is common in sales
+// notes and must not count as markup.
+function hasMarkup(s) {
+  return /<\/?[a-z][a-z0-9-]*(\s[^<>]*)?\/?>/i.test(s || '')
+    || /&(?:nbsp|amp|lt|gt|quot|#\d+);/i.test(s || '')
+}
+
+// Browser-native parse — no dependency, and the same engine that rendered the
+// markup above does the stripping.
+function toPlainText(html) {
+  const doc = new DOMParser().parseFromString(String(html || ''), 'text/html')
+  doc.querySelectorAll('script, style').forEach((el) => el.remove())
+  // Block boundaries become newlines, or every paragraph runs together.
+  doc.querySelectorAll('br').forEach((el) => el.replaceWith('\n'))
+  doc.querySelectorAll('p, div, li, tr, h1, h2, h3, h4, h5, h6')
+    .forEach((el) => el.append('\n'))
+  return (doc.body.textContent || '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/ *\n */g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 }

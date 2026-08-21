@@ -3,7 +3,7 @@ import { notesAPI } from '../../api/notes'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import {
   Shell, PageHeader, Panel, Row, ContactChip, DealChip, Chip, RowAction,
-  PrimaryAction, SearchInput, StateMessage, LoadMore, relativeTime
+  PrimaryAction, SearchInput, StateMessage, LoadMore, RichBody, relativeTime
 } from '../shared/ListChrome'
 
 // Notes tab — every note in the location, newest first.
@@ -107,15 +107,9 @@ export default function NotesTab({ onOpenDeal }) {
                 </div>
 
                 {rest && (
-                  <p
-                    style={{
-                      margin: '4px 0 0', maxWidth: 640,
-                      fontSize: 13, lineHeight: 1.55, color: 'var(--text-body)',
-                      whiteSpace: 'pre-line'
-                    }}
-                  >
-                    {rest}
-                  </p>
+                  <div style={{ marginTop: 4 }}>
+                    <RichBody html={rest} />
+                  </div>
                 )}
 
                 <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 5 }}>
@@ -176,21 +170,38 @@ function AIBadge() {
   )
 }
 
-// First line becomes the heading; the rest is the body. Notes with one line
-// get a heading only — no duplicated text.
+// Notes have no title column, so the first block becomes the heading and the
+// rest is the body. Bodies are markup, so "first block" means the first
+// paragraph/line element — splitting on "\n" finds nothing in
+// "<p>a</p><p>b</p>" and would make the whole markup string the heading.
 function splitNote(body) {
-  const text = (body || '').trim()
-  if (!text) return { heading: '(empty note)', rest: null }
-  const lines = text.split('\n')
-  const heading = lines[0].trim()
-  const rest = lines.slice(1).join('\n').trim()
-  // A long single paragraph has no natural heading — a 300-char "title"
-  // would wreck the row, so fall back to a generic label and keep the whole
-  // thing as the body.
-  if (!rest && heading.length > 120) {
-    return { heading: 'Note', rest: heading }
+  const raw = (body || '').trim()
+  if (!raw) return { heading: '(empty note)', rest: null }
+
+  // Plain text (no markup): first line is the heading, as before.
+  if (!/<[a-z][^>]*>/i.test(raw)) {
+    const lines = raw.split('\n')
+    const heading = lines[0].trim()
+    const rest = lines.slice(1).join('\n').trim()
+    if (!rest && heading.length > 120) return { heading: 'Note', rest: heading }
+    return { heading, rest: rest || null }
   }
-  return { heading, rest: rest || null }
+
+  // Markup: take the first block element's text as the heading and hand the
+  // remaining markup back intact, so its formatting survives.
+  const doc = new DOMParser().parseFromString(raw, 'text/html')
+  const blocks = [...doc.body.children]
+  if (blocks.length > 1) {
+    const heading = (blocks[0].textContent || '').trim()
+    const rest = blocks.slice(1).map((el) => el.outerHTML).join('')
+    if (heading) return { heading, rest: rest || null }
+  }
+
+  // One block, or nothing usable: the whole thing is the body. No invented
+  // heading — a truncated first sentence in bold reads worse than none.
+  const text = (doc.body.textContent || '').trim()
+  if (text.length <= 120) return { heading: text, rest: null }
+  return { heading: 'Note', rest: raw }
 }
 
 // Notes written by the nightly AI pass. GHL has no "authored by AI" flag, so

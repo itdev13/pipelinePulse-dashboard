@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { tasksAPI } from '../../api/tasks'
 import { notesAPI } from '../../api/notes'
-import { formatDue, relativeTime } from '../shared/ListChrome'
+import { formatDue, relativeTime, RichBody } from '../shared/ListChrome'
 
 // Tasks and Notes for the open deal, in the Deal Hub's right rail.
 //
@@ -67,14 +67,9 @@ export function DealTasksSection({ dealId }) {
               {t.title || '(untitled task)'}
             </span>
             {t.body && (
-              <span
-                style={{
-                  display: 'block', marginTop: 2,
-                  fontSize: 12, lineHeight: 1.45, color: 'var(--text-muted)'
-                }}
-              >
-                {t.body}
-              </span>
+              <div style={{ marginTop: 2 }}>
+                <RichBody html={t.body} size={12} maxWidth={480} />
+              </div>
             )}
             <span
               style={{
@@ -140,15 +135,9 @@ export function DealNotesSection({ dealId }) {
               {heading}
             </span>
             {rest && (
-              <p
-                style={{
-                  margin: '3px 0 0',
-                  fontSize: 12, lineHeight: 1.45, color: 'var(--text-body)',
-                  whiteSpace: 'pre-line'
-                }}
-              >
-                {rest}
-              </p>
+              <div style={{ marginTop: 3 }}>
+                <RichBody html={rest} size={12} maxWidth={480} />
+              </div>
             )}
             <span
               style={{
@@ -243,14 +232,36 @@ function Muted({ children }) {
   )
 }
 
-// Same first-line-is-the-heading rule as the Notes tab — GHL notes have no
-// title column.
+// Notes have no title column, so the first block becomes the heading and the
+// rest is the body. Bodies are markup, so "first block" means the first
+// paragraph/line element — splitting on "\n" finds nothing in
+// "<p>a</p><p>b</p>" and would make the whole markup string the heading.
 function splitNote(body) {
-  const text = (body || '').trim()
-  if (!text) return { heading: '(empty note)', rest: null }
-  const lines = text.split('\n')
-  const heading = lines[0].trim()
-  const rest = lines.slice(1).join('\n').trim()
-  if (!rest && heading.length > 90) return { heading: 'Note', rest: heading }
-  return { heading, rest: rest || null }
+  const raw = (body || '').trim()
+  if (!raw) return { heading: '(empty note)', rest: null }
+
+  // Plain text (no markup): first line is the heading, as before.
+  if (!/<[a-z][^>]*>/i.test(raw)) {
+    const lines = raw.split('\n')
+    const heading = lines[0].trim()
+    const rest = lines.slice(1).join('\n').trim()
+    if (!rest && heading.length > 120) return { heading: 'Note', rest: heading }
+    return { heading, rest: rest || null }
+  }
+
+  // Markup: take the first block element's text as the heading and hand the
+  // remaining markup back intact, so its formatting survives.
+  const doc = new DOMParser().parseFromString(raw, 'text/html')
+  const blocks = [...doc.body.children]
+  if (blocks.length > 1) {
+    const heading = (blocks[0].textContent || '').trim()
+    const rest = blocks.slice(1).map((el) => el.outerHTML).join('')
+    if (heading) return { heading, rest: rest || null }
+  }
+
+  // One block, or nothing usable: the whole thing is the body. No invented
+  // heading — a truncated first sentence in bold reads worse than none.
+  const text = (doc.body.textContent || '').trim()
+  if (text.length <= 120) return { heading: text, rest: null }
+  return { heading: 'Note', rest: raw }
 }

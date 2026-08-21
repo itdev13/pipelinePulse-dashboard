@@ -3,7 +3,7 @@ import { tasksAPI } from '../../api/tasks'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import {
   Shell, PageHeader, Panel, Row, ContactChip, DealChip, RowAction,
-  PrimaryAction, FilterChip, StateMessage, LoadMore, formatDue
+  PrimaryAction, FilterChip, StateMessage, LoadMore, RichBody, formatDue
 } from '../shared/ListChrome'
 
 // Tasks tab — the queue. Due filters run server-side (routes/tasks.js
@@ -106,14 +106,9 @@ export default function TasksTab({ onOpenDeal }) {
               </div>
 
               {t.body && (
-                <p
-                  style={{
-                    margin: '4px 0 0', maxWidth: 680,
-                    fontSize: 13, lineHeight: 1.5, color: 'var(--text-body)'
-                  }}
-                >
-                  {t.body}
-                </p>
+                <div style={{ marginTop: 4 }}>
+                  <RichBody html={t.body} maxWidth={680} />
+                </div>
               )}
 
               <div

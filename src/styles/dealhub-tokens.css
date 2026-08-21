@@ -142,3 +142,22 @@
   margin: 0;
   font-weight: 600;
 }
+
+/* Rendered note/task bodies. GHL's editor emits <p>, <ul>, <strong> etc; the
+   browser's default margins are far too large inside a compact list row, and
+   an unconstrained <img> or <table> would break the layout. */
+[data-dealhub] .pp-rich > :first-child { margin-top: 0; }
+[data-dealhub] .pp-rich > :last-child { margin-bottom: 0; }
+[data-dealhub] .pp-rich p,
+[data-dealhub] .pp-rich ul,
+[data-dealhub] .pp-rich ol { margin: 0 0 6px; }
+[data-dealhub] .pp-rich ul,
+[data-dealhub] .pp-rich ol { padding-left: 20px; }
+[data-dealhub] .pp-rich li { margin: 0 0 2px; }
+[data-dealhub] .pp-rich a { color: var(--text-link); }
+[data-dealhub] .pp-rich img { max-width: 100%; height: auto; }
+[data-dealhub] .pp-rich table { max-width: 100%; border-collapse: collapse; }
+[data-dealhub] .pp-rich td,
+[data-dealhub] .pp-rich th { border: 1px solid var(--border-default); padding: 3px 6px; }
+/* GHL sometimes inlines font-size/colour that fights the row's own scale. */
+[data-dealhub] .pp-rich [style*="font-size"] { font-size: inherit !important; }
