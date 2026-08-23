@@ -3,7 +3,7 @@ import { tasksAPI } from '../../api/tasks'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import {
   Shell, PageHeader, Panel, ContactChip, DealChip, RowAction,
-  PrimaryAction, FilterChip, SortButton, NoteChip, StateMessage, LoadMore,
+  PrimaryAction, FilterChip, NoteChip, StateMessage, LoadMore,
   RichBody, formatDue
 } from '../shared/ListChrome'
 
@@ -11,7 +11,7 @@ import {
 //
 // Changes from v4: the title is a button that opens the task on the deal hub,
 // contact and deal chips sit on the right, linked notes render as gold chips on
-// their own line beneath the row, and there's an Add task action plus sorting.
+// their own line beneath the row, and Add task sits on the panel toolbar.
 //
 // A task with no deal shows a "No deal" chip rather than hiding the slot — v5
 // makes unattached tasks a first-class state, so the absence has to be visible.
@@ -23,25 +23,16 @@ const DUE_FILTERS = [
   ['month', 'Due next 30 days']
 ]
 
-// 'due' is soonest-first (the queue default the server already orders by);
-// 'created' is newest-first.
-const SORTS = [
-  ['due', 'Due'],
-  ['created', 'Created']
-]
-
 export default function TasksTab({ onOpenDeal, onOpenContact }) {
   const [dueFilter, setDueFilter] = useState('all')
-  const [sort, setSort] = useState('due')
   const [toast, setToast] = useState(null)
 
   const fetchPage = useCallback(
-    ({ cursor }) =>
-      tasksAPI.list({ status: 'open', due: dueFilter, sort, limit: 20, cursor }),
-    [dueFilter, sort]
+    ({ cursor }) => tasksAPI.list({ status: 'open', due: dueFilter, limit: 20, cursor }),
+    [dueFilter]
   )
   const { items, error, hasMore, loadingMore, loading, loadMore, patchItem } =
-    usePagedList({ fetchPage, key: 'tasks', deps: [dueFilter, sort] })
+    usePagedList({ fetchPage, key: 'tasks', deps: [dueFilter] })
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
   const tasks = items || []
@@ -65,7 +56,6 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
       <PageHeader
         title="Tasks"
         subtitle="Tasks come first — each one links to its contact and its deal; click a task to see it on the deal hub"
-        action={<PrimaryAction onClick={undefined} icon="add">Add task</PrimaryAction>}
       />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -78,21 +68,6 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
             onClick={() => setDueFilter(id)}
           />
         ))}
-        <span
-          style={{
-            marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5
-          }}
-        >
-          <Label>Sort</Label>
-          {SORTS.map(([id, label]) => (
-            <SortButton
-              key={id}
-              label={label}
-              active={sort === id}
-              onClick={() => setSort(id)}
-            />
-          ))}
-        </span>
       </div>
 
       <Panel
@@ -100,6 +75,7 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
         title="Task queue"
         accent="rose"
         meta={loading ? null : `${openCount}${hasMore ? '+' : ''} open`}
+        toolbar={<PrimaryAction onClick={undefined} icon="add">Add task</PrimaryAction>}
       >
         <StateMessage
           loading={loading}
@@ -184,14 +160,13 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                     justifyContent: 'flex-end', alignItems: 'center'
                   }}
                 >
-                  {t.contact && (
+                  {(t.contacts?.length ? t.contacts : t.contact ? [t.contact] : []).map((c) => (
                     <ContactChip
-                      name={t.contact.name}
-                      onClick={
-                        onOpenContact ? () => onOpenContact(t.contact.id) : undefined
-                      }
+                      key={c.id}
+                      name={c.name}
+                      onClick={onOpenContact ? () => onOpenContact(c.id) : undefined}
                     />
-                  )}
+                  ))}
                   {/* "No deal" is shown, not hidden — v5 treats an unattached
                       task as a real state worth seeing. */}
                   <DealChip

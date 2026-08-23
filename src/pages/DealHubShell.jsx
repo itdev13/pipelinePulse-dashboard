@@ -29,7 +29,7 @@ const TABS = [
   { id: 'contacts', label: 'Contacts',       icon: 'group' },
   { id: 'tasks',    label: 'Tasks',          icon: 'task_alt' },
   { id: 'notes',    label: 'Notes',          icon: 'sticky_note_2' },
-  { id: 'control',  label: 'Control centre', icon: 'tune' }
+  { id: 'control',  label: 'Control panel',  icon: 'tune' }
 ]
 
 export default function DealHubShell() {

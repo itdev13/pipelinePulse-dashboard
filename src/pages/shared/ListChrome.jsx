@@ -631,6 +631,9 @@ function toPlainText(html) {
 
 // Sort control. Square and small — deliberately unlike the pill FilterChips,
 // because sorting and filtering do different things and shouldn't look alike.
+//
+// Not used by Tasks or Notes: the v5 design has no sort on those pages. Kept
+// here for the list pages the spec does call for (Deals, Contacts).
 export function SortButton({ label, active, onClick }) {
   return (
     <button

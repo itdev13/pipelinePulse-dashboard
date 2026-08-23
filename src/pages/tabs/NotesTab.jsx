@@ -3,39 +3,28 @@ import { notesAPI } from '../../api/notes'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import {
   Shell, PageHeader, Panel, ContactChip, DealChip, Chip, RowAction,
-  PrimaryAction, SearchInput, SortButton, NoteChip, StateMessage, LoadMore,
-  RichBody, relativeTime
+  PrimaryAction, NoteChip, StateMessage, LoadMore, RichBody, relativeTime
 } from '../shared/ListChrome'
 
 // Notes — v5.
 //
-// Changes from v4: "Add note" moves to the page header, sorting is added, the
-// deal chip always renders (showing "No deal" when unattached), "Make task"
-// replaces the old inert chip, and notes linked to this note appear as gold
-// chips beneath the row.
+// Changes from v4: "Add note" moves to the page header, the deal chip always
+// renders (showing "No deal" when unattached), "Make task" and Delete join the
+// row actions, and notes linked to this note appear as gold chips beneath.
+//
+// No search or sort control here — the v5 design has neither on this page. The
+// spec's "sort controls on list pages" applies elsewhere.
 //
 // GHL notes have no title column (migration 017), so the heading is derived
 // from the body's first block — see splitNote.
 
-const SORTS = [
-  ['created', 'Created'],
-  ['updated', 'Updated']
-]
-
 export default function NotesTab({ onOpenDeal, onOpenContact }) {
-  const [q, setQ] = useState('')
-  // Server-side search: with pagination, filtering the loaded page would hide
-  // matches further down the list.
-  const [search, setSearch] = useState('')
-  const [sort, setSort] = useState('created')
-
   const fetchPage = useCallback(
-    ({ cursor }) =>
-      notesAPI.list({ limit: 20, cursor, sort, q: search || undefined }),
-    [search, sort]
+    ({ cursor }) => notesAPI.list({ limit: 20, cursor }),
+    []
   )
   const { items, error, hasMore, loadingMore, loading, loadMore } =
-    usePagedList({ fetchPage, key: 'notes', deps: [search, sort] })
+    usePagedList({ fetchPage, key: 'notes', deps: [] })
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
   const notes = items || []
@@ -57,50 +46,12 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
             ? null
             : `${notes.length}${hasMore ? '+' : ''} ${notes.length === 1 ? 'note' : 'notes'}`
         }
-        toolbar={
-          <>
-            <SearchInput
-              value={q}
-              onChange={setQ}
-              onKeyDown={(e) => { if (e.key === 'Enter') setSearch(q.trim()) }}
-              onBlur={() => setSearch(q.trim())}
-              placeholder="Search note text — press Enter"
-              width={320}
-            />
-            <span
-              style={{
-                marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 11, fontWeight: 600, letterSpacing: '0.04em',
-                  textTransform: 'uppercase', color: 'var(--text-faint)'
-                }}
-              >
-                Sort by
-              </span>
-              {SORTS.map(([id, label]) => (
-                <SortButton
-                  key={id}
-                  label={label}
-                  active={sort === id}
-                  onClick={() => setSort(id)}
-                />
-              ))}
-            </span>
-          </>
-        }
       >
         <StateMessage
           loading={loading}
           error={error}
           empty={!loading && notes.length === 0}
-          emptyText={
-            search
-              ? 'No notes match — clear the search to see everything.'
-              : 'No notes yet. Notes are information worth keeping — saved by you, or by the agent when you agree in chat that something should be stored.'
-          }
+          emptyText="No notes yet. Notes are information worth keeping — saved by you, or by the agent when you agree in chat that something should be stored."
           loadingText="Loading notes…"
         />
 
@@ -164,14 +115,15 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                     justifyContent: 'flex-end', alignItems: 'center'
                   }}
                 >
-                  {n.contact && (
+                  {/* The design loops contacts — a note can involve several
+                      people (Sarah and Mark on the same note). */}
+                  {(n.contacts?.length ? n.contacts : n.contact ? [n.contact] : []).map((c) => (
                     <ContactChip
-                      name={n.contact.name}
-                      onClick={
-                        onOpenContact ? () => onOpenContact(n.contact.id) : undefined
-                      }
+                      key={c.id}
+                      name={c.name}
+                      onClick={onOpenContact ? () => onOpenContact(c.id) : undefined}
                     />
-                  )}
+                  ))}
                   {/* Always rendered — "No deal" is a real state in v5, not an
                       absence to hide. */}
                   <DealChip
@@ -189,6 +141,11 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                   <RowAction
                     icon="edit"
                     title="Edit note — contacts, deal and linked notes (coming next)"
+                  />
+                  <RowAction
+                    icon="close"
+                    danger
+                    title="Delete note — coming next"
                   />
                 </div>
               </div>
