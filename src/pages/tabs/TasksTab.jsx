@@ -2,16 +2,19 @@ import React, { useCallback, useState } from 'react'
 import { tasksAPI } from '../../api/tasks'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import {
-  Shell, PageHeader, Panel, Row, ContactChip, DealChip, RowAction,
-  PrimaryAction, FilterChip, StateMessage, LoadMore, RichBody, formatDue
+  Shell, PageHeader, Panel, ContactChip, DealChip, RowAction,
+  PrimaryAction, FilterChip, SortButton, NoteChip, StateMessage, LoadMore,
+  RichBody, formatDue
 } from '../shared/ListChrome'
 
-// Tasks tab — the queue. Due filters run server-side (routes/tasks.js
-// translates them to SQL windows), so changing a chip refetches.
+// Tasks — v5.
 //
-// The checkbox is rendered but inert: completing a task means writing to GHL,
-// and there's no write endpoint yet. It carries a title saying so rather than
-// looking broken, matching how PeopleSection handles Make primary / Remove.
+// Changes from v4: the title is a button that opens the task on the deal hub,
+// contact and deal chips sit on the right, linked notes render as gold chips on
+// their own line beneath the row, and there's an Add task action plus sorting.
+//
+// A task with no deal shows a "No deal" chip rather than hiding the slot — v5
+// makes unattached tasks a first-class state, so the absence has to be visible.
 
 const DUE_FILTERS = [
   ['all', 'All'],
@@ -20,36 +23,53 @@ const DUE_FILTERS = [
   ['month', 'Due next 30 days']
 ]
 
-export default function TasksTab({ onOpenDeal }) {
+// 'due' is soonest-first (the queue default the server already orders by);
+// 'created' is newest-first.
+const SORTS = [
+  ['due', 'Due'],
+  ['created', 'Created']
+]
+
+export default function TasksTab({ onOpenDeal, onOpenContact }) {
   const [dueFilter, setDueFilter] = useState('all')
+  const [sort, setSort] = useState('due')
+  const [toast, setToast] = useState(null)
 
   const fetchPage = useCallback(
-    ({ cursor }) => tasksAPI.list({ status: 'open', due: dueFilter, limit: 20, cursor }),
-    [dueFilter]
+    ({ cursor }) =>
+      tasksAPI.list({ status: 'open', due: dueFilter, sort, limit: 20, cursor }),
+    [dueFilter, sort]
   )
-  const { items, error, hasMore, loadingMore, loading, loadMore } =
-    usePagedList({ fetchPage, key: 'tasks', deps: [dueFilter] })
+  const { items, error, hasMore, loadingMore, loading, loadMore, patchItem } =
+    usePagedList({ fetchPage, key: 'tasks', deps: [dueFilter, sort] })
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
   const tasks = items || []
   const openCount = tasks.length
+
+  // Optimistic strike-through then roll back: completing a task has to write
+  // to GHL and that path doesn't exist yet. A checkbox that silently didn't
+  // save is worse than one that visibly bounces and says why.
+  const toggle = (t) => {
+    const was = t.status
+    patchItem((x) => x.id === t.id, { status: was === 'open' ? 'completed' : 'open' })
+    setToast('Completing a task writes back to GoHighLevel — coming next')
+    window.setTimeout(() => {
+      patchItem((x) => x.id === t.id, { status: was })
+      setToast(null)
+    }, 1800)
+  }
 
   return (
     <Shell>
       <PageHeader
         title="Tasks"
         subtitle="Tasks come first — each one links to its contact and its deal; click a task to see it on the deal hub"
+        action={<PrimaryAction onClick={undefined} icon="add">Add task</PrimaryAction>}
       />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <span
-          style={{
-            fontSize: 10.5, fontWeight: 600, letterSpacing: '0.08em',
-            textTransform: 'uppercase', color: 'var(--text-muted)', marginRight: 2
-          }}
-        >
-          Due
-        </span>
+        <Label>Due</Label>
         {DUE_FILTERS.map(([id, label]) => (
           <FilterChip
             key={id}
@@ -58,6 +78,21 @@ export default function TasksTab({ onOpenDeal }) {
             onClick={() => setDueFilter(id)}
           />
         ))}
+        <span
+          style={{
+            marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5
+          }}
+        >
+          <Label>Sort</Label>
+          {SORTS.map(([id, label]) => (
+            <SortButton
+              key={id}
+              label={label}
+              active={sort === id}
+              onClick={() => setSort(id)}
+            />
+          ))}
+        </span>
       </div>
 
       <Panel
@@ -65,11 +100,6 @@ export default function TasksTab({ onOpenDeal }) {
         title="Task queue"
         accent="rose"
         meta={loading ? null : `${openCount}${hasMore ? '+' : ''} open`}
-        toolbar={
-          <PrimaryAction onClick={undefined} icon="add">
-            Add task
-          </PrimaryAction>
-        }
       >
         <StateMessage
           loading={loading}
@@ -77,71 +107,124 @@ export default function TasksTab({ onOpenDeal }) {
           empty={!loading && openCount === 0}
           emptyText={
             dueFilter === 'all'
-              ? 'No open tasks — you’re clear.'
-              : 'Nothing in this window — try another filter.'
+              ? 'No open tasks — you are clear.'
+              : 'Nothing matches these filters — you are clear.'
           }
           loadingText="Loading tasks…"
         />
 
-        {tasks.map((t, i) => (
-          <Row key={t.id} last={i === openCount - 1}>
-            <input
-              type="checkbox"
-              disabled
-              title="Completing a task writes back to GoHighLevel — coming next"
-              style={{
-                marginTop: 2, width: 17, height: 17, flex: 'none',
-                accentColor: 'var(--brand-primary)', cursor: 'not-allowed'
-              }}
-            />
-
-            <div style={{ minWidth: 0, flex: 1 }}>
+        {tasks.map((t) => {
+          const done = t.status !== 'open'
+          const hasChips = t.noteChips?.length > 0
+          return (
+            <div key={t.id}>
               <div
                 style={{
-                  fontSize: 14, fontWeight: 600, color: 'var(--text-heading)',
-                  lineHeight: 1.35
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  padding: '12px 16px',
+                  // The chip row below carries the divider when present, so
+                  // the two lines read as one row.
+                  borderBottom: hasChips ? 'none' : '1px solid var(--border-default)',
+                  opacity: done ? 0.6 : 1
                 }}
               >
-                {t.title || '(untitled task)'}
+                <input
+                  type="checkbox"
+                  checked={done}
+                  onChange={() => toggle(t)}
+                  aria-label={`Mark ${t.title || 'task'} ${done ? 'open' : 'complete'}`}
+                  style={{
+                    marginTop: 2, width: 17, height: 17, flex: 'none',
+                    accentColor: 'var(--brand-primary)', cursor: 'pointer'
+                  }}
+                />
+
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <button
+                    onClick={() => t.deal && onOpenDeal && onOpenDeal(t.deal.id)}
+                    title={t.deal ? 'Open this task on the deal hub' : undefined}
+                    style={{
+                      border: 'none', background: 'none', padding: 0,
+                      textAlign: 'left',
+                      cursor: t.deal ? 'pointer' : 'default',
+                      fontFamily: 'var(--font-sans)',
+                      fontSize: 13, fontWeight: 500, lineHeight: 1.4,
+                      color: 'var(--text-heading)',
+                      textDecoration: done ? 'line-through' : 'none'
+                    }}
+                  >
+                    {t.title || '(untitled task)'}
+                  </button>
+
+                  {t.body && (
+                    <div style={{ marginTop: 2 }}>
+                      <RichBody html={t.body} size={12.5} maxWidth={680} />
+                    </div>
+                  )}
+
+                  <div
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      marginTop: 3, flexWrap: 'wrap'
+                    }}
+                  >
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                      {[formatDue(t.dueAt), t.owner].filter(Boolean).join(' · ')}
+                    </span>
+                    {t.overdue && !done && <Badge tone="rose">Overdue</Badge>}
+                    {t.dueToday && !t.overdue && !done && (
+                      <Badge tone="gold">Due today</Badge>
+                    )}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: 'flex', gap: 6, flexWrap: 'wrap',
+                    justifyContent: 'flex-end', alignItems: 'center'
+                  }}
+                >
+                  {t.contact && (
+                    <ContactChip
+                      name={t.contact.name}
+                      onClick={
+                        onOpenContact ? () => onOpenContact(t.contact.id) : undefined
+                      }
+                    />
+                  )}
+                  {/* "No deal" is shown, not hidden — v5 treats an unattached
+                      task as a real state worth seeing. */}
+                  <DealChip
+                    name={t.deal?.name || 'No deal'}
+                    onClick={
+                      t.deal && onOpenDeal ? () => onOpenDeal(t.deal.id) : undefined
+                    }
+                  />
+                  <RowAction
+                    icon="edit"
+                    title="Edit task — people, deal and linked notes (coming next)"
+                  />
+                </div>
               </div>
 
-              {t.body && (
-                <div style={{ marginTop: 4 }}>
-                  <RichBody html={t.body} maxWidth={680} />
+              {hasChips && (
+                <div
+                  style={{
+                    display: 'flex', flexWrap: 'wrap', gap: 5,
+                    // Indented past the checkbox so the chips read as
+                    // belonging to the task above.
+                    padding: '0 16px 12px 44px',
+                    borderBottom: '1px solid var(--border-default)'
+                  }}
+                >
+                  {t.noteChips.map((c) => (
+                    <NoteChip key={c.id} label={c.label} />
+                  ))}
                 </div>
               )}
-
-              <div
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  flexWrap: 'wrap', marginTop: 5
-                }}
-              >
-                <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-                  {[formatDue(t.dueAt), t.owner].filter(Boolean).join(' · ')}
-                </span>
-                {t.overdue && <StatusPill tone="overdue">Overdue</StatusPill>}
-                {t.dueToday && !t.overdue && <StatusPill tone="today">Due today</StatusPill>}
-              </div>
             </div>
-
-            <div
-              style={{
-                display: 'flex', gap: 6, flexWrap: 'wrap',
-                justifyContent: 'flex-end', alignItems: 'center'
-              }}
-            >
-              {t.contact && <ContactChip name={t.contact.name} />}
-              {t.deal && (
-                <DealChip
-                  name={t.deal.name}
-                  onClick={onOpenDeal ? () => onOpenDeal(t.deal.id) : undefined}
-                />
-              )}
-              <RowAction icon="edit" title="Edit task — coming next" />
-            </div>
-          </Row>
-        ))}
+          )
+        })}
 
         {!loading && openCount > 0 && (
           <LoadMore
@@ -153,24 +236,59 @@ export default function TasksTab({ onOpenDeal }) {
           />
         )}
       </Panel>
+
+      {toast && <Toast>{toast}</Toast>}
     </Shell>
   )
 }
 
-function StatusPill({ tone, children }) {
-  const overdue = tone === 'overdue'
+function Label({ children }) {
   return (
     <span
       style={{
-        display: 'inline-flex', alignItems: 'center',
-        height: 21, padding: '0 9px',
-        borderRadius: 'var(--radius-sm)',
-        background: overdue ? 'var(--status-stuck)' : 'var(--status-working)',
-        color: '#fff',
-        fontSize: 11, fontWeight: 600
+        fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
+        textTransform: 'uppercase', color: 'var(--text-muted)'
       }}
     >
       {children}
     </span>
+  )
+}
+
+function Badge({ tone, children }) {
+  const rose = tone === 'rose'
+  return (
+    <span
+      style={{
+        display: 'inline-flex', alignItems: 'center',
+        height: 22, padding: '0 9px',
+        borderRadius: 'var(--radius-sm)',
+        background: rose ? 'var(--status-stuck)' : 'var(--status-working)',
+        color: '#fff', fontSize: 11, fontWeight: 600
+      }}
+    >
+      {children}
+    </span>
+  )
+}
+
+function Toast({ children }) {
+  return (
+    <div
+      role="status"
+      style={{
+        position: 'fixed', bottom: 20, right: 20, zIndex: 40,
+        display: 'flex', alignItems: 'center', gap: 7,
+        padding: '10px 14px',
+        borderRadius: 'var(--radius-md)',
+        background: '#fff', boxShadow: 'var(--shadow-overlay)',
+        fontSize: 13, color: 'var(--text-heading)'
+      }}
+    >
+      <span className="ms" style={{ fontSize: 17, color: 'var(--status-working)' }}>
+        info
+      </span>
+      {children}
+    </div>
   )
 }

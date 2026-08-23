@@ -2,30 +2,40 @@ import React, { useCallback, useState } from 'react'
 import { notesAPI } from '../../api/notes'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import {
-  Shell, PageHeader, Panel, Row, ContactChip, DealChip, Chip, RowAction,
-  PrimaryAction, SearchInput, StateMessage, LoadMore, RichBody, relativeTime
+  Shell, PageHeader, Panel, ContactChip, DealChip, Chip, RowAction,
+  PrimaryAction, SearchInput, SortButton, NoteChip, StateMessage, LoadMore,
+  RichBody, relativeTime
 } from '../shared/ListChrome'
 
-// Notes tab — every note in the location, newest first.
+// Notes — v5.
 //
-// GHL notes are body-only: there is no title column (migration 017). The
-// design shows a bold heading per note, so we derive it from the first line
-// and render the remainder as the body — which is how people actually write
-// notes ("Budget ceiling agreed\nKeep the whole package under £30k"). A
-// single-line note becomes the heading with no body, rather than a heading
-// duplicated as its own body text.
-export default function NotesTab({ onOpenDeal }) {
+// Changes from v4: "Add note" moves to the page header, sorting is added, the
+// deal chip always renders (showing "No deal" when unattached), "Make task"
+// replaces the old inert chip, and notes linked to this note appear as gold
+// chips beneath the row.
+//
+// GHL notes have no title column (migration 017), so the heading is derived
+// from the body's first block — see splitNote.
+
+const SORTS = [
+  ['created', 'Created'],
+  ['updated', 'Updated']
+]
+
+export default function NotesTab({ onOpenDeal, onOpenContact }) {
   const [q, setQ] = useState('')
-  // Search runs server-side now: with pagination, filtering only the loaded
-  // page would hide matches sitting further down the list.
+  // Server-side search: with pagination, filtering the loaded page would hide
+  // matches further down the list.
   const [search, setSearch] = useState('')
+  const [sort, setSort] = useState('created')
 
   const fetchPage = useCallback(
-    ({ cursor }) => notesAPI.list({ limit: 20, cursor, q: search || undefined }),
-    [search]
+    ({ cursor }) =>
+      notesAPI.list({ limit: 20, cursor, sort, q: search || undefined }),
+    [search, sort]
   )
   const { items, error, hasMore, loadingMore, loading, loadMore } =
-    usePagedList({ fetchPage, key: 'notes', deps: [search] })
+    usePagedList({ fetchPage, key: 'notes', deps: [search, sort] })
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
   const notes = items || []
@@ -35,27 +45,51 @@ export default function NotesTab({ onOpenDeal }) {
       <PageHeader
         title="Notes"
         subtitle="Agreed information, saved by you or the AI agent — every note also lands on its deal timeline"
-        action={
-          <PrimaryAction onClick={undefined} icon="add">
-            Add note
-          </PrimaryAction>
-        }
+        action={<PrimaryAction onClick={undefined} icon="add">Add note</PrimaryAction>}
       />
 
       <Panel
         icon="sticky_note_2"
         title="All notes"
         accent="gold"
-        meta={loading ? null : `${notes.length}${hasMore ? '+' : ''} ${notes.length === 1 ? 'note' : 'notes'}`}
+        meta={
+          loading
+            ? null
+            : `${notes.length}${hasMore ? '+' : ''} ${notes.length === 1 ? 'note' : 'notes'}`
+        }
         toolbar={
-          <SearchInput
-            value={q}
-            onChange={(v) => setQ(v)}
-            onKeyDown={(e) => { if (e.key === 'Enter') setSearch(q.trim()) }}
-            onBlur={() => setSearch(q.trim())}
-            placeholder="Search note text — press Enter"
-            width={340}
-          />
+          <>
+            <SearchInput
+              value={q}
+              onChange={setQ}
+              onKeyDown={(e) => { if (e.key === 'Enter') setSearch(q.trim()) }}
+              onBlur={() => setSearch(q.trim())}
+              placeholder="Search note text — press Enter"
+              width={320}
+            />
+            <span
+              style={{
+                marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11, fontWeight: 600, letterSpacing: '0.04em',
+                  textTransform: 'uppercase', color: 'var(--text-faint)'
+                }}
+              >
+                Sort by
+              </span>
+              {SORTS.map(([id, label]) => (
+                <SortButton
+                  key={id}
+                  label={label}
+                  active={sort === id}
+                  onClick={() => setSort(id)}
+                />
+              ))}
+            </span>
+          </>
         }
       >
         <StateMessage
@@ -65,77 +99,114 @@ export default function NotesTab({ onOpenDeal }) {
           emptyText={
             search
               ? 'No notes match — clear the search to see everything.'
-              : 'No notes yet. Notes saved in GoHighLevel appear here.'
+              : 'No notes yet. Notes are information worth keeping — saved by you, or by the agent when you agree in chat that something should be stored.'
           }
           loadingText="Loading notes…"
         />
 
-        {notes.map((n, i) => {
+        {notes.map((n) => {
           const { heading, rest } = splitNote(n.body)
           const byAI = isAIAuthored(n)
+          const hasChips = n.noteChips?.length > 0
           return (
-            <Row key={n.id} last={i === notes.length - 1}>
-              <span
-                style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  width: 30, height: 30, flex: 'none', marginTop: 1,
-                  borderRadius: 'var(--radius-md)',
-                  background: 'var(--tint-gold)'
-                }}
-              >
-                <span className="ms" style={{ fontSize: 16, color: 'var(--accent-gold)' }}>
-                  sticky_note_2
-                </span>
-              </span>
-
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    flexWrap: 'wrap'
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: 14, fontWeight: 600, color: 'var(--text-heading)',
-                      lineHeight: 1.35
-                    }}
-                  >
-                    {heading}
-                  </span>
-                  {byAI && <AIBadge />}
-                </div>
-
-                {rest && (
-                  <div style={{ marginTop: 4 }}>
-                    <RichBody html={rest} />
-                  </div>
-                )}
-
-                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 5 }}>
-                  {[n.author, relativeTime(n.createdAt)].filter(Boolean).join(' · ')}
-                </div>
-              </div>
-
+            <div key={n.id}>
               <div
                 style={{
-                  display: 'flex', gap: 6, flexWrap: 'wrap',
-                  justifyContent: 'flex-end', alignItems: 'center'
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  padding: '12px 16px',
+                  borderBottom: hasChips ? 'none' : '1px solid var(--border-default)'
                 }}
               >
-                {n.contact && <ContactChip name={n.contact.name} />}
-                {n.deal && (
+                <span
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: 28, height: 28, flex: 'none', marginTop: 1,
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'var(--tint-gold)'
+                  }}
+                >
+                  <span className="ms" style={{ fontSize: 16, color: 'var(--accent-gold)' }}>
+                    sticky_note_2
+                  </span>
+                </span>
+
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap'
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 13, fontWeight: 600, color: 'var(--text-heading)',
+                        lineHeight: 1.35
+                      }}
+                    >
+                      {heading}
+                    </span>
+                    {byAI && <AIBadge />}
+                  </div>
+
+                  {rest && (
+                    <div style={{ marginTop: 3 }}>
+                      <RichBody html={rest} size={12.5} />
+                    </div>
+                  )}
+
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                    {[n.author, relativeTime(n.createdAt)].filter(Boolean).join(' · ')}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: 'flex', gap: 6, flexWrap: 'wrap',
+                    justifyContent: 'flex-end', alignItems: 'center'
+                  }}
+                >
+                  {n.contact && (
+                    <ContactChip
+                      name={n.contact.name}
+                      onClick={
+                        onOpenContact ? () => onOpenContact(n.contact.id) : undefined
+                      }
+                    />
+                  )}
+                  {/* Always rendered — "No deal" is a real state in v5, not an
+                      absence to hide. */}
                   <DealChip
-                    name={n.deal.name}
-                    onClick={onOpenDeal ? () => onOpenDeal(n.deal.id) : undefined}
+                    name={n.deal?.name || 'No deal'}
+                    onClick={
+                      n.deal && onOpenDeal ? () => onOpenDeal(n.deal.id) : undefined
+                    }
                   />
-                )}
-                <Chip icon="add_task" title="Turn this note into a task — coming next">
-                  Make task
-                </Chip>
-                <RowAction icon="edit" title="Edit note — coming next" />
+                  <Chip
+                    icon="task_alt"
+                    title="Create a task from this note — coming next"
+                  >
+                    Make task
+                  </Chip>
+                  <RowAction
+                    icon="edit"
+                    title="Edit note — contacts, deal and linked notes (coming next)"
+                  />
+                </div>
               </div>
-            </Row>
+
+              {hasChips && (
+                <div
+                  style={{
+                    display: 'flex', flexWrap: 'wrap', gap: 5,
+                    padding: '0 16px 12px 48px',
+                    borderBottom: '1px solid var(--border-default)'
+                  }}
+                >
+                  {n.noteChips.map((c) => (
+                    <NoteChip key={c.id} label={c.label} />
+                  ))}
+                </div>
+              )}
+            </div>
           )
         })}
 
@@ -178,7 +249,7 @@ function splitNote(body) {
   const raw = (body || '').trim()
   if (!raw) return { heading: '(empty note)', rest: null }
 
-  // Plain text (no markup): first line is the heading, as before.
+  // Plain text: first line is the heading, as before.
   if (!/<[a-z][^>]*>/i.test(raw)) {
     const lines = raw.split('\n')
     const heading = lines[0].trim()
@@ -187,8 +258,8 @@ function splitNote(body) {
     return { heading, rest: rest || null }
   }
 
-  // Markup: take the first block element's text as the heading and hand the
-  // remaining markup back intact, so its formatting survives.
+  // Markup: first block element's text is the heading; the remaining markup is
+  // handed back intact so its formatting survives.
   const doc = new DOMParser().parseFromString(raw, 'text/html')
   const blocks = [...doc.body.children]
   if (blocks.length > 1) {
@@ -204,10 +275,10 @@ function splitNote(body) {
   return { heading: 'Note', rest: raw }
 }
 
-// Notes written by the nightly AI pass. GHL has no "authored by AI" flag, so
-// this reads the author name the writer stored. Once the extraction pipeline
-// (CONTEXT.md §5.3) stamps its own attribution, point this at that field.
+// Notes written by the AI agent. GHL has no "authored by AI" flag, so this
+// reads the stored author name. Once the agent stamps its own attribution,
+// point this at that field.
 function isAIAuthored(note) {
   const author = (note.author || '').toLowerCase()
-  return author.includes('ai') || author.includes('deal hub')
+  return author.includes('ai') || author.includes('deal hub') || author.includes('agent')
 }

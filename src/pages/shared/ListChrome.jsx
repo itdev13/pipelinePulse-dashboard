@@ -628,3 +628,54 @@ function toPlainText(html) {
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
+
+// Sort control. Square and small — deliberately unlike the pill FilterChips,
+// because sorting and filtering do different things and shouldn't look alike.
+export function SortButton({ label, active, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        height: 26, padding: '0 9px', cursor: 'pointer',
+        border: active
+          ? '1px solid var(--brand-primary)'
+          : '1px solid var(--border-strong)',
+        borderRadius: 'var(--radius-sm)',
+        background: active ? 'var(--surface-selected)' : '#fff',
+        color: active ? 'var(--brand-primary)' : 'var(--text-body)',
+        fontFamily: 'var(--font-sans)',
+        fontSize: 11.5, fontWeight: active ? 600 : 400
+      }}
+    >
+      {label}
+    </button>
+  )
+}
+
+// A note linked to a task or another note (migration 054). Gold, matching the
+// Notes accent, so a linked note is recognisable wherever it appears.
+export function NoteChip({ label, onClick }) {
+  return (
+    <span
+      title={label}
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 4,
+        maxWidth: 240,
+        padding: '3px 9px',
+        border: '1px solid var(--border-default)',
+        borderRadius: 'var(--radius-pill)',
+        background: 'var(--tint-gold)', color: 'var(--text-body)',
+        fontSize: 11, fontWeight: 500,
+        cursor: onClick ? 'pointer' : 'default'
+      }}
+    >
+      <span className="ms" style={{ fontSize: 12, color: 'var(--accent-gold)' }}>
+        sticky_note_2
+      </span>
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {label}
+      </span>
+    </span>
+  )
+}

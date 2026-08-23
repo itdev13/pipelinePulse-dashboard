@@ -8,10 +8,15 @@ import ContactDetail from '../contacts/ContactDetail'
 // Grid of cards with editable-in-future fields; today they're read-only.
 // Each card leads with the contact's accent (top-edge stripe + avatar tint)
 // so the identity stays consistent with the rest of the app.
-export default function ContactsTab({ onOpenDeal }) {
-  // Which contact's record is open. Null = the grid. Kept here rather than in
-  // the shell because it's local navigation within this tab.
+export default function ContactsTab({ onOpenDeal, openContactId, onContactViewed }) {
+  // Which contact's record is open. Null = the grid. Local navigation within
+  // this tab, except when another tab hands us a contact to open (a contact
+  // chip on a task or note) — openContactId is that entry point.
   const [openId, setOpenId] = useState(null)
+
+  useEffect(() => {
+    if (openContactId) setOpenId(openContactId)
+  }, [openContactId])
   const [q, setQ] = useState('')
   // Server-side search: 19 contacts fits in one page today, but Crittall has
   // thousands — filtering the loaded page would quietly miss most of them.
@@ -31,7 +36,12 @@ export default function ContactsTab({ onOpenDeal }) {
     return (
       <ContactDetail
         contactId={openId}
-        onBack={() => setOpenId(null)}
+        onBack={() => {
+          setOpenId(null)
+          // Clear the shell's request too, or coming back to this tab would
+          // reopen the same record.
+          if (onContactViewed) onContactViewed()
+        }}
         onOpenDeal={onOpenDeal}
       />
     )

@@ -54,6 +54,14 @@ export default function DealHubShell() {
     setActiveTab('hub')
   }
 
+  // Contact chips on tasks/notes open that person's record. The Contacts tab
+  // owns the detail view, so we hand it the id and switch to it.
+  const [openContactId, setOpenContactId] = useState(null)
+  const openContact = (contactId) => {
+    setOpenContactId(contactId)
+    setActiveTab('contacts')
+  }
+
   return (
     <div data-dealhub style={{ minHeight: '100vh', background: 'var(--surface-page)' }}>
       {/* Header bar: brand + tabs + search */}
@@ -141,11 +149,21 @@ export default function DealHubShell() {
         )}
         {activeTab === 'deals' && <DealsTab onOpenDeal={openDeal} />}
         {/* Deal links on a contact record jump into the Deal hub. */}
-        {activeTab === 'contacts' && <ContactsTab onOpenDeal={openDeal} />}
+        {activeTab === 'contacts' && (
+          <ContactsTab
+            onOpenDeal={openDeal}
+            openContactId={openContactId}
+            onContactViewed={() => setOpenContactId(null)}
+          />
+        )}
         {/* Deal chips on tasks + notes jump to that deal in the hub, which
             is the "click a task to see it on the deal hub" flow. */}
-        {activeTab === 'tasks' && <TasksTab onOpenDeal={openDeal} />}
-        {activeTab === 'notes' && <NotesTab onOpenDeal={openDeal} />}
+        {activeTab === 'tasks' && (
+          <TasksTab onOpenDeal={openDeal} onOpenContact={openContact} />
+        )}
+        {activeTab === 'notes' && (
+          <NotesTab onOpenDeal={openDeal} onOpenContact={openContact} />
+        )}
         {activeTab === 'control' && <ControlCentreTab />}
       </main>
     </div>
