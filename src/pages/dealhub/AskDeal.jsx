@@ -5,10 +5,13 @@ import { SkeletonStyles, Bar } from '../shared/ListChrome'
 // Deal Hub — Co-Pilot panel.
 //
 // Two-column composition:
-//   Left  · a free-text question box scoped to this deal's messages
-//   Right · five curated prompts written for a sales manager reviewing the
-//           deal (next step, biggest risk, undelivered promises, missing
-//           qualification, coaching the rep on price objections).
+//   Left  · chat history — past questions on this deal, server-backed
+//   Right · Co-Pilot: starter chips, the transcript, and the composer
+//
+// The five starters are written for a sales manager reviewing the deal (next
+// step, biggest risk, undelivered promises, missing qualification, coaching the
+// rep on price objections). They were cards in the left rail; as chips in the
+// Co-Pilot header they sit where the question actually gets asked.
 //
 // Backend wiring lands next — for now the ask box just captures locally and
 // the prompt cards echo the pick into the ask box so the manager can edit
@@ -21,10 +24,14 @@ import { SkeletonStyles, Bar } from '../shared/ListChrome'
 // stays neutral so a row of five cards doesn't turn into a rainbow.
 
 const PROMPTS = [
+  // `label` is the full question — it's what lands in the composer when picked.
+  // `chipLabel` is the two-or-three-word form the chip shows; the full question
+  // and the hint are both in the chip's tooltip.
   {
     id: 'next-step',
     icon: 'arrow_forward',
     accent: 'pine',
+    chipLabel: 'Next step',
     label: 'What should I do next?',
     hint: 'Fills the next step and drafts a message'
   },
@@ -32,6 +39,7 @@ const PROMPTS = [
     id: 'risk',
     icon: 'warning',
     accent: 'rose',
+    chipLabel: 'Biggest risk',
     label: 'What is the biggest risk here?',
     hint: "Reads this deal's messages"
   },
@@ -39,6 +47,7 @@ const PROMPTS = [
     id: 'promises',
     icon: 'handshake',
     accent: 'clay',
+    chipLabel: 'Undelivered promises',
     label: 'What have we promised and not delivered?',
     hint: 'Checks commitments against the timeline'
   },
@@ -46,6 +55,7 @@ const PROMPTS = [
     id: 'qualification',
     icon: 'rule',
     accent: 'gold',
+    chipLabel: 'Missing qualification',
     label: 'What qualification is still missing?',
     hint: 'Against the gate for this stage'
   },
@@ -53,6 +63,7 @@ const PROMPTS = [
     id: 'coaching',
     icon: 'psychology',
     accent: 'plum',
+    chipLabel: 'Coach the rep',
     label: 'How should the rep handle the price objection?',
     hint: 'Coaching view for the manager'
   }
@@ -340,13 +351,9 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
             never engages. */}
         <div
           style={{
+            // The whole rail is the history now that the starters have moved
+            // into Co-Pilot's header as chips.
             flex: 1, minHeight: 0, overflowY: 'auto',
-            // A floor, because the starters below are flex:'none' — they claim
-            // their full height first and the list gets only the remainder,
-            // which with five starter cards was barely one chat. This makes the
-            // history the section that gets the space and the starters the one
-            // that gives it up.
-            flexBasis: 340,
             padding: 12
           }}
         >
@@ -358,32 +365,6 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
           />
         </div>
 
-        {/* Starters sit below the history, in their own scroll area.
-            Deliberately capped: five starter cards are ~600px, and as a
-            flex:'none' block they claimed all of it before the history got any,
-            which is why the history was showing one chat. Capping them means
-            the two sections share the rail instead of one starving the other. */}
-        <div
-          style={{
-            flex: 'none', maxHeight: 220, overflowY: 'auto',
-            display: 'grid', gap: 6,
-            padding: 12,
-            borderTop: '1px solid var(--border-default)',
-            background: 'var(--surface-sunken)'
-          }}
-        >
-          <span
-            style={{
-              fontSize: 10, fontWeight: 600, letterSpacing: '0.07em',
-              textTransform: 'uppercase', color: 'var(--text-muted)'
-            }}
-          >
-            Starters
-          </span>
-          {PROMPTS.map((p) => (
-            <PromptCard key={p.id} prompt={p} onPick={() => setQ(p.label)} />
-          ))}
-        </div>
       </section>
 
       {/* Co-Pilot — the wide panel. */}
@@ -414,6 +395,23 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
             Co-Pilot
           </h3>
         </header>
+
+        {/* Starter chips. Moved out of the left rail — as full cards they took
+            ~600px there and left the chat history one row tall. As chips they
+            sit where the question gets asked, which is also where you'd reach
+            for one. */}
+        <div
+          style={{
+            display: 'flex', gap: 6, flexWrap: 'wrap',
+            padding: '10px 16px',
+            borderBottom: '1px solid var(--border-default)',
+            background: 'var(--surface-sunken)'
+          }}
+        >
+          {PROMPTS.map((p) => (
+            <PromptChip key={p.id} prompt={p} onPick={() => setQ(p.label)} />
+          ))}
+        </div>
 
         <div
           style={{
@@ -569,22 +567,27 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
   )
 }
 
-function PromptCard({ prompt, onPick }) {
+// A starter as a chip: icon + short label, with the hint on hover.
+//
+// The old card carried a title and a description on two lines; a chip has room
+// for neither, so `chipLabel` is the shortened form and the full question still
+// goes into the composer when picked.
+function PromptChip({ prompt, onPick }) {
   const accent = `var(--accent-${prompt.accent})`
   const tint = `var(--tint-${prompt.accent})`
   return (
     <button
       onClick={onPick}
+      title={`${prompt.label} — ${prompt.hint}`}
       style={{
-        display: 'grid',
-        gridTemplateColumns: '36px 1fr',
-        gap: 12, alignItems: 'center',
+        display: 'inline-flex', alignItems: 'center', gap: 6,
         cursor: 'pointer',
-        padding: '10px 12px',
+        height: 30, padding: '0 11px 0 8px',
         border: '1px solid var(--border-default)',
-        borderRadius: 'var(--radius-md)',
+        borderRadius: 'var(--radius-pill)',
         background: '#fff',
-        textAlign: 'left',
+        fontFamily: 'var(--font-sans)', fontSize: 12.5,
+        color: 'var(--text-body)',
         transition: 'background 0.15s ease-out, border-color 0.15s ease-out'
       }}
       onMouseEnter={(e) => {
@@ -596,41 +599,12 @@ function PromptCard({ prompt, onPick }) {
         e.currentTarget.style.borderColor = 'var(--border-default)'
       }}
     >
-      <span
-        style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          width: 32, height: 32,
-          borderRadius: 'var(--radius-sm)',
-          background: tint, color: accent
-        }}
-      >
-        <span className="ms" style={{ fontSize: 18 }}>{prompt.icon}</span>
-      </span>
-      <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span
-          style={{
-            fontSize: 14, fontWeight: 600, color: 'var(--text-heading)'
-          }}
-        >
-          {prompt.label}
-        </span>
-        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-          {prompt.hint}
-        </span>
-      </span>
+      <span className="ms" style={{ fontSize: 16, color: accent }}>{prompt.icon}</span>
+      {prompt.chipLabel || prompt.label}
     </button>
   )
 }
 
-// Chat history is a placeholder — the transcript store lands with the
-// backend wiring. The count is passed through so the footer already
-// reflects state even though the drawer itself isn't built yet.
-// Past Q&A for this deal, collapsed by default. Clicking one reopens it into
-// the live transcript so a follow-up carries its context.
-//
-// Server-backed (ai_runs), not session state — that's the whole point: a rep
-// who reloads, switches deals and comes back, or picks the deal up tomorrow
-// still has the thread of what was already asked.
 function ChatHistory({ chats, activeId, onReopen, onInspect }) {
   if (!chats || chats.length === 0) {
     return (
