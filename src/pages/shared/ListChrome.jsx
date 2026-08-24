@@ -567,7 +567,12 @@ export function nameFor(p) {
   const first = (p?.firstName || '').trim()
   const last = (p?.lastName || '').trim()
   if (first && last) return `${first} ${last}`
-  return first || last || p?.email || p?.phone || p?.business || 'Contact'
+  if (first || last) return first || last
+  // No name on the contact. A business reads as a party you're dealing with;
+  // an email at least looks like a person. A raw phone number does not — it
+  // goes on the pill's detail line instead, where it reads as a contact method
+  // rather than as somebody's name.
+  return p?.business || p?.email || 'Unnamed contact'
 }
 
 // End-of-list sentinel + status. Render after the rows; the ref goes on the

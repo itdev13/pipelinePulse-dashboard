@@ -247,21 +247,23 @@ function PersonPill({ person }) {
     <span
       title={person.business || undefined}
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 9,
-        maxWidth: 300,
-        padding: '6px var(--space-3) 6px 6px',
-        border: '1px solid var(--border-default)',
-        borderRadius: 'var(--radius-pill)',
+        display: 'inline-flex', alignItems: 'center', gap: 'var(--space-3)',
+        maxWidth: 340,
+        // Bigger overall: 28px avatar and 6px padding made a pill you had to
+        // squint at, and the two on this deal were visually identical.
+        padding: '8px 14px 8px 8px',
+        border: '1px solid var(--border-strong)',
+        borderRadius: 'var(--radius-md)',
         background: '#fff'
       }}
     >
       <span
         style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          width: 28, height: 28, flex: 'none',
+          width: 38, height: 38, flex: 'none',
           borderRadius: '50%',
           background: tint, color: accent,
-          fontSize: 'var(--text-xs)', fontWeight: 600
+          fontSize: 'var(--text-md)', fontWeight: 600
         }}
       >
         {initialsFor(person.firstName, person.lastName, name)}
@@ -270,22 +272,34 @@ function PersonPill({ person }) {
         <span
           style={{
             display: 'block',
-            fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)',
+            fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
           }}
         >
           {name}
         </span>
-        {(person.contactType || person.business) && (
-          <span
-            style={{
-              display: 'block', fontSize: 'var(--text-sm)', color: 'var(--text-muted)',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-            }}
-          >
-            {person.contactType || person.business}
-          </span>
-        )}
+        {/* Something that distinguishes THIS person.
+            The contact type alone ("lead") is identical on every pill, so it's
+            the last resort. And whatever nameFor already used as the heading is
+            skipped — showing "mark@example.com" twice, once as the name and
+            once beneath it, says nothing the first line didn't. */}
+        {(() => {
+          const detail =
+            [person.business, person.email, person.phone, person.contactType]
+              .find((v) => v && String(v).trim() && String(v).trim() !== name)
+          if (!detail) return null
+          return (
+            <span
+              style={{
+                display: 'block', marginTop: 1,
+                fontSize: 'var(--text-base)', color: 'var(--text-muted)',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+              }}
+            >
+              {detail}
+            </span>
+          )
+        })()}
       </span>
       {person.primary && (
         <span

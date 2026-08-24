@@ -99,6 +99,74 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
   const [channels, setChannels] = useState([])
   // Which run's "messages considered" modal is open.
   const [inspectRunId, setInspectRunId] = useState(null)
+  const [composerFocused, setComposerFocused] = useState(false)
+  const inputRef = useRef(null)
+
+  // ── Dictation ────────────────────────────────────────────────────────
+  //
+  // Web Speech API. Chromium and Safari only — Firefox has never shipped it —
+  // so the mic is disabled with a reason rather than present and dead.
+  //
+  // Deliberately NOT continuous: a rep dictates one question, and continuous
+  // mode keeps the mic open until it times out, which both looks broken and
+  // keeps recording after they've stopped talking.
+  const [listening, setListening] = useState(false)
+  const recognitionRef = useRef(null)
+  const speechSupported =
+    typeof window !== 'undefined' &&
+    !!(window.SpeechRecognition || window.webkitSpeechRecognition)
+
+  const toggleDictation = (e) => {
+    e?.stopPropagation()
+    if (!speechSupported) return
+
+    if (listening) {
+      recognitionRef.current?.stop()
+      return
+    }
+
+    const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition
+    const rec = new Ctor()
+    rec.lang = 'en-GB'
+    rec.interimResults = true
+    rec.continuous = false
+    recognitionRef.current = rec
+
+    // Append to whatever is already typed rather than replacing it — someone
+    // part-way through a question who taps the mic means "continue", not
+    // "start again". Interim results overwrite only the dictated tail.
+    const base = q
+    rec.onresult = (ev) => {
+      let heard = ''
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        heard += ev.results[i][0].transcript
+      }
+      setQ((base ? `${base.replace(/\s+$/, '')} ` : '') + heard.trimStart())
+    }
+    rec.onend = () => {
+      setListening(false)
+      recognitionRef.current = null
+      inputRef.current?.focus()
+    }
+    rec.onerror = () => {
+      // Permission denied, no mic, or no speech detected. Nothing actionable
+      // to show — stopping is enough, and the tooltip already explains the
+      // control.
+      setListening(false)
+      recognitionRef.current = null
+    }
+
+    try {
+      rec.start()
+      setListening(true)
+    } catch {
+      setListening(false)
+    }
+  }
+
+  // Leaving the deal mid-dictation must release the microphone, or the browser
+  // keeps the recording indicator on after the panel is gone.
+  useEffect(() => () => recognitionRef.current?.stop(), [])
   // Per-channel counts of what the AI would read right now, derived from the
   // live timeline rows rather than fetched — the server count would lag a
   // channel toggle, and the stale number is precisely the one the rep is
@@ -196,6 +264,10 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
     if (onAsk) onAsk(value)
 
     setQ('')
+    // The auto-grow sets an inline height on the textarea; clearing the value
+    // doesn't undo it, so without this the box stays as tall as the question
+    // that was just sent.
+    if (inputRef.current) inputRef.current.style.height = 'auto'
     setError(null)
     setPending(true)
     // Show the question immediately; the answer lands under it.
@@ -267,19 +339,14 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
         display: 'grid',
         // Chat history is the narrow rail, Co-Pilot the wide panel — the
         // conversation is the work, the history is navigation.
-        gridTemplateColumns: 'minmax(240px, 0.9fr) minmax(0, 3fr)',
+        gridTemplateColumns: 'minmax(300px, 1.15fr) minmax(0, 3fr)',
         gap: 14,
-        // Both panels stretch to the taller of the two (grid default), and
-        // Co-Pilot's inner flex column then pins its composer to the bottom of
-        // that height. A floor keeps the composer low on a deal with no chat
-        // history yet, where the rail would otherwise set a short height.
-        // A FIXED height, not a floor. With `stretch` and only a min, the
-        // taller panel drove the row: eight chats made the rail overrun
-        // Co-Pilot's bottom edge, and Co-Pilot's 600px of blank middle was the
-        // other half of the same problem. Both now share one height and scroll
-        // inside it.
-        height: 560,
-        alignItems: 'stretch'
+        // Each panel owns its height and they align to the top. `stretch` (the
+        // grid default) tied them together — whichever panel was taller drove
+        // the row, so a long chat history stretched Co-Pilot and left it with a
+        // blank middle. They now set their own height: 410 for the rail, 560 for
+        // Co-Pilot, which needs the room for the transcript and composer.
+        alignItems: 'start'
       }}
     >
       {inspectRunId && (
@@ -320,9 +387,9 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
           background: '#fff',
           display: 'flex', flexDirection: 'column',
           overflow: 'hidden',
-          // Height comes from the grid row now, so the list scrolls inside a
-          // panel that always matches Co-Pilot.
-          minHeight: 0
+          // Its own height, independent of Co-Pilot. 410 = the previous shared
+          // 560 less the 150 asked for.
+          height: 410
         }}
       >
         <header
@@ -379,7 +446,10 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
         ['--panel-tint']: 'var(--tint-teal)',
           borderRadius: 'var(--radius-md)',
           background: '#fff',
-          display: 'flex', flexDirection: 'column'
+          display: 'flex', flexDirection: 'column',
+          // Taller than the history rail: this panel holds the transcript and
+          // the composer, so it needs the room. Sized independently now.
+          height: 560
         }}
       >
         <header
@@ -416,7 +486,16 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
           }}
         >
           {PROMPTS.map((p) => (
-            <PromptChip key={p.id} prompt={p} onPick={() => setQ(p.label)} />
+            <PromptChip
+              key={p.id}
+              prompt={p}
+              onPick={() => {
+                setQ(p.label)
+                // Land the cursor in the composer so the chip is a starting
+                // point you can edit, not a committed question.
+                inputRef.current?.focus()
+              }}
+            />
           ))}
         </div>
 
@@ -585,14 +664,35 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
           >
           <ChannelScope value={channels} onChange={setChannels} scope={scope} />
 
+          {/* One bordered field holding the textarea and its controls, per the
+              design: `+` attach on the left, mic and circular send on the right.
+              The border is on the WRAPPER, not the textarea, so the controls sit
+              inside the same box. */}
           <div
+            onClick={() => inputRef.current?.focus()}
             style={{
-              display: 'flex', alignItems: 'stretch', gap: 'var(--space-2)'
+              display: 'grid', gap: 'var(--space-2)',
+              padding: '10px 12px',
+              border: `1px solid ${composerFocused ? 'var(--brand-primary)' : 'var(--border-strong)'}`,
+              borderRadius: 'var(--radius-lg)',
+              background: '#fff',
+              cursor: 'text'
             }}
           >
-            <input
+            <textarea
+              ref={inputRef}
+              rows={1}
               value={q}
-              onChange={(e) => setQ(e.target.value)}
+              onChange={(e) => {
+                setQ(e.target.value)
+                // Grow with the content to a cap, so a long question stays
+                // visible while typing instead of scrolling inside one line.
+                const el = e.target
+                el.style.height = 'auto'
+                el.style.height = `${Math.min(el.scrollHeight, 132)}px`
+              }}
+              onFocus={() => setComposerFocused(true)}
+              onBlur={() => setComposerFocused(false)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
@@ -600,42 +700,61 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
                 }
               }}
               disabled={pending || available === false}
-              placeholder={
-                pending ? 'Reading the thread…' : 'e.g. why has this deal stalled?'
-              }
+              placeholder={pending ? 'Reading the thread…' : 'Ask anything about this deal…'}
               style={{
-                flex: 1, minWidth: 0,
-                height: 40, padding: '0 var(--space-3)',
-                border: '1px solid var(--border-strong)',
-                borderRadius: 'var(--radius-md)',
-                background: '#fff',
+                width: '100%', boxSizing: 'border-box',
+                minHeight: 26, maxHeight: 132, resize: 'none',
+                border: 'none', outline: 'none', background: 'transparent',
+                padding: 0,
                 fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)',
-                color: 'var(--text-body)'
+                lineHeight: 1.5, color: 'var(--text-body)'
               }}
             />
-            {(() => {
-              const ready = !!q.trim() && !pending && available !== false
-              return (
-                <button
-                  onClick={() => submit()}
-                  disabled={!ready}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                    cursor: ready ? 'pointer' : 'not-allowed',
-                    height: 40, padding: '0 20px',
-                    border: 'none',
-                    borderRadius: 'var(--radius-md)',
-                    background: ready ? 'var(--brand-primary)' : 'var(--gray-200)',
-                    color: '#fff',
-                    fontFamily: 'var(--font-sans)',
-                    fontSize: 'var(--text-lg)', fontWeight: 600,
-                    transition: 'background 0.15s ease-out'
-                  }}
-                >
-                  {pending ? 'Reading…' : 'Ask'}
-                </button>
-              )
-            })()}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+              {/* Attach. Disabled: sending a file to the model needs an upload
+                  path and the Files API, neither of which exists yet. Shown so
+                  the composer matches the design rather than silently no-oping. */}
+              <IconButton icon="add" label="Attach a file — coming next" disabled />
+
+              <span style={{ flex: 1 }} />
+
+              <IconButton
+                icon={listening ? 'stop_circle' : 'mic'}
+                label={
+                  !speechSupported
+                    ? 'Dictation needs Chrome, Edge or Safari'
+                    : listening ? 'Stop dictating' : 'Dictate your question'
+                }
+                onClick={toggleDictation}
+                disabled={!speechSupported || pending || available === false}
+                active={listening}
+              />
+
+              {(() => {
+                const ready = !!q.trim() && !pending && available !== false
+                return (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); submit() }}
+                    disabled={!ready}
+                    title={pending ? 'Reading the thread…' : 'Ask'}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      flex: 'none',
+                      width: 34, height: 34, padding: 0,
+                      border: 'none', borderRadius: 'var(--radius-pill)',
+                      background: ready ? 'var(--brand-primary)' : 'var(--gray-200)',
+                      color: '#fff',
+                      cursor: ready ? 'pointer' : 'not-allowed'
+                    }}
+                  >
+                    <span className="ms" style={{ fontSize: 19 }}>
+                      {pending ? 'more_horiz' : 'arrow_upward'}
+                    </span>
+                  </button>
+                )
+              })()}
+            </div>
           </div>
           </div>
         </div>
@@ -1111,6 +1230,45 @@ const SCOPE_CHANNELS = [
   ['call', 'Calls', 'call'],
   ['note', 'Notes', 'sticky_note_2']
 ]
+
+// A composer control: square, quiet, and icon-only. Sized to sit level with the
+// send button without competing with it — the send button is the primary action,
+// these are secondary.
+function IconButton({ icon, label, onClick, disabled, active }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+      aria-label={label}
+      aria-pressed={active ? true : undefined}
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        flex: 'none',
+        width: 32, height: 32, padding: 0,
+        border: 'none',
+        borderRadius: 'var(--radius-sm)',
+        // Recording is a state the user needs to see at a glance, so it gets a
+        // fill rather than a colour change.
+        background: active ? 'var(--status-stuck)' : 'transparent',
+        color: active
+          ? '#fff'
+          : disabled
+            ? 'var(--gray-400)'
+            : 'var(--text-muted)',
+        cursor: disabled ? 'not-allowed' : 'pointer'
+      }}
+      onMouseEnter={(e) => {
+        if (!disabled && !active) e.currentTarget.style.background = 'var(--gray-100)'
+      }}
+      onMouseLeave={(e) => {
+        if (!active) e.currentTarget.style.background = 'transparent'
+      }}
+    >
+      <span className="ms" style={{ fontSize: 19 }}>{icon}</span>
+    </button>
+  )
+}
 
 function ChannelScope({ value, onChange, scope }) {
   const toggle = (key) =>
