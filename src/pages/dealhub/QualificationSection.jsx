@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 
 // Qualification — the deal's own custom field values, against the headings
 // configured in GoHighLevel.
@@ -14,6 +14,11 @@ import React from 'react'
 // reviewing it wants to see first.
 
 export default function QualificationSection({ qualification = [] }) {
+  // Collapsed by default. Ten rows of "Not filled yet" is the longest panel in
+  // the rail and the least actionable — the counts in the header already say
+  // everything a reviewer needs, so the detail is opt-in.
+  const [open, setOpen] = useState(false)
+
   if (qualification.length === 0) return null
 
   const missing = qualification.filter((q) => !q.filled)
@@ -28,11 +33,20 @@ export default function QualificationSection({ qualification = [] }) {
         overflow: 'hidden'
       }}
     >
-      <header
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        title={open ? 'Hide the headings' : 'Show all ten headings'}
         style={{
           display: 'flex', alignItems: 'center', gap: 9,
+          width: '100%', cursor: 'pointer', textAlign: 'left',
           padding: '12px 16px',
-          borderBottom: '1px solid var(--border-default)'
+          border: 'none',
+          // The divider belongs to the open state — closed, the header IS the
+          // whole panel and a bottom rule would read as an empty body.
+          borderBottom: open ? '1px solid var(--border-default)' : 'none',
+          background: '#fff',
+          fontFamily: 'var(--font-sans)'
         }}
       >
         <span className="ms" style={{ fontSize: 20, color: 'var(--accent-gold)' }}>
@@ -62,85 +76,97 @@ export default function QualificationSection({ qualification = [] }) {
             {missing.length} missing
           </span>
         )}
-      </header>
+        <span
+          className="ms"
+          style={{ fontSize: 20, color: 'var(--text-faint)', flex: 'none' }}
+        >
+          {open ? 'expand_less' : 'expand_more'}
+        </span>
+      </button>
 
-      <div>
-        {qualification.map((q, i) => (
-          <div
-            key={q.fieldKey}
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'minmax(150px, 210px) 1fr',
-              gap: 16, alignItems: 'baseline',
-              padding: '11px 16px',
-              borderBottom: i === qualification.length - 1
-                ? 'none'
-                : '1px solid var(--border-default)',
-              // Faint rose wash on the rows that need attention, so the gaps
-              // read at a glance without hunting for empty cells.
-              background: q.filled ? 'transparent' : 'var(--tint-rose)'
-            }}
-          >
-            <div style={{ minWidth: 0 }}>
-              <span
-                style={{
-                  display: 'block',
-                  fontSize: 13, fontWeight: 600, color: 'var(--text-heading)'
-                }}
-              >
-                {q.name}
-              </span>
-              {/* The heading's own question, from GHL's placeholder — so a rep
-                  filling a gap knows what's being asked. */}
-              {q.description && (
+      {open && (
+        <div>
+          {qualification.map((q, i) => (
+            <div
+              key={q.fieldKey}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(150px, 210px) 1fr',
+                gap: 16, alignItems: 'baseline',
+                padding: '11px 16px',
+                borderBottom: i === qualification.length - 1
+                  ? 'none'
+                  : '1px solid var(--border-default)',
+                // Faint rose wash on the rows that need attention, so the gaps
+                // read at a glance without hunting for empty cells.
+                background: q.filled ? 'transparent' : 'var(--tint-rose)'
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
                 <span
                   style={{
-                    display: 'block', marginTop: 2,
-                    fontSize: 11, lineHeight: 1.4, color: 'var(--text-faint)'
+                    display: 'block',
+                    fontSize: 13, fontWeight: 600, color: 'var(--text-heading)'
                   }}
                 >
-                  {q.description}
+                  {q.name}
+                </span>
+                {/* The heading's own question, from GHL's placeholder — so a rep
+                    filling a gap knows what's being asked. */}
+                {q.description && (
+                  <span
+                    style={{
+                      display: 'block', marginTop: 2,
+                      fontSize: 11, lineHeight: 1.4, color: 'var(--text-faint)'
+                    }}
+                  >
+                    {q.description}
+                  </span>
+                )}
+              </div>
+
+              {q.filled ? (
+                <p
+                  style={{
+                    margin: 0, maxWidth: 620,
+                    fontSize: 13, lineHeight: 1.5, color: 'var(--text-body)',
+                    whiteSpace: 'pre-line'
+                  }}
+                >
+                  {q.value}
+                </p>
+              ) : (
+                <span
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    fontSize: 12.5, color: 'var(--status-stuck)'
+                  }}
+                >
+                  <span className="ms" style={{ fontSize: 15 }}>help</span>
+                  Not filled yet
                 </span>
               )}
             </div>
+          ))}
+        </div>
+      )}
 
-            {q.filled ? (
-              <p
-                style={{
-                  margin: 0, maxWidth: 620,
-                  fontSize: 13, lineHeight: 1.5, color: 'var(--text-body)',
-                  whiteSpace: 'pre-line'
-                }}
-              >
-                {q.value}
-              </p>
-            ) : (
-              <span
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                  fontSize: 12.5, color: 'var(--status-stuck)'
-                }}
-              >
-                <span className="ms" style={{ fontSize: 15 }}>help</span>
-                Not filled yet
-              </span>
-            )}
-          </div>
-        ))}
-      </div>
-
-      <p
-        style={{
-          margin: 0, padding: '10px 16px',
-          borderTop: '1px solid var(--border-default)',
-          background: 'var(--gray-25)',
-          fontSize: 12, color: 'var(--text-muted)'
-        }}
-      >
-        {missing.length === 0
-          ? 'Every heading filled on this deal.'
-          : `${missing.length} of ${qualification.length} headings are not filled on this deal — edit the opportunity in GoHighLevel to fill them in.`}
-      </p>
+      {/* The footnote explains the rows, so it belongs with them — showing it
+          under a collapsed header would describe a list nobody can see. */}
+      {open && (
+        <p
+          style={{
+            margin: 0, padding: '10px 16px',
+            borderTop: '1px solid var(--border-default)',
+            background: 'var(--gray-25)',
+            fontSize: 12, color: 'var(--text-muted)'
+          }}
+        >
+          {missing.length === 0
+            ? 'Every heading filled on this deal.'
+            : `${missing.length} of ${qualification.length} headings are not filled on this deal — edit the opportunity in GoHighLevel to fill them in.`}
+        </p>
+      )}
     </section>
   )
 }

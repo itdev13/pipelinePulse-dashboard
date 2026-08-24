@@ -75,6 +75,7 @@ export default function DealSection({
               {deal.opportunityName}
             </p>
           )}
+          <ContactLines person={primaryPerson(deal.people)} />
         </Column>
 
         <ValueColumn
@@ -88,12 +89,19 @@ export default function DealSection({
           onStageChange={onStageChange}
         />
 
-        <ProductColumn
-          deal={deal}
-          siblingDeals={siblingDeals}
-          onOpenDeal={onOpenDeal}
-        />
       </div>
+
+      {/* Custom-field chips. These are the opportunity's own GHL fields, so an
+          unset one is a real gap in the record rather than something we failed
+          to fetch — hence the dashed amber "Not set" treatment instead of
+          hiding the chip. */}
+      <FieldChipRow deal={deal} />
+
+      <ProductFooter
+        deal={deal}
+        siblingDeals={siblingDeals}
+        onOpenDeal={onOpenDeal}
+      />
     </section>
   )
 }
@@ -237,33 +245,104 @@ function StageColumn({ deal, stages, onStageChange }) {
   )
 }
 
-function ProductColumn({ deal, siblingDeals, onOpenDeal }) {
+// The five opportunity custom fields, as chips under the columns.
+//
+// Every one renders whether set or not: these are the deal's own GHL fields,
+// so a blank is a real gap in the record — the dashed amber "Not set" is the
+// point, not a placeholder for missing data on our side. Hiding an unset chip
+// would make an incomplete deal look complete.
+const FIELD_CHIPS = [
+  ['Client type',           'clientType'],
+  ['Product system',        'productSystem'],
+  ['Product type',          'productType'],
+  ['First contact method',  'firstContactMethod'],
+  ['Lead source opportunity', 'leadSource']
+]
+
+function FieldChipRow({ deal }) {
+  return (
+    <div
+      style={{
+        display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+        padding: '11px 16px',
+        borderTop: '1px solid var(--border-default)'
+      }}
+    >
+      {FIELD_CHIPS.map(([label, key]) => (
+        <FieldChip key={key} label={label} value={deal[key]} />
+      ))}
+    </div>
+  )
+}
+
+function FieldChip({ label, value }) {
+  const set = value != null && String(value).trim() !== ''
+  return (
+    <span
+      title={
+        set
+          ? `${label}: ${value}`
+          : `${label} has no value on this deal in GoHighLevel`
+      }
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 7,
+        maxWidth: '100%',
+        height: 30, padding: '0 11px',
+        border: set
+          ? '1px solid var(--border-strong)'
+          // Dashed + amber: unset is a gap to fill, not an error.
+          : '1px dashed var(--accent-gold)',
+        borderRadius: 'var(--radius-sm)',
+        background: '#fff'
+      }}
+    >
+      <span
+        style={{
+          flex: 'none',
+          fontSize: 10, fontWeight: 600, letterSpacing: '0.06em',
+          textTransform: 'uppercase', color: 'var(--text-muted)'
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          minWidth: 0,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          fontSize: 12.5,
+          fontWeight: set ? 500 : 400,
+          color: set ? 'var(--text-heading)' : 'var(--accent-gold)'
+        }}
+      >
+        {set ? value : 'Not set'}
+      </span>
+    </span>
+  )
+}
+
+// Tags and sibling deals, below the chip row. These were in the Product column;
+// they're full-width footers now that the columns are down to three.
+function ProductFooter({ deal, siblingDeals, onOpenDeal }) {
   // The reassignment-targets payload includes the current deal — it's the
   // "move this message to" list. Here we only want the siblings.
   const others = (siblingDeals || []).filter((d) => d.id && !d.current)
+  const hasTags = (deal.dealTags?.length || 0) + (deal.contactTags?.length || 0) > 0
+  if (!hasTags && others.length === 0) return null
 
   return (
-    <Column label="Product" last>
-      <div style={{ fontSize: 13.5, lineHeight: 1.45, color: 'var(--text-heading)' }}>
-        {deal.product || <span style={{ color: 'var(--text-faint)' }}>—</span>}
-      </div>
-
-      {deal.leadSource && (
-        <>
-          <FieldLabel>Lead source</FieldLabel>
-          <div style={{ fontSize: 13.5, color: 'var(--text-heading)' }}>
-            {deal.leadSource}
-          </div>
-        </>
+    <div
+      style={{
+        display: 'grid', gap: 10,
+        padding: '11px 16px',
+        borderTop: '1px solid var(--border-default)'
+      }}
+    >
+      {hasTags && (
+        <TagList dealTags={deal.dealTags} contactTags={deal.contactTags} />
       )}
 
-      <TagList
-        dealTags={deal.dealTags}
-        contactTags={deal.contactTags}
-      />
-
       {others.length > 0 && (
-        <>
+        <div>
           <FieldLabel>
             {others.length === 1
               ? 'Other open deal — same contact'
@@ -287,36 +366,57 @@ function ProductColumn({ deal, siblingDeals, onOpenDeal }) {
                   fontFamily: 'var(--font-sans)', fontSize: 12.5
                 }}
               >
+                <span className="ms" style={{ fontSize: 14 }}>sell</span>
                 <span
                   style={{
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                   }}
                 >
-                  {d.label}
+                  {d.name || 'Unnamed deal'}
                 </span>
-                {d.value && (
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, flex: 'none' }}>
-                    · {d.value}
-                  </span>
-                )}
               </button>
             ))}
           </div>
-        </>
+        </div>
       )}
-    </Column>
+    </div>
   )
 }
 
-// Tags. GHL's tag model is contact-scoped — confirmed against
-// vw_opportunity_effective_tags, which resolves a deal's tags through the
-// contact join. So contact tags are NOT second-class here: they're the tags
-// GHL's own opportunity modal displays, and they get the normal treatment.
-//
-// opportunities.tags is the rarer case (only populated when an opp event
-// carries a tags[] array). When a tag appears on both sides it renders once,
-// with the deal-scoped marker, since that's the more specific fact.
-// Collapses past six with a "+N" toggle, matching GHL's own overflow.
+// Email / phone / address / timezone for the primary contact, as icon rows.
+function ContactLines({ person }) {
+  if (!person) return null
+  const lines = [
+    ['mail', person.email],
+    ['call', person.phone],
+    ['location_on', person.address],
+    ['schedule', person.timezone]
+  ].filter(([, v]) => v)
+  if (lines.length === 0) return null
+
+  return (
+    <div style={{ display: 'grid', gap: 5, marginTop: 10 }}>
+      {lines.map(([icon, value]) => (
+        <span
+          key={icon}
+          style={{
+            display: 'flex', alignItems: 'flex-start', gap: 7,
+            fontSize: 12.5, lineHeight: 1.4, color: 'var(--text-body)'
+          }}
+        >
+          <span
+            className="ms"
+            style={{ fontSize: 15, color: 'var(--text-faint)', flex: 'none', marginTop: 1 }}
+          >
+            {icon}
+          </span>
+          <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{value}</span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
 function TagList({ dealTags = [], contactTags = [] }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -510,8 +610,15 @@ function StatusPill({ status }) {
 
 // Mirrors PeopleSection's identifier fallback: contacts in GHL are often
 // skeletal, so pick the best label we actually have rather than "Contact".
+// The contact the card is about. Primary if one is flagged, else the first —
+// same rule primaryName uses, factored out so the name and the contact details
+// can never describe two different people.
+function primaryPerson(people = []) {
+  return people.find((x) => x.primary) || people[0] || null
+}
+
 function primaryName(people = []) {
-  const p = people.find((x) => x.primary) || people[0]
+  const p = primaryPerson(people)
   if (!p) return 'Unnamed deal'
   const first = (p.firstName || '').trim()
   const last = (p.lastName || '').trim()
