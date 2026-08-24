@@ -401,8 +401,8 @@ function Segment({ options, value, onChange }) {
                 ? '1.5px solid var(--brand-primary)'
                 : '1px solid var(--border-strong)',
               borderRadius: 'var(--radius-pill)',
-              background: active ? 'var(--surface-selected)' : '#fff',
-              color: active ? 'var(--brand-primary)' : 'var(--text-body)',
+              background: active ? 'var(--brand-primary)' : '#fff',
+              color: active ? '#fff' : 'var(--text-body)',
               fontFamily: 'var(--font-sans)',
               fontSize: 'var(--text-base)', fontWeight: active ? 600 : 400
             }}
@@ -412,7 +412,8 @@ function Segment({ options, value, onChange }) {
               <span
                 style={{
                   fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)',
-                  color: active ? 'var(--brand-primary)' : 'var(--text-muted)'
+                  // Brand digits on a now-solid-brand chip would be invisible.
+                  color: active ? 'rgba(255,255,255,0.85)' : 'var(--text-muted)'
                 }}
               >
                 {count}
@@ -453,8 +454,8 @@ function SortControl({ label, options, value, onChange }) {
                   ? '1.5px solid var(--brand-primary)'
                   : '1px solid var(--border-strong)',
                 borderRadius: 'var(--radius-sm)',
-                background: active ? 'var(--surface-selected)' : '#fff',
-                color: active ? 'var(--brand-primary)' : 'var(--text-body)',
+                background: active ? 'var(--brand-primary)' : '#fff',
+                color: active ? '#fff' : 'var(--text-body)',
                 fontFamily: 'var(--font-sans)',
                 fontSize: 'var(--text-base)', fontWeight: active ? 600 : 400
               }}

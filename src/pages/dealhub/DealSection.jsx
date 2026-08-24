@@ -345,13 +345,17 @@ const FIELD_CHIPS = [
 ]
 
 function FieldChipRow({ deal }) {
-  const set = FIELD_CHIPS.filter(([, k]) => {
+  const isSet = (k) => {
     const v = deal[k]
     return v != null && String(v).trim() !== ''
-  })
-  const unset = FIELD_CHIPS.filter((f) => !set.includes(f))
-
-  if (set.length === 0 && unset.length === 0) return null
+  }
+  // Set fields first: a rep scanning the card wants the values it HAS before
+  // the gaps. Order within each group stays as declared.
+  const ordered = [
+    ...FIELD_CHIPS.filter(([, k]) => isSet(k)),
+    ...FIELD_CHIPS.filter(([, k]) => !isSet(k))
+  ]
+  if (ordered.length === 0) return null
 
   return (
     <div
@@ -361,66 +365,13 @@ function FieldChipRow({ deal }) {
         borderTop: '1px solid var(--border-default)'
       }}
     >
-      {/* Fields that have a value carry information, so they get the space. */}
-      {set.map(([label, key]) => (
+      {ordered.map(([label, key]) => (
         <FieldChip key={key} label={label} value={deal[key]} />
       ))}
-
-      {/* The unset ones do not.
-          Five dashed "Not set" chips filled an entire row of the card with the
-          same non-information repeated five times — on a new deal that was the
-          most visually prominent thing on the page. Collapsed to one chip that
-          still says a gap exists, with the field names on hover. */}
-      {unset.length > 0 && <UnsetChip fields={unset} />}
     </div>
   )
 }
 
-// One chip for every empty field, rather than one chip each.
-function UnsetChip({ fields }) {
-  const [open, setOpen] = useState(false)
-  const names = fields.map(([label]) => label)
-
-  if (open) {
-    return (
-      <>
-        {fields.map(([label, key]) => (
-          <FieldChip key={key} label={label} value={null} />
-        ))}
-        <button onClick={() => setOpen(false)} style={ghostChipStyle}>
-          <span className="ms" style={{ fontSize: 15 }}>unfold_less</span>
-          Hide
-        </button>
-      </>
-    )
-  }
-
-  return (
-    <button
-      onClick={() => setOpen(true)}
-      title={`Not set on this deal: ${names.join(', ')}. Edit the opportunity in GoHighLevel to fill them in.`}
-      style={{ ...ghostChipStyle, borderStyle: 'dashed', borderColor: 'var(--accent-gold)' }}
-    >
-      <span className="ms" style={{ fontSize: 15, color: 'var(--accent-gold-text)' }}>
-        info
-      </span>
-      <span style={{ color: 'var(--accent-gold-text)' }}>
-        {names.length} {names.length === 1 ? 'field' : 'fields'} not set
-      </span>
-    </button>
-  )
-}
-
-const ghostChipStyle = {
-  display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)',
-  cursor: 'pointer',
-  height: 30, padding: '0 11px',
-  border: '1px solid var(--border-strong)',
-  borderRadius: 'var(--radius-sm)',
-  background: 'transparent',
-  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
-  color: 'var(--text-muted)'
-}
 
 function FieldChip({ label, value }) {
   const set = value != null && String(value).trim() !== ''

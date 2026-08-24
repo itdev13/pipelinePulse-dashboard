@@ -108,8 +108,8 @@ export default function DealHubShell() {
                     ? '1px solid var(--brand-primary)'
                     : '1px solid var(--border-strong)',
                   borderRadius: 'var(--radius-pill)',
-                  background: active ? 'var(--surface-selected)' : '#fff',
-                  color: active ? 'var(--brand-primary)' : 'var(--text-body)',
+                  background: active ? 'var(--brand-primary)' : '#fff',
+                  color: active ? '#fff' : 'var(--text-body)',
                   fontFamily: 'var(--font-sans)',
                   fontSize: 'var(--text-md)', fontWeight: active ? 600 : 400,
                   transition: 'all 0.15s ease-out'
@@ -123,8 +123,11 @@ export default function DealHubShell() {
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       minWidth: 20, height: 20, padding: '0 6px',
                       borderRadius: 'var(--radius-pill)',
-                      background: active ? 'var(--brand-primary)' : 'var(--gray-100)',
-                      color: active ? '#fff' : 'var(--text-muted)',
+                      // The chip itself is now solid brand when active, so a
+                      // brand-filled badge with white text inside it would be
+                      // invisible. Invert: white pill, brand digits.
+                      background: active ? 'rgba(255,255,255,0.92)' : 'var(--gray-100)',
+                      color: active ? 'var(--brand-primary)' : 'var(--text-muted)',
                       fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', fontWeight: 600,
                       marginLeft: 2
                     }}

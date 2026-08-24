@@ -204,12 +204,16 @@ function MessageRow({ m, highlighted, onJumpAttachment }) {
         </div>
       </div>
 
-      {/* Card — channel-accent frames the row (top + bottom stripes) */}
+      {/* Card.
+          The channel accent used to be a 4px stripe on BOTH the top and bottom
+          edge of every row. On a twenty-message thread that's forty coloured
+          bars, and it made the list the loudest thing on the page while telling
+          you nothing the gutter icon didn't already say. One thin left rail
+          instead: still colour-coded, no longer shouting. */}
       <div
         style={{
-          border: '1px solid var(--border-strong)',
-          borderTop: `4px solid ${channelCol}`,
-          borderBottom: `4px solid ${channelCol}`,
+          border: '1px solid var(--border-default)',
+          borderLeft: `3px solid ${channelCol}`,
           borderRadius: 'var(--radius-md)',
           opacity,
           background: highlighted ? 'var(--tint-gold)' : '#fff',
@@ -384,60 +388,6 @@ function MessageRow({ m, highlighted, onJumpAttachment }) {
         </div>
       </div>
 
-      {/* Footer strip — sits between the body and the bottom channel stripe.
-          Anchors the deal-tag pill so every row surfaces which opp it's on
-          in exactly the same spot, no matter how tall the body is. */}
-      <div
-        style={{
-          display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-          padding: '6px var(--space-3) 6px var(--space-4)',
-          background: channelTint,
-          borderTop: '1px solid var(--border-default)',
-        }}
-      >
-        <span
-          style={{
-            fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
-            textTransform: 'uppercase', color: channelCol,
-          }}
-        >
-          {CH_LABEL[m.channel]}
-        </span>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-          {/* Deal-assignment pill — the reassignment control. Renders the
-              deal name when we have one; with no name it's icon + chevron
-              only, since inventing a placeholder label says less than the
-              tooltip already does. */}
-          <button
-            title={
-              m.dealTag
-                ? `Part of ${m.dealTag} — click to reassign`
-                : 'Click to reassign this message to another deal'
-            }
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              padding: '3px var(--space-2) 3px 9px',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-pill)',
-              background: '#fff',
-              cursor: 'pointer', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap',
-            }}
-          >
-            <span className="ms" style={{ fontSize: 13, color: 'var(--text-muted)' }}>sell</span>
-            {m.dealTag && (
-              <span
-                style={{
-                  maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis',
-                  fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-muted)',
-                }}
-              >
-                {m.dealTag}
-              </span>
-            )}
-            <span className="ms" style={{ fontSize: 14, color: 'var(--text-faint)' }}>expand_more</span>
-          </button>
-        </div>
-      </div>
       </div>
     </div>
   )
@@ -493,49 +443,74 @@ function EntryRow({ m, highlighted }) {
       <div
         style={{
           border: '1px solid var(--border-default)',
-          borderTop: `3px solid ${col}`,
+          borderLeft: `3px solid ${col}`,
           borderRadius: 'var(--radius-md)',
           background: highlighted ? 'var(--surface-selected)' : '#fff',
           overflow: 'hidden'
         }}
       >
         <div style={{ padding: 'var(--space-3) var(--space-4)' }}>
-          {/* Header: kind · author · badges */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+          {/* Kind + badges on one quiet line. The deal pill is gone: the whole
+              timeline is scoped to one deal, so it repeated the same name on
+              every row. */}
+          <div
+            style={{
+              display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+              flexWrap: 'wrap', marginBottom: 5
+            }}
+          >
             <span
               style={{
-                fontSize: 'var(--text-sm)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
+                fontSize: 'var(--text-xs)', fontWeight: 600,
+                letterSpacing: 'var(--tracking-label)',
                 textTransform: 'uppercase', color: col
               }}
             >
               {isNote ? 'Note' : 'Task'}
             </span>
-            <span style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)' }}>
-              {m.senderName}
-            </span>
-
-            {m.manual && <Badge tone="pine">Added manually</Badge>}
-            {/* Only shown when the note was actually written by the agent —
-                the server keeps this false unless it can tell. */}
             {isNote && m.isAi && <Badge tone="sky" icon="auto_awesome">AI note — internal</Badge>}
             {!isNote && m.status === 'completed' && <Badge tone="pine" icon="check">Completed</Badge>}
-
-            <span style={{ flex: 1 }} />
-
-            {m.dealTag && <DealPill label={m.dealTag} />}
+            {!isNote && m.overdue && m.status !== 'completed' && (
+              <Badge tone="rose" icon="schedule">Overdue</Badge>
+            )}
           </div>
 
-          {/* Body.
-              Notes and tasks are authored in GHL's rich-text editor, so their
-              bodies are MARKUP. Rendered as a string they print their own tags
-              — "<p style=...>opp note</p>" instead of "opp note". RichBody
-              renders the HTML and carries the plain-text toggle the list pages
-              already use. */}
+          {/* The title leads — it's the thing itself, not who filed it. */}
+          <div
+            style={{
+              fontSize: 'var(--text-lg)', fontWeight: 600,
+              lineHeight: 1.4, color: 'var(--text-heading)'
+            }}
+          >
+            {m.title || (isNote ? 'Note' : 'Task')}
+          </div>
+
+          {/* Body. Notes and tasks are authored in GHL's rich-text editor, so
+              their bodies are MARKUP — rendered as a string they print their own
+              tags ("<p style=...>opp note</p>"). */}
           {m.body && (
-            <div style={{ marginTop: 8 }}>
-              <RichBody html={m.body} size="var(--text-lg)" maxWidth={720} />
+            <div style={{ marginTop: 4 }}>
+              <RichBody html={m.body} size="var(--text-md)" maxWidth={720} />
             </div>
           )}
+
+          {/* Attribution and due date as a quiet meta line, the way the list
+              pages already render tasks — rather than the author competing with
+              the title for the top of the card. */}
+          <div
+            style={{
+              marginTop: 6,
+              fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
+            }}
+          >
+            {[
+              isNote
+                ? (m.senderName ? `by ${m.senderName}` : null)
+                : (m.assignee ? `assigned to ${m.assignee}` : 'unassigned'),
+              !isNote && m.duePhrase ? `due ${m.duePhrase}` : null,
+              m.manual ? 'added manually' : null
+            ].filter(Boolean).join(' · ')}
+          </div>
         </div>
       </div>
     </div>
@@ -560,31 +535,6 @@ function Badge({ children, tone, icon }) {
   )
 }
 
-// The deal pill, matching the message rows' footer control.
-function DealPill({ label }) {
-  return (
-    <span
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 5,
-        height: 26, padding: '0 10px',
-        border: '1px solid var(--border-default)',
-        borderRadius: 'var(--radius-pill)',
-        background: 'var(--gray-50)'
-      }}
-    >
-      <span className="ms" style={{ fontSize: 13, color: 'var(--text-muted)' }}>sell</span>
-      <span
-        style={{
-          maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-muted)'
-        }}
-      >
-        {label}
-      </span>
-    </span>
-  )
-}
 
 export default function Timeline({
   messages,

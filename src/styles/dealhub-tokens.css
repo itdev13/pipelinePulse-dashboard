@@ -435,3 +435,76 @@
 [data-dealhub] .pp-panel-head .ms {
   color: var(--panel-accent, var(--text-muted));
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * v7 — client feedback (James, 24 Aug 2026).
+ *
+ *   "The colours on the UI are too faded, they look washed out, like they
+ *    are on old faded clothes. ExportKit is much more bold, vibrant, easy
+ *    to read... the background colours help to highlight the text, and
+ *    enable your eye to navigate around the page."
+ *
+ * Measured against ExportKit rather than guessed at:
+ *
+ *   body text   ours #323844 = 11.8:1   ExportKit #111827 = 17.7:1
+ *   badge tints ours 0.05 sat (near white)   ExportKit green-100 = 0.13 sat
+ *
+ * So two changes, both aimed at exactly what he described:
+ *   1. NEUTRALS GO DARKER — text stops being grey-on-white and becomes
+ *      near-black, which is the single biggest cause of "washed out".
+ *   2. TINTS GO STRONGER — badge and header backgrounds actually read as a
+ *      colour, so the eye can use them to navigate.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+[data-dealhub] {
+  /* Darker text ramp. Each step keeps the slight cool bias so it still sits
+   * with the evergreen brand, but every one is materially darker. */
+  --gray-800: #141922;   /* 17.6:1 — headings */
+  --gray-700: #252c38;   /* 14.0:1 — body */
+  --gray-600: #3d4552;   /*  9.7:1 */
+  --gray-500: #5b6472;   /*  6.0:1 — muted */
+  --gray-450: #6b7482;   /*  4.7:1 — faintest readable */
+
+  /* Stronger tints. These are the "background colours that help highlight the
+   * text": at 0.05 saturation they were indistinguishable from white, so a
+   * badge read as bare text and a panel header as a plain row. */
+  --tint-pine: #d8ede4;
+  --tint-sky:  #dbeafe;
+  --tint-plum: #e8e0f8;
+  --tint-clay: #fbe3d4;
+  --tint-gold: #fbeeca;
+  --tint-rose: #fbdde5;
+  --tint-teal: #d5eef1;
+
+  /* A brighter brand green. The old #1f7a5c is dark for a primary — it reads
+   * as a border colour more than an action colour. */
+  --green-500: #16855f;
+  --brand-primary: #16855f;
+  --brand-primary-hover: #11704f;
+  --brand-primary-active: #0d5b40;
+
+  /* Vivid status colours, ExportKit-style: saturated fills for badges. */
+  --status-done: #059669;
+  --status-working: #d97706;
+  --status-stuck: #dc2626;
+
+  /* Page ground a touch cooler and more defined, so white cards read as
+   * raised rather than merged. */
+  --surface-page: #eef1f5;
+}
+
+/* Accent text, re-derived for the stronger tints.
+ *
+ * Strengthening the tints dropped all seven accent-on-tint badge combinations
+ * below 4.5:1 — the badge text and its background moved toward each other.
+ * These are the same hues darkened until each clears AA on BOTH its new tint
+ * and white. Recomputed, not eyeballed. */
+[data-dealhub] {
+  --accent-pine-text: #1e7659;
+  --accent-sky-text:  #2169b8;
+  --accent-plum-text: #6f53b6;
+  --accent-clay-text: #a84d26;
+  --accent-gold-text: #8d6607;
+  --accent-rose-text: #b63659;
+  --accent-teal-text: #0d747f;
+}

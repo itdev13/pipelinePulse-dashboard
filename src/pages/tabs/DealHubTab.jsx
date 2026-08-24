@@ -211,8 +211,8 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
         height: 30, padding: '0 14px',
         border: active ? '2px solid var(--brand-primary)' : '1px solid var(--border-strong)',
         borderRadius: 'var(--radius-pill)',
-        background: active ? 'var(--surface-selected)' : '#fff',
-        color: active ? 'var(--brand-primary)' : 'var(--text-body)',
+        background: active ? 'var(--brand-primary)' : '#fff',
+        color: active ? '#fff' : 'var(--text-body)',
         fontFamily: 'var(--font-sans)',
         fontSize: 'var(--text-md)', fontWeight: active ? 500 : 400,
         transition: 'all 0.15s ease-out'
@@ -419,8 +419,8 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                         padding: 'var(--space-2) 10px', textAlign: 'left',
                         border: 'none',
                         borderRadius: 'var(--radius-sm)',
-                        background: active ? 'var(--surface-selected)' : '#fff',
-                        color: active ? 'var(--brand-primary)' : 'var(--text-body)',
+                        background: active ? 'var(--brand-primary)' : '#fff',
+                        color: active ? '#fff' : 'var(--text-body)',
                         fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
                         fontWeight: active ? 600 : 400,
                         marginBottom: 2
@@ -526,7 +526,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                       ? '1.5px solid var(--brand-primary)'
                       : '1px solid var(--border-strong)',
                     borderRadius: 'var(--radius-pill)',
-                    background: active ? 'var(--surface-selected)' : '#fff',
+                    background: active ? 'var(--brand-primary)' : '#fff',
                     color: active
                       ? 'var(--brand-primary)'
                       : disabled

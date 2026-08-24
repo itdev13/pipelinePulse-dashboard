@@ -181,8 +181,9 @@ export function PrimaryAction({ children, onClick, icon = 'add' }) {
         display: 'inline-flex', alignItems: 'center', gap: 7,
         height: 36, padding: '0 var(--space-4)',
         border: 'none', borderRadius: 'var(--radius-md)',
-        background: 'var(--green-600)', color: '#fff',
-        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
+        background: 'var(--brand-primary)', color: '#fff',
+        boxShadow: '0 1px 2px rgba(13, 91, 64, 0.25)',
+        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
         cursor: 'pointer'
       }}
     >
@@ -202,8 +203,8 @@ export function FilterChip({ label, active, onClick }) {
           ? '1.5px solid var(--brand-primary)'
           : '1px solid var(--border-strong)',
         borderRadius: 'var(--radius-pill)',
-        background: active ? 'var(--surface-selected)' : '#fff',
-        color: active ? 'var(--brand-primary)' : 'var(--text-body)',
+        background: active ? 'var(--brand-primary)' : '#fff',
+        color: active ? '#fff' : 'var(--text-body)',
         fontFamily: 'var(--font-sans)',
         fontSize: 'var(--text-md)', fontWeight: active ? 600 : 400,
         cursor: 'pointer'
@@ -249,12 +250,21 @@ export function StateMessage({
     return (
       <div
         style={{
-          padding: 'var(--space-4)', borderLeft: '3px solid var(--status-stuck)',
-          background: 'var(--tint-rose)', color: 'var(--status-stuck)',
-          fontSize: 'var(--text-md)'
+          display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)',
+          margin: 'var(--space-2) 0',
+          padding: 'var(--space-3) var(--space-4)',
+          border: '1px solid var(--status-stuck)',
+          borderLeft: '4px solid var(--status-stuck)',
+          borderRadius: 'var(--radius-md)',
+          background: 'var(--tint-rose)',
+          fontSize: 'var(--text-md)', lineHeight: 'var(--leading-normal)',
+          color: 'var(--text-heading)'
         }}
       >
-        {error}
+        <span className="ms" style={{ fontSize: 18, color: 'var(--status-stuck)', flex: 'none' }}>
+          error
+        </span>
+        <span>{error}</span>
       </div>
     )
   }
@@ -262,7 +272,34 @@ export function StateMessage({
     return <RowSkeletons rows={skeletonRows} label={loadingText} />
   }
   if (empty) {
-    return <Muted>{emptyText}</Muted>
+    return (
+      <div
+        style={{
+          margin: 'var(--space-2) 0',
+          padding: '28px var(--space-5)',
+          border: '1px dashed var(--accent-gold)',
+          borderRadius: 'var(--radius-md)',
+          background: 'var(--tint-gold)',
+          textAlign: 'center'
+        }}
+      >
+        <span
+          className="ms"
+          style={{ fontSize: 30, color: 'var(--accent-gold-text)' }}
+        >
+          inbox
+        </span>
+        <p
+          style={{
+            margin: '8px auto 0', maxWidth: 380,
+            fontSize: 'var(--text-md)', lineHeight: 'var(--leading-normal)',
+            color: 'var(--text-body)'
+          }}
+        >
+          {emptyText}
+        </p>
+      </div>
+    )
   }
   return null
 }
@@ -648,8 +685,8 @@ export function SortButton({ label, active, onClick }) {
           ? '1px solid var(--brand-primary)'
           : '1px solid var(--border-strong)',
         borderRadius: 'var(--radius-sm)',
-        background: active ? 'var(--surface-selected)' : '#fff',
-        color: active ? 'var(--brand-primary)' : 'var(--text-body)',
+        background: active ? 'var(--brand-primary)' : '#fff',
+        color: active ? '#fff' : 'var(--text-body)',
         fontFamily: 'var(--font-sans)',
         fontSize: 'var(--text-sm)', fontWeight: active ? 600 : 400
       }}

@@ -643,7 +643,7 @@ function ChatHistory({ chats, activeId, onReopen, onInspect }) {
                     ? '1.5px solid var(--brand-primary)'
                     : '1px solid var(--border-default)',
                   borderRadius: 'var(--radius-md)',
-                  background: active ? 'var(--surface-selected)' : '#fff',
+                  background: active ? 'var(--brand-primary)' : '#fff',
                   fontFamily: 'var(--font-sans)'
                 }}
               >

@@ -634,8 +634,8 @@ function ChannelChip({ label, active, onClick }) {
         height: 28, padding: '0 var(--space-3)',
         border: active ? '1px solid var(--brand-primary)' : '1px solid var(--border-strong)',
         borderRadius: 'var(--radius-pill)',
-        background: active ? 'var(--surface-selected)' : '#fff',
-        color: active ? 'var(--brand-primary)' : 'var(--text-body)',
+        background: active ? 'var(--brand-primary)' : '#fff',
+        color: active ? '#fff' : 'var(--text-body)',
         fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
         fontWeight: active ? 600 : 400
       }}
