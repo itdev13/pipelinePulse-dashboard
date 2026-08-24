@@ -21,18 +21,17 @@ import { useAuth } from '../context/AuthContext'
 // when a user clicks a deal card, and it flips activeTab to 'hub'
 // automatically. That's the "click a deal card → jump into deal hub" flow.
 
-// Order: Deal hub → Deals (the paired opp views) → Businesses → Contacts → Tasks → Notes → Control.
-// Businesses sits above Contacts because it's the roll-up of them.
-// Deal hub and Deals both centre on opportunities, so they sit side by side;
-// Contacts and everything else follow.
+// Order: Deal hub → Businesses → Deals → Contacts → Tasks → Notes → Control.
+// Businesses comes second because it's the widest lens: a business rolls up the
+// deals, contacts and conversations that every tab after it shows one slice of.
 const TABS = [
-  { id: 'hub',      label: 'Deal hub',       icon: 'space_dashboard' },
-  { id: 'deals',    label: 'Deals',          icon: 'sell' },
-  { id: 'businesses', label: 'Businesses',  icon: 'domain' },
-  { id: 'contacts', label: 'Contacts',       icon: 'group' },
-  { id: 'tasks',    label: 'Tasks',          icon: 'task_alt' },
-  { id: 'notes',    label: 'Notes',          icon: 'sticky_note_2' },
-  { id: 'control',  label: 'Control panel',  icon: 'tune' }
+  { id: 'hub',        label: 'Deal hub',     icon: 'space_dashboard' },
+  { id: 'businesses', label: 'Businesses',   icon: 'domain' },
+  { id: 'deals',      label: 'Deals',        icon: 'sell' },
+  { id: 'contacts',   label: 'Contacts',     icon: 'group' },
+  { id: 'tasks',      label: 'Tasks',        icon: 'task_alt' },
+  { id: 'notes',      label: 'Notes',        icon: 'sticky_note_2' },
+  { id: 'control',    label: 'Control panel', icon: 'tune' }
 ]
 
 export default function DealHubShell() {
