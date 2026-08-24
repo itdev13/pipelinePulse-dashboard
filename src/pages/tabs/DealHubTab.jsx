@@ -528,7 +528,11 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                     borderRadius: 'var(--radius-pill)',
                     background: active ? 'var(--brand-primary)' : '#fff',
                     color: active
-                      ? 'var(--brand-primary)'
+                      // White on the solid brand fill. This was
+                      // 'var(--brand-primary)' — brand text on a brand
+                      // background, so the active tab rendered as an empty
+                      // green pill with no label.
+                      ? '#fff'
                       : disabled
                       ? 'var(--text-faint)'
                       : 'var(--text-body)',

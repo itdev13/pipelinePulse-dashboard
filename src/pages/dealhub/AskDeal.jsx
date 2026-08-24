@@ -273,7 +273,12 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
         // Co-Pilot's inner flex column then pins its composer to the bottom of
         // that height. A floor keeps the composer low on a deal with no chat
         // history yet, where the rail would otherwise set a short height.
-        minHeight: 420,
+        // A FIXED height, not a floor. With `stretch` and only a min, the
+        // taller panel drove the row: eight chats made the rail overrun
+        // Co-Pilot's bottom edge, and Co-Pilot's 600px of blank middle was the
+        // other half of the same problem. Both now share one height and scroll
+        // inside it.
+        height: 560,
         alignItems: 'stretch'
       }}
     >
@@ -315,11 +320,9 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
           background: '#fff',
           display: 'flex', flexDirection: 'column',
           overflow: 'hidden',
-          // The grid stretches both panels to the taller one, so without a cap
-          // a long history would set the row height and never scroll — it would
-          // just push Co-Pilot's composer further down the page. The cap is what
-          // makes the overflow actually engage.
-          maxHeight: 650
+          // Height comes from the grid row now, so the list scrolls inside a
+          // panel that always matches Co-Pilot.
+          minHeight: 0
         }}
       >
         <header
@@ -425,19 +428,83 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
             flex: 1, minHeight: 0
           }}
         >
+          {/* Empty state.
+              Was a one-line grey note pinned to the top, leaving ~600px of
+              blank panel below it — the composer sat at the bottom and nothing
+              occupied the middle. Now it fills the space and explains the two
+              things worth knowing before you ask. */}
           {turns.length === 0 && (
-            <p
+            <div
               style={{
-                margin: 0, padding: '10px var(--space-3)',
-                background: 'var(--surface-sunken)',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: 'var(--text-md)', lineHeight: 1.5, color: 'var(--text-muted)'
+                flex: 1, minHeight: 0,
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                gap: 'var(--space-3)', padding: 'var(--space-5)',
+                textAlign: 'center'
               }}
             >
-              Ask a question about this deal, or pick a prompt on the right.
-              Answers read this deal's messages, and every claim carries a
-              quote you can click through to.
-            </p>
+              <span
+                style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  width: 52, height: 52,
+                  borderRadius: 'var(--radius-pill)',
+                  background: 'var(--tint-teal)', color: 'var(--accent-teal-text)'
+                }}
+              >
+                <span className="ms" style={{ fontSize: 26 }}>forum</span>
+              </span>
+
+              <div>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 'var(--text-xl)', fontWeight: 600,
+                    color: 'var(--text-heading)'
+                  }}
+                >
+                  Ask anything about this deal
+                </p>
+                <p
+                  style={{
+                    margin: '5px auto 0', maxWidth: 380,
+                    fontSize: 'var(--text-md)', lineHeight: 'var(--leading-normal)',
+                    color: 'var(--text-muted)'
+                  }}
+                >
+                  Start with a chip above, or type your own question below.
+                </p>
+              </div>
+
+              {/* The two guarantees worth stating up front — they're what makes
+                  an answer trustworthy, and they were buried in a grey line. */}
+              <div
+                style={{
+                  display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap',
+                  justifyContent: 'center', marginTop: 'var(--space-1)'
+                }}
+              >
+                {[
+                  ['task_alt', 'Every claim carries a quote you can click'],
+                  ['visibility', "Reads only this deal's messages"]
+                ].map(([icon, text]) => (
+                  <span
+                    key={icon}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      fontSize: 'var(--text-base)', color: 'var(--text-muted)'
+                    }}
+                  >
+                    <span
+                      className="ms"
+                      style={{ fontSize: 16, color: 'var(--accent-pine-text)' }}
+                    >
+                      {icon}
+                    </span>
+                    {text}
+                  </span>
+                ))}
+              </div>
+            </div>
           )}
 
           {available === false && (
@@ -508,7 +575,14 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
           {/* Composer — pinned to the bottom of the panel. marginTop:auto does
               the pinning when the transcript is empty; once it has content the
               transcript's flex:1 has already claimed the space. */}
-          <div style={{ marginTop: 'auto', flex: 'none', display: 'grid', gap: 10 }}>
+          <div
+            style={{
+              marginTop: 'auto', flex: 'none',
+              display: 'grid', gap: 'var(--space-2)',
+              paddingTop: 'var(--space-3)',
+              borderTop: '1px solid var(--border-default)'
+            }}
+          >
           <ChannelScope value={channels} onChange={setChannels} scope={scope} />
 
           <div
@@ -634,33 +708,40 @@ function ChatHistory({ chats, activeId, onReopen, onInspect }) {
               <button
                 key={c.id}
                 onClick={() => onReopen(c)}
-                title="Reopen this chat"
+                title={`${c.question} — click to reopen`}
                 style={{
-                  display: 'grid', gap: 3,
+                  display: 'grid', gap: 4,
                   cursor: 'pointer', width: '100%', textAlign: 'left',
                   padding: '10px var(--space-3)',
                   border: active
-                    ? '1.5px solid var(--brand-primary)'
+                    ? '1px solid var(--brand-primary)'
                     : '1px solid var(--border-default)',
-                  borderRadius: 'var(--radius-md)',
-                  background: active ? 'var(--brand-primary)' : '#fff',
+                  borderLeft: active
+                    ? '3px solid var(--brand-primary)'
+                    : '3px solid transparent',
+                  borderRadius: 'var(--radius-sm)',
+                  // A solid brand fill made the question and answer text
+                  // unreadable. The selected row is marked by a left rail and a
+                  // tint instead.
+                  background: active ? 'var(--tint-pine)' : '#fff',
                   fontFamily: 'var(--font-sans)'
                 }}
               >
-                <span style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)' }}>
-                  <span
-                    style={{
-                      flex: 1, minWidth: 0,
-                      fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                    }}
-                  >
-                    {c.question}
-                  </span>
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-faint)', flex: 'none' }}>
-                    {askedAtLabel(c.askedAt)}
-                  </span>
+                {/* The question wraps to two lines instead of truncating on one.
+                    Six chats all asking "What is the biggest risk here?" were
+                    clipped to "What is the biggest risk her…" — identical and
+                    unreadable, which made the whole rail useless. */}
+                <span
+                  style={{
+                    fontSize: 'var(--text-md)', fontWeight: 600,
+                    lineHeight: 1.35, color: 'var(--text-heading)',
+                    display: '-webkit-box', WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical', overflow: 'hidden'
+                  }}
+                >
+                  {c.question}
                 </span>
+
                 <span
                   style={{
                     fontSize: 'var(--text-base)', lineHeight: 1.45, color: 'var(--text-muted)',
@@ -670,27 +751,42 @@ function ChatHistory({ chats, activeId, onReopen, onInspect }) {
                 >
                   {c.answerText}
                 </span>
-                {c.readMessageIds?.length > 0 && (
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => { e.stopPropagation(); onInspect(c.id) }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault(); e.stopPropagation(); onInspect(c.id)
-                      }
-                    }}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)',
-                      marginTop: 2, cursor: 'pointer',
-                      fontSize: 'var(--text-sm)', color: 'var(--text-link)'
-                    }}
-                  >
-                    <span className="ms" style={{ fontSize: 13 }}>visibility</span>
-                    {c.readMessageIds.length} message
-                    {c.readMessageIds.length === 1 ? '' : 's'} considered · show more
-                  </span>
-                )}
+
+                {/* Time and message count on one quiet line. These were two
+                    separate rows, and "5 messages considered · show more"
+                    repeated verbatim on every card — three lines of chrome per
+                    entry for a rail that only needs to say which chat is which. */}
+                <span
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+                    fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
+                  }}
+                >
+                  <span>{askedAtLabel(c.askedAt)}</span>
+                  {c.readMessageIds?.length > 0 && (
+                    <>
+                      <span aria-hidden>·</span>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        title="See exactly which messages this answer read"
+                        onClick={(e) => { e.stopPropagation(); onInspect(c.id) }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault(); e.stopPropagation(); onInspect(c.id)
+                          }
+                        }}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 3,
+                          cursor: 'pointer', color: 'var(--text-link)'
+                        }}
+                      >
+                        <span className="ms" style={{ fontSize: 13 }}>visibility</span>
+                        {c.readMessageIds.length}
+                      </span>
+                    </>
+                  )}
+                </span>
               </button>
             )
           })}

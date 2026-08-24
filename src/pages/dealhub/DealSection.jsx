@@ -35,10 +35,11 @@ export default function DealSection({
   // label we hold ("Shrinivas Jaladanki"), and it was being relegated to the
   // subtitle while the raw phone number took the headline.
   const contactName = primaryName(deal.people)
+  // A contact created from an inbound SMS has only a phone number, so
+  // primaryName falls back to it. Showing a raw number as the card's headline
+  // reads as broken data.
   const contactIsNameless = /^[+\d\s()-]+$/.test(contactName) || contactName === 'Unnamed contact'
-  const customerName = contactIsNameless && deal.opportunityName
-    ? deal.opportunityName
-    : contactName
+  const dealName = deal.opportunityName || null
 
   return (
     <section
@@ -81,7 +82,12 @@ export default function DealSection({
           gap: 0
         }}
       >
-        <Column label="Customer">
+        {/* The DEAL leads — it's the record the page is about. The customer is
+            named underneath it. These were conflated: the deal name was being
+            substituted into the "Customer" slot when the contact had no name,
+            so the label described the wrong thing and the deal name had nowhere
+            of its own. */}
+        <Column label="Deal">
           <div
             style={{
               fontSize: 'var(--text-3xl)', fontWeight: 600,
@@ -90,20 +96,23 @@ export default function DealSection({
               overflowWrap: 'anywhere'
             }}
           >
-            {customerName}
+            {dealName || 'Unnamed deal'}
           </div>
-          {/* GHL names a new opportunity after its contact, so this line was
-              repeating the heading verbatim. Only show it when it differs. */}
-          {deal.opportunityName && deal.opportunityName.trim() !== customerName.trim() && (
-            <p
+
+          <div style={{ marginTop: 'var(--space-3)' }}>
+            <span className="pp-label" style={{ marginBottom: 3 }}>Customer</span>
+            <div
               style={{
-                margin: '5px 0 0', fontSize: 'var(--text-md)', lineHeight: 1.45,
-                color: 'var(--text-muted)'
+                fontSize: 'var(--text-lg)', fontWeight: 500,
+                color: contactIsNameless ? 'var(--text-muted)' : 'var(--text-heading)'
               }}
             >
-              {deal.opportunityName}
-            </p>
-          )}
+              {/* No name on the contact — say so rather than printing the phone
+                  number twice (it already appears in the detail lines below). */}
+              {contactIsNameless ? 'No name on this contact' : contactName}
+            </div>
+          </div>
+
           <ContactLines person={primaryPerson(deal.people)} />
         </Column>
 
