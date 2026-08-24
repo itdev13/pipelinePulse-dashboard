@@ -308,7 +308,7 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
           // a long history would set the row height and never scroll — it would
           // just push Co-Pilot's composer further down the page. The cap is what
           // makes the overflow actually engage.
-          maxHeight: 620
+          maxHeight: 900
         }}
       >
         <header
@@ -341,6 +341,12 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
         <div
           style={{
             flex: 1, minHeight: 0, overflowY: 'auto',
+            // A floor, because the starters below are flex:'none' — they claim
+            // their full height first and the list gets only the remainder,
+            // which with five starter cards was barely one chat. This makes the
+            // history the section that gets the space and the starters the one
+            // that gives it up.
+            flexBasis: 340,
             padding: 12
           }}
         >
@@ -352,12 +358,14 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
           />
         </div>
 
-        {/* Starters stay pinned below the scroll area — they're how you begin a
-            question, so they shouldn't scroll out of reach behind eight past
-            chats. flex:'none' keeps them at their natural height. */}
+        {/* Starters sit below the history, in their own scroll area.
+            Deliberately capped: five starter cards are ~600px, and as a
+            flex:'none' block they claimed all of it before the history got any,
+            which is why the history was showing one chat. Capping them means
+            the two sections share the rail instead of one starving the other. */}
         <div
           style={{
-            flex: 'none',
+            flex: 'none', maxHeight: 220, overflowY: 'auto',
             display: 'grid', gap: 6,
             padding: 12,
             borderTop: '1px solid var(--border-default)',

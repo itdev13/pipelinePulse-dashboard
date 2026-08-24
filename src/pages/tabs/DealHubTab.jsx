@@ -6,7 +6,6 @@ import DealSection from '../dealhub/DealSection'
 import AskDeal from '../dealhub/AskDeal'
 import QualificationSection from '../dealhub/QualificationSection'
 import { DealTasksSection, DealNotesSection } from '../dealhub/DealTasksSection'
-import DealSectionTabs from '../dealhub/DealSectionTabs'
 import {
   DealHubSkeleton, DealBodySkeleton, SkeletonStyles
 } from '../dealhub/Skeleton'
@@ -48,9 +47,6 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
   // contact) and includes the current deal, which DealSection filters out.
   const [siblingDeals, setSiblingDeals] = useState([])
 
-  // Right-rail section — tasks / notes / qualification. All three have real
-  // panels; Tasks is the default.
-  const [activeSection, setActiveSection] = useState('tasks')
 
   // Filter state
   const [channelFilter, setChannelFilter] = useState(null)
@@ -694,24 +690,11 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
               </div>
             </div>
 
-            {/* Right: section index for the panels below the timeline. Sits in
-                the Commitments column, so it starts on that panel's left
-                edge and wraps within its own width. */}
-            <div style={{ minWidth: 0 }}>
-              <DealSectionTabs
-                counts={{
-                  tasksOpen: deal?.counts?.tasksOpen ?? deal?.counts?.tasks_open,
-                  notes: deal?.counts?.notes,
-                  // Headings with no value on this deal. Real data, not AI
-                  // output — these are the opportunity's own custom fields.
-                  qualificationMissing: (deal?.qualification || [])
-                    .filter((q) => !q.filled).length
-                  // commitmentsOverdue lands with the AI extraction layer.
-                }}
-                activeId={activeSection}
-                onSelect={setActiveSection}
-              />
-            </div>
+            {/* Empty right column. The section tabs used to live here; the
+                panels are all stacked in the rail now, so nothing selects
+                between them. The column stays so the filter stack keeps the
+                same width as the Timeline below it. */}
+            <div style={{ minWidth: 0 }} />
           </div>
         </div>
       )}
@@ -758,16 +741,15 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                 messages={filtered}
                 highlightedId={highlightedId}
               />
-              {/* The right rail follows the section tabs above. Tasks is the
-                  default — Commitments is gone, and an unbuilt section
-                  shouldn't be what the rail lands on. */}
-              {activeSection === 'qualification' ? (
-                <QualificationSection qualification={deal?.qualification || []} />
-              ) : activeSection === 'notes' ? (
-                <DealNotesSection dealId={dealId} />
-              ) : (
+              {/* All three panels stacked, no tab to pick between them. With
+                  only three sections left, switching cost a click and hid two
+                  of them for no reason — a rep reading a deal wants the tasks
+                  AND the notes. */}
+              <div style={{ display: 'grid', gap: 14, minWidth: 0 }}>
                 <DealTasksSection dealId={dealId} />
-              )}
+                <DealNotesSection dealId={dealId} />
+                <QualificationSection qualification={deal?.qualification || []} />
+              </div>
             </div>
             <AskDeal
               dealId={dealId}
