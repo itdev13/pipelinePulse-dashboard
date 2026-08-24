@@ -57,7 +57,9 @@ export default function ContactsTab({ onOpenDeal, openContactId, onContactViewed
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
         <h1 style={{ fontSize: 24 }}>Contacts</h1>
         <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-          {loading ? 'Loading…' : `${contacts.length}${hasMore ? '+' : ''} in this location`}
+          {loading
+            ? 'Loading…'
+            : `${contacts.length}${hasMore ? '+' : ''} in this location — edit in GoHighLevel, changes sync back`}
         </span>
         <input
           value={q}
@@ -92,7 +94,7 @@ export default function ContactsTab({ onOpenDeal, openContactId, onContactViewed
       {/* Card grid, so the skeleton mirrors the card shape and the layout
           doesn't jump when the real contacts land. minWidth matches the real
           grid's 320px track. */}
-      {loading && <CardGridSkeleton cards={9} minWidth={320} />}
+      {loading && <CardGridSkeleton cards={6} minWidth={430} />}
 
       {!loading && contacts.length === 0 && !error && (
         <div style={{ padding: 24, color: 'var(--text-muted)', fontSize: 13 }}>
@@ -105,142 +107,13 @@ export default function ContactsTab({ onOpenDeal, openContactId, onContactViewed
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(430px, 1fr))',
           gap: 14
         }}
       >
-        {contacts.map((c) => {
-          const initials = ((c.firstName?.[0] || '') + (c.lastName?.[0] || '')).toUpperCase() || '?'
-          return (
-            <div
-              key={c.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => setOpenId(c.id)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  setOpenId(c.id)
-                }
-              }}
-              title="Open contact record"
-              style={{
-                cursor: 'pointer',
-                border: '1px solid var(--border-default)',
-                borderTop: `3px solid var(--accent-${c.accent})`,
-                borderRadius: 'var(--radius-md)',
-                background: '#fff',
-                boxShadow: 'var(--shadow-card)',
-                padding: 14,
-                display: 'grid', gap: 10
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    width: 38, height: 38, flex: 'none',
-                    borderRadius: '50%',
-                    background: `var(--tint-${c.accent})`,
-                    color: `var(--accent-${c.accent})`,
-                    fontSize: 13, fontWeight: 600
-                  }}
-                >
-                  {initials}
-                </span>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div
-                    style={{
-                      fontSize: 15, fontWeight: 600, color: 'var(--text-heading)',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                    }}
-                  >
-                    {c.name || '—'}
-                  </div>
-                  {c.contactType && (
-                    <div
-                      style={{
-                        display: 'inline-block', marginTop: 3,
-                        fontSize: 10, fontWeight: 600, letterSpacing: '0.05em',
-                        textTransform: 'uppercase',
-                        padding: '2px 8px', borderRadius: 'var(--radius-sm)',
-                        background: `var(--tint-${c.accent})`, color: `var(--accent-${c.accent})`
-                      }}
-                    >
-                      {c.contactType}
-                    </div>
-                  )}
-                </div>
-                <DndBadge dnd={c.dnd} />
-              </div>
-
-              <ChannelRow dnd={c.dnd} hasEmail={!!c.email} hasPhone={!!c.phone} />
-
-              <div style={{ display: 'grid', gap: 4, fontSize: 12, color: 'var(--text-body)' }}>
-                {c.business && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                    <span className="ms" style={{ fontSize: 14, color: 'var(--text-faint)' }}>business</span>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.business}</span>
-                  </div>
-                )}
-                {c.email && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                    <span className="ms" style={{ fontSize: 14, color: 'var(--text-faint)' }}>mail</span>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.email}</span>
-                  </div>
-                )}
-                {c.phone && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span className="ms" style={{ fontSize: 14, color: 'var(--text-faint)' }}>call</span>
-                    {c.phone}
-                  </div>
-                )}
-                {c.address && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                    <span className="ms" style={{ fontSize: 14, color: 'var(--text-faint)' }}>location_on</span>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.address}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Tags + deal count */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginTop: 2 }}>
-                {c.openDeals > 0 && (
-                  <span
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 4,
-                      padding: '3px 8px',
-                      borderRadius: 'var(--radius-pill)',
-                      background: 'var(--tint-pine)', color: 'var(--accent-pine)',
-                      fontSize: 11, fontWeight: 600
-                    }}
-                  >
-                    <span className="ms" style={{ fontSize: 13 }}>sell</span>
-                    {c.openDeals} {c.openDeals === 1 ? 'open deal' : 'open deals'}
-                  </span>
-                )}
-                {(c.tags || []).slice(0, 5).map((tag) => (
-                  <span
-                    key={tag}
-                    style={{
-                      padding: '3px 8px',
-                      borderRadius: 'var(--radius-pill)',
-                      background: 'var(--gray-100)', color: 'var(--text-muted)',
-                      fontSize: 11
-                    }}
-                  >
-                    {tag}
-                  </span>
-                ))}
-                {c.tags && c.tags.length > 5 && (
-                  <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>
-                    +{c.tags.length - 5} more
-                  </span>
-                )}
-              </div>
-            </div>
-          )
-        })}
+        {contacts.map((c) => (
+          <ContactCard key={c.id} c={c} onOpen={() => setOpenId(c.id)} onOpenDeal={onOpenDeal} />
+        ))}
       </div>
 
       {!loading && contacts.length > 0 && (
@@ -256,120 +129,229 @@ export default function ContactsTab({ onOpenDeal, openContactId, onContactViewed
   )
 }
 
-// Contact-permission badge. Counts channels the customer has switched off
-// (migration 052 promoted DND to columns; the API pre-computes the count).
+// One contact, as a record card.
 //
-// Loud on purpose: this is the difference between contacting someone who
-// asked us not to and respecting it, and the AI draft gate refuses these
-// channels outright (spec rule 7). A quiet grey chip would get missed.
-function DndBadge({ dnd }) {
-  if (!dnd) return null
+// Laid out as labelled fields rather than a summary line, because this is the
+// contact's record — the same shape a rep sees when editing it. Fields render
+// as inputs/selects so the card reads as the record it is, but they are
+// DISABLED: editing has to write back to GoHighLevel, which this app has never
+// done (no POST path, no write scopes). A live-looking input that silently
+// discards a change would be worse than a visibly read-only one.
+function ContactCard({ c, onOpen, onOpenDeal }) {
+  const initials = ((c.firstName?.[0] || '') + (c.lastName?.[0] || '')).toUpperCase() || '?'
 
-  if (dnd.all) {
-    return (
-      <span
-        title="This contact has asked not to be contacted on any channel"
-        style={{
-          flex: 'none',
-          display: 'inline-flex', alignItems: 'center', gap: 5,
-          height: 26, padding: '0 10px',
-          borderRadius: 'var(--radius-sm)',
-          background: 'var(--status-stuck)', color: '#fff',
-          fontSize: 11.5, fontWeight: 600
-        }}
-      >
-        <span className="ms" style={{ fontSize: 14 }}>block</span>
-        Do not contact
-      </span>
-    )
-  }
-
-  const n = dnd.blockedCount || 0
-  if (n === 0) return null
-  const which = (dnd.blockedChannels || []).map(labelFor).join(', ')
   return (
-    <span
-      title={`Off: ${which}`}
+    <div
       style={{
-        flex: 'none',
-        display: 'inline-flex', alignItems: 'center',
-        height: 26, padding: '0 10px',
-        borderRadius: 'var(--radius-sm)',
-        background: 'var(--status-stuck)', color: '#fff',
-        fontSize: 11.5, fontWeight: 600
+        border: '1px solid var(--border-default)',
+        borderTop: `3px solid var(--accent-${c.accent})`,
+        borderRadius: 'var(--radius-md)',
+        background: '#fff',
+        boxShadow: 'var(--shadow-card)',
+        padding: 14,
+        display: 'grid', gap: 12
       }}
     >
-      {n} channel{n === 1 ? '' : 's'} off
+      {/* Identity + the way into the full record */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 38, height: 38, flex: 'none',
+            borderRadius: '50%',
+            background: `var(--tint-${c.accent})`,
+            color: `var(--accent-${c.accent})`,
+            fontSize: 13, fontWeight: 600
+          }}
+        >
+          {initials}
+        </span>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div
+            style={{
+              fontSize: 15.5, fontWeight: 600, color: 'var(--text-heading)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+            }}
+          >
+            {c.name || '—'}
+          </div>
+          {c.contactType && (
+            <div style={{ marginTop: 1, fontSize: 12.5, color: 'var(--text-muted)' }}>
+              {c.contactType}
+            </div>
+          )}
+        </div>
+        <button
+          onClick={onOpen}
+          title="Open the full contact record"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none',
+            cursor: 'pointer',
+            height: 30, padding: '0 12px',
+            border: '1px solid var(--border-strong)',
+            borderRadius: 'var(--radius-sm)',
+            background: '#fff',
+            fontFamily: 'var(--font-sans)', fontSize: 12.5,
+            color: 'var(--text-body)'
+          }}
+        >
+          Record
+          <span className="ms" style={{ fontSize: 16 }}>arrow_forward</span>
+        </button>
+      </div>
+
+      {/* Fields, two per row, matching the record's own layout */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <Field label="First name" value={c.firstName} />
+        <Field label="Last name" value={c.lastName} />
+        <Field label="Primary email" value={c.email} />
+        <Field label="Primary phone" value={c.phone} />
+        <Field label="Business" value={c.business} select />
+        <Field label="Contact type" value={c.contactType} select />
+      </div>
+      <Field label="Address" value={c.address} />
+
+      {/* Contact permissions. Loud on purpose — the AI draft gate refuses these
+          channels outright (spec rule 7), and a rep needs to see it before
+          picking up the phone. */}
+      {(c.dnd?.all || c.dnd?.blockedCount > 0) && <DndLine dnd={c.dnd} />}
+
+      {/* Deals. PRIMARY marks the ones this contact owns rather than is merely
+          linked to — an architect appears on a deal without owning it. */}
+      {c.deals?.length > 0 && (
+        <div>
+          <FieldLabel>Deals</FieldLabel>
+          <div style={{ display: 'grid', gap: 5 }}>
+            {c.deals.map((d) => (
+              <button
+                key={d.id}
+                onClick={() => onOpenDeal?.(d.id)}
+                title="Open this deal"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 7,
+                  justifySelf: 'start', maxWidth: '100%',
+                  cursor: onOpenDeal ? 'pointer' : 'default',
+                  height: 28, padding: '0 10px',
+                  border: '1px solid var(--green-100)',
+                  borderRadius: 'var(--radius-pill)',
+                  background: 'var(--tint-pine)',
+                  fontFamily: 'var(--font-sans)', fontSize: 12.5,
+                  color: 'var(--green-600)'
+                }}
+              >
+                <span className="ms" style={{ fontSize: 14, flex: 'none' }}>sell</span>
+                <span
+                  style={{
+                    minWidth: 0, overflow: 'hidden',
+                    textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                  }}
+                >
+                  {d.name}
+                  {d.value != null && ` · ${money(d.value)}`}
+                  {d.stage && ` · ${d.stage}`}
+                </span>
+                {d.primary && (
+                  <span
+                    style={{
+                      flex: 'none',
+                      padding: '1px 6px',
+                      borderRadius: 'var(--radius-sm)',
+                      background: 'var(--green-600)', color: '#fff',
+                      fontSize: 9.5, fontWeight: 700, letterSpacing: '0.05em'
+                    }}
+                  >
+                    PRIMARY
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// A labelled field. Rendered as a real input/select so the card reads as the
+// record, but disabled — see ContactCard's note on write-back.
+function Field({ label, value, select }) {
+  const empty = value == null || String(value).trim() === ''
+  const shared = {
+    width: '100%', boxSizing: 'border-box',
+    height: 34, padding: '0 10px',
+    border: '1px solid var(--border-default)',
+    borderRadius: 'var(--radius-sm)',
+    background: empty ? 'var(--gray-50)' : '#fff',
+    fontFamily: 'var(--font-sans)', fontSize: 12.5,
+    color: empty ? 'var(--text-faint)' : 'var(--text-body)',
+    fontStyle: empty ? 'italic' : 'normal',
+    cursor: 'not-allowed'
+  }
+  return (
+    <div style={{ minWidth: 0 }}>
+      <FieldLabel>{label}</FieldLabel>
+      {select ? (
+        // A select rather than an input, because these are pick-lists in GHL.
+        // Only the current value is listed: offering options we cannot save
+        // would invite a change that goes nowhere.
+        <select
+          disabled
+          value="v"
+          title={`${label} — edit in GoHighLevel`}
+          style={{ ...shared, appearance: 'auto' }}
+        >
+          <option value="v">{empty ? 'Not set' : value}</option>
+        </select>
+      ) : (
+        <input
+          readOnly
+          disabled
+          value={empty ? 'Not set' : value}
+          title={`${label} — edit in GoHighLevel`}
+          style={shared}
+        />
+      )}
+    </div>
+  )
+}
+
+function FieldLabel({ children }) {
+  return (
+    <span
+      style={{
+        display: 'block', marginBottom: 4,
+        fontSize: 9.5, fontWeight: 600, letterSpacing: '0.07em',
+        textTransform: 'uppercase', color: 'var(--text-muted)'
+      }}
+    >
+      {children}
     </span>
   )
 }
 
-// Which channels are reachable. Shows all four so an available channel is as
-// visible as a blocked one — a rep deciding how to follow up needs both.
-// A channel with no address (no email on file) reads as unavailable rather
-// than blocked: different reason, same practical outcome.
-function ChannelRow({ dnd, hasEmail, hasPhone }) {
-  if (!dnd) return null
-  const items = [
-    { key: 'email',    icon: 'mail',  label: 'Email',    has: hasEmail },
-    { key: 'sms',      icon: 'sms',   label: 'SMS',      has: hasPhone },
-    { key: 'call',     icon: 'call',  label: 'Call',     has: hasPhone },
-    { key: 'whatsapp', icon: 'chat',  label: 'WhatsApp', has: hasPhone }
-  ]
+// "1 channel off" / "Do not contact" as an inline line rather than a corner
+// badge — at card width a badge competes with the Record button.
+function DndLine({ dnd }) {
+  const all = dnd.all
+  const n = dnd.blockedCount || 0
+  const which = (dnd.blockedChannels || []).map(labelFor).join(', ')
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-      {items.map((it) => {
-        const blocked = dnd.all || dnd.channels?.[it.key]
-        const missing = !it.has
-        const reason = blocked
-          ? dnd.reasons?.[it.key] || `${it.label} switched off by the contact`
-          : missing
-          ? `No ${it.key === 'email' ? 'email address' : 'phone number'} on file`
-          : `${it.label} available`
-        return (
-          <span
-            key={it.key}
-            title={reason}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              height: 22, padding: '0 8px',
-              borderRadius: 'var(--radius-pill)',
-              border: `1px solid ${blocked ? 'var(--tint-rose)' : 'var(--border-default)'}`,
-              background: blocked ? 'var(--tint-rose)' : missing ? 'var(--gray-50)' : '#fff',
-              color: blocked
-                ? 'var(--status-stuck)'
-                : missing
-                ? 'var(--text-faint)'
-                : 'var(--text-muted)',
-              fontSize: 10.5, fontWeight: 500,
-              textDecoration: blocked ? 'line-through' : 'none'
-            }}
-          >
-            <span className="ms" style={{ fontSize: 12 }}>
-              {blocked ? 'block' : it.icon}
-            </span>
-            {it.label}
-          </span>
-        )
-      })}
-      {dnd.inbound && (
-        <span
-          title="This contact has inbound messages switched off"
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-            height: 22, padding: '0 8px',
-            borderRadius: 'var(--radius-pill)',
-            border: '1px solid var(--tint-gold)',
-            background: 'var(--tint-gold)', color: 'var(--accent-gold)',
-            fontSize: 10.5, fontWeight: 500
-          }}
-        >
-          <span className="ms" style={{ fontSize: 12 }}>call_received</span>
-          Inbound off
-        </span>
-      )}
-    </div>
+    <span
+      title={all ? 'This contact has asked not to be contacted on any channel' : `Off: ${which}`}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        justifySelf: 'start',
+        fontSize: 12.5, fontWeight: 600, color: 'var(--status-stuck)'
+      }}
+    >
+      <span className="ms" style={{ fontSize: 16 }}>{all ? 'block' : 'notifications_off'}</span>
+      {all ? 'Do not contact' : `${n} channel${n === 1 ? '' : 's'} off`}
+    </span>
   )
+}
+
+function money(v) {
+  return `£${Number(v).toLocaleString('en-GB', { maximumFractionDigits: 0 })}`
 }
 
 function labelFor(k) {
