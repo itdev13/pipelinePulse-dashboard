@@ -2,7 +2,7 @@ import React from 'react'
 
 // Inner-tab strip for the Deal Hub — one row across the top of the deal
 // canvas that names the six discovery lenses we render below (Commitments,
-// Three whys, Qualification, Next step, Tasks, Notes). Each tab optionally
+// Tasks, Notes, Qualification). Each tab optionally
 // carries a count chip: "2 overdue" on Commitments, "2 open" on Tasks, etc.
 //
 // This is a visual index, not a router. Clicking a tab highlights it and
@@ -40,20 +40,6 @@ const TABS = [
     countKey: 'qualificationMissing',
     countSuffix: 'missing',
     countTone: 'danger'
-  },
-  {
-    id: 'whys',
-    label: 'Three whys',
-    icon: 'psychology',
-    accent: 'plum',
-    countKey: null
-  },
-  {
-    id: 'next-step',
-    label: 'Next step',
-    icon: 'arrow_forward',
-    accent: 'pine',
-    countKey: null
   }
 ]
 

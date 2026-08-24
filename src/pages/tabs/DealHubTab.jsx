@@ -48,9 +48,8 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
   // contact) and includes the current deal, which DealSection filters out.
   const [siblingDeals, setSiblingDeals] = useState([])
 
-  // Deal-section inner tabs — commitments / whys / qualification / next-step
-  // / tasks / notes. Purely visual right now: highlights the tab and (later)
-  // will scroll to the matching section as those sections get built.
+  // Right-rail section — tasks / notes / qualification. All three have real
+  // panels; Tasks is the default.
   const [activeSection, setActiveSection] = useState('tasks')
 
   // Filter state

@@ -303,7 +303,12 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
           borderRadius: 'var(--radius-md)',
           background: '#fff',
           display: 'flex', flexDirection: 'column',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          // The grid stretches both panels to the taller one, so without a cap
+          // a long history would set the row height and never scroll — it would
+          // just push Co-Pilot's composer further down the page. The cap is what
+          // makes the overflow actually engage.
+          maxHeight: 620
         }}
       >
         <header
@@ -329,29 +334,47 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
           </span>
         </header>
 
-        <div style={{ padding: 12, display: 'grid', gap: 10, overflowY: 'auto' }}>
+        {/* Only the history list scrolls. flex:1 + minHeight:0 lets it shrink
+            below its content height — without the minHeight override a flex
+            item refuses to shrink past its content, and the overflow silently
+            never engages. */}
+        <div
+          style={{
+            flex: 1, minHeight: 0, overflowY: 'auto',
+            padding: 12
+          }}
+        >
           <ChatHistory
             chats={history}
             activeId={activeChatId}
             onReopen={reopen}
             onInspect={setInspectRunId}
           />
+        </div>
 
-          {/* Prompt starters live under the history — same rail, and both
-              answer "what do I ask next". */}
-          <div style={{ display: 'grid', gap: 6 }}>
-            <span
-              style={{
-                fontSize: 10, fontWeight: 600, letterSpacing: '0.07em',
-                textTransform: 'uppercase', color: 'var(--text-muted)'
-              }}
-            >
-              Starters
-            </span>
-            {PROMPTS.map((p) => (
-              <PromptCard key={p.id} prompt={p} onPick={() => setQ(p.label)} />
-            ))}
-          </div>
+        {/* Starters stay pinned below the scroll area — they're how you begin a
+            question, so they shouldn't scroll out of reach behind eight past
+            chats. flex:'none' keeps them at their natural height. */}
+        <div
+          style={{
+            flex: 'none',
+            display: 'grid', gap: 6,
+            padding: 12,
+            borderTop: '1px solid var(--border-default)',
+            background: 'var(--surface-sunken)'
+          }}
+        >
+          <span
+            style={{
+              fontSize: 10, fontWeight: 600, letterSpacing: '0.07em',
+              textTransform: 'uppercase', color: 'var(--text-muted)'
+            }}
+          >
+            Starters
+          </span>
+          {PROMPTS.map((p) => (
+            <PromptCard key={p.id} prompt={p} onPick={() => setQ(p.label)} />
+          ))}
         </div>
       </section>
 
