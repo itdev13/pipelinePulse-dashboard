@@ -77,7 +77,7 @@ export default function DealHubShell() {
       >
         <span
           title={locationName}
-          style={{ fontWeight: 600, fontSize: 16, color: 'var(--text-heading)' }}
+          style={{ fontWeight: 600, fontSize: 'var(--text-lg)', color: 'var(--text-heading)' }}
         >
           {locationName}
         </span>
@@ -111,7 +111,7 @@ export default function DealHubShell() {
                   background: active ? 'var(--surface-selected)' : '#fff',
                   color: active ? 'var(--brand-primary)' : 'var(--text-body)',
                   fontFamily: 'var(--font-sans)',
-                  fontSize: 13, fontWeight: active ? 600 : 400,
+                  fontSize: 'var(--text-md)', fontWeight: active ? 600 : 400,
                   transition: 'all 0.15s ease-out'
                 }}
               >
@@ -125,7 +125,7 @@ export default function DealHubShell() {
                       borderRadius: 'var(--radius-pill)',
                       background: active ? 'var(--brand-primary)' : 'var(--gray-100)',
                       color: active ? '#fff' : 'var(--text-muted)',
-                      fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600,
+                      fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', fontWeight: 600,
                       marginLeft: 2
                     }}
                   >

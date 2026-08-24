@@ -18,7 +18,8 @@
   --gray-100: #eceef1;
   --gray-200: #dcdfe4;
   --gray-300: #c3c8d0;
-  --gray-400: #9aa1ad;
+  --gray-400: #9aa1ad;   /* borders / disabled fills only — 2.6:1, not for text */
+  --gray-450: #6f7784;   /* faintest READABLE text — 4.52:1 on white, AA */
   --gray-500: #676f7c;
   --gray-600: #4b515c;
   --gray-700: #323844;
@@ -41,6 +42,28 @@
   --accent-rose: #c23a5f;
   --accent-teal: #0f7f8b;
 
+  /* The same accents as TEXT.
+   *
+   * The accents above are tuned as fills and as large headings. Used for SMALL
+   * text on their own tint — which is what every badge and chip in the app does
+   * — seven of the eight combinations fell below 4.5:1, gold worst at 2.94:1.
+   *
+   * These are the same hues darkened just enough to clear AA on BOTH their tint
+   * and white. The shift is 1-5%: visually the same colour, legibly different.
+   */
+  --accent-pine-text: #1f7a5c;
+  --accent-sky-text:  #236ec0;
+  --accent-plum-text: #7759c2;
+  --accent-clay-text: #b05128;
+  --accent-gold-text: #8f6808;
+  --accent-rose-text: #c0395e;
+  --accent-teal-text: #0e7985;
+  /* 'gray' is the server's fallback accent when a record has no id
+   * (accentFor() in routes/contacts.js and routes/deals.js). Without this the
+   * dynamic `var(--accent-${accent}-text)` resolves to nothing and the avatar
+   * initials render invisible. */
+  --accent-gray-text: var(--text-muted);
+
   /* Section-accent tints */
   --tint-pine: #e9f4f0;
   --tint-sky: #e8f1fb;
@@ -49,11 +72,20 @@
   --tint-gold: #faf3e0;
   --tint-rose: #fbe9ee;
   --tint-teal: #e6f4f6;
+  --tint-gray: var(--gray-50);
 
   /* Status */
+  /* Fills — white text sits ON these, so vividness is what matters. */
   --status-done: #00a25b;
   --status-working: #f5a300;
   --status-stuck: #d83a52;
+
+  /* The same states as TEXT on white. A single colour cannot serve both: the
+   * fills above are 3.32:1 (done) and 2.07:1 (working) as text, which fails
+   * AA. These are the AA-passing equivalents. */
+  --status-done-text: #00854a;      /* 4.71:1 */
+  --status-working-text: #a86e00;   /* 4.29:1 — AA for large/bold, near AA body */
+  --status-stuck-text: #c1273e;     /* darkened rose */
   --status-hold: #7b5cc9;
   --status-none: #c3c8d0;
 
@@ -66,7 +98,9 @@
   --text-heading: var(--gray-800);
   --text-body: var(--gray-700);
   --text-muted: var(--gray-500);
-  --text-faint: var(--gray-400);
+  /* Was gray-400 (2.60:1) — failed AA on the 42 meta lines using it.
+   * gray-450 is the darkest value that still reads as the faintest tier. */
+  --text-faint: var(--gray-450);
   --text-link: var(--green-600);
   --border-default: var(--gray-200);
   --border-strong: var(--gray-300);
@@ -79,6 +113,46 @@
   /* Typography */
   --font-sans: 'Poppins', -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Type scale.
+   *
+   * Seven steps, and nothing between them. Before this the app carried 26
+   * distinct font sizes across 365 declarations — including 12.5, 13.5, 11.5,
+   * 10.5 and 9.5px. Half-pixel sizes are the symptom of per-element decisions
+   * rather than a system: 13 felt a touch large somewhere, so it became 12.5,
+   * and nothing quite aligned with anything else again.
+   *
+   * Mapped from what was actually in use, so the migration mostly rounds to
+   * the nearest step rather than redesigning every surface:
+   *   9-10.5  -> xs    (uppercase labels, field keys)
+   *   11-11.5 -> sm    (meta lines, chip text)
+   *   12-12.5 -> base  (secondary body, table cells)
+   *   13-13.5 -> md    (primary body — the most common size in the app)
+   *   14-15.5 -> lg    (row titles, card headings)
+   *   16-18   -> xl    (panel headings)
+   *   19-25   -> 2xl   (page titles)
+   */
+  --text-xs: 10px;
+  --text-sm: 11px;
+  --text-base: 12px;
+  --text-md: 13px;
+  --text-lg: 14px;
+  --text-xl: 17px;
+  --text-2xl: 22px;
+
+  /* Line heights. Tight for headings, open for anything read in paragraphs. */
+  --leading-tight: 1.25;
+  --leading-snug: 1.4;
+  --leading-normal: 1.55;
+
+  /* Weights, named so "semibold" doesn't drift between 600 and 700. */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* Letter-spacing for the uppercase micro-labels. Uppercase text at 10px is
+   * unreadable without it. */
+  --tracking-label: 0.07em;
 
   /* Spacing scale */
   --space-1: 4px;
@@ -161,3 +235,95 @@
 [data-dealhub] .pp-rich th { border: 1px solid var(--border-default); padding: 3px 6px; }
 /* GHL sometimes inlines font-size/colour that fights the row's own scale. */
 [data-dealhub] .pp-rich [style*="font-size"] { font-size: inherit !important; }
+
+/* Motion.
+ *
+ * One global transition on the properties that change on hover/focus/state.
+ * Borrowed from ConvoVault, where it is the single biggest reason the UI feels
+ * finished: without it every hover snaps. Deliberately excludes layout
+ * properties (width/height/top/left) — animating those causes reflow jank.
+ */
+[data-dealhub] *,
+[data-dealhub] *::before,
+[data-dealhub] *::after {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* Respect the OS setting. A global transition is exactly the kind of motion
+ * someone with vestibular sensitivity turns off. */
+@media (prefers-reduced-motion: reduce) {
+  [data-dealhub] *,
+  [data-dealhub] *::before,
+  [data-dealhub] *::after {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Focus visibility. Keyboard users get a ring on every interactive element;
+ * mouse users don't see it (:focus-visible, not :focus). Previously only some
+ * hand-styled controls had any focus state at all. */
+[data-dealhub] :focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+/* Scrollbars, scoped to the Deal Hub. Slimmer and quieter than the browser
+ * default, which is visually heavy next to 1px card borders. */
+[data-dealhub] ::-webkit-scrollbar { width: 10px; height: 10px; }
+[data-dealhub] ::-webkit-scrollbar-track { background: var(--gray-50); }
+[data-dealhub] ::-webkit-scrollbar-thumb {
+  background: var(--gray-300);
+  border: 2px solid var(--gray-50);
+  border-radius: var(--radius-pill);
+}
+[data-dealhub] ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+
+/* ── Surface recipes ──────────────────────────────────────────────────
+ *
+ * Three classes replacing the same inline style repeated across 22 files.
+ * Not a utility framework — just the shapes this app actually uses, so a
+ * card looks the same on every page without each component re-deciding.
+ */
+
+/* A panel: the bordered container a section lives in. */
+[data-dealhub] .pp-card {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
+}
+
+/* A row inside a list, clickable. Hover moves the BORDER and the shadow, never
+ * the background — a background flip on a dense list reads as selection, which
+ * is a different meaning. (ConvoVault's convention, and it's the right one.) */
+[data-dealhub] .pp-row-interactive {
+  cursor: pointer;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+}
+[data-dealhub] .pp-row-interactive:hover {
+  border-color: var(--brand-primary);
+  box-shadow: var(--shadow-raised);
+}
+
+/* An uppercase micro-label. Was 35 near-identical inline blocks with five
+ * different letter-spacings. */
+[data-dealhub] .pp-label {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Tabular figures wherever digits stack in a column — money, counts, tokens.
+ * Proportional digits make a column of numbers look ragged. */
+[data-dealhub] .pp-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}

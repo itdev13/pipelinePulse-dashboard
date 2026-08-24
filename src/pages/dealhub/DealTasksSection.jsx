@@ -129,7 +129,7 @@ export function DealTasksSection({ dealId }) {
             <span
               style={{
                 display: 'block',
-                fontSize: 13.5, fontWeight: 600, color: 'var(--text-heading)',
+                fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)',
                 textDecoration: t.status === 'open' ? 'none' : 'line-through'
               }}
             >
@@ -138,7 +138,7 @@ export function DealTasksSection({ dealId }) {
 
             {t.body && (
               <div style={{ marginTop: 2 }}>
-                <RichBody html={t.body} size={12.5} maxWidth={480} />
+                <RichBody html={t.body} size="var(--text-base)" maxWidth={480} />
               </div>
             )}
 
@@ -146,7 +146,7 @@ export function DealTasksSection({ dealId }) {
               style={{
                 display: 'flex', alignItems: 'center', gap: 7,
                 marginTop: 5, flexWrap: 'wrap',
-                fontSize: 11.5, color: 'var(--text-faint)'
+                fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
               }}
             >
               {[
@@ -192,7 +192,7 @@ export function DealNotesSection({ dealId }) {
           <>
             <span
               style={{
-                fontSize: 10.5, fontWeight: 600, letterSpacing: '0.07em',
+                fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
                 textTransform: 'uppercase', color: 'var(--text-muted)'
               }}
             >
@@ -224,7 +224,7 @@ export function DealNotesSection({ dealId }) {
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 width: 28, height: 28, flex: 'none',
                 borderRadius: 'var(--radius-sm)',
-                background: 'var(--tint-gold)', color: 'var(--accent-gold)'
+                background: 'var(--tint-gold)', color: 'var(--accent-gold-text)'
               }}
             >
               <span className="ms" style={{ fontSize: 15 }}>sticky_note_2</span>
@@ -234,20 +234,20 @@ export function DealNotesSection({ dealId }) {
               <span
                 style={{
                   display: 'block',
-                  fontSize: 13.5, fontWeight: 600, color: 'var(--text-heading)'
+                  fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)'
                 }}
               >
                 {heading}
               </span>
               {rest && (
                 <div style={{ marginTop: 3 }}>
-                  <RichBody html={rest} size={12.5} maxWidth={480} />
+                  <RichBody html={rest} size="var(--text-base)" maxWidth={480} />
                 </div>
               )}
               <span
                 style={{
                   display: 'block', marginTop: 5,
-                  fontSize: 11.5, color: 'var(--text-faint)'
+                  fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
                 }}
               >
                 {[n.author, relativeTime(n.createdAt)].filter(Boolean).join(' · ')}
@@ -303,16 +303,16 @@ function Rail({
       <header
         style={{
           display: 'flex', alignItems: 'center', gap: 9,
-          padding: '12px 14px',
+          padding: 'var(--space-3) 14px',
           borderBottom: '1px solid var(--border-default)'
         }}
       >
         <span className="ms" style={{ fontSize: 19, color }}>{icon}</span>
-        <h3 style={{ fontSize: 17, fontWeight: 600, color, margin: 0, flex: 1 }}>
+        <h3 style={{ fontSize: 'var(--text-xl)', fontWeight: 600, color, margin: 0, flex: 1 }}>
           {title}
         </h3>
         {meta != null && (
-          <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>{meta}</span>
+          <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>{meta}</span>
         )}
       </header>
 
@@ -322,7 +322,7 @@ function Rail({
             margin: 0, padding: '11px 14px',
             borderBottom: '1px solid var(--border-default)',
             background: 'var(--gray-50)',
-            fontSize: 12.5, lineHeight: 1.55, color: 'var(--text-body)'
+            fontSize: 'var(--text-base)', lineHeight: 1.55, color: 'var(--text-body)'
           }}
         >
           {blurb}
@@ -332,7 +332,7 @@ function Rail({
       {toolbar && (
         <div
           style={{
-            display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+            display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap',
             padding: '9px 14px',
             borderBottom: '1px solid var(--border-default)'
           }}
@@ -345,10 +345,10 @@ function Rail({
       {error && (
         <p
           style={{
-            margin: 0, padding: '12px 14px',
+            margin: 0, padding: 'var(--space-3) 14px',
             borderLeft: '3px solid var(--status-stuck)',
             background: 'var(--tint-rose)',
-            fontSize: 12.5, color: 'var(--status-stuck)'
+            fontSize: 'var(--text-base)', color: 'var(--status-stuck)'
           }}
         >
           {error}
@@ -399,14 +399,14 @@ function Segment({ options, value, onChange }) {
               background: active ? 'var(--surface-selected)' : '#fff',
               color: active ? 'var(--brand-primary)' : 'var(--text-body)',
               fontFamily: 'var(--font-sans)',
-              fontSize: 12, fontWeight: active ? 600 : 400
+              fontSize: 'var(--text-base)', fontWeight: active ? 600 : 400
             }}
           >
             {label}
             {count != null && (
               <span
                 style={{
-                  fontFamily: 'var(--font-mono)', fontSize: 10.5,
+                  fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)',
                   color: active ? 'var(--brand-primary)' : 'var(--text-muted)'
                 }}
               >
@@ -427,7 +427,7 @@ function SortControl({ label, options, value, onChange }) {
       {label && (
         <span
           style={{
-            fontSize: 10.5, fontWeight: 600, letterSpacing: '0.07em',
+            fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
             textTransform: 'uppercase', color: 'var(--text-muted)'
           }}
         >
@@ -451,7 +451,7 @@ function SortControl({ label, options, value, onChange }) {
                 background: active ? 'var(--surface-selected)' : '#fff',
                 color: active ? 'var(--brand-primary)' : 'var(--text-body)',
                 fontFamily: 'var(--font-sans)',
-                fontSize: 12, fontWeight: active ? 600 : 400
+                fontSize: 'var(--text-base)', fontWeight: active ? 600 : 400
               }}
             >
               {text}
@@ -469,7 +469,7 @@ function RailFooter({ newLabel, allLabel }) {
   return (
     <div
       style={{
-        display: 'flex', alignItems: 'center', gap: 12,
+        display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
         padding: '10px 14px',
         borderTop: '1px solid var(--border-default)'
       }}
@@ -484,7 +484,7 @@ function RailFooter({ newLabel, allLabel }) {
           border: '1px solid var(--border-strong)',
           borderRadius: 'var(--radius-pill)',
           background: '#fff',
-          fontFamily: 'var(--font-sans)', fontSize: 12.5,
+          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
           color: 'var(--text-faint)', opacity: 0.7
         }}
       >
@@ -498,7 +498,7 @@ function RailFooter({ newLabel, allLabel }) {
           display: 'inline-flex', alignItems: 'center', gap: 5,
           cursor: 'not-allowed',
           border: 'none', background: 'none', padding: 0,
-          fontFamily: 'var(--font-sans)', fontSize: 12.5,
+          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
           color: 'var(--text-faint)', opacity: 0.75
         }}
       >
@@ -536,7 +536,7 @@ function OverduePill() {
       style={{
         padding: '2px 7px', borderRadius: 'var(--radius-sm)',
         background: 'var(--status-stuck)', color: '#fff',
-        fontSize: 10.5, fontWeight: 600
+        fontSize: 'var(--text-xs)', fontWeight: 600
       }}
     >
       Overdue
@@ -546,7 +546,7 @@ function OverduePill() {
 
 function Muted({ children }) {
   return (
-    <p style={{ margin: 0, padding: '16px 14px', fontSize: 12.5, color: 'var(--text-muted)' }}>
+    <p style={{ margin: 0, padding: 'var(--space-4) 14px', fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
       {children}
     </p>
   )

@@ -117,27 +117,27 @@ function DealCard({ deal, onOpenDeal }) {
     >
       <header
         style={{
-          display: 'flex', alignItems: 'flex-start', gap: 12,
-          flexWrap: 'wrap', padding: '14px 16px 0'
+          display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)',
+          flexWrap: 'wrap', padding: '14px var(--space-4) 0'
         }}
       >
         <span
           className="ms"
-          style={{ fontSize: 20, color: 'var(--accent-pine)', marginTop: 2 }}
+          style={{ fontSize: 'var(--text-xl)', color: 'var(--accent-pine)', marginTop: 2 }}
         >
           sell
         </span>
         <div style={{ minWidth: 0, flex: 1 }}>
           <h2
             style={{
-              fontSize: 18, fontWeight: 600, color: 'var(--text-heading)',
+              fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--text-heading)',
               margin: 0, lineHeight: 1.3
             }}
           >
             {deal.dealTag || '(unnamed deal)'}
           </h2>
           {deal.opportunityName && deal.opportunityName !== deal.dealTag && (
-            <p style={{ margin: '3px 0 0', fontSize: 12.5, color: 'var(--text-muted)' }}>
+            <p style={{ margin: '3px 0 0', fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
               {deal.opportunityName}
             </p>
           )}
@@ -150,7 +150,7 @@ function DealCard({ deal, onOpenDeal }) {
             height: 34, padding: '0 15px',
             border: 'none', borderRadius: 'var(--radius-md)',
             background: 'var(--green-600)', color: '#fff',
-            fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 500,
+            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
             cursor: 'pointer', flex: 'none'
           }}
         >
@@ -164,7 +164,7 @@ function DealCard({ deal, onOpenDeal }) {
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: 12, padding: '12px 16px 0'
+          gap: 'var(--space-3)', padding: 'var(--space-3) var(--space-4) 0'
         }}
       >
         <Field label="Value">
@@ -202,8 +202,8 @@ function DealCard({ deal, onOpenDeal }) {
       {facts.length > 0 && (
         <p
           style={{
-            margin: 0, padding: '10px 16px 0',
-            fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.5
+            margin: 0, padding: '10px var(--space-4) 0',
+            fontSize: 'var(--text-base)', color: 'var(--text-muted)', lineHeight: 1.5
           }}
         >
           {facts.join(' · ')}
@@ -214,17 +214,17 @@ function DealCard({ deal, onOpenDeal }) {
       )}
 
       {people.length > 0 && (
-        <div style={{ padding: '12px 16px 16px' }}>
+        <div style={{ padding: 'var(--space-3) var(--space-4) var(--space-4)' }}>
           <span
             style={{
               display: 'block', marginBottom: 7,
-              fontSize: 10, fontWeight: 600, letterSpacing: '0.08em',
+              fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
               textTransform: 'uppercase', color: 'var(--text-muted)'
             }}
           >
             {people.length === 1 ? 'Contact on this deal' : 'Contacts on this deal'}
           </span>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
             {people.map((p) => (
               <PersonPill key={p.id} person={p} />
             ))}
@@ -236,7 +236,7 @@ function DealCard({ deal, onOpenDeal }) {
 }
 
 function PersonPill({ person }) {
-  const accent = `var(--accent-${person.accent || 'sky'})`
+  const accent = `var(--accent-${person.accent || 'sky'}-text)`
   const tint = `var(--tint-${person.accent || 'sky'})`
   const name = nameFor(person)
 
@@ -246,7 +246,7 @@ function PersonPill({ person }) {
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 9,
         maxWidth: 300,
-        padding: '6px 12px 6px 6px',
+        padding: '6px var(--space-3) 6px 6px',
         border: '1px solid var(--border-default)',
         borderRadius: 'var(--radius-pill)',
         background: '#fff'
@@ -258,7 +258,7 @@ function PersonPill({ person }) {
           width: 28, height: 28, flex: 'none',
           borderRadius: '50%',
           background: tint, color: accent,
-          fontSize: 10.5, fontWeight: 600
+          fontSize: 'var(--text-xs)', fontWeight: 600
         }}
       >
         {initialsFor(person.firstName, person.lastName, name)}
@@ -267,7 +267,7 @@ function PersonPill({ person }) {
         <span
           style={{
             display: 'block',
-            fontSize: 13, fontWeight: 600, color: 'var(--text-heading)',
+            fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
           }}
         >
@@ -276,7 +276,7 @@ function PersonPill({ person }) {
         {(person.contactType || person.business) && (
           <span
             style={{
-              display: 'block', fontSize: 11, color: 'var(--text-muted)',
+              display: 'block', fontSize: 'var(--text-sm)', color: 'var(--text-muted)',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
             }}
           >
@@ -288,7 +288,7 @@ function PersonPill({ person }) {
         <span
           style={{
             flex: 'none',
-            fontSize: 9.5, fontWeight: 600, letterSpacing: '0.05em',
+            fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
             textTransform: 'uppercase',
             padding: '2px 7px', borderRadius: 'var(--radius-sm)',
             background: 'var(--green-50)', color: 'var(--green-600)'
@@ -307,7 +307,7 @@ function Field({ label, children }) {
       <span
         style={{
           display: 'block', marginBottom: 5,
-          fontSize: 10, fontWeight: 600, letterSpacing: '0.08em',
+          fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
           textTransform: 'uppercase', color: 'var(--text-muted)'
         }}
       >
@@ -333,7 +333,7 @@ function Control({ value, onChange, type = 'text', mono, title, readOnly }) {
         borderRadius: 'var(--radius-md)',
         background: readOnly ? 'var(--gray-25)' : '#fff',
         fontFamily: mono ? 'var(--font-mono)' : 'var(--font-sans)',
-        fontSize: 13.5, color: 'var(--text-heading)'
+        fontSize: 'var(--text-md)', color: 'var(--text-heading)'
       }}
     />
   )

@@ -39,14 +39,14 @@ export function FilterBarSkeleton() {
           alignItems: 'start'
         }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', minWidth: 0 }}>
+          <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', alignItems: 'center' }}>
             <Bar w={44} h={10} />
             <Pill w={96} />
             <Pill w={78} />
             <Pill w={78} />
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
             <Pill w={64} />
             <Pill w={112} />
             <Pill w={112} />
@@ -55,7 +55,7 @@ export function FilterBarSkeleton() {
             <Pill w={124} />
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
+        <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', minWidth: 0 }}>
           {[132, 116, 124, 104, 96, 88].map((w, i) => (
             <Pill key={i} w={w} />
           ))}
@@ -79,7 +79,7 @@ function PanelShell({ accent, children, titleW = 90 }) {
       <header
         style={{
           display: 'flex', alignItems: 'center', gap: 9,
-          padding: '12px 16px',
+          padding: 'var(--space-3) var(--space-4)',
           borderBottom: '1px solid var(--border-default)'
         }}
       >
@@ -105,7 +105,7 @@ export function SectionSkeleton({ accent = 'sky', columns = 3 }) {
           <div
             key={i}
             style={{
-              padding: '14px 16px',
+              padding: '14px var(--space-4)',
               borderRight: i < columns - 1 ? '1px solid var(--border-default)' : 'none',
               display: 'grid', gap: 9
             }}
@@ -125,13 +125,13 @@ export function SectionSkeleton({ accent = 'sky', columns = 3 }) {
 export function TimelineSkeleton({ rows = 4 }) {
   return (
     <PanelShell accent="teal" titleW={104}>
-      <div style={{ padding: '12px 14px' }}>
+      <div style={{ padding: 'var(--space-3) 14px' }}>
         {Array.from({ length: rows }).map((_, i) => (
           <div
             key={i}
             style={{
               display: 'grid', gridTemplateColumns: '40px 1fr',
-              gap: 4, marginBottom: 10
+              gap: 'var(--space-1)', marginBottom: 10
             }}
           >
             <div style={{ display: 'grid', gap: 5, justifyItems: 'center', paddingTop: 11 }}>
@@ -145,8 +145,8 @@ export function TimelineSkeleton({ rows = 4 }) {
                 overflow: 'hidden'
               }}
             >
-              <div style={{ padding: '12px 14px', display: 'grid', gap: 8 }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div style={{ padding: 'var(--space-3) 14px', display: 'grid', gap: 'var(--space-2)' }}>
+                <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
                   <Bar w={8} h={8} r="50%" />
                   <Bar w={104} h={12} />
                   <Bar w={54} h={10} />
@@ -158,7 +158,7 @@ export function TimelineSkeleton({ rows = 4 }) {
               <div
                 style={{
                   display: 'flex', alignItems: 'center',
-                  padding: '6px 12px',
+                  padding: '6px var(--space-3)',
                   borderTop: '1px solid var(--border-default)',
                   background: 'var(--gray-25)'
                 }}
@@ -180,7 +180,7 @@ export function TimelineSkeleton({ rows = 4 }) {
 export function RailSkeleton({ rows = 3 }) {
   return (
     <PanelShell accent="clay" titleW={112}>
-      <div style={{ padding: '12px 16px', display: 'grid', gap: 14 }}>
+      <div style={{ padding: 'var(--space-3) var(--space-4)', display: 'grid', gap: 14 }}>
         <Bar w="52%" h={9} />
         {Array.from({ length: rows }).map((_, i) => (
           <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
@@ -219,7 +219,7 @@ export function DealBodySkeleton() {
 
       <div
         style={{
-          padding: '14px 20px 24px',
+          padding: '14px 20px var(--space-5)',
           maxWidth: 1660, margin: '0 auto', boxSizing: 'border-box'
         }}
       >
@@ -252,14 +252,14 @@ export function DealHubSkeleton() {
             background: '#fff',
             padding: 14,
             maxWidth: 1660, margin: '0 auto', boxSizing: 'border-box',
-            display: 'grid', gap: 12
+            display: 'grid', gap: 'var(--space-3)'
           }}
         >
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
             <Bar w={320} h={38} r="var(--radius-md)" />
             <span style={{ marginLeft: 'auto' }}><Bar w={128} h={26} /></span>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
             {[104, 118, 96, 110, 88].map((w, i) => <Pill key={i} w={w} h={26} />)}
           </div>
         </div>

@@ -214,7 +214,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
         background: active ? 'var(--surface-selected)' : '#fff',
         color: active ? 'var(--brand-primary)' : 'var(--text-body)',
         fontFamily: 'var(--font-sans)',
-        fontSize: 13, fontWeight: active ? 500 : 400,
+        fontSize: 'var(--text-md)', fontWeight: active ? 500 : 400,
         transition: 'all 0.15s ease-out'
       }}
     >
@@ -236,12 +236,12 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
       >
         <span
           className="ms"
-          style={{ fontSize: 32, color: 'var(--text-faint)', marginBottom: 8, display: 'block' }}
+          style={{ fontSize: 'var(--text-2xl)', color: 'var(--text-faint)', marginBottom: 8, display: 'block' }}
         >
           sell
         </span>
-        <h2 style={{ fontSize: 18, marginBottom: 6 }}>No open deals in this location</h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+        <h2 style={{ fontSize: 'var(--text-xl)', marginBottom: 6 }}>No open deals in this location</h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-md)' }}>
           Once a deal is created in GHL, it'll appear here automatically.
         </p>
       </div>
@@ -256,7 +256,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
           border: '1px solid var(--status-stuck)',
           borderRadius: 'var(--radius-md)',
           background: 'var(--tint-rose)',
-          color: 'var(--status-stuck)', fontSize: 13
+          color: 'var(--status-stuck)', fontSize: 'var(--text-md)'
         }}
       >
         Failed to load deals: {dealsError}
@@ -287,7 +287,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
         >
           <span
             style={{
-              fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
+              fontSize: 'var(--text-sm)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
               textTransform: 'uppercase', color: 'var(--text-muted)'
             }}
           >
@@ -300,14 +300,14 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
               onClick={() => setSwitcherOpen((o) => !o)}
               title={deal ? deal.dealTag : undefined}
               style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8,
+                display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)',
                 cursor: 'pointer',
-                height: 34, padding: '0 12px',
+                height: 34, padding: '0 var(--space-3)',
                 width: '100%',
                 border: '1px solid var(--border-strong)',
                 borderRadius: 'var(--radius-md)',
                 background: '#fff',
-                fontFamily: 'var(--font-sans)', fontSize: 14,
+                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)',
                 color: 'var(--text-heading)', fontWeight: 600
               }}
             >
@@ -348,8 +348,8 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                 {/* Search — sticky at the top of the dropdown */}
                 <div
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '10px 12px',
+                    display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+                    padding: '10px var(--space-3)',
                     borderBottom: '1px solid var(--border-default)'
                   }}
                 >
@@ -363,7 +363,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                     style={{
                       flex: 1, minWidth: 0,
                       border: 'none', outline: 'none', background: 'transparent',
-                      fontFamily: 'var(--font-sans)', fontSize: 13,
+                      fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
                       color: 'var(--text-body)'
                     }}
                   />
@@ -387,8 +387,8 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                 <div style={{ overflowY: 'auto', padding: 6 }}>
                 <div
                   style={{
-                    padding: '6px 8px',
-                    fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
+                    padding: '6px var(--space-2)',
+                    fontSize: 'var(--text-sm)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
                     textTransform: 'uppercase', color: 'var(--text-muted)'
                   }}
                 >
@@ -397,7 +397,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                     : `Open deals (${deals.length})`}
                 </div>
                 {visible.length === 0 && q && (
-                  <div style={{ padding: '10px 8px', fontSize: 12.5, color: 'var(--text-muted)' }}>
+                  <div style={{ padding: '10px var(--space-2)', fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
                     No deals match "{switcherQ}"
                   </div>
                 )}
@@ -414,14 +414,14 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                       style={{
                         display: 'grid',
                         gridTemplateColumns: '1fr auto',
-                        gap: 8, alignItems: 'center', width: '100%',
+                        gap: 'var(--space-2)', alignItems: 'center', width: '100%',
                         cursor: 'pointer',
-                        padding: '8px 10px', textAlign: 'left',
+                        padding: 'var(--space-2) 10px', textAlign: 'left',
                         border: 'none',
                         borderRadius: 'var(--radius-sm)',
                         background: active ? 'var(--surface-selected)' : '#fff',
                         color: active ? 'var(--brand-primary)' : 'var(--text-body)',
-                        fontFamily: 'var(--font-sans)', fontSize: 13,
+                        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
                         fontWeight: active ? 600 : 400,
                         marginBottom: 2
                       }}
@@ -432,7 +432,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                         </div>
                         <div
                           style={{
-                            fontSize: 11, color: 'var(--text-muted)',
+                            fontSize: 'var(--text-sm)', color: 'var(--text-muted)',
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                           }}
                         >
@@ -441,7 +441,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                       </div>
                       {d.value && (
                         <span
-                          style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}
+                          style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}
                         >
                           {d.value}
                         </span>
@@ -460,7 +460,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
               briefly reads as the new deal's. */}
           {deal && !loading && deal.value && (
             <span
-              style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--text-muted)' }}
+              style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-lg)', color: 'var(--text-muted)' }}
             >
               {deal.value}
             </span>
@@ -468,7 +468,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
           {deal && !loading && (
             <span
               style={{
-                fontSize: 12, color: 'var(--text-muted)', marginLeft: 'auto'
+                fontSize: 'var(--text-base)', color: 'var(--text-muted)', marginLeft: 'auto'
               }}
             >
               {[deal.location, deal.owner].filter(Boolean).join(' · ')}
@@ -480,7 +480,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
             is cleared on switch, so hold the row's height with a placeholder
             instead of letting the header collapse and rebound. */}
         {loading ? (
-          <div style={{ display: 'flex', gap: 8, paddingTop: 10 }}>
+          <div style={{ display: 'flex', gap: 'var(--space-2)', paddingTop: 10 }}>
             <SkeletonStyles />
             {[96, 112, 88, 104, 92].map((w, i) => (
               <span
@@ -521,7 +521,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 7,
                     cursor: disabled ? 'not-allowed' : 'pointer',
-                    height: 32, padding: '0 12px',
+                    height: 32, padding: '0 var(--space-3)',
                     border: active
                       ? '1.5px solid var(--brand-primary)'
                       : '1px solid var(--border-strong)',
@@ -533,7 +533,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                       ? 'var(--text-faint)'
                       : 'var(--text-body)',
                     fontFamily: 'var(--font-sans)',
-                    fontSize: 12.5, fontWeight: active ? 600 : 400,
+                    fontSize: 'var(--text-base)', fontWeight: active ? 600 : 400,
                     opacity: disabled ? 0.55 : 1
                   }}
                 >
@@ -597,14 +597,14 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
             <div
               style={{
                 display: 'flex', flexDirection: 'column',
-                gap: 8, minWidth: 0
+                gap: 'var(--space-2)', minWidth: 0
               }}
             >
               {deal.people?.length > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
                   <span
                     style={{
-                      fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
+                      fontSize: 'var(--text-sm)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
                       textTransform: 'uppercase', color: 'var(--text-muted)'
                     }}
                   >
@@ -648,7 +648,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
               {/* Sources row: inclusion + channel + add-a-source. All three
                   answer "which messages am I looking at", so they share a
                   line. */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
                 {(() => {
                   let allCount = 0
                   for (const n of dealChannels.values()) allCount += n
@@ -680,7 +680,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                     border: '1px dashed var(--border-strong)',
                     borderRadius: 'var(--radius-pill)',
                     background: '#fff', color: 'var(--text-body)',
-                    fontFamily: 'var(--font-sans)', fontSize: 13,
+                    fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
                     cursor: 'pointer'
                   }}
                 >
@@ -720,7 +720,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
               borderRadius: 'var(--radius-md)',
               background: 'var(--tint-rose)',
               color: 'var(--status-stuck)',
-              fontSize: 13
+              fontSize: 'var(--text-md)'
             }}
           >
             {error}

@@ -30,26 +30,26 @@ export default function SectionCard({
       <header
         style={{
           display: 'flex', alignItems: 'center', gap: 9,
-          padding: '12px 16px'
+          padding: 'var(--space-3) var(--space-4)'
         }}
       >
         <span className="ms" style={{ fontSize: 20, color }}>{icon}</span>
-        <h2 style={{ fontSize: 18, fontWeight: 600, color, margin: 0, flex: 1 }}>
+        <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 600, color, margin: 0, flex: 1 }}>
           {title}
         </h2>
         {meta && (
-          <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{meta}</span>
+          <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>{meta}</span>
         )}
       </header>
 
       {help && (
         <p
           style={{
-            margin: 0, padding: '10px 16px',
+            margin: 0, padding: '10px var(--space-4)',
             borderTop: '1px solid var(--border-default)',
             borderBottom: '1px solid var(--border-default)',
             background: 'var(--gray-50)',
-            fontSize: 12.5, lineHeight: 1.5, color: 'var(--text-body)'
+            fontSize: 'var(--text-base)', lineHeight: 1.5, color: 'var(--text-body)'
           }}
         >
           {help}
@@ -62,7 +62,7 @@ export default function SectionCard({
         <div
           style={{
             display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-            padding: '12px 16px',
+            padding: 'var(--space-3) var(--space-4)',
             borderTop: '1px solid var(--border-default)'
           }}
         >
@@ -82,11 +82,11 @@ export function PrimaryButton({ children, onClick, disabled, icon }) {
       disabled={disabled}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 7,
-        height: 34, padding: '0 16px',
+        height: 34, padding: '0 var(--space-4)',
         border: 'none', borderRadius: 'var(--radius-md)',
         background: disabled ? 'var(--gray-300)' : 'var(--green-600)',
         color: '#fff',
-        fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 500,
+        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
         cursor: disabled ? 'not-allowed' : 'pointer',
         transition: 'background 0.15s ease-out'
       }}
@@ -108,7 +108,7 @@ export function GhostButton({ children, onClick, disabled, icon }) {
         border: '1px solid var(--border-strong)',
         borderRadius: 'var(--radius-md)',
         background: '#fff', color: 'var(--text-body)',
-        fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 500,
+        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.55 : 1
       }}
@@ -152,7 +152,7 @@ export function TextField({ value, onChange, placeholder, mono, id }) {
         borderRadius: 'var(--radius-md)',
         background: '#fff',
         fontFamily: mono ? 'var(--font-mono)' : 'var(--font-sans)',
-        fontSize: 13, color: 'var(--text-heading)'
+        fontSize: 'var(--text-md)', color: 'var(--text-heading)'
       }}
     />
   )
@@ -171,7 +171,7 @@ export function TextArea({ value, onChange, placeholder, rows = 4 }) {
         border: '1px solid var(--border-strong)',
         borderRadius: 'var(--radius-md)',
         background: '#fff',
-        fontFamily: 'var(--font-sans)', fontSize: 13, lineHeight: 1.55,
+        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', lineHeight: 1.55,
         color: 'var(--text-heading)',
         resize: 'vertical'
       }}
@@ -209,7 +209,7 @@ function Note({ children, color = 'var(--text-muted)', icon }) {
     <span
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 5,
-        fontSize: 12, color
+        fontSize: 'var(--text-base)', color
       }}
     >
       {icon && <span className="ms" style={{ fontSize: 15 }}>{icon}</span>}

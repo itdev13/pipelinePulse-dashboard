@@ -22,7 +22,7 @@ export default function Header() {
         {ghlContext?.userName && (
           <span className="text-sm text-gray-600 hidden md:inline">{ghlContext.userName}</span>
         )}
-        <Avatar size={32} style={{ background: '#234fd6', fontSize: 13, fontWeight: 600 }}>
+        <Avatar size={32} style={{ background: '#234fd6', fontSize: 'var(--text-md)', fontWeight: 600 }}>
           {initials(ghlContext?.userName)}
         </Avatar>
       </div>

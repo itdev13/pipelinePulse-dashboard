@@ -37,7 +37,7 @@ export default function ContactDetail({ contactId, onBack, onOpenDeal }) {
           style={{
             padding: 16, borderLeft: '3px solid var(--status-stuck)',
             background: 'var(--tint-rose)', color: 'var(--status-stuck)',
-            borderRadius: 'var(--radius-md)', fontSize: 13
+            borderRadius: 'var(--radius-md)', fontSize: 'var(--text-md)'
           }}
         >
           {error}
@@ -92,7 +92,7 @@ function Shell({ children, onBack }) {
     <div
       style={{
         maxWidth: 1000, width: '100%', boxSizing: 'border-box',
-        margin: '0 auto', padding: '4px 20px 48px',
+        margin: '0 auto', padding: 'var(--space-1) 20px var(--space-7)',
         display: 'grid', gap: 14
       }}
     >
@@ -102,9 +102,9 @@ function Shell({ children, onBack }) {
           style={{
             justifySelf: 'start',
             display: 'inline-flex', alignItems: 'center', gap: 6,
-            border: 'none', background: 'none', padding: '4px 0',
+            border: 'none', background: 'none', padding: 'var(--space-1) 0',
             cursor: 'pointer',
-            fontFamily: 'var(--font-sans)', fontSize: 13,
+            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
             color: 'var(--text-link)'
           }}
         >
@@ -130,8 +130,8 @@ function Header({ contact }) {
         border: `2px solid ${accent}`,
         borderRadius: 'var(--radius-md)',
         background: '#fff',
-        padding: '16px 18px',
-        display: 'grid', gap: 12
+        padding: 'var(--space-4) 18px',
+        display: 'grid', gap: 'var(--space-3)'
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 13, flexWrap: 'wrap' }}>
@@ -141,19 +141,19 @@ function Header({ contact }) {
             width: 46, height: 46, flex: 'none',
             borderRadius: '50%',
             background: tint, color: accent,
-            fontSize: 15, fontWeight: 600
+            fontSize: 'var(--text-lg)', fontWeight: 600
           }}
         >
           {initialsFor(contact.firstName, contact.lastName, name)}
         </span>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
-            <h1 style={{ margin: 0, fontSize: 23, fontWeight: 600, color: 'var(--text-heading)' }}>
+            <h1 style={{ margin: 0, fontSize: 'var(--text-2xl)', fontWeight: 600, color: 'var(--text-heading)' }}>
               {name}
             </h1>
             <span
               style={{
-                fontSize: 10, fontWeight: 600, letterSpacing: '0.05em',
+                fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
                 textTransform: 'uppercase',
                 padding: '3px 9px', borderRadius: 'var(--radius-sm)',
                 background: 'var(--gray-100)', color: 'var(--text-muted)'
@@ -162,7 +162,7 @@ function Header({ contact }) {
               Contact record
             </span>
           </div>
-          <p style={{ margin: '4px 0 0', fontSize: 13.5, color: 'var(--text-muted)' }}>
+          <p style={{ margin: '4px 0 0', fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
             {[contact.contactType, contact.business].filter(Boolean).join(' · ') || '—'}
           </p>
         </div>
@@ -171,7 +171,7 @@ function Header({ contact }) {
       <div
         style={{
           display: 'flex', flexWrap: 'wrap', gap: '8px 22px',
-          fontSize: 13, color: 'var(--text-body)'
+          fontSize: 'var(--text-md)', color: 'var(--text-body)'
         }}
       >
         {contact.email && <Fact icon="mail" href={`mailto:${contact.email}`}>{contact.email}</Fact>}
@@ -191,7 +191,7 @@ function Header({ contact }) {
                 borderRadius: 'var(--radius-pill)',
                 border: '1px solid var(--border-default)',
                 background: 'var(--gray-50)', color: 'var(--text-body)',
-                fontSize: 11, fontWeight: 500
+                fontSize: 'var(--text-sm)', fontWeight: 500
               }}
             >
               {t}
@@ -281,14 +281,14 @@ function Details({ contact, onSaved }) {
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: 12, padding: '14px 16px'
+          gap: 'var(--space-3)', padding: '14px var(--space-4)'
         }}
       >
         {FIELDS.map(([key, label, type_]) => (
           <label key={key} style={{ display: 'grid', gap: 5, minWidth: 0 }}>
             <span
               style={{
-                fontSize: 10, fontWeight: 600, letterSpacing: '0.07em',
+                fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
                 textTransform: 'uppercase', color: 'var(--text-muted)'
               }}
             >
@@ -308,7 +308,7 @@ function Details({ contact, onSaved }) {
         <label style={{ display: 'grid', gap: 5, minWidth: 0 }}>
           <span
             style={{
-              fontSize: 10, fontWeight: 600, letterSpacing: '0.07em',
+              fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
               textTransform: 'uppercase', color: 'var(--text-muted)'
             }}
           >
@@ -332,9 +332,9 @@ function Details({ contact, onSaved }) {
       {(contact.secondaryEmails?.length > 0 || contact.secondaryPhones?.length > 0) && (
         <div
           style={{
-            padding: '0 16px 12px',
+            padding: '0 var(--space-4) var(--space-3)',
             display: 'flex', flexWrap: 'wrap', gap: '6px 18px',
-            fontSize: 12.5, color: 'var(--text-muted)'
+            fontSize: 'var(--text-base)', color: 'var(--text-muted)'
           }}
         >
           {contact.secondaryEmails?.map((e) => (
@@ -348,10 +348,10 @@ function Details({ contact, onSaved }) {
 
       <p
         style={{
-          margin: 0, padding: '10px 16px',
+          margin: 0, padding: '10px var(--space-4)',
           borderTop: '1px solid var(--border-default)',
           background: 'var(--gray-25)',
-          fontSize: 12, color: 'var(--text-muted)'
+          fontSize: 'var(--text-base)', color: 'var(--text-muted)'
         }}
       >
         Changes show everywhere this contact appears — deal cards, timelines and
@@ -368,7 +368,7 @@ const inputStyle = {
   border: '1px solid var(--border-strong)',
   borderRadius: 'var(--radius-md)',
   background: '#fff',
-  fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--text-heading)'
+  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', color: 'var(--text-heading)'
 }
 
 // ── Do not disturb ────────────────────────────────────────────────────
@@ -417,11 +417,11 @@ function DoNotDisturb({ contact, onChange }) {
     <Panel icon="do_not_disturb_on" title="Do not disturb" accent="rose" meta={meta}>
       <p
         style={{
-          margin: 0, padding: '10px 16px',
+          margin: 0, padding: '10px var(--space-4)',
           borderTop: '1px solid var(--border-default)',
           borderBottom: '1px solid var(--border-default)',
           background: 'var(--gray-50)',
-          fontSize: 12.5, lineHeight: 1.5, color: 'var(--text-body)'
+          fontSize: 'var(--text-base)', lineHeight: 1.5, color: 'var(--text-body)'
         }}
       >
         Turn a channel off and it goes quiet everywhere this contact appears —
@@ -438,8 +438,8 @@ function DoNotDisturb({ contact, onChange }) {
           <div
             key={key}
             style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              padding: '12px 16px',
+              display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
+              padding: 'var(--space-3) var(--space-4)',
               borderBottom: i === DND_ROWS.length - 1
                 ? 'none'
                 : '1px solid var(--border-default)',
@@ -448,20 +448,20 @@ function DoNotDisturb({ contact, onChange }) {
           >
             <span
               className="ms"
-              style={{ fontSize: 19, color: blocked ? 'var(--status-stuck)' : 'var(--text-faint)' }}
+              style={{ fontSize: 'var(--text-xl)', color: blocked ? 'var(--status-stuck)' : 'var(--text-faint)' }}
             >
               {icon}
             </span>
             <span style={{ flex: 1, minWidth: 0 }}>
               <span
                 style={{
-                  display: 'block', fontSize: 14, fontWeight: 600,
+                  display: 'block', fontSize: 'var(--text-lg)', fontWeight: 600,
                   color: 'var(--text-heading)'
                 }}
               >
                 {label}
               </span>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{hint}</span>
+              <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>{hint}</span>
             </span>
             <Switch
               on={!blocked}
@@ -482,10 +482,10 @@ function DoNotDisturb({ contact, onChange }) {
 // "muted" would be a trap.
 function Switch({ on, disabled, busy, onToggle, label }) {
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flex: 'none' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', flex: 'none' }}>
       <span
         style={{
-          fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em',
+          fontSize: 'var(--text-xs)', fontWeight: 700, letterSpacing: 'var(--tracking-label)',
           color: on ? 'var(--green-600)' : 'var(--status-stuck)'
         }}
       >
@@ -538,8 +538,8 @@ function Deals({ deals = [], onOpenDeal }) {
         <div
           key={d.id}
           style={{
-            display: 'flex', alignItems: 'center', gap: 12,
-            padding: '12px 16px',
+            display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
+            padding: 'var(--space-3) var(--space-4)',
             borderBottom: i === deals.length - 1 ? 'none' : '1px solid var(--border-default)'
           }}
         >
@@ -547,21 +547,21 @@ function Deals({ deals = [], onOpenDeal }) {
           <span style={{ flex: 1, minWidth: 0 }}>
             <span
               style={{
-                display: 'block', fontSize: 14, fontWeight: 600,
+                display: 'block', fontSize: 'var(--text-lg)', fontWeight: 600,
                 color: 'var(--text-heading)',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
               }}
             >
               {d.name || '(unnamed deal)'}
             </span>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
               {[d.stage, d.pipeline].filter(Boolean).join(' · ')}
             </span>
           </span>
           {d.value && (
             <span
               style={{
-                fontFamily: 'var(--font-mono)', fontSize: 13.5,
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--text-md)',
                 color: 'var(--text-heading)', flex: 'none'
               }}
             >
@@ -576,7 +576,7 @@ function Deals({ deals = [], onOpenDeal }) {
               border: '1px solid var(--border-strong)',
               borderRadius: 'var(--radius-md)',
               background: '#fff', color: 'var(--text-body)',
-              fontFamily: 'var(--font-sans)', fontSize: 12.5, cursor: 'pointer'
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', cursor: 'pointer'
             }}
           >
             Open deal
@@ -607,11 +607,11 @@ function AllMessages({ messages = [], onOpenDeal }) {
     >
       <p
         style={{
-          margin: 0, padding: '10px 16px',
+          margin: 0, padding: '10px var(--space-4)',
           borderTop: '1px solid var(--border-default)',
           borderBottom: '1px solid var(--border-default)',
           background: 'var(--gray-50)',
-          fontSize: 12.5, lineHeight: 1.5, color: 'var(--text-body)'
+          fontSize: 'var(--text-base)', lineHeight: 1.5, color: 'var(--text-body)'
         }}
       >
         Every message is filed to one deal at most. Seeing them together is how
@@ -628,8 +628,8 @@ function AllMessages({ messages = [], onOpenDeal }) {
         <div
           key={m.id}
           style={{
-            display: 'flex', alignItems: 'flex-start', gap: 12,
-            padding: '12px 16px',
+            display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)',
+            padding: 'var(--space-3) var(--space-4)',
             borderBottom: i === messages.length - 1 ? 'none' : '1px solid var(--border-default)'
           }}
         >
@@ -650,29 +650,29 @@ function AllMessages({ messages = [], onOpenDeal }) {
           </span>
 
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
               <span
                 style={{
-                  fontSize: 9.5, fontWeight: 700, letterSpacing: '0.06em',
+                  fontSize: 'var(--text-xs)', fontWeight: 700, letterSpacing: 'var(--tracking-label)',
                   textTransform: 'uppercase', color: 'var(--accent-clay)'
                 }}
               >
                 {m.channel}
               </span>
-              <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
                 {m.direction === 'in' ? 'In ←' : '→ Out'}
               </span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-heading)' }}>
+              <span style={{ fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)' }}>
                 {m.who}
               </span>
-              <span style={{ fontSize: 11.5, color: 'var(--text-faint)' }}>
+              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
                 {formatDate(m.at)}
               </span>
             </div>
             <p
               style={{
                 margin: '4px 0 0', maxWidth: 640,
-                fontSize: 13, lineHeight: 1.5, color: 'var(--text-body)'
+                fontSize: 'var(--text-md)', lineHeight: 1.5, color: 'var(--text-body)'
               }}
             >
               {m.body || <span style={{ color: 'var(--text-faint)' }}>(no readable text)</span>}
@@ -692,7 +692,7 @@ function AllMessages({ messages = [], onOpenDeal }) {
               borderRadius: 'var(--radius-pill)',
               background: m.dealId ? 'var(--green-50)' : 'var(--gray-50)',
               color: m.dealId ? 'var(--green-600)' : 'var(--text-muted)',
-              fontFamily: 'var(--font-sans)', fontSize: 11.5, fontWeight: 500,
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', fontWeight: 500,
               cursor: m.dealId ? 'pointer' : 'default'
             }}
           >

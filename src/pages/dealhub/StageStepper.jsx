@@ -66,7 +66,7 @@ export default function StageStepper({ stages, onStageClick }) {
               background: bg,
               color: fg,
               fontFamily: 'var(--font-sans)',
-              fontSize: 13,
+              fontSize: 'var(--text-md)',
               fontWeight: 600,
               whiteSpace: 'nowrap',
               overflow: 'hidden',

@@ -15,12 +15,12 @@ export function PageHeader({ title, subtitle, action }) {
         flexWrap: 'wrap', marginBottom: 4
       }}
     >
-      <h1 style={{ fontSize: 25, fontWeight: 600, margin: 0 }}>{title}</h1>
+      <h1 style={{ fontSize: 'var(--text-2xl)', fontWeight: 600, margin: 0 }}>{title}</h1>
       {subtitle && (
         <p
           style={{
             margin: 0, flex: 1, minWidth: 200,
-            fontSize: 13, color: 'var(--text-muted)'
+            fontSize: 'var(--text-md)', color: 'var(--text-muted)'
           }}
         >
           {subtitle}
@@ -45,15 +45,15 @@ export function Panel({ icon, title, accent, meta, children, toolbar }) {
       <header
         style={{
           display: 'flex', alignItems: 'center', gap: 9,
-          padding: '12px 16px'
+          padding: 'var(--space-3) var(--space-4)'
         }}
       >
         <span className="ms" style={{ fontSize: 20, color }}>{icon}</span>
-        <h2 style={{ fontSize: 18, fontWeight: 600, color, margin: 0, flex: 1 }}>
+        <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 600, color, margin: 0, flex: 1 }}>
           {title}
         </h2>
         {meta != null && (
-          <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{meta}</span>
+          <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>{meta}</span>
         )}
       </header>
 
@@ -61,7 +61,7 @@ export function Panel({ icon, title, accent, meta, children, toolbar }) {
         <div
           style={{
             display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-            padding: '10px 16px',
+            padding: '10px var(--space-4)',
             borderTop: '1px solid var(--border-default)',
             borderBottom: '1px solid var(--border-default)',
             background: 'var(--gray-50)'
@@ -82,8 +82,8 @@ export function Row({ children, last, align = 'flex-start' }) {
   return (
     <div
       style={{
-        display: 'flex', alignItems: align, gap: 12,
-        padding: '13px 16px',
+        display: 'flex', alignItems: align, gap: 'var(--space-3)',
+        padding: '13px var(--space-4)',
         borderBottom: last ? 'none' : '1px solid var(--border-default)'
       }}
     >
@@ -125,7 +125,7 @@ export function Chip({ icon, children, onClick, title, tone, danger }) {
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6,
         maxWidth: 260,
-        height: 30, padding: '0 12px',
+        height: 30, padding: '0 var(--space-3)',
         border: `1px solid ${
           danger ? 'var(--border-default)'
             : isDeal ? 'var(--green-300)'
@@ -137,7 +137,7 @@ export function Chip({ icon, children, onClick, title, tone, danger }) {
           ? 'var(--status-stuck)'
           : isDeal ? 'var(--green-600)' : 'var(--text-body)',
         fontFamily: 'var(--font-sans)',
-        fontSize: 12.5, fontWeight: 500,
+        fontSize: 'var(--text-base)', fontWeight: 500,
         cursor: onClick ? 'pointer' : 'default',
         whiteSpace: 'nowrap'
       }}
@@ -175,10 +175,10 @@ export function PrimaryAction({ children, onClick, icon = 'add' }) {
       onClick={onClick}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 7,
-        height: 36, padding: '0 16px',
+        height: 36, padding: '0 var(--space-4)',
         border: 'none', borderRadius: 'var(--radius-md)',
         background: 'var(--green-600)', color: '#fff',
-        fontFamily: 'var(--font-sans)', fontSize: 13.5, fontWeight: 500,
+        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
         cursor: 'pointer'
       }}
     >
@@ -201,7 +201,7 @@ export function FilterChip({ label, active, onClick }) {
         background: active ? 'var(--surface-selected)' : '#fff',
         color: active ? 'var(--brand-primary)' : 'var(--text-body)',
         fontFamily: 'var(--font-sans)',
-        fontSize: 13, fontWeight: active ? 600 : 400,
+        fontSize: 'var(--text-md)', fontWeight: active ? 600 : 400,
         cursor: 'pointer'
       }}
     >
@@ -223,11 +223,11 @@ export function SearchInput({ value, onChange, placeholder, width = 300, onKeyDo
       placeholder={placeholder}
       style={{
         width, maxWidth: '100%', height: 36, boxSizing: 'border-box',
-        padding: '0 12px',
+        padding: '0 var(--space-3)',
         border: '1px solid var(--border-strong)',
         borderRadius: 'var(--radius-md)',
         background: '#fff',
-        fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--text-body)'
+        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', color: 'var(--text-body)'
       }}
     />
   )
@@ -245,9 +245,9 @@ export function StateMessage({
     return (
       <div
         style={{
-          padding: '16px', borderLeft: '3px solid var(--status-stuck)',
+          padding: 'var(--space-4)', borderLeft: '3px solid var(--status-stuck)',
           background: 'var(--tint-rose)', color: 'var(--status-stuck)',
-          fontSize: 13
+          fontSize: 'var(--text-md)'
         }}
       >
         {error}
@@ -328,8 +328,8 @@ export function RowSkeletons({ rows = 4, label }) {
         <div
           key={i}
           style={{
-            display: 'flex', alignItems: 'flex-start', gap: 12,
-            padding: '13px 16px',
+            display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)',
+            padding: '13px var(--space-4)',
             borderBottom: i === rows - 1 ? 'none' : '1px solid var(--border-default)'
           }}
         >
@@ -360,7 +360,7 @@ export function CardGridSkeleton({ cards = 8, minWidth = 260 }) {
         style={{
           display: 'grid',
           gridTemplateColumns: `repeat(auto-fill, minmax(${minWidth}px, 1fr))`,
-          gap: 12
+          gap: 'var(--space-3)'
         }}
       >
         {Array.from({ length: cards }).map((_, i) => (
@@ -406,7 +406,7 @@ export function DealCardsSkeleton({ cards = 3 }) {
             background: '#fff', overflow: 'hidden'
           }}
         >
-          <div style={{ display: 'flex', gap: 12, padding: '14px 16px 0', alignItems: 'flex-start' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-3)', padding: '14px var(--space-4) 0', alignItems: 'flex-start' }}>
             <Bar w={20} h={20} style={{ flex: 'none', marginTop: 2 }} />
             <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: 6 }}>
               <Bar w={i % 2 ? '32%' : '44%'} h={17} />
@@ -418,7 +418,7 @@ export function DealCardsSkeleton({ cards = 3 }) {
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-              gap: 12, padding: '12px 16px 0'
+              gap: 'var(--space-3)', padding: 'var(--space-3) var(--space-4) 0'
             }}
           >
             {[0, 1, 2, 3].map((k) => (
@@ -428,12 +428,12 @@ export function DealCardsSkeleton({ cards = 3 }) {
               </div>
             ))}
           </div>
-          <div style={{ padding: '12px 16px 0' }}>
+          <div style={{ padding: 'var(--space-3) var(--space-4) 0' }}>
             <Bar w="66%" h={11} />
           </div>
-          <div style={{ padding: '12px 16px 16px', display: 'grid', gap: 7 }}>
+          <div style={{ padding: 'var(--space-3) var(--space-4) var(--space-4)', display: 'grid', gap: 7 }}>
             <Bar w={132} h={9} />
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
               <Bar w={186} h={42} r="var(--radius-pill)" />
               <Bar w={168} h={42} r="var(--radius-pill)" />
             </div>
@@ -446,7 +446,7 @@ export function DealCardsSkeleton({ cards = 3 }) {
 
 function Muted({ children }) {
   return (
-    <div style={{ padding: '22px 16px', fontSize: 13, color: 'var(--text-muted)' }}>
+    <div style={{ padding: '22px var(--space-4)', fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
       {children}
     </div>
   )
@@ -457,8 +457,8 @@ export function Shell({ children, maxWidth = 1140 }) {
     <div
       style={{
         maxWidth, width: '100%', boxSizing: 'border-box',
-        margin: '0 auto', padding: '4px 20px 48px',
-        display: 'grid', gap: 16
+        margin: '0 auto', padding: 'var(--space-1) 20px var(--space-7)',
+        display: 'grid', gap: 'var(--space-4)'
       }}
     >
       {children}
@@ -537,8 +537,8 @@ export function LoadMore({ sentinelRef, hasMore, loadingMore, count, noun = 'ite
       ref={sentinelRef}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        gap: 8, padding: '16px',
-        fontSize: 12.5, color: 'var(--text-muted)'
+        gap: 'var(--space-2)', padding: 'var(--space-4)',
+        fontSize: 'var(--text-base)', color: 'var(--text-muted)'
       }}
     >
       {loadingMore ? (
@@ -565,7 +565,7 @@ export function LoadMore({ sentinelRef, hasMore, loadingMore, count, noun = 'ite
 // note into an email, or reading a body whose formatting is noise rather than
 // meaning. Stripping happens here in the browser — no server round trip and
 // nothing stored differently.
-export function RichBody({ html, maxWidth = 640, size = 13 }) {
+export function RichBody({ html, maxWidth = 640, size = 'var(--text-md)' }) {
   const [plain, setPlain] = useState(false)
   if (!html) return null
 
@@ -576,7 +576,7 @@ export function RichBody({ html, maxWidth = 640, size = 13 }) {
   }
 
   return (
-    <div style={{ display: 'grid', gap: 4 }}>
+    <div style={{ display: 'grid', gap: 'var(--space-1)' }}>
       {plain ? (
         <p style={{ ...base, whiteSpace: 'pre-line' }}>{text}</p>
       ) : (
@@ -594,7 +594,7 @@ export function RichBody({ html, maxWidth = 640, size = 13 }) {
           style={{
             justifySelf: 'start',
             border: 'none', background: 'none', padding: 0, cursor: 'pointer',
-            fontFamily: 'var(--font-sans)', fontSize: 11,
+            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)',
             color: 'var(--text-link)', textDecoration: 'underline'
           }}
         >
@@ -647,7 +647,7 @@ export function SortButton({ label, active, onClick }) {
         background: active ? 'var(--surface-selected)' : '#fff',
         color: active ? 'var(--brand-primary)' : 'var(--text-body)',
         fontFamily: 'var(--font-sans)',
-        fontSize: 11.5, fontWeight: active ? 600 : 400
+        fontSize: 'var(--text-sm)', fontWeight: active ? 600 : 400
       }}
     >
       {label}
@@ -663,13 +663,13 @@ export function NoteChip({ label, onClick }) {
       title={label}
       onClick={onClick}
       style={{
-        display: 'flex', alignItems: 'center', gap: 4,
+        display: 'flex', alignItems: 'center', gap: 'var(--space-1)',
         maxWidth: 240,
         padding: '3px 9px',
         border: '1px solid var(--border-default)',
         borderRadius: 'var(--radius-pill)',
         background: 'var(--tint-gold)', color: 'var(--text-body)',
-        fontSize: 11, fontWeight: 500,
+        fontSize: 'var(--text-sm)', fontWeight: 500,
         cursor: onClick ? 'pointer' : 'default'
       }}
     >

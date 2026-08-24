@@ -51,12 +51,12 @@ export default function ContactsTab({ onOpenDeal, openContactId, onContactViewed
     <div
       style={{
         maxWidth: 1660, width: '100%', boxSizing: 'border-box',
-        margin: '0 auto', padding: '16px 20px 28px'
+        margin: '0 auto', padding: 'var(--space-4) 20px 28px'
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
-        <h1 style={{ fontSize: 24 }}>Contacts</h1>
-        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-3)', flexWrap: 'wrap', marginBottom: 14 }}>
+        <h1 style={{ fontSize: 'var(--text-2xl)' }}>Contacts</h1>
+        <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
           {loading
             ? 'Loading…'
             : `${contacts.length}${hasMore ? '+' : ''} in this location — edit in GoHighLevel, changes sync back`}
@@ -70,10 +70,10 @@ export default function ContactsTab({ onOpenDeal, openContactId, onContactViewed
           style={{
             marginLeft: 'auto',
             width: 360, height: 36, boxSizing: 'border-box',
-            padding: '0 12px',
+            padding: '0 var(--space-3)',
             border: '1px solid var(--border-strong)',
             borderRadius: 'var(--radius-md)',
-            background: '#fff', fontSize: 13, color: 'var(--text-body)'
+            background: '#fff', fontSize: 'var(--text-md)', color: 'var(--text-body)'
           }}
         />
       </div>
@@ -84,7 +84,7 @@ export default function ContactsTab({ onOpenDeal, openContactId, onContactViewed
             padding: 16, marginBottom: 14,
             border: '1px solid var(--status-stuck)',
             borderRadius: 'var(--radius-md)',
-            background: 'var(--tint-rose)', color: 'var(--status-stuck)', fontSize: 13
+            background: 'var(--tint-rose)', color: 'var(--status-stuck)', fontSize: 'var(--text-md)'
           }}
         >
           {error}
@@ -97,7 +97,7 @@ export default function ContactsTab({ onOpenDeal, openContactId, onContactViewed
       {loading && <CardGridSkeleton cards={6} minWidth={430} />}
 
       {!loading && contacts.length === 0 && !error && (
-        <div style={{ padding: 24, color: 'var(--text-muted)', fontSize: 13 }}>
+        <div style={{ padding: 24, color: 'var(--text-muted)', fontSize: 'var(--text-md)' }}>
           {search
             ? 'No contacts match — clear the search to see everything.'
             : 'No contacts in this sub-account yet.'}
@@ -149,7 +149,7 @@ function ContactCard({ c, onOpen, onOpenDeal }) {
         background: '#fff',
         boxShadow: 'var(--shadow-card)',
         padding: 14,
-        display: 'grid', gap: 12
+        display: 'grid', gap: 'var(--space-3)'
       }}
     >
       {/* Identity + the way into the full record */}
@@ -160,8 +160,8 @@ function ContactCard({ c, onOpen, onOpenDeal }) {
             width: 38, height: 38, flex: 'none',
             borderRadius: '50%',
             background: `var(--tint-${c.accent})`,
-            color: `var(--accent-${c.accent})`,
-            fontSize: 13, fontWeight: 600
+            color: `var(--accent-${c.accent}-text)`,
+            fontSize: 'var(--text-md)', fontWeight: 600
           }}
         >
           {initials}
@@ -169,14 +169,14 @@ function ContactCard({ c, onOpen, onOpenDeal }) {
         <div style={{ minWidth: 0, flex: 1 }}>
           <div
             style={{
-              fontSize: 15.5, fontWeight: 600, color: 'var(--text-heading)',
+              fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
             }}
           >
             {c.name || '—'}
           </div>
           {c.contactType && (
-            <div style={{ marginTop: 1, fontSize: 12.5, color: 'var(--text-muted)' }}>
+            <div style={{ marginTop: 1, fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
               {c.contactType}
             </div>
           )}
@@ -187,11 +187,11 @@ function ContactCard({ c, onOpen, onOpenDeal }) {
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none',
             cursor: 'pointer',
-            height: 30, padding: '0 12px',
+            height: 30, padding: '0 var(--space-3)',
             border: '1px solid var(--border-strong)',
             borderRadius: 'var(--radius-sm)',
             background: '#fff',
-            fontFamily: 'var(--font-sans)', fontSize: 12.5,
+            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
             color: 'var(--text-body)'
           }}
         >
@@ -235,7 +235,7 @@ function ContactCard({ c, onOpen, onOpenDeal }) {
                   border: '1px solid var(--green-100)',
                   borderRadius: 'var(--radius-pill)',
                   background: 'var(--tint-pine)',
-                  fontFamily: 'var(--font-sans)', fontSize: 12.5,
+                  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
                   color: 'var(--green-600)'
                 }}
               >
@@ -257,7 +257,7 @@ function ContactCard({ c, onOpen, onOpenDeal }) {
                       padding: '1px 6px',
                       borderRadius: 'var(--radius-sm)',
                       background: 'var(--green-600)', color: '#fff',
-                      fontSize: 9.5, fontWeight: 700, letterSpacing: '0.05em'
+                      fontSize: 'var(--text-xs)', fontWeight: 700, letterSpacing: 'var(--tracking-label)'
                     }}
                   >
                     PRIMARY
@@ -282,7 +282,7 @@ function Field({ label, value, select }) {
     border: '1px solid var(--border-default)',
     borderRadius: 'var(--radius-sm)',
     background: empty ? 'var(--gray-50)' : '#fff',
-    fontFamily: 'var(--font-sans)', fontSize: 12.5,
+    fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
     color: empty ? 'var(--text-faint)' : 'var(--text-body)',
     fontStyle: empty ? 'italic' : 'normal',
     cursor: 'not-allowed'
@@ -320,7 +320,7 @@ function FieldLabel({ children }) {
     <span
       style={{
         display: 'block', marginBottom: 4,
-        fontSize: 9.5, fontWeight: 600, letterSpacing: '0.07em',
+        fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
         textTransform: 'uppercase', color: 'var(--text-muted)'
       }}
     >
@@ -341,7 +341,7 @@ function DndLine({ dnd }) {
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6,
         justifySelf: 'start',
-        fontSize: 12.5, fontWeight: 600, color: 'var(--status-stuck)'
+        fontSize: 'var(--text-base)', fontWeight: 600, color: 'var(--status-stuck)'
       }}
     >
       <span className="ms" style={{ fontSize: 16 }}>{all ? 'block' : 'notifications_off'}</span>

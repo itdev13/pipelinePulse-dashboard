@@ -58,7 +58,7 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
         subtitle="Tasks come first — each one links to its contact and its deal; click a task to see it on the deal hub"
       />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
         <Label>Due</Label>
         {DUE_FILTERS.map(([id, label]) => (
           <FilterChip
@@ -97,7 +97,7 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
               <div
                 style={{
                   display: 'flex', alignItems: 'flex-start', gap: 10,
-                  padding: '12px 16px',
+                  padding: 'var(--space-3) var(--space-4)',
                   // The chip row below carries the divider when present, so
                   // the two lines read as one row.
                   borderBottom: hasChips ? 'none' : '1px solid var(--border-default)',
@@ -124,7 +124,7 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                       textAlign: 'left',
                       cursor: t.deal ? 'pointer' : 'default',
                       fontFamily: 'var(--font-sans)',
-                      fontSize: 13, fontWeight: 500, lineHeight: 1.4,
+                      fontSize: 'var(--text-md)', fontWeight: 500, lineHeight: 1.4,
                       color: 'var(--text-heading)',
                       textDecoration: done ? 'line-through' : 'none'
                     }}
@@ -134,17 +134,17 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
 
                   {t.body && (
                     <div style={{ marginTop: 2 }}>
-                      <RichBody html={t.body} size={12.5} maxWidth={680} />
+                      <RichBody html={t.body} size="var(--text-base)" maxWidth={680} />
                     </div>
                   )}
 
                   <div
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 8,
+                      display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
                       marginTop: 3, flexWrap: 'wrap'
                     }}
                   >
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                    <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
                       {[formatDue(t.dueAt), t.owner].filter(Boolean).join(' · ')}
                     </span>
                     {t.overdue && !done && <Badge tone="rose">Overdue</Badge>}
@@ -188,7 +188,7 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                     display: 'flex', flexWrap: 'wrap', gap: 5,
                     // Indented past the checkbox so the chips read as
                     // belonging to the task above.
-                    padding: '0 16px 12px 44px',
+                    padding: '0 var(--space-4) var(--space-3) 44px',
                     borderBottom: '1px solid var(--border-default)'
                   }}
                 >
@@ -221,7 +221,7 @@ function Label({ children }) {
   return (
     <span
       style={{
-        fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
+        fontSize: 'var(--text-sm)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
         textTransform: 'uppercase', color: 'var(--text-muted)'
       }}
     >
@@ -239,7 +239,7 @@ function Badge({ tone, children }) {
         height: 22, padding: '0 9px',
         borderRadius: 'var(--radius-sm)',
         background: rose ? 'var(--status-stuck)' : 'var(--status-working)',
-        color: '#fff', fontSize: 11, fontWeight: 600
+        color: '#fff', fontSize: 'var(--text-sm)', fontWeight: 600
       }}
     >
       {children}
@@ -257,7 +257,7 @@ function Toast({ children }) {
         padding: '10px 14px',
         borderRadius: 'var(--radius-md)',
         background: '#fff', boxShadow: 'var(--shadow-overlay)',
-        fontSize: 13, color: 'var(--text-heading)'
+        fontSize: 'var(--text-md)', color: 'var(--text-heading)'
       }}
     >
       <span className="ms" style={{ fontSize: 17, color: 'var(--status-working)' }}>

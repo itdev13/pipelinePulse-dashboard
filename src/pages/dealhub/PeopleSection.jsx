@@ -35,21 +35,21 @@ export default function PeopleSection({
     >
       <header
         style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '12px 16px',
+          display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+          padding: 'var(--space-3) var(--space-4)',
           borderBottom: '1px solid var(--border-default)'
         }}
       >
         <span className="ms" style={{ fontSize: 20, color: 'var(--accent-sky)' }}>group</span>
         <h3
           style={{
-            fontSize: 18, fontWeight: 600, color: 'var(--accent-sky)',
+            fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--accent-sky)',
             margin: 0, flex: 1
           }}
         >
           People
         </h3>
-        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+        <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
           {people.length} {people.length === 1 ? 'person' : 'people'}
         </span>
       </header>
@@ -114,7 +114,7 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove }) {
     <div
       style={{
         minWidth: 0,
-        padding: '14px 16px',
+        padding: '14px var(--space-4)',
         borderRight: '1px solid var(--border-default)',
         borderBottom: '2px solid var(--accent-sky)',
         borderTop: `3px solid ${accent}`,
@@ -130,20 +130,20 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove }) {
             width: 34, height: 34, flex: 'none',
             borderRadius: '50%',
             background: tint, color: accent,
-            fontSize: 12, fontWeight: 600
+            fontSize: 'var(--text-base)', fontWeight: 600
           }}
         >
           {initials}
         </span>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-heading)' }}>
+            <span style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)' }}>
               {fullName}
             </span>
             {p.primary && (
               <span
                 style={{
-                  fontSize: 10, fontWeight: 600, letterSpacing: '0.04em',
+                  fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
                   textTransform: 'uppercase',
                   padding: '2px 6px', borderRadius: 'var(--radius-sm)',
                   background: 'var(--green-50)', color: 'var(--green-600)'
@@ -158,9 +158,9 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove }) {
               <span
                 style={{
                   display: 'inline-block',
-                  fontSize: 10, fontWeight: 600, letterSpacing: '0.05em',
+                  fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
                   textTransform: 'uppercase',
-                  padding: '2px 8px', borderRadius: 'var(--radius-sm)',
+                  padding: '2px var(--space-2)', borderRadius: 'var(--radius-sm)',
                   background: tint, color: accent
                 }}
               >
@@ -178,8 +178,8 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove }) {
       {/* Contact details */}
       <div
         style={{
-          display: 'grid', gap: 4, marginTop: 10,
-          fontSize: 12, color: 'var(--text-body)'
+          display: 'grid', gap: 'var(--space-1)', marginTop: 10,
+          fontSize: 'var(--text-base)', color: 'var(--text-body)'
         }}
       >
         {p.business && (
@@ -261,7 +261,7 @@ function GhostBtn({ icon, children, onClick, active, danger, title }) {
           ? 'var(--status-stuck)'
           : 'var(--text-body)',
         fontFamily: 'var(--font-sans)',
-        fontSize: 12.5,
+        fontSize: 'var(--text-base)',
         opacity: !onClick ? 0.55 : 1
       }}
     >
@@ -276,8 +276,8 @@ function AddContactFooter() {
   return (
     <div
       style={{
-        display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
-        padding: '10px 16px',
+        display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap',
+        padding: '10px var(--space-4)',
         borderTop: '1px solid var(--border-default)'
       }}
     >
@@ -292,11 +292,11 @@ function AddContactFooter() {
           border: '1px solid var(--border-strong)',
           borderRadius: 'var(--radius-md)',
           background: '#fff',
-          fontFamily: 'var(--font-sans)', fontSize: 12.5, color: 'var(--text-body)'
+          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', color: 'var(--text-body)'
         }}
       />
       {q && (
-        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+        <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
           Add-contact search wires up next
         </span>
       )}
@@ -314,10 +314,10 @@ function DndChip({ dnd }) {
       <span
         title="This contact has asked not to be contacted on any channel"
         style={{
-          display: 'inline-flex', alignItems: 'center', gap: 4,
-          fontSize: 10, fontWeight: 600, letterSpacing: '0.04em',
+          display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)',
+          fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
           textTransform: 'uppercase',
-          padding: '2px 8px', borderRadius: 'var(--radius-sm)',
+          padding: '2px var(--space-2)', borderRadius: 'var(--radius-sm)',
           background: 'var(--status-stuck)', color: '#fff'
         }}
       >
@@ -332,9 +332,9 @@ function DndChip({ dnd }) {
     <span
       title={`Switched off: ${blocked.map((b) => (b === 'sms' ? 'SMS' : b)).join(', ')}`}
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 4,
-        fontSize: 10, fontWeight: 600,
-        padding: '2px 8px', borderRadius: 'var(--radius-sm)',
+        display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)',
+        fontSize: 'var(--text-xs)', fontWeight: 600,
+        padding: '2px var(--space-2)', borderRadius: 'var(--radius-sm)',
         background: 'var(--tint-rose)', color: 'var(--status-stuck)'
       }}
     >

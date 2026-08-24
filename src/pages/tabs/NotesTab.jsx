@@ -64,7 +64,7 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
               <div
                 style={{
                   display: 'flex', alignItems: 'flex-start', gap: 10,
-                  padding: '12px 16px',
+                  padding: 'var(--space-3) var(--space-4)',
                   borderBottom: hasChips ? 'none' : '1px solid var(--border-default)'
                 }}
               >
@@ -84,12 +84,12 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap'
+                      display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap'
                     }}
                   >
                     <span
                       style={{
-                        fontSize: 13, fontWeight: 600, color: 'var(--text-heading)',
+                        fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)',
                         lineHeight: 1.35
                       }}
                     >
@@ -100,11 +100,11 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
 
                   {rest && (
                     <div style={{ marginTop: 3 }}>
-                      <RichBody html={rest} size={12.5} />
+                      <RichBody html={rest} size="var(--text-base)" />
                     </div>
                   )}
 
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                  <div style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)', marginTop: 4 }}>
                     {[n.author, relativeTime(n.createdAt)].filter(Boolean).join(' · ')}
                   </div>
                 </div>
@@ -154,7 +154,7 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                 <div
                   style={{
                     display: 'flex', flexWrap: 'wrap', gap: 5,
-                    padding: '0 16px 12px 48px',
+                    padding: '0 var(--space-4) var(--space-3) var(--space-7)',
                     borderBottom: '1px solid var(--border-default)'
                   }}
                 >
@@ -185,11 +185,11 @@ function AIBadge() {
   return (
     <span
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 4,
+        display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)',
         height: 22, padding: '0 9px',
         borderRadius: 'var(--radius-pill)',
-        background: 'var(--tint-sky)', color: 'var(--accent-sky)',
-        fontSize: 11, fontWeight: 600
+        background: 'var(--tint-sky)', color: 'var(--accent-sky-text)',
+        fontSize: 'var(--text-sm)', fontWeight: 600
       }}
     >
       <span className="ms" style={{ fontSize: 14 }}>auto_awesome</span>

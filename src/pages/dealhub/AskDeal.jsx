@@ -296,7 +296,7 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
             borderRadius: 'var(--radius-md)',
             background: '#fff',
             boxShadow: 'var(--shadow-overlay)',
-            fontSize: 13, color: 'var(--text-heading)'
+            fontSize: 'var(--text-md)', color: 'var(--text-heading)'
           }}
         >
           <span className="ms" style={{ fontSize: 17, color: 'var(--status-done)' }}>
@@ -324,8 +324,8 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
       >
         <header
           style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '12px 16px',
+            display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+            padding: 'var(--space-3) var(--space-4)',
             borderBottom: '1px solid var(--border-default)'
           }}
         >
@@ -334,13 +334,13 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
           </span>
           <h3
             style={{
-              fontSize: 17, fontWeight: 600, color: 'var(--brand-primary)',
+              fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--brand-primary)',
               margin: 0, flex: 1
             }}
           >
             Chat history
           </h3>
-          <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+          <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
             {history.length} {history.length === 1 ? 'chat' : 'chats'}
           </span>
         </header>
@@ -377,8 +377,8 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
       >
         <header
           style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '12px 16px',
+            display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+            padding: 'var(--space-3) var(--space-4)',
             borderBottom: '1px solid var(--border-default)'
           }}
         >
@@ -387,7 +387,7 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
           </span>
           <h3
             style={{
-              fontSize: 18, fontWeight: 600, color: 'var(--accent-teal)',
+              fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--accent-teal)',
               margin: 0, flex: 1
             }}
           >
@@ -402,7 +402,7 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
         <div
           style={{
             display: 'flex', gap: 6, flexWrap: 'wrap',
-            padding: '10px 16px',
+            padding: '10px var(--space-4)',
             borderBottom: '1px solid var(--border-default)',
             background: 'var(--surface-sunken)'
           }}
@@ -414,7 +414,7 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
 
         <div
           style={{
-            padding: 16, display: 'flex', flexDirection: 'column', gap: 12,
+            padding: 16, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)',
             // Fill the panel: the transcript takes the slack (min-height 0 so
             // it can shrink and scroll), the composer is pinned below it.
             flex: 1, minHeight: 0
@@ -423,10 +423,10 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
           {turns.length === 0 && (
             <p
               style={{
-                margin: 0, padding: '10px 12px',
+                margin: 0, padding: '10px var(--space-3)',
                 background: 'var(--surface-sunken)',
                 borderRadius: 'var(--radius-sm)',
-                fontSize: 13, lineHeight: 1.5, color: 'var(--text-muted)'
+                fontSize: 'var(--text-md)', lineHeight: 1.5, color: 'var(--text-muted)'
               }}
             >
               Ask a question about this deal, or pick a prompt on the right.
@@ -438,10 +438,10 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
           {available === false && (
             <p
               style={{
-                margin: 0, padding: '10px 12px',
+                margin: 0, padding: '10px var(--space-3)',
                 borderLeft: '3px solid var(--status-working)',
                 background: 'var(--tint-gold)',
-                fontSize: 12.5, lineHeight: 1.5, color: 'var(--text-body)'
+                fontSize: 'var(--text-base)', lineHeight: 1.5, color: 'var(--text-body)'
               }}
             >
               The AI layer is not configured on this server yet — set
@@ -453,7 +453,7 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
             <div
               ref={scrollRef}
               style={{
-                display: 'grid', gap: 12,
+                display: 'grid', gap: 'var(--space-3)',
                 // Takes whatever height is going and scrolls inside itself, so
                 // a long conversation never pushes the composer off-panel.
                 flex: 1, minHeight: 0, overflowY: 'auto'
@@ -469,7 +469,7 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
                       borderRadius: 'var(--radius-md)',
                       background: 'var(--surface-selected)',
                       color: 'var(--text-heading)',
-                      fontSize: 13.5, lineHeight: 1.5
+                      fontSize: 'var(--text-md)', lineHeight: 1.5
                     }}
                   >
                     {t.content}
@@ -490,10 +490,10 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
           {error && (
             <p
               style={{
-                margin: 0, padding: '10px 12px',
+                margin: 0, padding: '10px var(--space-3)',
                 borderLeft: '3px solid var(--status-stuck)',
                 background: 'var(--tint-rose)',
-                fontSize: 12.5, lineHeight: 1.5, color: 'var(--status-stuck)'
+                fontSize: 'var(--text-base)', lineHeight: 1.5, color: 'var(--status-stuck)'
               }}
             >
               {error}
@@ -508,7 +508,7 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
 
           <div
             style={{
-              display: 'flex', alignItems: 'stretch', gap: 8
+              display: 'flex', alignItems: 'stretch', gap: 'var(--space-2)'
             }}
           >
             <input
@@ -526,11 +526,11 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
               }
               style={{
                 flex: 1, minWidth: 0,
-                height: 40, padding: '0 12px',
+                height: 40, padding: '0 var(--space-3)',
                 border: '1px solid var(--border-strong)',
                 borderRadius: 'var(--radius-md)',
                 background: '#fff',
-                fontFamily: 'var(--font-sans)', fontSize: 14,
+                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)',
                 color: 'var(--text-body)'
               }}
             />
@@ -549,7 +549,7 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
                     background: ready ? 'var(--brand-primary)' : 'var(--gray-200)',
                     color: '#fff',
                     fontFamily: 'var(--font-sans)',
-                    fontSize: 14, fontWeight: 600,
+                    fontSize: 'var(--text-lg)', fontWeight: 600,
                     transition: 'background 0.15s ease-out'
                   }}
                 >
@@ -581,11 +581,11 @@ function PromptChip({ prompt, onPick }) {
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6,
         cursor: 'pointer',
-        height: 30, padding: '0 11px 0 8px',
+        height: 30, padding: '0 11px 0 var(--space-2)',
         border: '1px solid var(--border-default)',
         borderRadius: 'var(--radius-pill)',
         background: '#fff',
-        fontFamily: 'var(--font-sans)', fontSize: 12.5,
+        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
         color: 'var(--text-body)',
         transition: 'background 0.15s ease-out, border-color 0.15s ease-out'
       }}
@@ -609,10 +609,10 @@ function ChatHistory({ chats, activeId, onReopen, onInspect }) {
     return (
       <p
         style={{
-          margin: 0, padding: '10px 12px',
+          margin: 0, padding: '10px var(--space-3)',
           background: 'var(--surface-sunken)',
           borderRadius: 'var(--radius-sm)',
-          fontSize: 12.5, lineHeight: 1.5, color: 'var(--text-muted)'
+          fontSize: 'var(--text-base)', lineHeight: 1.5, color: 'var(--text-muted)'
         }}
       >
         No chats yet. Questions you ask are kept here, so you can pick the
@@ -621,7 +621,7 @@ function ChatHistory({ chats, activeId, onReopen, onInspect }) {
     )
   }
   return (
-    <div style={{ display: 'grid', gap: 8 }}>
+    <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
       <div style={{ display: 'grid', gap: 6 }}>
           {chats.map((c) => {
             const active = c.id === activeId
@@ -633,7 +633,7 @@ function ChatHistory({ chats, activeId, onReopen, onInspect }) {
                 style={{
                   display: 'grid', gap: 3,
                   cursor: 'pointer', width: '100%', textAlign: 'left',
-                  padding: '10px 12px',
+                  padding: '10px var(--space-3)',
                   border: active
                     ? '1.5px solid var(--brand-primary)'
                     : '1px solid var(--border-default)',
@@ -642,23 +642,23 @@ function ChatHistory({ chats, activeId, onReopen, onInspect }) {
                   fontFamily: 'var(--font-sans)'
                 }}
               >
-                <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                <span style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)' }}>
                   <span
                     style={{
                       flex: 1, minWidth: 0,
-                      fontSize: 13, fontWeight: 600, color: 'var(--text-heading)',
+                      fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)',
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                     }}
                   >
                     {c.question}
                   </span>
-                  <span style={{ fontSize: 11, color: 'var(--text-faint)', flex: 'none' }}>
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-faint)', flex: 'none' }}>
                     {askedAtLabel(c.askedAt)}
                   </span>
                 </span>
                 <span
                   style={{
-                    fontSize: 12, lineHeight: 1.45, color: 'var(--text-muted)',
+                    fontSize: 'var(--text-base)', lineHeight: 1.45, color: 'var(--text-muted)',
                     display: '-webkit-box', WebkitLineClamp: 2,
                     WebkitBoxOrient: 'vertical', overflow: 'hidden'
                   }}
@@ -676,9 +676,9 @@ function ChatHistory({ chats, activeId, onReopen, onInspect }) {
                       }
                     }}
                     style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)',
                       marginTop: 2, cursor: 'pointer',
-                      fontSize: 11, color: 'var(--text-link)'
+                      fontSize: 'var(--text-sm)', color: 'var(--text-link)'
                     }}
                   >
                     <span className="ms" style={{ fontSize: 13 }}>visibility</span>
@@ -740,8 +740,8 @@ function Answer({ turn, onJumpToMessage, onInspect }) {
 
       <p
         style={{
-          margin: 0, padding: '12px 14px',
-          fontSize: 13.5, lineHeight: 1.6, color: 'var(--text-body)',
+          margin: 0, padding: 'var(--space-3) 14px',
+          fontSize: 'var(--text-md)', lineHeight: 1.6, color: 'var(--text-body)',
           whiteSpace: 'pre-line'
         }}
       >
@@ -762,7 +762,7 @@ function Answer({ turn, onJumpToMessage, onInspect }) {
                 padding: 0, border: 'none', background: 'none',
                 cursor: onJumpToMessage ? 'pointer' : 'default',
                 fontFamily: 'var(--font-sans)',
-                fontSize: 13, lineHeight: 1.55, color: 'var(--text-body)'
+                fontSize: 'var(--text-md)', lineHeight: 1.55, color: 'var(--text-body)'
               }}
             >
               <span style={{ fontStyle: 'italic' }}>&ldquo;{c.quoteText}&rdquo;</span>
@@ -781,14 +781,14 @@ function Answer({ turn, onJumpToMessage, onInspect }) {
       {turn.citations?.length > 0 && (
         <div
           style={{
-            padding: '10px 14px 12px',
+            padding: '10px 14px var(--space-3)',
             borderTop: '1px solid var(--border-default)'
           }}
         >
           <span
             style={{
               display: 'block', marginBottom: 6,
-              fontSize: 10, fontWeight: 600, letterSpacing: '0.07em',
+              fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
               textTransform: 'uppercase', color: 'var(--text-muted)'
             }}
           >
@@ -796,7 +796,7 @@ function Answer({ turn, onJumpToMessage, onInspect }) {
           </span>
           <div style={{ display: 'grid', gap: 3 }}>
             {sourceLines(turn.citations).map((line) => (
-              <span key={line} style={{ fontSize: 12.5, color: 'var(--text-body)' }}>
+              <span key={line} style={{ fontSize: 'var(--text-base)', color: 'var(--text-body)' }}>
                 {line}
               </span>
             ))}
@@ -805,7 +805,7 @@ function Answer({ turn, onJumpToMessage, onInspect }) {
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 5,
               marginTop: 7,
-              fontSize: 11.5, color: 'var(--text-muted)'
+              fontSize: 'var(--text-sm)', color: 'var(--text-muted)'
             }}
           >
             <span className="ms" style={{ fontSize: 14, color: 'var(--status-done)' }}>
@@ -824,8 +824,8 @@ function Answer({ turn, onJumpToMessage, onInspect }) {
       {turn.citations?.length === 0 && turn.answered && (
         <p
           style={{
-            margin: 0, padding: '8px 14px 12px',
-            fontSize: 11.5, color: 'var(--text-muted)'
+            margin: 0, padding: 'var(--space-2) 14px var(--space-3)',
+            fontSize: 'var(--text-sm)', color: 'var(--text-muted)'
           }}
         >
           No verifiable quote was attached to this answer — treat it with care.
@@ -839,7 +839,7 @@ function Answer({ turn, onJumpToMessage, onInspect }) {
         <div
           style={{
             display: 'flex', gap: 6, flexWrap: 'wrap',
-            padding: '10px 14px 12px',
+            padding: '10px 14px var(--space-3)',
             borderTop: '1px solid var(--border-default)'
           }}
         >
@@ -878,11 +878,11 @@ function AnswerAction({ icon, label }) {
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6,
         cursor: 'not-allowed',
-        height: 30, padding: '0 12px',
+        height: 30, padding: '0 var(--space-3)',
         border: '1px solid var(--border-default)',
         borderRadius: 'var(--radius-pill)',
         background: '#fff',
-        fontFamily: 'var(--font-sans)', fontSize: 12.5,
+        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
         color: 'var(--text-faint)',
         opacity: 0.7
       }}
@@ -902,11 +902,11 @@ function CoverageStamp({ coverage, cached, confidence, readMessageIds, channelSc
   return (
     <div
       style={{
-        display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+        display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap',
         padding: '7px 14px',
         borderBottom: '1px solid var(--border-default)',
         background: partial ? 'var(--tint-gold)' : 'var(--gray-50)',
-        fontSize: 11.5, color: 'var(--text-muted)'
+        fontSize: 'var(--text-sm)', color: 'var(--text-muted)'
       }}
     >
       <span className="ms" style={{ fontSize: 14 }}>
@@ -944,9 +944,9 @@ function CoverageStamp({ coverage, cached, confidence, readMessageIds, channelSc
         <span
           title="This answer was scoped to these channels"
           style={{
-            display: 'inline-flex', alignItems: 'center', gap: 4,
+            display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)',
             padding: '1px 7px', borderRadius: 'var(--radius-pill)',
-            background: 'var(--tint-teal)', color: 'var(--accent-teal)',
+            background: 'var(--tint-teal)', color: 'var(--accent-teal-text)',
             fontWeight: 600
           }}
         >
@@ -960,7 +960,7 @@ function CoverageStamp({ coverage, cached, confidence, readMessageIds, channelSc
           style={{
             border: 'none', background: 'none', padding: 0,
             cursor: 'pointer',
-            fontFamily: 'var(--font-sans)', fontSize: 11.5,
+            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)',
             color: 'var(--text-link)', textDecoration: 'underline'
           }}
         >
@@ -982,11 +982,11 @@ function Thinking() {
         borderLeft: '3px solid var(--accent-teal)',
         borderRadius: 'var(--radius-md)',
         background: '#fff',
-        padding: '12px 14px', display: 'grid', gap: 8
+        padding: 'var(--space-3) 14px', display: 'grid', gap: 'var(--space-2)'
       }}
     >
       <SkeletonStyles />
-      <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+      <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
         Reading the thread…
       </span>
       <Bar w="88%" h={11} />
@@ -1039,7 +1039,7 @@ function ChannelScope({ value, onChange, scope }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
       <span
         style={{
-          fontSize: 10, fontWeight: 600, letterSpacing: '0.07em',
+          fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
           textTransform: 'uppercase', color: 'var(--text-muted)', marginRight: 2
         }}
       >
@@ -1068,7 +1068,7 @@ function ChannelScope({ value, onChange, scope }) {
               background: on ? 'var(--tint-teal)' : '#fff',
               color: on ? 'var(--accent-teal)' : 'var(--text-muted)',
               fontFamily: 'var(--font-sans)',
-              fontSize: 11.5, fontWeight: on ? 600 : 400
+              fontSize: 'var(--text-sm)', fontWeight: on ? 600 : 400
             }}
           >
             <span className="ms" style={{ fontSize: 13 }}>{icon}</span>
@@ -1076,7 +1076,7 @@ function ChannelScope({ value, onChange, scope }) {
             {n != null && (
               <span
                 style={{
-                  fontFamily: 'var(--font-mono)', fontSize: 10.5,
+                  fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)',
                   opacity: 0.75
                 }}
               >
@@ -1091,8 +1091,8 @@ function ChannelScope({ value, onChange, scope }) {
       {selectedCount != null && (
         <span
           style={{
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-            fontSize: 11, fontWeight: 600,
+            display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)',
+            fontSize: 'var(--text-sm)', fontWeight: 600,
             color: selectedCount === 0 ? 'var(--status-stuck)' : 'var(--text-muted)'
           }}
         >
@@ -1107,7 +1107,7 @@ function ChannelScope({ value, onChange, scope }) {
           onClick={() => onChange([])}
           style={{
             border: 'none', background: 'none', padding: 0, cursor: 'pointer',
-            fontFamily: 'var(--font-sans)', fontSize: 11,
+            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)',
             color: 'var(--text-link)', textDecoration: 'underline'
           }}
         >
@@ -1118,7 +1118,7 @@ function ChannelScope({ value, onChange, scope }) {
       {/* Excluded / unreadable messages are worth naming here too, so a low
           count doesn't look like missing data. */}
       {scope?.coverage?.unreadReasons?.length > 0 && (
-        <span style={{ fontSize: 10.5, color: 'var(--accent-clay)' }}>
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-clay)' }}>
           · {scope.coverage.unreadReasons.join(' · ')}
         </span>
       )}
@@ -1172,7 +1172,7 @@ function MessagesConsideredModal({ runId, onClose, onJumpToMessage }) {
         <header
           style={{
             display: 'flex', alignItems: 'flex-start', gap: 10,
-            padding: '14px 16px',
+            padding: '14px var(--space-4)',
             borderBottom: '1px solid var(--border-default)'
           }}
         >
@@ -1180,11 +1180,11 @@ function MessagesConsideredModal({ runId, onClose, onJumpToMessage }) {
             visibility
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
+            <h3 style={{ margin: 0, fontSize: 'var(--text-lg)', fontWeight: 600 }}>
               Messages considered
             </h3>
             {data && (
-              <p style={{ margin: '3px 0 0', fontSize: 12.5, color: 'var(--text-muted)' }}>
+              <p style={{ margin: '3px 0 0', fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
                 {data.items.length} of {data.messagesTotal} on this deal
                 {data.unreadReasons?.length > 0 && ` · ${data.unreadReasons.join(' · ')}`}
               </p>
@@ -1205,29 +1205,29 @@ function MessagesConsideredModal({ runId, onClose, onJumpToMessage }) {
         {data?.question && (
           <p
             style={{
-              margin: 0, padding: '10px 16px',
+              margin: 0, padding: '10px var(--space-4)',
               borderBottom: '1px solid var(--border-default)',
               background: 'var(--gray-50)',
-              fontSize: 13, color: 'var(--text-body)'
+              fontSize: 'var(--text-md)', color: 'var(--text-body)'
             }}
           >
             <strong style={{ fontWeight: 600 }}>Asked:</strong> {data.question}
           </p>
         )}
 
-        <div style={{ overflowY: 'auto', padding: '8px 0' }}>
+        <div style={{ overflowY: 'auto', padding: 'var(--space-2) 0' }}>
           {err && (
-            <p style={{ margin: 0, padding: 16, fontSize: 13, color: 'var(--status-stuck)' }}>
+            <p style={{ margin: 0, padding: 16, fontSize: 'var(--text-md)', color: 'var(--status-stuck)' }}>
               {err}
             </p>
           )}
           {!data && !err && (
-            <p style={{ margin: 0, padding: 16, fontSize: 13, color: 'var(--text-muted)' }}>
+            <p style={{ margin: 0, padding: 16, fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
               Loading…
             </p>
           )}
           {data?.items?.length === 0 && (
-            <p style={{ margin: 0, padding: 16, fontSize: 13, color: 'var(--text-muted)' }}>
+            <p style={{ margin: 0, padding: 16, fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
               This answer read no messages — it was based on the deal facts alone.
             </p>
           )}
@@ -1242,7 +1242,7 @@ function MessagesConsideredModal({ runId, onClose, onJumpToMessage }) {
               }}
               style={{
                 display: 'grid', gap: 3, width: '100%', textAlign: 'left',
-                padding: '10px 16px',
+                padding: '10px var(--space-4)',
                 border: 'none',
                 borderBottom: '1px solid var(--border-default)',
                 background: '#fff',
@@ -1253,7 +1253,7 @@ function MessagesConsideredModal({ runId, onClose, onJumpToMessage }) {
               <span style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
                 <span
                   style={{
-                    fontSize: 9.5, fontWeight: 600, letterSpacing: '0.05em',
+                    fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
                     textTransform: 'uppercase',
                     padding: '2px 6px', borderRadius: 'var(--radius-sm)',
                     background: 'var(--gray-100)', color: 'var(--text-muted)'
@@ -1261,19 +1261,19 @@ function MessagesConsideredModal({ runId, onClose, onJumpToMessage }) {
                 >
                   {m.channel}
                 </span>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
                   {m.direction === 'in' ? 'In ←' : '→ Out'}
                 </span>
-                <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-heading)' }}>
+                <span style={{ fontSize: 'var(--text-base)', fontWeight: 600, color: 'var(--text-heading)' }}>
                   {m.who}
                 </span>
-                <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-faint)' }}>
+                <span style={{ marginLeft: 'auto', fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
                   {shortDate(m.at)}
                 </span>
               </span>
               <span
                 style={{
-                  fontSize: 12.5, lineHeight: 1.45, color: 'var(--text-body)',
+                  fontSize: 'var(--text-base)', lineHeight: 1.45, color: 'var(--text-body)',
                   display: '-webkit-box', WebkitLineClamp: 3,
                   WebkitBoxOrient: 'vertical', overflow: 'hidden'
                 }}

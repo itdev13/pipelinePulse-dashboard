@@ -32,12 +32,12 @@ export default function MeddicMappingSection({ fields = [] }) {
         <p
           style={{
             margin: 0, padding: 16,
-            fontSize: 13, lineHeight: 1.55, color: 'var(--text-muted)'
+            fontSize: 'var(--text-md)', lineHeight: 1.55, color: 'var(--text-muted)'
           }}
         >
           No qualification fields found for this sub-account yet. They come from
           your GoHighLevel opportunity custom fields — the ones keyed{' '}
-          <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>meddic_1</code>{' '}
+          <code style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-base)' }}>meddic_1</code>{' '}
           onwards — and sync once a day, so they appear here shortly after being
           created in GoHighLevel.
         </p>
@@ -60,8 +60,8 @@ export default function MeddicMappingSection({ fields = [] }) {
             style={{
               display: 'grid',
               gridTemplateColumns: 'minmax(150px, 220px) 1fr',
-              gap: 16, alignItems: 'baseline',
-              padding: '12px 16px',
+              gap: 'var(--space-4)', alignItems: 'baseline',
+              padding: 'var(--space-3) var(--space-4)',
               borderBottom: i === active.length - 1
                 ? 'none'
                 : '1px solid var(--border-default)'
@@ -71,7 +71,7 @@ export default function MeddicMappingSection({ fields = [] }) {
               <span
                 style={{
                   display: 'block',
-                  fontSize: 13.5, fontWeight: 600, color: 'var(--text-heading)'
+                  fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)'
                 }}
               >
                 {f.name}
@@ -81,7 +81,7 @@ export default function MeddicMappingSection({ fields = [] }) {
               <span
                 style={{
                   display: 'block', marginTop: 2,
-                  fontFamily: 'var(--font-mono)', fontSize: 10.5,
+                  fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)',
                   color: 'var(--text-faint)'
                 }}
               >
@@ -93,7 +93,7 @@ export default function MeddicMappingSection({ fields = [] }) {
               <p
                 style={{
                   margin: 0, maxWidth: 620,
-                  fontSize: 13, lineHeight: 1.5, color: 'var(--text-body)'
+                  fontSize: 'var(--text-md)', lineHeight: 1.5, color: 'var(--text-body)'
                 }}
               >
                 {f.description}
@@ -104,7 +104,7 @@ export default function MeddicMappingSection({ fields = [] }) {
               // what belongs under it.
               <p
                 style={{
-                  margin: 0, fontSize: 12.5, lineHeight: 1.5,
+                  margin: 0, fontSize: 'var(--text-base)', lineHeight: 1.5,
                   color: 'var(--text-faint)'
                 }}
               >
@@ -118,10 +118,10 @@ export default function MeddicMappingSection({ fields = [] }) {
 
       <p
         style={{
-          margin: 0, padding: '10px 16px',
+          margin: 0, padding: '10px var(--space-4)',
           borderTop: '1px solid var(--border-default)',
           background: 'var(--gray-25)',
-          fontSize: 12, color: 'var(--text-muted)'
+          fontSize: 'var(--text-base)', color: 'var(--text-muted)'
         }}
       >
         {described} of {active.length} have a description. The AI files

@@ -40,7 +40,7 @@ export default function QualificationSection({ qualification = [] }) {
         style={{
           display: 'flex', alignItems: 'center', gap: 9,
           width: '100%', cursor: 'pointer', textAlign: 'left',
-          padding: '12px 16px',
+          padding: 'var(--space-3) var(--space-4)',
           border: 'none',
           // The divider belongs to the open state — closed, the header IS the
           // whole panel and a bottom rule would read as an empty body.
@@ -54,13 +54,13 @@ export default function QualificationSection({ qualification = [] }) {
         </span>
         <h3
           style={{
-            fontSize: 18, fontWeight: 600, color: 'var(--accent-gold)',
+            fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--accent-gold)',
             margin: 0, flex: 1
           }}
         >
           Qualification
         </h3>
-        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+        <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
           {filled} of {qualification.length}
         </span>
         {missing.length > 0 && (
@@ -70,7 +70,7 @@ export default function QualificationSection({ qualification = [] }) {
               height: 22, padding: '0 9px',
               borderRadius: 'var(--radius-pill)',
               background: 'var(--tint-rose)', color: 'var(--status-stuck)',
-              fontSize: 11.5, fontWeight: 600
+              fontSize: 'var(--text-sm)', fontWeight: 600
             }}
           >
             {missing.length} missing
@@ -78,7 +78,7 @@ export default function QualificationSection({ qualification = [] }) {
         )}
         <span
           className="ms"
-          style={{ fontSize: 20, color: 'var(--text-faint)', flex: 'none' }}
+          style={{ fontSize: 'var(--text-xl)', color: 'var(--text-faint)', flex: 'none' }}
         >
           {open ? 'expand_less' : 'expand_more'}
         </span>
@@ -92,8 +92,8 @@ export default function QualificationSection({ qualification = [] }) {
               style={{
                 display: 'grid',
                 gridTemplateColumns: 'minmax(150px, 210px) 1fr',
-                gap: 16, alignItems: 'baseline',
-                padding: '11px 16px',
+                gap: 'var(--space-4)', alignItems: 'baseline',
+                padding: '11px var(--space-4)',
                 borderBottom: i === qualification.length - 1
                   ? 'none'
                   : '1px solid var(--border-default)',
@@ -106,7 +106,7 @@ export default function QualificationSection({ qualification = [] }) {
                 <span
                   style={{
                     display: 'block',
-                    fontSize: 13, fontWeight: 600, color: 'var(--text-heading)'
+                    fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)'
                   }}
                 >
                   {q.name}
@@ -117,7 +117,7 @@ export default function QualificationSection({ qualification = [] }) {
                   <span
                     style={{
                       display: 'block', marginTop: 2,
-                      fontSize: 11, lineHeight: 1.4, color: 'var(--text-faint)'
+                      fontSize: 'var(--text-sm)', lineHeight: 1.4, color: 'var(--text-faint)'
                     }}
                   >
                     {q.description}
@@ -129,7 +129,7 @@ export default function QualificationSection({ qualification = [] }) {
                 <p
                   style={{
                     margin: 0, maxWidth: 620,
-                    fontSize: 13, lineHeight: 1.5, color: 'var(--text-body)',
+                    fontSize: 'var(--text-md)', lineHeight: 1.5, color: 'var(--text-body)',
                     whiteSpace: 'pre-line'
                   }}
                 >
@@ -139,7 +139,7 @@ export default function QualificationSection({ qualification = [] }) {
                 <span
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 5,
-                    fontSize: 12.5, color: 'var(--status-stuck)'
+                    fontSize: 'var(--text-base)', color: 'var(--status-stuck)'
                   }}
                 >
                   <span className="ms" style={{ fontSize: 15 }}>help</span>
@@ -156,10 +156,10 @@ export default function QualificationSection({ qualification = [] }) {
       {open && (
         <p
           style={{
-            margin: 0, padding: '10px 16px',
+            margin: 0, padding: '10px var(--space-4)',
             borderTop: '1px solid var(--border-default)',
             background: 'var(--gray-25)',
-            fontSize: 12, color: 'var(--text-muted)'
+            fontSize: 'var(--text-base)', color: 'var(--text-muted)'
           }}
         >
           {missing.length === 0

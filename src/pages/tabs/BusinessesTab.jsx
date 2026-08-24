@@ -82,7 +82,7 @@ export default function BusinessesTab({ onOpenDeal, onOpenContact }) {
 
       {items?.length > 0 && (
         <>
-          <div style={{ display: 'grid', gap: 12 }}>
+          <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
             {items.map((b) => (
               <BusinessCard key={b.id} business={b} onOpen={() => setOpenId(b.id)} />
             ))}
@@ -108,7 +108,7 @@ function BusinessCard({ business: b, onOpen }) {
       onClick={onOpen}
       style={{
         display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
-        padding: '14px 16px',
+        padding: '14px var(--space-4)',
         border: '1px solid var(--border-strong)',
         borderRadius: 'var(--radius-md)',
         background: '#fff',
@@ -127,7 +127,7 @@ function BusinessCard({ business: b, onOpen }) {
       <span style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
         <span
           className="ms"
-          style={{ fontSize: 20, color: `var(--accent-${b.accent})`, flex: 'none' }}
+          style={{ fontSize: 'var(--text-xl)', color: `var(--accent-${b.accent})`, flex: 'none' }}
         >
           domain
         </span>
@@ -135,7 +135,7 @@ function BusinessCard({ business: b, onOpen }) {
           <span
             style={{
               display: 'block',
-              fontSize: 15, fontWeight: 600,
+              fontSize: 'var(--text-lg)', fontWeight: 600,
               color: b.hasName ? 'var(--text-heading)' : 'var(--text-faint)',
               fontStyle: b.hasName ? 'normal' : 'italic',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
@@ -147,7 +147,7 @@ function BusinessCard({ business: b, onOpen }) {
             <span
               style={{
                 display: 'block', marginTop: 2,
-                fontSize: 12.5, color: 'var(--text-muted)',
+                fontSize: 'var(--text-base)', color: 'var(--text-muted)',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
               }}
             >
@@ -197,11 +197,11 @@ function BusinessDetail({ businessId, onBack, onOpenDeal, onOpenContact }) {
           onClick={onBack}
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer',
-            height: 32, padding: '0 12px',
+            height: 32, padding: '0 var(--space-3)',
             border: '1px solid var(--border-strong)',
             borderRadius: 'var(--radius-pill)',
             background: '#fff',
-            fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--text-body)'
+            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', color: 'var(--text-body)'
           }}
         >
           <span className="ms" style={{ fontSize: 16 }}>arrow_back</span>
@@ -248,11 +248,11 @@ function CompanyInfoPanel({ business: b }) {
     >
       <p
         style={{
-          margin: 0, padding: '11px 16px',
+          margin: 0, padding: '11px var(--space-4)',
           borderTop: '1px solid var(--border-default)',
           borderBottom: '1px solid var(--border-default)',
           background: 'var(--gray-50)',
-          fontSize: 12.5, lineHeight: 1.55, color: 'var(--text-muted)'
+          fontSize: 'var(--text-base)', lineHeight: 1.55, color: 'var(--text-muted)'
         }}
       >
         GHL Company Info fields — the bracketed key is the field identity. These
@@ -278,7 +278,7 @@ function CompanyInfoPanel({ business: b }) {
             >
               <span
                 style={{
-                  fontSize: 10, fontWeight: 600, letterSpacing: '0.07em',
+                  fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
                   textTransform: 'uppercase', color: 'var(--text-muted)'
                 }}
               >
@@ -286,7 +286,7 @@ function CompanyInfoPanel({ business: b }) {
               </span>
               <span
                 style={{
-                  fontFamily: 'var(--font-mono)', fontSize: 10.5,
+                  fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)',
                   color: 'var(--text-faint)'
                 }}
               >
@@ -313,7 +313,7 @@ function FieldValue({ field: f }) {
     border: '1px solid var(--border-default)',
     borderRadius: 'var(--radius-sm)',
     background: empty ? 'var(--gray-50)' : '#fff',
-    fontFamily: 'var(--font-sans)', fontSize: 13,
+    fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
     lineHeight: 1.45,
     color: empty ? 'var(--text-faint)' : 'var(--text-body)',
     fontStyle: empty ? 'italic' : 'normal',
@@ -367,7 +367,7 @@ function DealsPanel({ deals, onOpenDeal }) {
             <span style={{ minWidth: 0, flex: 1 }}>
               <span
                 style={{
-                  display: 'block', fontSize: 13.5, fontWeight: 600,
+                  display: 'block', fontSize: 'var(--text-md)', fontWeight: 600,
                   color: 'var(--text-heading)',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                 }}
@@ -375,14 +375,14 @@ function DealsPanel({ deals, onOpenDeal }) {
                 {d.name}
               </span>
               {d.stage && (
-                <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)' }}>
+                <span style={{ display: 'block', fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
                   {d.stage}
                 </span>
               )}
             </span>
             <span
               style={{
-                fontFamily: 'var(--font-mono)', fontSize: 13,
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--text-md)',
                 color: 'var(--text-heading)', flex: 'none',
                 fontVariantNumeric: 'tabular-nums'
               }}
@@ -422,8 +422,8 @@ function ContactsPanel({ contacts, onOpenContact }) {
                 width: 30, height: 30, flex: 'none',
                 borderRadius: '50%',
                 background: `var(--tint-${c.accent})`,
-                color: `var(--accent-${c.accent})`,
-                fontSize: 11, fontWeight: 600
+                color: `var(--accent-${c.accent}-text)`,
+                fontSize: 'var(--text-sm)', fontWeight: 600
               }}
             >
               {c.initials}
@@ -431,14 +431,14 @@ function ContactsPanel({ contacts, onOpenContact }) {
             <span style={{ minWidth: 0, flex: 1 }}>
               <span
                 style={{
-                  display: 'block', fontSize: 13.5, fontWeight: 600,
+                  display: 'block', fontSize: 'var(--text-md)', fontWeight: 600,
                   color: 'var(--text-heading)',
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                 }}
               >
                 {c.name}
               </span>
-              <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)' }}>
+              <span style={{ display: 'block', fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
                 {[
                   c.role,
                   `${c.dealCount} ${c.dealCount === 1 ? 'deal' : 'deals'}`
@@ -507,10 +507,10 @@ function ConversationsPanel({ businessId, total, dealCount, onOpenDeal }) {
     >
       <p
         style={{
-          margin: 0, padding: '11px 16px',
+          margin: 0, padding: '11px var(--space-4)',
           borderBottom: '1px solid var(--border-default)',
           background: 'var(--gray-50)',
-          fontSize: 12.5, lineHeight: 1.55, color: 'var(--text-muted)'
+          fontSize: 'var(--text-base)', lineHeight: 1.55, color: 'var(--text-muted)'
         }}
       >
         Every conversation with any contact at this business, aggregated across
@@ -535,7 +535,7 @@ function ConversationsPanel({ businessId, total, dealCount, onOpenDeal }) {
       ))}
 
       {items?.length > 0 && (
-        <div style={{ padding: '0 16px' }}>
+        <div style={{ padding: '0 var(--space-4)' }}>
           <LoadMore
             sentinelRef={sentinelRef}
             hasMore={hasMore}
@@ -569,13 +569,13 @@ function MessageRow({ message: m, last, onOpenDeal }) {
       <span style={{ minWidth: 0, flex: 1 }}>
         <span
           style={{
-            display: 'flex', alignItems: 'baseline', gap: 8,
+            display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)',
             flexWrap: 'wrap', marginBottom: 3
           }}
         >
           <span
             style={{
-              fontSize: 10.5, fontWeight: 600, letterSpacing: '0.06em',
+              fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
               textTransform: 'uppercase',
               color: `var(--accent-${m.channelAccent})`
             }}
@@ -586,16 +586,16 @@ function MessageRow({ message: m, last, onOpenDeal }) {
               what separates "they wrote" from "we wrote". */}
           <span
             style={{
-              fontSize: 11, fontWeight: 600,
+              fontSize: 'var(--text-sm)', fontWeight: 600,
               color: inbound ? 'var(--accent-clay)' : 'var(--text-muted)'
             }}
           >
             {inbound ? 'In ←' : '→ Out'}
           </span>
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-heading)' }}>
+          <span style={{ fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)' }}>
             {m.who}
           </span>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+          <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
             {formatDate(m.timestamp)}
           </span>
         </span>
@@ -603,7 +603,7 @@ function MessageRow({ message: m, last, onOpenDeal }) {
         <span
           style={{
             display: 'block',
-            fontSize: 13, lineHeight: 1.5,
+            fontSize: 'var(--text-md)', lineHeight: 1.5,
             color: m.body ? 'var(--text-body)' : 'var(--text-faint)',
             fontStyle: m.body ? 'normal' : 'italic'
           }}
@@ -631,12 +631,12 @@ function ChannelChip({ label, active, onClick }) {
       onClick={onClick}
       style={{
         cursor: 'pointer',
-        height: 28, padding: '0 12px',
+        height: 28, padding: '0 var(--space-3)',
         border: active ? '1px solid var(--brand-primary)' : '1px solid var(--border-strong)',
         borderRadius: 'var(--radius-pill)',
         background: active ? 'var(--surface-selected)' : '#fff',
         color: active ? 'var(--brand-primary)' : 'var(--text-body)',
-        fontFamily: 'var(--font-sans)', fontSize: 12.5,
+        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
         fontWeight: active ? 600 : 400
       }}
     >
@@ -653,15 +653,15 @@ const ghostBtn = {
   border: '1px solid var(--border-strong)',
   borderRadius: 'var(--radius-pill)',
   background: '#fff',
-  fontFamily: 'var(--font-sans)', fontSize: 12.5, color: 'var(--text-body)'
+  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', color: 'var(--text-body)'
 }
 
 function EmptyLine({ text }) {
   return (
     <p
       style={{
-        margin: 0, padding: '14px 16px',
-        fontSize: 13, color: 'var(--text-muted)'
+        margin: 0, padding: '14px var(--space-4)',
+        fontSize: 'var(--text-md)', color: 'var(--text-muted)'
       }}
     >
       {text}
@@ -685,13 +685,13 @@ function ListSkeleton() {
   return (
     <>
       <SkeletonStyles />
-      <div style={{ display: 'grid', gap: 12 }}>
+      <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
         {Array.from({ length: 5 }).map((_, i) => (
           <div
             key={i}
             style={{
               display: 'flex', alignItems: 'center', gap: 11,
-              padding: '14px 16px',
+              padding: '14px var(--space-4)',
               border: '1px solid var(--border-strong)',
               borderRadius: 'var(--radius-md)',
               background: '#fff'
@@ -723,7 +723,7 @@ function DetailSkeleton() {
             background: '#fff', overflow: 'hidden'
           }}
         >
-          <div style={{ display: 'flex', gap: 9, padding: '12px 16px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 9, padding: 'var(--space-3) var(--space-4)', alignItems: 'center' }}>
             <Bar w={20} h={20} style={{ flex: 'none' }} />
             <Bar w={220} h={16} />
           </div>
@@ -757,7 +757,7 @@ function DetailSkeleton() {
                 background: '#fff', overflow: 'hidden'
               }}
             >
-              <div style={{ display: 'flex', gap: 9, padding: '12px 16px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 9, padding: 'var(--space-3) var(--space-4)', alignItems: 'center' }}>
                 <Bar w={20} h={20} style={{ flex: 'none' }} />
                 <Bar w={110} h={15} />
               </div>
@@ -765,8 +765,8 @@ function DetailSkeleton() {
                 <div
                   key={i}
                   style={{
-                    display: 'flex', gap: 12, alignItems: 'center',
-                    padding: '13px 16px',
+                    display: 'flex', gap: 'var(--space-3)', alignItems: 'center',
+                    padding: '13px var(--space-4)',
                     borderTop: '1px solid var(--border-default)'
                   }}
                 >
@@ -793,7 +793,7 @@ function ConversationSkeleton() {
         <div
           key={i}
           style={{
-            display: 'flex', gap: 12, padding: '13px 16px',
+            display: 'flex', gap: 'var(--space-3)', padding: '13px var(--space-4)',
             borderBottom: '1px solid var(--border-default)'
           }}
         >

@@ -38,7 +38,7 @@ export default function ControlCentreTab() {
             borderLeft: '3px solid var(--status-stuck)',
             borderRadius: 'var(--radius-md)',
             background: 'var(--tint-rose)', color: 'var(--status-stuck)',
-            fontSize: 13
+            fontSize: 'var(--text-md)'
           }}
         >
           {error}
@@ -62,7 +62,7 @@ export default function ControlCentreTab() {
           >
             <div
               style={{
-                display: 'flex', gap: 9, padding: '12px 16px', alignItems: 'center'
+                display: 'flex', gap: 9, padding: 'var(--space-3) var(--space-4)', alignItems: 'center'
               }}
             >
               <Bar w={20} h={20} style={{ flex: 'none' }} />
@@ -92,15 +92,15 @@ export default function ControlCentreTab() {
 
 function Shell({ children }) {
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '4px 20px 48px' }}>
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: 'var(--space-1) 20px var(--space-7)' }}>
       <div
         style={{
           display: 'flex', alignItems: 'baseline', gap: 14,
           flexWrap: 'wrap', marginBottom: 18
         }}
       >
-        <h1 style={{ fontSize: 25, fontWeight: 600, margin: 0 }}>Control panel</h1>
-        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>
+        <h1 style={{ fontSize: 'var(--text-2xl)', fontWeight: 600, margin: 0 }}>Control panel</h1>
+        <p style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
           One markdown file of business context — this is the entire control
           panel in v1
         </p>
@@ -167,8 +167,8 @@ function BusinessContextSection({ file, onSaved }) {
       {file ? (
         <div
           style={{
-            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-            padding: '12px 16px',
+            display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap',
+            padding: 'var(--space-3) var(--space-4)',
             borderBottom: '1px solid var(--border-default)'
           }}
         >
@@ -177,8 +177,8 @@ function BusinessContextSection({ file, onSaved }) {
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               width: 34, height: 34, flex: 'none',
               borderRadius: 'var(--radius-sm)',
-              background: 'var(--tint-sky)', color: 'var(--accent-sky)',
-              fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 600
+              background: 'var(--tint-sky)', color: 'var(--accent-sky-text)',
+              fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', fontWeight: 600
             }}
           >
             md
@@ -187,13 +187,13 @@ function BusinessContextSection({ file, onSaved }) {
             <span
               style={{
                 display: 'block',
-                fontFamily: 'var(--font-mono)', fontSize: 13.5,
+                fontFamily: 'var(--font-mono)', fontSize: 'var(--text-md)',
                 color: 'var(--text-heading)'
               }}
             >
               {file.filename}
             </span>
-            <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)' }}>
+            <span style={{ display: 'block', fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
               {[
                 formatSize(file.sizeBytes),
                 file.uploadedAt ? `Uploaded ${formatDate(file.uploadedAt)}` : null,
@@ -217,10 +217,10 @@ function BusinessContextSection({ file, onSaved }) {
           </GhostButton>
         </div>
       ) : (
-        <div style={{ padding: 16, display: 'grid', gap: 12, justifyItems: 'start' }}>
+        <div style={{ padding: 16, display: 'grid', gap: 'var(--space-3)', justifyItems: 'start' }}>
           <p
             style={{
-              margin: 0, fontSize: 13, lineHeight: 1.55, color: 'var(--text-muted)'
+              margin: 0, fontSize: 'var(--text-md)', lineHeight: 1.55, color: 'var(--text-muted)'
             }}
           >
             No file yet. Until one is uploaded the agent answers from the deal's
@@ -248,10 +248,10 @@ function BusinessContextSection({ file, onSaved }) {
       {(state === 'error' || state === 'saved') && (
         <p
           style={{
-            margin: 0, padding: '10px 16px',
+            margin: 0, padding: '10px var(--space-4)',
             borderBottom: '1px solid var(--border-default)',
             background: state === 'error' ? 'var(--tint-rose)' : 'var(--tint-pine)',
-            fontSize: 12.5,
+            fontSize: 'var(--text-base)',
             color: state === 'error' ? 'var(--status-stuck)' : 'var(--green-600)'
           }}
         >
@@ -262,11 +262,11 @@ function BusinessContextSection({ file, onSaved }) {
       )}
 
       {file?.preview && (
-        <div style={{ padding: '12px 16px' }}>
+        <div style={{ padding: 'var(--space-3) var(--space-4)' }}>
           <span
             style={{
               display: 'block', marginBottom: 7,
-              fontSize: 10, fontWeight: 600, letterSpacing: '0.08em',
+              fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
               textTransform: 'uppercase', color: 'var(--text-muted)'
             }}
           >
@@ -275,10 +275,10 @@ function BusinessContextSection({ file, onSaved }) {
           <pre
             style={{
               margin: 0, maxHeight: 300, overflow: 'auto',
-              padding: '12px 14px',
+              padding: 'var(--space-3) 14px',
               borderRadius: 'var(--radius-md)',
               background: 'var(--gray-50)',
-              fontFamily: 'var(--font-mono)', fontSize: 12, lineHeight: 1.6,
+              fontFamily: 'var(--font-mono)', fontSize: 'var(--text-base)', lineHeight: 1.6,
               color: 'var(--text-body)',
               whiteSpace: 'pre-wrap', overflowWrap: 'anywhere'
             }}
@@ -287,7 +287,7 @@ function BusinessContextSection({ file, onSaved }) {
           </pre>
           {/* Say the preview is partial — otherwise it reads as the whole file. */}
           {file.truncated && (
-            <p style={{ margin: '6px 0 0', fontSize: 11.5, color: 'var(--text-faint)' }}>
+            <p style={{ margin: '6px 0 0', fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
               First 2,000 characters — download the file to read all of it.
             </p>
           )}
@@ -303,10 +303,10 @@ function Footnote() {
   return (
     <p
       style={{
-        margin: 0, padding: '14px 16px',
+        margin: 0, padding: '14px var(--space-4)',
         borderRadius: 'var(--radius-md)',
         background: 'var(--gray-50)',
-        fontSize: 13, lineHeight: 1.55, color: 'var(--text-body)'
+        fontSize: 'var(--text-md)', lineHeight: 1.55, color: 'var(--text-body)'
       }}
     >
       The agent runs with fixed guardrails and is not self-learning. This file —

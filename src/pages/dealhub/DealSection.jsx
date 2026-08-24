@@ -40,13 +40,13 @@ export default function DealSection({
     >
       <header
         style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '12px 16px',
+          display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+          padding: 'var(--space-3) var(--space-4)',
           borderBottom: '1px solid var(--border-default)'
         }}
       >
         <span className="ms" style={{ fontSize: 20, color: accent }}>person</span>
-        <h3 style={{ fontSize: 18, fontWeight: 600, color: accent, margin: 0, flex: 1 }}>
+        <h3 style={{ fontSize: 'var(--text-xl)', fontWeight: 600, color: accent, margin: 0, flex: 1 }}>
           Deal
         </h3>
         {deal.status && deal.status !== 'open' && (
@@ -62,13 +62,13 @@ export default function DealSection({
         }}
       >
         <Column label="Customer">
-          <div style={{ fontSize: 19, fontWeight: 600, color: 'var(--text-heading)', lineHeight: 1.25 }}>
+          <div style={{ fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--text-heading)', lineHeight: 1.25 }}>
             {customerName}
           </div>
           {deal.opportunityName && (
             <p
               style={{
-                margin: '6px 0 0', fontSize: 12.5, lineHeight: 1.45,
+                margin: '6px 0 0', fontSize: 'var(--text-base)', lineHeight: 1.45,
                 color: 'var(--text-muted)'
               }}
             >
@@ -117,7 +117,7 @@ function ValueColumn({ deal, onExpectedCloseChange }) {
     <Column label="Value">
       <div
         style={{
-          fontFamily: 'var(--font-mono)', fontSize: 26, fontWeight: 500,
+          fontFamily: 'var(--font-mono)', fontSize: 'var(--text-2xl)', fontWeight: 500,
           letterSpacing: '-0.02em', color: 'var(--text-heading)'
         }}
       >
@@ -148,11 +148,11 @@ function ValueColumn({ deal, onExpectedCloseChange }) {
           border: '1px solid var(--border-strong)',
           borderRadius: 'var(--radius-md)',
           background: '#fff',
-          fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--text-body)'
+          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', color: 'var(--text-body)'
         }}
       />
       {deal.valueProvisional && (
-        <p style={{ margin: '6px 0 0', fontSize: 11.5, color: 'var(--text-muted)' }}>
+        <p style={{ margin: '6px 0 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
           Provisional — excluded from pipeline totals
         </p>
       )}
@@ -191,7 +191,7 @@ function StageColumn({ deal, stages, onStageChange }) {
           border: '1px solid var(--border-strong)',
           borderRadius: 'var(--radius-md)',
           background: '#fff',
-          fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500,
+          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)', fontWeight: 500,
           color: 'var(--text-heading)',
           cursor: 'pointer'
         }}
@@ -263,8 +263,8 @@ function FieldChipRow({ deal }) {
   return (
     <div
       style={{
-        display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
-        padding: '11px 16px',
+        display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap',
+        padding: '11px var(--space-4)',
         borderTop: '1px solid var(--border-default)'
       }}
     >
@@ -299,7 +299,7 @@ function FieldChip({ label, value }) {
       <span
         style={{
           flex: 'none',
-          fontSize: 10, fontWeight: 600, letterSpacing: '0.06em',
+          fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
           textTransform: 'uppercase', color: 'var(--text-muted)'
         }}
       >
@@ -309,7 +309,7 @@ function FieldChip({ label, value }) {
         style={{
           minWidth: 0,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          fontSize: 12.5,
+          fontSize: 'var(--text-base)',
           fontWeight: set ? 500 : 400,
           color: set ? 'var(--text-heading)' : 'var(--accent-gold)'
         }}
@@ -333,7 +333,7 @@ function ProductFooter({ deal, siblingDeals, onOpenDeal }) {
     <div
       style={{
         display: 'grid', gap: 10,
-        padding: '11px 16px',
+        padding: '11px var(--space-4)',
         borderTop: '1px solid var(--border-default)'
       }}
     >
@@ -363,7 +363,7 @@ function ProductFooter({ deal, siblingDeals, onOpenDeal }) {
                   borderRadius: 'var(--radius-pill)',
                   background: 'var(--tint-pine)',
                   color: 'var(--green-600)',
-                  fontFamily: 'var(--font-sans)', fontSize: 12.5
+                  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)'
                 }}
               >
                 <span className="ms" style={{ fontSize: 14 }}>sell</span>
@@ -401,12 +401,12 @@ function ContactLines({ person }) {
           key={icon}
           style={{
             display: 'flex', alignItems: 'flex-start', gap: 7,
-            fontSize: 12.5, lineHeight: 1.4, color: 'var(--text-body)'
+            fontSize: 'var(--text-base)', lineHeight: 1.4, color: 'var(--text-body)'
           }}
         >
           <span
             className="ms"
-            style={{ fontSize: 15, color: 'var(--text-faint)', flex: 'none', marginTop: 1 }}
+            style={{ fontSize: 'var(--text-lg)', color: 'var(--text-faint)', flex: 'none', marginTop: 1 }}
           >
             {icon}
           </span>
@@ -446,14 +446,14 @@ function TagList({ dealTags = [], contactTags = [] }) {
                 : 'Applied to the contact — GHL scopes tags to contacts'
             }
             style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
+              display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)',
               maxWidth: '100%',
               height: 24, padding: '0 9px',
               borderRadius: 'var(--radius-pill)',
               border: '1px solid var(--border-default)',
               background: 'var(--gray-50)',
               color: 'var(--text-body)',
-              fontSize: 11.5, fontWeight: 500
+              fontSize: 'var(--text-sm)', fontWeight: 500
             }}
           >
             {/* Deal-scoped tags are rare enough to be worth marking, but
@@ -482,7 +482,7 @@ function TagList({ dealTags = [], contactTags = [] }) {
               border: '1px solid var(--border-strong)',
               borderRadius: 'var(--radius-pill)',
               background: '#fff', color: 'var(--text-muted)',
-              fontFamily: 'var(--font-sans)', fontSize: 11.5, fontWeight: 500,
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', fontWeight: 500,
               cursor: 'pointer'
             }}
           >
@@ -501,14 +501,14 @@ function Column({ label, children, last }) {
     <div
       style={{
         minWidth: 0,
-        padding: '14px 18px 16px',
+        padding: '14px 18px var(--space-4)',
         borderRight: last ? 'none' : '1px solid var(--border-default)'
       }}
     >
       <span
         style={{
           display: 'block', marginBottom: 8,
-          fontSize: 10, fontWeight: 600, letterSpacing: '0.08em',
+          fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
           textTransform: 'uppercase', color: 'var(--text-muted)'
         }}
       >
@@ -524,7 +524,7 @@ function FieldLabel({ children }) {
     <span
       style={{
         display: 'block', margin: '14px 0 6px',
-        fontSize: 10, fontWeight: 600, letterSpacing: '0.06em',
+        fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
         textTransform: 'uppercase', color: 'var(--text-muted)'
       }}
     >
@@ -538,7 +538,7 @@ function Row({ label, value, mono, tone, title, suffix }) {
   return (
     <div
       title={title}
-      style={{ display: 'flex', alignItems: 'baseline', gap: 10, fontSize: 12.5 }}
+      style={{ display: 'flex', alignItems: 'baseline', gap: 10, fontSize: 'var(--text-base)' }}
     >
       <dt style={{ flex: 1, minWidth: 0, color: 'var(--text-muted)' }}>{label}</dt>
       <dd
@@ -554,8 +554,8 @@ function Row({ label, value, mono, tone, title, suffix }) {
           <span
             style={{
               marginLeft: 6,
-              fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 600,
-              letterSpacing: '0.04em', textTransform: 'uppercase',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-xs)', fontWeight: 600,
+              letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase',
               padding: '2px 6px', borderRadius: 'var(--radius-sm)',
               background: 'var(--gray-100)', color: 'var(--text-muted)'
             }}
@@ -573,11 +573,11 @@ function RevisionBadge({ revision, provisional }) {
     <span
       style={{
         display: 'inline-flex', alignItems: 'center',
-        marginTop: 8, height: 28, padding: '0 12px',
+        marginTop: 8, height: 28, padding: '0 var(--space-3)',
         borderRadius: 'var(--radius-md)',
         background: provisional ? 'var(--status-working)' : 'var(--tint-pine)',
         color: provisional ? '#fff' : 'var(--green-600)',
-        fontSize: 12.5, fontWeight: 600
+        fontSize: 'var(--text-base)', fontWeight: 600
       }}
     >
       Rev {revision}{provisional ? ' · provisional' : ''}
@@ -595,7 +595,7 @@ function StatusPill({ status }) {
   return (
     <span
       style={{
-        fontSize: 10, fontWeight: 600, letterSpacing: '0.05em',
+        fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
         textTransform: 'uppercase',
         padding: '3px 9px', borderRadius: 'var(--radius-sm)',
         background: tone.bg, color: tone.fg

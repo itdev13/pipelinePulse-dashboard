@@ -60,8 +60,8 @@ function AttachmentChip({ att, channelAccent, onClick }) {
       <span className="ms" style={{ fontSize: 16, color: accentVar(channelAccent) }}>
         {attachmentIcon(att.name)}
       </span>
-      <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-heading)' }}>{att.name}</span>
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-faint)' }}>
+      <span style={{ fontSize: 'var(--text-base)', fontWeight: 500, color: 'var(--text-heading)' }}>{att.name}</span>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
         {formatBytes(att.sizeBytes)}
       </span>
     </button>
@@ -98,7 +98,7 @@ function EventRow({ m }) {
         </div>
         <div
           style={{
-            textAlign: 'center', fontSize: 9, fontWeight: 500, lineHeight: 1.2,
+            textAlign: 'center', fontSize: 'var(--text-xs)', fontWeight: 500, lineHeight: 1.2,
             color: 'var(--text-faint)'
           }}
         >
@@ -120,16 +120,16 @@ function EventRow({ m }) {
         return (
           <div
             style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '4px 12px',
-              fontSize: 12, color: 'var(--text-muted)',
+              display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+              padding: 'var(--space-1) var(--space-3)',
+              fontSize: 'var(--text-base)', color: 'var(--text-muted)',
               minHeight: 24
             }}
           >
             {!bodyStartsWithLabel && (
               <span
                 style={{
-                  fontSize: 10, fontWeight: 600, letterSpacing: '0.05em',
+                  fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
                   textTransform: 'uppercase', color: col,
                   padding: '1px 6px', borderRadius: 'var(--radius-sm)',
                   background: 'var(--surface-sunken)'
@@ -193,7 +193,7 @@ function MessageRow({ m, highlighted, onJumpAttachment }) {
         </div>
         <div
           style={{
-            textAlign: 'center', fontSize: 10, fontWeight: 600, lineHeight: 1.25,
+            textAlign: 'center', fontSize: 'var(--text-xs)', fontWeight: 600, lineHeight: 1.25,
             color: 'var(--text-faint)', background: 'var(--surface-page)', padding: '2px 0',
           }}
         >
@@ -224,17 +224,17 @@ function MessageRow({ m, highlighted, onJumpAttachment }) {
         {/* Content — full width now the per-message AI checkbox is gone. */}
         <div style={{ minWidth: 0 }}>
           {/* Header row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
             <span
               style={{
-                fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
+                fontSize: 'var(--text-sm)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
                 textTransform: 'uppercase', color: channelCol,
               }}
             >
               {CH_LABEL[m.channel]}
             </span>
             {dirLabel && (
-              <span style={{ fontSize: 11, fontWeight: 600, color: dirColor }}>{dirLabel}</span>
+              <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: dirColor }}>{dirLabel}</span>
             )}
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               {showDot && (
@@ -246,30 +246,30 @@ function MessageRow({ m, highlighted, onJumpAttachment }) {
                   }}
                 />
               )}
-              <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-heading)' }}>
+              <span style={{ fontWeight: 600, fontSize: 'var(--text-md)', color: 'var(--text-heading)' }}>
                 {m.senderName}
               </span>
             </span>
             {many && (
               <span
                 title={`Sent as one message to ${m.toIds.length} people`}
-                style={{ fontSize: 12, color: 'var(--text-muted)' }}
+                style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}
               >
                 to {m.toNames.join(', ')}
               </span>
             )}
             {!many && outbound && m.toNames && m.toNames.length === 1 && (
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>to {m.toNames[0]}</span>
+              <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>to {m.toNames[0]}</span>
             )}
             {m.ambiguous && (
               <span
                 title="This contact is on more than one opportunity — file it with the tag on the right"
                 style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 4,
-                  height: 22, padding: '0 8px',
+                  display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)',
+                  height: 22, padding: '0 var(--space-2)',
                   borderRadius: 'var(--radius-sm)',
-                  background: 'var(--tint-gold)', color: 'var(--accent-gold)',
-                  fontSize: 11, fontWeight: 600,
+                  background: 'var(--tint-gold)', color: 'var(--accent-gold-text)',
+                  fontSize: 'var(--text-sm)', fontWeight: 600,
                 }}
               >
                 <span className="ms" style={{ fontSize: 13 }}>help</span>
@@ -279,8 +279,8 @@ function MessageRow({ m, highlighted, onJumpAttachment }) {
             {m.imported && (
               <span
                 style={{
-                  fontSize: 11, fontWeight: 600,
-                  padding: '2px 8px', borderRadius: 'var(--radius-sm)',
+                  fontSize: 'var(--text-sm)', fontWeight: 600,
+                  padding: '2px var(--space-2)', borderRadius: 'var(--radius-sm)',
                   background: 'var(--gray-100)', color: 'var(--gray-600)',
                 }}
               >
@@ -290,9 +290,9 @@ function MessageRow({ m, highlighted, onJumpAttachment }) {
             {m.manual && (
               <span
                 style={{
-                  fontSize: 11, fontWeight: 600,
-                  padding: '2px 8px', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--tint-pine)', color: 'var(--accent-pine)',
+                  fontSize: 'var(--text-sm)', fontWeight: 600,
+                  padding: '2px var(--space-2)', borderRadius: 'var(--radius-sm)',
+                  background: 'var(--tint-pine)', color: 'var(--accent-pine-text)',
                 }}
               >
                 Added manually
@@ -301,9 +301,9 @@ function MessageRow({ m, highlighted, onJumpAttachment }) {
             {m.excludedBy && (
               <span
                 style={{
-                  fontSize: 11, fontWeight: 600,
-                  padding: '2px 8px', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--tint-gold)', color: 'var(--accent-gold)',
+                  fontSize: 'var(--text-sm)', fontWeight: 600,
+                  padding: '2px var(--space-2)', borderRadius: 'var(--radius-sm)',
+                  background: 'var(--tint-gold)', color: 'var(--accent-gold-text)',
                 }}
               >
                 Excluded by {m.excludedBy}
@@ -315,11 +315,11 @@ function MessageRow({ m, highlighted, onJumpAttachment }) {
           {m.channel === 'CALL' && !m.readable && (
             <div
               style={{
-                marginTop: 6, padding: '8px 12px',
+                marginTop: 6, padding: 'var(--space-2) var(--space-3)',
                 background: 'var(--surface-sunken)',
                 borderRadius: 'var(--radius-sm)',
-                fontSize: 12, color: 'var(--text-muted)',
-                display: 'flex', alignItems: 'center', gap: 8,
+                fontSize: 'var(--text-base)', color: 'var(--text-muted)',
+                display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
               }}
             >
               <span className="ms" style={{ fontSize: 16, color: 'var(--text-faint)' }}>call</span>
@@ -331,7 +331,7 @@ function MessageRow({ m, highlighted, onJumpAttachment }) {
           {m.body && (
             <div
               style={{
-                fontSize: 14, lineHeight: 1.5,
+                fontSize: 'var(--text-lg)', lineHeight: 1.5,
                 color: isEvent ? 'var(--text-muted)' : 'var(--text-heading)',
                 marginTop: 5, whiteSpace: 'pre-line',
               }}
@@ -345,7 +345,7 @@ function MessageRow({ m, highlighted, onJumpAttachment }) {
             <div
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
-                marginTop: 8, fontSize: 11.5, color: 'var(--text-faint)',
+                marginTop: 8, fontSize: 'var(--text-sm)', color: 'var(--text-faint)',
               }}
             >
               <span className="ms" style={{ fontSize: 14 }}>group</span>
@@ -363,7 +363,7 @@ function MessageRow({ m, highlighted, onJumpAttachment }) {
             >
               <span
                 style={{
-                  fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
+                  fontSize: 'var(--text-sm)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
                   textTransform: 'uppercase',
                   color: 'var(--text-faint)', marginRight: 2,
                 }}
@@ -388,15 +388,15 @@ function MessageRow({ m, highlighted, onJumpAttachment }) {
           in exactly the same spot, no matter how tall the body is. */}
       <div
         style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '6px 12px 6px 16px',
+          display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+          padding: '6px var(--space-3) 6px var(--space-4)',
           background: channelTint,
           borderTop: '1px solid var(--border-default)',
         }}
       >
         <span
           style={{
-            fontSize: 10, fontWeight: 600, letterSpacing: '0.05em',
+            fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
             textTransform: 'uppercase', color: channelCol,
           }}
         >
@@ -415,7 +415,7 @@ function MessageRow({ m, highlighted, onJumpAttachment }) {
             }
             style={{
               display: 'flex', alignItems: 'center', gap: 5,
-              padding: '3px 8px 3px 9px',
+              padding: '3px var(--space-2) 3px 9px',
               border: '1px solid var(--border-default)',
               borderRadius: 'var(--radius-pill)',
               background: '#fff',
@@ -427,7 +427,7 @@ function MessageRow({ m, highlighted, onJumpAttachment }) {
               <span
                 style={{
                   maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis',
-                  fontSize: 11, fontWeight: 600, color: 'var(--text-muted)',
+                  fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-muted)',
                 }}
               >
                 {m.dealTag}
@@ -481,7 +481,7 @@ function EntryRow({ m, highlighted }) {
         </div>
         <div
           style={{
-            textAlign: 'center', fontSize: 10, fontWeight: 500, lineHeight: 1.25,
+            textAlign: 'center', fontSize: 'var(--text-xs)', fontWeight: 500, lineHeight: 1.25,
             color: 'var(--text-faint)'
           }}
         >
@@ -498,18 +498,18 @@ function EntryRow({ m, highlighted }) {
           overflow: 'hidden'
         }}
       >
-        <div style={{ padding: '12px 16px' }}>
+        <div style={{ padding: 'var(--space-3) var(--space-4)' }}>
           {/* Header: kind · author · badges */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
             <span
               style={{
-                fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
+                fontSize: 'var(--text-sm)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
                 textTransform: 'uppercase', color: col
               }}
             >
               {isNote ? 'Note' : 'Task'}
             </span>
-            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-heading)' }}>
+            <span style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)' }}>
               {m.senderName}
             </span>
 
@@ -529,7 +529,7 @@ function EntryRow({ m, highlighted }) {
             <div
               style={{
                 marginTop: 8,
-                fontSize: 14, lineHeight: 1.55, color: 'var(--text-body)',
+                fontSize: 'var(--text-lg)', lineHeight: 1.55, color: 'var(--text-body)',
                 overflowWrap: 'anywhere'
               }}
             >
@@ -551,7 +551,7 @@ function Badge({ children, tone, icon }) {
         borderRadius: 'var(--radius-pill)',
         background: `var(--tint-${tone})`,
         color: `var(--accent-${tone})`,
-        fontSize: 11.5, fontWeight: 600, whiteSpace: 'nowrap'
+        fontSize: 'var(--text-sm)', fontWeight: 600, whiteSpace: 'nowrap'
       }}
     >
       {icon && <span className="ms" style={{ fontSize: 13 }}>{icon}</span>}
@@ -577,7 +577,7 @@ function DealPill({ label }) {
         style={{
           maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
-          fontSize: 11, fontWeight: 600, color: 'var(--text-muted)'
+          fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-muted)'
         }}
       >
         {label}
@@ -620,27 +620,27 @@ export default function Timeline({
     >
       <header
         style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '12px 16px',
+          display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+          padding: 'var(--space-3) var(--space-4)',
           borderBottom: '1px solid var(--border-default)',
         }}
       >
         <span className="ms" style={{ fontSize: 20, color: 'var(--accent-teal)' }}>forum</span>
         <h3
           style={{
-            fontSize: 18, fontWeight: 600, color: 'var(--accent-teal)',
+            fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--accent-teal)',
             margin: 0, flex: 1,
           }}
         >
           Timeline
         </h3>
-        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{summary}</span>
+        <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>{summary}</span>
       </header>
 
       <div
         style={{
           position: 'relative',
-          padding: '10px 12px 12px',
+          padding: '10px var(--space-3) var(--space-3)',
         }}
       >
         {/* Vertical spine behind the channel icons */}

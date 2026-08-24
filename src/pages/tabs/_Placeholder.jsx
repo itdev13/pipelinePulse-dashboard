@@ -16,14 +16,14 @@ export default function Placeholder({ icon, title, accent = 'pine', description 
       <span
         className="ms"
         style={{
-          fontSize: 40, color: `var(--accent-${accent})`,
+          fontSize: 'var(--text-2xl)', color: `var(--accent-${accent})`,
           display: 'inline-block', marginBottom: 12
         }}
       >
         {icon}
       </span>
-      <h1 style={{ fontSize: 20, marginBottom: 6 }}>{title}</h1>
-      <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.55 }}>
+      <h1 style={{ fontSize: 'var(--text-xl)', marginBottom: 6 }}>{title}</h1>
+      <p style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)', lineHeight: 1.55 }}>
         {description}
       </p>
     </div>
