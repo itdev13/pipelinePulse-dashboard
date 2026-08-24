@@ -319,7 +319,7 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
           // a long history would set the row height and never scroll — it would
           // just push Co-Pilot's composer further down the page. The cap is what
           // makes the overflow actually engage.
-          maxHeight: 750
+          maxHeight: 650
         }}
       >
         <header
