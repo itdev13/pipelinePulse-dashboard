@@ -27,7 +27,10 @@ export default function PeopleSection({
   return (
     <section
       style={{
-        border: '2px solid var(--accent-sky)',
+        border: '1px solid var(--border-default)',
+        boxShadow: 'var(--shadow-card)',
+        ['--panel-accent']: 'var(--accent-sky-text)',
+        ['--panel-tint']: 'var(--tint-sky)',
         borderRadius: 'var(--radius-md)',
         background: '#fff',
         overflow: 'hidden'
@@ -36,8 +39,9 @@ export default function PeopleSection({
       <header
         style={{
           display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-          padding: 'var(--space-3) var(--space-4)',
-          borderBottom: '1px solid var(--border-default)'
+          padding: '13px var(--space-4)',
+          borderBottom: '1px solid var(--border-default)',
+          background: 'var(--panel-tint, var(--gray-25))'
         }}
       >
         <span className="ms" style={{ fontSize: 20, color: 'var(--accent-sky)' }}>group</span>
@@ -116,7 +120,7 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove }) {
         minWidth: 0,
         padding: '14px var(--space-4)',
         borderRight: '1px solid var(--border-default)',
-        borderBottom: '2px solid var(--accent-sky)',
+        borderBottom: '1px solid var(--border-default)',
         borderTop: `3px solid ${accent}`,
         // filter-active state — subtle green ring around the card
         boxShadow: filterActive ? '0 0 0 2px var(--brand-primary) inset' : 'none'

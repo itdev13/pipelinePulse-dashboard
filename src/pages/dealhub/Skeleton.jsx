@@ -71,7 +71,10 @@ function PanelShell({ accent, children, titleW = 90 }) {
   return (
     <section
       style={{
-        border: `2px solid var(--accent-${accent})`,
+        border: '1px solid var(--border-default)',
+        boxShadow: 'var(--shadow-card)',
+        ['--panel-accent']: `var(--accent-${accent}-text)`,
+        ['--panel-tint']: `var(--tint-${accent})`,
         borderRadius: 'var(--radius-md)',
         background: '#fff', overflow: 'hidden'
       }}
@@ -79,8 +82,9 @@ function PanelShell({ accent, children, titleW = 90 }) {
       <header
         style={{
           display: 'flex', alignItems: 'center', gap: 9,
-          padding: 'var(--space-3) var(--space-4)',
-          borderBottom: '1px solid var(--border-default)'
+          padding: '13px var(--space-4)',
+          borderBottom: '1px solid var(--border-default)',
+          background: 'var(--panel-tint, var(--gray-25))'
         }}
       >
         <Bar w={20} h={20} />

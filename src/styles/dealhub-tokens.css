@@ -90,6 +90,8 @@
   --status-none: #c3c8d0;
 
   /* Semantic aliases */
+  /* Overridden to a tint in the v6 block below — cards need a ground to
+   * lift off. Kept here so the alias exists before first use. */
   --surface-page: var(--white);
   --surface-card: var(--white);
   --surface-sunken: var(--gray-50);
@@ -368,4 +370,68 @@
   font-size: var(--text-base);
   line-height: var(--leading-normal);
   color: var(--text-body);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * v6 — visual refresh.
+ *
+ * The previous pass fixed sizes but kept the same look: white cards, 1px grey
+ * borders, everything at one elevation. On a dense page that reads as a form,
+ * not a product. Three changes carry the new treatment:
+ *
+ *   1. The PAGE gets a tint, so white cards lift off it. Previously both were
+ *      #fff and the only separation was a hairline border.
+ *   2. Cards get real elevation and a 12px radius instead of 8px.
+ *   3. Panel headers get a tinted band in their accent, so a section reads as
+ *      a section at a glance rather than as another row of text.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+[data-dealhub] {
+  /* The page is no longer white — cards need something to sit on. */
+  --surface-page: #f4f6f8;
+  --surface-raised: #ffffff;
+
+  /* Softer, layered shadows. The old --shadow-card was a 1px hairline that
+   * read as a border, not a lift. */
+  --shadow-card: 0 1px 2px rgba(23, 33, 46, 0.04), 0 2px 8px rgba(23, 33, 46, 0.04);
+  --shadow-raised: 0 2px 4px rgba(23, 33, 46, 0.05), 0 8px 24px rgba(23, 33, 46, 0.08);
+  --shadow-overlay: 0 12px 40px rgba(23, 33, 46, 0.18);
+
+  --radius-md: 12px;
+  --radius-lg: 16px;
+}
+
+/* Panels.
+ *
+ * The accent moves from a 2px full border (which boxed every section in a loud
+ * colour) to a tinted header band plus a soft shadow. The section still reads
+ * as its colour, but the colour is where the label is, not wrapped around the
+ * content. */
+[data-dealhub] .pp-panel {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+[data-dealhub] .pp-panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 13px var(--space-4);
+  border-bottom: 1px solid var(--border-default);
+  /* Set by the component: --panel-accent / --panel-tint */
+  background: var(--panel-tint, var(--gray-25));
+}
+[data-dealhub] .pp-panel-head h2,
+[data-dealhub] .pp-panel-head h3 {
+  flex: 1;
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em;
+  color: var(--panel-accent, var(--text-heading));
+}
+[data-dealhub] .pp-panel-head .ms {
+  color: var(--panel-accent, var(--text-muted));
 }

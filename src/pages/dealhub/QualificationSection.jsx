@@ -27,7 +27,10 @@ export default function QualificationSection({ qualification = [] }) {
   return (
     <section
       style={{
-        border: '2px solid var(--accent-gold)',
+        border: '1px solid var(--border-default)',
+        boxShadow: 'var(--shadow-card)',
+        ['--panel-accent']: 'var(--accent-gold-text)',
+        ['--panel-tint']: 'var(--tint-gold)',
         borderRadius: 'var(--radius-md)',
         background: '#fff',
         overflow: 'hidden'

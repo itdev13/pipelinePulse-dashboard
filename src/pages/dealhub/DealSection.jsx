@@ -26,13 +26,27 @@ export default function DealSection({
 }) {
   if (!deal) return null
 
-  const accent = 'var(--accent-pine)'
-  const customerName = primaryName(deal.people)
+  const accent = 'var(--accent-pine-text)'
+  const tint = 'var(--tint-pine)'
+  // What the card leads with.
+  //
+  // The contact is often nameless — GHL creates one from an inbound SMS with
+  // only a phone number. In that case the OPPORTUNITY name is the best human
+  // label we hold ("Shrinivas Jaladanki"), and it was being relegated to the
+  // subtitle while the raw phone number took the headline.
+  const contactName = primaryName(deal.people)
+  const contactIsNameless = /^[+\d\s()-]+$/.test(contactName) || contactName === 'Unnamed contact'
+  const customerName = contactIsNameless && deal.opportunityName
+    ? deal.opportunityName
+    : contactName
 
   return (
     <section
       style={{
-        border: `2px solid ${accent}`,
+        border: '1px solid var(--border-default)',
+        boxShadow: 'var(--shadow-card)',
+        ['--panel-accent']: accent,
+        ['--panel-tint']: tint,
         borderRadius: 'var(--radius-md)',
         background: '#fff',
         overflow: 'hidden'
@@ -41,8 +55,9 @@ export default function DealSection({
       <header
         style={{
           display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-          padding: 'var(--space-3) var(--space-4)',
-          borderBottom: '1px solid var(--border-default)'
+          padding: '13px var(--space-4)',
+          borderBottom: '1px solid var(--border-default)',
+          background: 'var(--panel-tint, var(--gray-25))'
         }}
       >
         <span className="ms" style={{ fontSize: 20, color: accent }}>person</span>

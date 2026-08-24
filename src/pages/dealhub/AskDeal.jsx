@@ -325,8 +325,9 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
         <header
           style={{
             display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-            padding: 'var(--space-3) var(--space-4)',
-            borderBottom: '1px solid var(--border-default)'
+            padding: '13px var(--space-4)',
+            borderBottom: '1px solid var(--border-default)',
+            background: 'var(--panel-tint, var(--gray-25))'
           }}
         >
           <span className="ms" style={{ fontSize: 19, color: 'var(--brand-primary)' }}>
@@ -369,7 +370,10 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
       {/* Co-Pilot — the wide panel. */}
       <section
         style={{
-          border: '2px solid var(--accent-teal)',
+          border: '1px solid var(--border-default)',
+        boxShadow: 'var(--shadow-card)',
+        ['--panel-accent']: 'var(--accent-teal-text)',
+        ['--panel-tint']: 'var(--tint-teal)',
           borderRadius: 'var(--radius-md)',
           background: '#fff',
           display: 'flex', flexDirection: 'column'
@@ -378,8 +382,9 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
         <header
           style={{
             display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-            padding: 'var(--space-3) var(--space-4)',
-            borderBottom: '1px solid var(--border-default)'
+            padding: '13px var(--space-4)',
+            borderBottom: '1px solid var(--border-default)',
+            background: 'var(--panel-tint, var(--gray-25))'
           }}
         >
           <span className="ms" style={{ fontSize: 20, color: 'var(--accent-teal)' }}>
@@ -1173,7 +1178,8 @@ function MessagesConsideredModal({ runId, onClose, onJumpToMessage }) {
           style={{
             display: 'flex', alignItems: 'flex-start', gap: 10,
             padding: '14px var(--space-4)',
-            borderBottom: '1px solid var(--border-default)'
+            borderBottom: '1px solid var(--border-default)',
+          background: 'var(--panel-tint, var(--gray-25))'
           }}
         >
           <span className="ms" style={{ fontSize: 20, color: 'var(--accent-teal)', marginTop: 1 }}>

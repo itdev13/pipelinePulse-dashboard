@@ -36,12 +36,23 @@ export default function StageStepper({ stages, onStageClick }) {
           ? `polygon(0 0, 100% 0, 100% 100%, 0 100%, ${notch}px 50%)`
           : `polygon(0 0, calc(100% - ${notch}px) 0, 100% 50%, calc(100% - ${notch}px) 100%, 0 100%, ${notch}px 50%)`
 
+        // Progression reads left to right: completed stages are a light tint,
+        // the current one is solid brand, upcoming ones are grey.
+        //
+        // Previously "current" was near-black and past stages were solid dark
+        // green, which made the stepper the heaviest element on the page — two
+        // dark blocks shouting above the deal it describes. Inverting it (tint
+        // for done, solid for now) puts the emphasis on where the deal IS.
         const bg = s.isCurrent
-          ? 'var(--text-heading)'
+          ? 'var(--brand-primary)'
           : s.isPast
-          ? 'var(--green-600)'
-          : 'var(--gray-100)'
-        const fg = s.isCurrent || s.isPast ? '#fff' : 'var(--text-muted)'
+          ? 'var(--green-50)'
+          : 'var(--gray-50)'
+        const fg = s.isCurrent
+          ? '#fff'
+          : s.isPast
+          ? 'var(--green-700)'
+          : 'var(--text-muted)'
 
         return (
           <button
@@ -59,7 +70,7 @@ export default function StageStepper({ stages, onStageClick }) {
               minWidth: 0,
               cursor: onStageClick ? 'pointer' : 'default',
               border: 'none',
-              height: 38,
+              height: 40,
               padding: `0 12px 0 ${isFirst ? 12 : 24}px`,
               marginLeft: isFirst ? 0 : -notch,
               clipPath: clip,
@@ -67,7 +78,7 @@ export default function StageStepper({ stages, onStageClick }) {
               color: fg,
               fontFamily: 'var(--font-sans)',
               fontSize: 'var(--text-md)',
-              fontWeight: 600,
+              fontWeight: s.isCurrent ? 600 : 500,
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',

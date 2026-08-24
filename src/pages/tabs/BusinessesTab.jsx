@@ -718,7 +718,10 @@ function DetailSkeleton() {
       <div style={{ display: 'grid', gap: 18 }}>
         <div
           style={{
-            border: '2px solid var(--accent-sky)',
+            border: '1px solid var(--border-default)',
+        boxShadow: 'var(--shadow-card)',
+        ['--panel-accent']: 'var(--accent-sky-text)',
+        ['--panel-tint']: 'var(--tint-sky)',
             borderRadius: 'var(--radius-md)',
             background: '#fff', overflow: 'hidden'
           }}
@@ -752,7 +755,8 @@ function DetailSkeleton() {
             <div
               key={a}
               style={{
-                border: `2px solid var(--accent-${a})`,
+                border: '1px solid var(--border-default)',
+                boxShadow: 'var(--shadow-card)',
                 borderRadius: 'var(--radius-md)',
                 background: '#fff', overflow: 'hidden'
               }}

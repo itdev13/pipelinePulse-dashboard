@@ -110,7 +110,10 @@ function DealCard({ deal, onOpenDeal }) {
   return (
     <section
       style={{
-        border: '2px solid var(--accent-pine)',
+        border: '1px solid var(--border-default)',
+        boxShadow: 'var(--shadow-card)',
+        ['--panel-accent']: 'var(--accent-pine-text)',
+        ['--panel-tint']: 'var(--tint-pine)',
         borderRadius: 'var(--radius-md)',
         background: '#fff', overflow: 'hidden'
       }}

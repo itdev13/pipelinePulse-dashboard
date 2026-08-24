@@ -32,11 +32,15 @@ export function PageHeader({ title, subtitle, action }) {
 }
 
 export function Panel({ icon, title, accent, meta, children, toolbar }) {
-  const color = `var(--accent-${accent})`
+  const color = `var(--accent-${accent}-text)`
+  const tint = `var(--tint-${accent})`
   return (
     <section
       style={{
-        border: `2px solid ${color}`,
+        border: '1px solid var(--border-default)',
+        boxShadow: 'var(--shadow-card)',
+        ['--panel-accent']: color,
+        ['--panel-tint']: tint,
         borderRadius: 'var(--radius-md)',
         background: '#fff',
         overflow: 'hidden'

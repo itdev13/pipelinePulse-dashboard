@@ -271,7 +271,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
   return (
     <div>
       {/* Deal-switcher dropdown + opportunity header + stage stepper */}
-      <div style={{ padding: '14px 20px 0' }}>
+      <div style={{ padding: 'var(--space-4) 20px 0' }}>
         <div
           style={{
             border: '1px solid var(--border-default)',
@@ -500,7 +500,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
       {deal && !loading && (
         <div
           style={{
-            padding: '14px 20px 0',
+            padding: 'var(--space-4) 20px 0',
             maxWidth: 1660, margin: '0 auto', boxSizing: 'border-box'
           }}
         >
@@ -576,7 +576,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
       {deal && !loading && (
         <div
           style={{
-            padding: '14px 20px 0',
+            padding: 'var(--space-4) 20px 0',
             maxWidth: 1660, margin: '0 auto', boxSizing: 'border-box'
           }}
         >
@@ -708,7 +708,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
       {/* Timeline */}
       <div
         style={{
-          padding: loading ? 0 : '14px 20px 24px',
+          padding: loading ? 0 : 'var(--space-4) 20px 28px',
           maxWidth: 1660, margin: '0 auto', boxSizing: 'border-box'
         }}
       >

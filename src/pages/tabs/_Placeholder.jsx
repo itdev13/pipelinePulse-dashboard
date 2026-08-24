@@ -8,7 +8,10 @@ export default function Placeholder({ icon, title, accent = 'pine', description 
     <div
       style={{
         maxWidth: 640, margin: '48px auto', padding: 32,
-        border: `2px solid var(--accent-${accent})`,
+        border: '1px solid var(--border-default)',
+        boxShadow: 'var(--shadow-card)',
+        ['--panel-accent']: `var(--accent-${accent}-text)`,
+        ['--panel-tint']: `var(--tint-${accent})`,
         borderRadius: 'var(--radius-md)',
         background: '#fff', textAlign: 'center'
       }}

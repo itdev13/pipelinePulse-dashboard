@@ -127,7 +127,10 @@ function Header({ contact }) {
   return (
     <section
       style={{
-        border: `2px solid ${accent}`,
+        border: '1px solid var(--border-default)',
+        boxShadow: 'var(--shadow-card)',
+        ['--panel-accent']: accent,
+        ['--panel-tint']: tint,
         borderRadius: 'var(--radius-md)',
         background: '#fff',
         padding: 'var(--space-4) 18px',

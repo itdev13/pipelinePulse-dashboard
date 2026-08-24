@@ -290,11 +290,15 @@ function Rail({
   icon, title, accent, meta, blurb, toolbar, footer,
   loading, error, empty, emptyText, children
 }) {
-  const color = `var(--accent-${accent})`
+  const color = `var(--accent-${accent}-text)`
+  const tint = `var(--tint-${accent})`
   return (
     <section
       style={{
-        border: `2px solid ${color}`,
+        border: '1px solid var(--border-default)',
+        boxShadow: 'var(--shadow-card)',
+        ['--panel-accent']: color,
+        ['--panel-tint']: tint,
         borderRadius: 'var(--radius-md)',
         background: '#fff',
         overflow: 'hidden'
@@ -304,7 +308,8 @@ function Rail({
         style={{
           display: 'flex', alignItems: 'center', gap: 9,
           padding: 'var(--space-3) 14px',
-          borderBottom: '1px solid var(--border-default)'
+          borderBottom: '1px solid var(--border-default)',
+          background: 'var(--panel-tint, var(--gray-25))'
         }}
       >
         <span className="ms" style={{ fontSize: 19, color }}>{icon}</span>

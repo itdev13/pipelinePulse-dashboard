@@ -612,7 +612,10 @@ export default function Timeline({
   return (
     <section
       style={{
-        border: '2px solid var(--accent-teal)',
+        border: '1px solid var(--border-default)',
+        boxShadow: 'var(--shadow-card)',
+        ['--panel-accent']: 'var(--accent-teal-text)',
+        ['--panel-tint']: 'var(--tint-teal)',
         borderRadius: 'var(--radius-md)',
         overflow: 'hidden',
         background: '#fff',
@@ -621,8 +624,9 @@ export default function Timeline({
       <header
         style={{
           display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-          padding: 'var(--space-3) var(--space-4)',
+          padding: '13px var(--space-4)',
           borderBottom: '1px solid var(--border-default)',
+          background: 'var(--panel-tint, var(--gray-25))',
         }}
       >
         <span className="ms" style={{ fontSize: 20, color: 'var(--accent-teal)' }}>forum</span>
