@@ -319,7 +319,7 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
           // a long history would set the row height and never scroll — it would
           // just push Co-Pilot's composer further down the page. The cap is what
           // makes the overflow actually engage.
-          maxHeight: 900
+          maxHeight: 750
         }}
       >
         <header
@@ -345,10 +345,9 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
           </span>
         </header>
 
-        {/* Only the history list scrolls. flex:1 + minHeight:0 lets it shrink
-            below its content height — without the minHeight override a flex
-            item refuses to shrink past its content, and the overflow silently
-            never engages. */}
+        {/* flex:1 + minHeight:0 lets the list shrink below its content height.
+            Without the minHeight override a flex item refuses to shrink past
+            its content and the overflow silently never engages. */}
         <div
           style={{
             // The whole rail is the history now that the starters have moved
