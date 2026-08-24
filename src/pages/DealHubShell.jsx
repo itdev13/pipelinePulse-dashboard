@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import DealHubTab from './tabs/DealHubTab'
 import DealsTab from './tabs/DealsTab'
+import BusinessesTab from './tabs/BusinessesTab'
 import ContactsTab from './tabs/ContactsTab'
 import TasksTab from './tabs/TasksTab'
 import NotesTab from './tabs/NotesTab'
@@ -20,12 +21,14 @@ import { useAuth } from '../context/AuthContext'
 // when a user clicks a deal card, and it flips activeTab to 'hub'
 // automatically. That's the "click a deal card → jump into deal hub" flow.
 
-// Order: Deal hub → Deals (the paired opp views) → Contacts → Tasks → Notes → Control.
+// Order: Deal hub → Deals (the paired opp views) → Businesses → Contacts → Tasks → Notes → Control.
+// Businesses sits above Contacts because it's the roll-up of them.
 // Deal hub and Deals both centre on opportunities, so they sit side by side;
 // Contacts and everything else follow.
 const TABS = [
   { id: 'hub',      label: 'Deal hub',       icon: 'space_dashboard' },
   { id: 'deals',    label: 'Deals',          icon: 'sell' },
+  { id: 'businesses', label: 'Businesses',  icon: 'domain' },
   { id: 'contacts', label: 'Contacts',       icon: 'group' },
   { id: 'tasks',    label: 'Tasks',          icon: 'task_alt' },
   { id: 'notes',    label: 'Notes',          icon: 'sticky_note_2' },
@@ -87,6 +90,7 @@ export default function DealHubShell() {
             // Location-wide count on each section chip. Deal-hub + Control
             // centre chips don't have a meaningful total, so we skip them.
             const countMap = {
+              businesses: counts?.businesses,
               contacts: counts?.contacts,
               deals:    counts?.deals,
               tasks:    counts?.tasks,
@@ -149,6 +153,11 @@ export default function DealHubShell() {
         )}
         {activeTab === 'deals' && <DealsTab onOpenDeal={openDeal} />}
         {/* Deal links on a contact record jump into the Deal hub. */}
+        {/* Deal + contact links on a business roll-up reuse the same
+            cross-tab navigation as tasks and notes. */}
+        {activeTab === 'businesses' && (
+          <BusinessesTab onOpenDeal={openDeal} onOpenContact={openContact} />
+        )}
         {activeTab === 'contacts' && (
           <ContactsTab
             onOpenDeal={openDeal}
