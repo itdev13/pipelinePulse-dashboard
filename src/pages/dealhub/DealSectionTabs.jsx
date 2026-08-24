@@ -10,38 +10,10 @@ import React from 'react'
 // still happens below in the normal flow.
 
 const TABS = [
-  {
-    id: 'commitments',
-    label: 'Commitments',
-    icon: 'handshake',
-    accent: 'pine',
-    countKey: 'commitmentsOverdue',
-    countSuffix: 'overdue',
-    countTone: 'danger'
-  },
-  {
-    id: 'whys',
-    label: 'Three whys',
-    icon: 'psychology',
-    accent: 'plum',
-    countKey: null
-  },
-  {
-    id: 'qualification',
-    label: 'Qualification',
-    icon: 'rule',
-    accent: 'gold',
-    countKey: 'qualificationMissing',
-    countSuffix: 'missing',
-    countTone: 'danger'
-  },
-  {
-    id: 'next-step',
-    label: 'Next step',
-    icon: 'arrow_forward',
-    accent: 'pine',
-    countKey: null
-  },
+  // Tasks and notes come first — they're the two sections that actually have
+  // panels built, and they're what a rep acts on. Commitments is gone: it was
+  // a placeholder for a promise-extraction pipeline that doesn't exist, and it
+  // was the default the rail landed on.
   {
     id: 'tasks',
     label: 'Tasks',
@@ -59,6 +31,29 @@ const TABS = [
     countKey: 'notes',
     countSuffix: null,
     countTone: 'neutral'
+  },
+  {
+    id: 'qualification',
+    label: 'Qualification',
+    icon: 'rule',
+    accent: 'gold',
+    countKey: 'qualificationMissing',
+    countSuffix: 'missing',
+    countTone: 'danger'
+  },
+  {
+    id: 'whys',
+    label: 'Three whys',
+    icon: 'psychology',
+    accent: 'plum',
+    countKey: null
+  },
+  {
+    id: 'next-step',
+    label: 'Next step',
+    icon: 'arrow_forward',
+    accent: 'pine',
+    countKey: null
   }
 ]
 

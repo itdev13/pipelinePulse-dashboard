@@ -151,7 +151,7 @@ function EventRow({ m }) {
   )
 }
 
-function MessageRow({ m, highlighted, onToggleIncluded, onJumpAttachment }) {
+function MessageRow({ m, highlighted, onJumpAttachment }) {
   const gutter = formatDateGutter(m.ts)
   const channelCol = accentVar(m.channelAccent)
   const channelTint = tintVar(m.channelAccent)
@@ -165,8 +165,6 @@ function MessageRow({ m, highlighted, onToggleIncluded, onJumpAttachment }) {
   const dirLabel = inbound ? 'In ←' : outbound ? '→ Out' : null
   const dirColor = inbound ? 'var(--green-600)' : 'var(--text-muted)'
   const many = m.toIds && m.toIds.length > 1
-  const showCheckbox = m.channel !== 'TASK' && m.channel !== 'SYSTEM'
-  const cbDisabled = !m.readable
   const opacity = m.imported ? 0.6 : 1
 
   return (
@@ -220,34 +218,10 @@ function MessageRow({ m, highlighted, onToggleIncluded, onJumpAttachment }) {
       >
       <div
         style={{
-          display: 'grid', gridTemplateColumns: '24px 1fr', gap: 12,
           padding: isEvent ? '8px 16px' : '12px 16px',
         }}
       >
-        {/* Inclusion checkbox column */}
-        <div style={{ paddingTop: 1, opacity: cbDisabled ? 0.4 : 1 }}>
-          {showCheckbox && (
-            <input
-              type="checkbox"
-              checked={!!m.included}
-              disabled={cbDisabled}
-              onChange={() => onToggleIncluded && onToggleIncluded(m)}
-              title={
-                cbDisabled
-                  ? 'No transcript yet — calls cannot be read by the AI until transcribed'
-                  : m.included
-                  ? 'Included in AI analysis — untick to exclude'
-                  : 'Excluded from AI analysis'
-              }
-              style={{
-                width: 18, height: 18, cursor: cbDisabled ? 'not-allowed' : 'pointer',
-                accentColor: 'var(--brand-primary)',
-              }}
-            />
-          )}
-        </div>
-
-        {/* Content column */}
+        {/* Content — full width now the per-message AI checkbox is gone. */}
         <div style={{ minWidth: 0 }}>
           {/* Header row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -468,17 +442,172 @@ function MessageRow({ m, highlighted, onToggleIncluded, onJumpAttachment }) {
   )
 }
 
+// Task and note rows.
+//
+// The mockup renders these as full cards inline in the thread, not as the thin
+// EventRow used for GHL activity events — "send the revised quote" is part of
+// the conversation, and a one-line grey event is too quiet for something a rep
+// has to act on.
+//
+// Same card frame as a message (stripe + gutter square + deal pill) so the
+// stream reads as one thing rather than three interleaved lists.
+function EntryRow({ m, highlighted }) {
+  const gutter = formatDateGutter(m.ts)
+  const col = accentVar(m.channelAccent)
+  const isNote = m.kind === 'note'
+  const opacity = m.imported ? 0.6 : 1
+
+  return (
+    <div
+      id={`tl-${m.id}`}
+      style={{
+        position: 'relative',
+        display: 'grid', gridTemplateColumns: '40px 1fr',
+        gap: 0, marginBottom: 8, opacity
+      }}
+    >
+      {/* Gutter — channel square + date, same geometry as a message row. */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, paddingTop: 8 }}>
+        <div
+          title={isNote ? 'Note' : 'Task'}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 30, height: 30, boxSizing: 'border-box',
+            border: `1.5px solid ${col}`, borderRadius: 'var(--radius-sm)',
+            background: tintVar(m.channelAccent)
+          }}
+        >
+          <span className="ms" style={{ fontSize: 16, color: col }}>{m.channelIcon}</span>
+        </div>
+        <div
+          style={{
+            textAlign: 'center', fontSize: 10, fontWeight: 500, lineHeight: 1.25,
+            color: 'var(--text-faint)'
+          }}
+        >
+          {gutter.day}<br />{gutter.mon}
+        </div>
+      </div>
+
+      <div
+        style={{
+          border: '1px solid var(--border-default)',
+          borderTop: `3px solid ${col}`,
+          borderRadius: 'var(--radius-md)',
+          background: highlighted ? 'var(--surface-selected)' : '#fff',
+          overflow: 'hidden'
+        }}
+      >
+        <div style={{ padding: '12px 16px' }}>
+          {/* Header: kind · author · badges */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span
+              style={{
+                fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
+                textTransform: 'uppercase', color: col
+              }}
+            >
+              {isNote ? 'Note' : 'Task'}
+            </span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-heading)' }}>
+              {m.senderName}
+            </span>
+
+            {m.manual && <Badge tone="pine">Added manually</Badge>}
+            {/* Only shown when the note was actually written by the agent —
+                the server keeps this false unless it can tell. */}
+            {isNote && m.isAi && <Badge tone="sky" icon="auto_awesome">AI note — internal</Badge>}
+            {!isNote && m.status === 'completed' && <Badge tone="pine" icon="check">Completed</Badge>}
+
+            <span style={{ flex: 1 }} />
+
+            {m.dealTag && <DealPill label={m.dealTag} />}
+          </div>
+
+          {/* Body */}
+          {m.body && (
+            <div
+              style={{
+                marginTop: 8,
+                fontSize: 14, lineHeight: 1.55, color: 'var(--text-body)',
+                overflowWrap: 'anywhere'
+              }}
+            >
+              {m.body}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Badge({ children, tone, icon }) {
+  return (
+    <span
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        padding: '3px 9px',
+        borderRadius: 'var(--radius-pill)',
+        background: `var(--tint-${tone})`,
+        color: `var(--accent-${tone})`,
+        fontSize: 11.5, fontWeight: 600, whiteSpace: 'nowrap'
+      }}
+    >
+      {icon && <span className="ms" style={{ fontSize: 13 }}>{icon}</span>}
+      {children}
+    </span>
+  )
+}
+
+// The deal pill, matching the message rows' footer control.
+function DealPill({ label }) {
+  return (
+    <span
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        height: 26, padding: '0 10px',
+        border: '1px solid var(--border-default)',
+        borderRadius: 'var(--radius-pill)',
+        background: 'var(--gray-50)'
+      }}
+    >
+      <span className="ms" style={{ fontSize: 13, color: 'var(--text-muted)' }}>sell</span>
+      <span
+        style={{
+          maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          fontSize: 11, fontWeight: 600, color: 'var(--text-muted)'
+        }}
+      >
+        {label}
+      </span>
+    </span>
+  )
+}
+
 export default function Timeline({
   messages,
   highlightedId = null,
-  onToggleIncluded,
   onJumpAttachment,
 }) {
-  const total = messages.length
-  const included = messages.filter((m) => m.readable && m.included).length
+  // The header counts each kind separately — tasks and notes now share the
+  // stream, and folding them into "23 messages" would overstate the thread.
+  const msgCount = messages.filter((m) => !m.kind && !m.event).length
+  const taskCount = messages.filter((m) => m.kind === 'task').length
+  const noteCount = messages.filter((m) => m.kind === 'note').length
+  const unreadable = messages.filter((m) => !m.kind && !m.event && !m.readable).length
   const peopleCount = new Set(
     messages.map((m) => m.senderId).filter(Boolean)
   ).size
+
+  const summary = [
+    `${msgCount} ${msgCount === 1 ? 'message' : 'messages'}`,
+    taskCount ? `${taskCount} ${taskCount === 1 ? 'task' : 'tasks'}` : null,
+    noteCount ? `${noteCount} ${noteCount === 1 ? 'note' : 'notes'}` : null,
+    unreadable ? `${unreadable} ${unreadable === 1 ? 'call' : 'calls'} unreadable` : null,
+    `${peopleCount} ${peopleCount === 1 ? 'person' : 'people'}`
+  ].filter(Boolean).join(' · ')
 
   return (
     <section
@@ -505,9 +634,7 @@ export default function Timeline({
         >
           Timeline
         </h3>
-        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-          {included} of {total} included · {peopleCount} {peopleCount === 1 ? 'person' : 'people'}
-        </span>
+        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{summary}</span>
       </header>
 
       <div
@@ -526,14 +653,17 @@ export default function Timeline({
           }}
         />
         {messages.map((m) =>
-          m.event ? (
+          // Tasks and notes render as their own card — a full card inline in
+          // the thread, not the thin grey EventRow used for GHL activity.
+          m.kind === 'task' || m.kind === 'note' ? (
+            <EntryRow key={m.id} m={m} highlighted={highlightedId === m.id} />
+          ) : m.event ? (
             <EventRow key={m.id} m={m} />
           ) : (
             <MessageRow
               key={m.id}
               m={m}
               highlighted={highlightedId === m.id}
-              onToggleIncluded={onToggleIncluded}
               onJumpAttachment={onJumpAttachment}
             />
           )

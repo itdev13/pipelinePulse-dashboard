@@ -4,7 +4,6 @@ import StageStepper from '../dealhub/StageStepper'
 import PeopleSection from '../dealhub/PeopleSection'
 import DealSection from '../dealhub/DealSection'
 import AskDeal from '../dealhub/AskDeal'
-import CommitmentsSection from '../dealhub/CommitmentsSection'
 import QualificationSection from '../dealhub/QualificationSection'
 import { DealTasksSection, DealNotesSection } from '../dealhub/DealTasksSection'
 import DealSectionTabs from '../dealhub/DealSectionTabs'
@@ -38,8 +37,10 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  // Left-rail tabs — People / Deal / Media. Media is still to come.
-  const [leftRail, setLeftRail] = useState('people')
+  // Left-rail tabs — Deal / People / Media. Deal comes first and is the
+  // default: it's the record the whole page is about, and the header the rep
+  // reads before anything else. Media is still to come.
+  const [leftRail, setLeftRail] = useState('deal')
 
   // Sibling open deals on the same contact — powers the "other open deals"
   // chips in the Deal section. Reuses the reassignment-targets endpoint,
@@ -50,13 +51,12 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
   // Deal-section inner tabs — commitments / whys / qualification / next-step
   // / tasks / notes. Purely visual right now: highlights the tab and (later)
   // will scroll to the matching section as those sections get built.
-  const [activeSection, setActiveSection] = useState('commitments')
+  const [activeSection, setActiveSection] = useState('tasks')
 
   // Filter state
   const [channelFilter, setChannelFilter] = useState(null)
   const [peopleFilter, setPeopleFilter] = useState([])
   // null = all, true = included only, false = excluded only.
-  const [inclusionFilter, setInclusionFilter] = useState(null)
 
   // Deal switcher dropdown open/close
   const [switcherOpen, setSwitcherOpen] = useState(false)
@@ -113,7 +113,6 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
         // Reset filters when the deal changes.
         setChannelFilter(null)
         setPeopleFilter([])
-        setInclusionFilter(null)
       })
       .catch((err) => {
         if (!alive) return
@@ -155,60 +154,12 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
     window.setTimeout(() => setHighlightedId((cur) => (cur === row.id ? null : cur)), 2600)
   }
 
-  // Pending inclusion changes, keyed by GHL message id. Ticking a box updates
-  // the UI instantly and records the intent here; nothing is sent until the
-  // rep asks something (or leaves the deal). Firing a PUT per click meant five
-  // round trips to tick five boxes, and the server state only actually matters
-  // at the moment a question is asked.
-  const pendingInclusions = useRef(new Map())
-
-  const toggleIncluded = (m) => {
-    const next = !m.included
-    setMessages((prev) =>
-      prev.map((x) => (x.id === m.id ? { ...x, included: next } : x))
-    )
-    pendingInclusions.current.set(m.messageId, next)
-  }
-
-  // Send whatever's pending. Returns a promise so callers can await it before
-  // asking — otherwise the context builder could read the old state.
-  const flushInclusions = async () => {
-    const pending = pendingInclusions.current
-    if (pending.size === 0) return
-    const changes = [...pending].map(([messageId, included]) => ({ messageId, included }))
-    // Clear before the request: a failure is rolled back below, and holding
-    // them would double-send on the next flush.
-    pending.clear()
-    try {
-      await aiAPI.setInclusions(dealId, changes)
-    } catch (err) {
-      // Roll the checkboxes back — a box that silently didn't save is worse
-      // than one that visibly bounces, since the rep would believe they'd
-      // excluded something they hadn't.
-      setMessages((prev) =>
-        prev.map((x) => {
-          const c = changes.find((y) => y.messageId === x.messageId)
-          return c ? { ...x, included: !c.included } : x
-        })
-      )
-    }
-  }
-
-  // Leaving the deal (switch or unmount) shouldn't lose the ticks.
-  useEffect(() => {
-    return () => { flushInclusions() }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dealId])
-
   const filtered = useMemo(() => {
     if (!messages) return []
     return messages.filter((m) => {
       if (channelFilter && m.channel !== channelFilter) return false
       // Inclusion applies to real messages only — events have no checkbox,
       // so filtering them by it would silently hide the deal's history.
-      if (inclusionFilter !== null && !m.event) {
-        if (!!m.included !== inclusionFilter) return false
-      }
       if (peopleFilter.length > 0) {
         const senderMatch = m.senderId && peopleFilter.includes(m.senderId)
         const recipientMatch = (m.toIds || []).some((cid) => peopleFilter.includes(cid))
@@ -216,7 +167,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
       }
       return true
     })
-  }, [messages, channelFilter, peopleFilter, inclusionFilter])
+  }, [messages, channelFilter, peopleFilter])
 
   // Channels that ACTUALLY appear on this deal. Derived from the fetched
   // messages so a Rear-Elevation-with-only-emails doesn't show a WhatsApp
@@ -251,21 +202,6 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
     ['Call',     'CALL'],
     ['Note',     'NOTE']
   ]
-
-  // Inclusion filter — which messages the AI reads. `included` is per-message
-  // state the Timeline checkbox toggles, so these chips filter on something
-  // real. Counts come from readable rows only: an untranscribed call can't be
-  // included either way, so counting it would make the numbers not add up.
-  const inclusionCounts = useMemo(() => {
-    let included = 0
-    let excluded = 0
-    for (const m of messages || []) {
-      if (m.event || !m.readable) continue
-      if (m.included) included++
-      else excluded++
-    }
-    return { included, excluded }
-  }, [messages])
 
   // `key` defaults to the label, but callers must pass an explicit one when
   // labels can repeat — two unnamed contacts both render as "Contact", and a
@@ -565,8 +501,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
         </div>
       </div>
 
-      {/* Left-rail tabs (People / Deal / Media). Only People rendered
-          for now — Deal + Media come next iterations. */}
+      {/* Left-rail tabs (Deal / People / Media). Media comes next. */}
       {deal && !loading && (
         <div
           style={{
@@ -576,9 +511,9 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
         >
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
             {[
-              ['people', 'People',        'group'],
-              ['deal',   'Deal',          'person'],
-              ['media',  'Media',         'folder_open']
+              ['deal',   'Deal',   'person'],
+              ['people', 'People', 'group'],
+              ['media',  'Media',  'folder_open']
             ].map(([id, label, icon]) => {
               const active = leftRail === id
               const disabled = id === 'media'
@@ -724,28 +659,12 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                   for (const n of dealChannels.values()) allCount += n
                   return chip(
                     `All${allCount ? ` · ${allCount}` : ''}`,
-                    !channelFilter && inclusionFilter === null,
-                    () => { setChannelFilter(null); setInclusionFilter(null) },
+                    !channelFilter,
+                    () => setChannelFilter(null),
                     null,
                     'all'
                   )
                 })()}
-                {/* These filter the timeline VIEW by the AI checkbox — they
-                    narrow what's listed, not what the AI reads. */}
-                {chip(
-                  `Included${inclusionCounts.included ? ` · ${inclusionCounts.included}` : ''}`,
-                  inclusionFilter === true,
-                  () => setInclusionFilter(inclusionFilter === true ? null : true),
-                  null,
-                  'inc'
-                )}
-                {chip(
-                  `Excluded${inclusionCounts.excluded ? ` · ${inclusionCounts.excluded}` : ''}`,
-                  inclusionFilter === false,
-                  () => setInclusionFilter(inclusionFilter === false ? null : false),
-                  null,
-                  'exc'
-                )}
                 {CHANNEL_CHIPS.filter(([, ch]) => dealChannels.has(ch)).map(
                   ([label, ch]) => {
                     const n = dealChannels.get(ch) || 0
@@ -838,27 +757,22 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
             >
               <Timeline
                 messages={filtered}
-                onToggleIncluded={toggleIncluded}
                 highlightedId={highlightedId}
               />
-              {/* The right rail follows the section tabs above. Sections
-                  without their own panel yet fall through to Commitments. */}
+              {/* The right rail follows the section tabs above. Tasks is the
+                  default — Commitments is gone, and an unbuilt section
+                  shouldn't be what the rail lands on. */}
               {activeSection === 'qualification' ? (
                 <QualificationSection qualification={deal?.qualification || []} />
-              ) : activeSection === 'tasks' ? (
-                <DealTasksSection dealId={dealId} />
               ) : activeSection === 'notes' ? (
                 <DealNotesSection dealId={dealId} />
               ) : (
-                <CommitmentsSection />
+                <DealTasksSection dealId={dealId} />
               )}
             </div>
             <AskDeal
               dealId={dealId}
               onJumpToMessage={jumpToMessage}
-              // Pending checkbox changes must land before the question does,
-              // or the server builds context from the old inclusion state.
-              beforeAsk={flushInclusions}
               // The live timeline rows. AskDeal derives its channel counts
               // from these so a checkbox tick updates them instantly —
               // re-fetching from the server would lag behind unflushed ticks.

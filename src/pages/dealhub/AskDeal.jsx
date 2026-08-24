@@ -2,10 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { aiAPI } from '../../api/ai'
 import { SkeletonStyles, Bar } from '../shared/ListChrome'
 
-// Deal Hub — Ask this deal panel.
+// Deal Hub — Co-Pilot panel.
 //
 // Two-column composition:
-//   Left  · a free-text question box scoped to this deal's included messages
+//   Left  · a free-text question box scoped to this deal's messages
 //   Right · five curated prompts written for a sales manager reviewing the
 //           deal (next step, biggest risk, undelivered promises, missing
 //           qualification, coaching the rep on price objections).
@@ -33,7 +33,7 @@ const PROMPTS = [
     icon: 'warning',
     accent: 'rose',
     label: 'What is the biggest risk here?',
-    hint: 'Reads the included messages'
+    hint: "Reads this deal's messages"
   },
   {
     id: 'promises',
@@ -82,35 +82,33 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
   // Past chats for this deal, from ai_runs. Loading these is what makes the
   // panel resumable across reloads.
   const [history, setHistory] = useState([])
-  const [historyOpen, setHistoryOpen] = useState(false)
   const [activeChatId, setActiveChatId] = useState(null)
   const [toast, setToast] = useState(null)
-  // Per-question channel scope. Transient: narrows this answer only, never
-  // changes the stored inclusion state the timeline checkboxes drive.
+  // Per-question channel scope. Transient: narrows this answer only.
   const [channels, setChannels] = useState([])
   // Which run's "messages considered" modal is open.
   const [inspectRunId, setInspectRunId] = useState(null)
   // Per-channel counts of what the AI would read right now, derived from the
-  // live timeline rows. Deliberately NOT fetched from the server: the
-  // inclusion checkbox is optimistic and batched, so a server count would lag
-  // behind unflushed ticks — and the stale number is precisely the one the rep
-  // is reading while deciding what to ask.
+  // live timeline rows rather than fetched — the server count would lag a
+  // channel toggle, and the stale number is precisely the one the rep is
+  // reading while deciding what to ask.
   const scope = useMemo(() => {
     const byChannel = {}
     let readable = 0
     let untranscribedCalls = 0
-    let excluded = 0
     let notes = 0
     let total = 0
 
     for (const m of messages) {
-      // Events (opp created, DND enabled, …) aren't evidence and have no
-      // checkbox — they're not part of what the AI reads.
+      // Events (opp created, DND enabled, …) aren't evidence.
       if (m.event) continue
+      // Tasks share the timeline but aren't conversation evidence, so they
+      // don't belong in a message count. Notes DO count — they're written
+      // context the agent reads.
+      if (m.kind === 'task') continue
       total++
-      if (!m.included) { excluded++; continue }
       if (!m.readable) { untranscribedCalls++; continue }
-      if (m.channel === 'NOTE') { notes++; readable++; continue }
+      if (m.channel === 'NOTE' || m.kind === 'note') { notes++; readable++; continue }
       const key = String(m.channel || '').toLowerCase()
       byChannel[key] = (byChannel[key] || 0) + 1
       readable++
@@ -121,9 +119,6 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
       unreadReasons.push(
         `${untranscribedCalls} call${untranscribedCalls === 1 ? '' : 's'} not transcribed`
       )
-    }
-    if (excluded > 0) {
-      unreadReasons.push(`${excluded} excluded`)
     }
 
     return {
@@ -259,13 +254,14 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
       style={{
         position: 'relative',
         display: 'grid',
-        gridTemplateColumns: 'minmax(0, 2fr) minmax(320px, 1fr)',
+        // Chat history is the narrow rail, Co-Pilot the wide panel — the
+        // conversation is the work, the history is navigation.
+        gridTemplateColumns: 'minmax(240px, 0.9fr) minmax(0, 3fr)',
         gap: 14,
-        // Both panels stretch to the taller of the two (grid default), and the
-        // Ask panel's inner flex column then pins its composer to the bottom
-        // of that height. A floor keeps the composer low even on a deal with no
-        // chat history yet, where the Prompts column would otherwise set a
-        // short height.
+        // Both panels stretch to the taller of the two (grid default), and
+        // Co-Pilot's inner flex column then pins its composer to the bottom of
+        // that height. A floor keeps the composer low on a deal with no chat
+        // history yet, where the rail would otherwise set a short height.
         minHeight: 420,
         alignItems: 'stretch'
       }}
@@ -298,7 +294,68 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
           {toast}
         </div>
       )}
-      {/* Left — Ask this deal */}
+      {/* Left rail — Chat history. Server-backed (ai_runs), so a rep who
+          reloads or comes back tomorrow still has the thread of what was
+          asked. */}
+      <section
+        style={{
+          border: '2px solid var(--brand-primary)',
+          borderRadius: 'var(--radius-md)',
+          background: '#fff',
+          display: 'flex', flexDirection: 'column',
+          overflow: 'hidden'
+        }}
+      >
+        <header
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '12px 16px',
+            borderBottom: '1px solid var(--border-default)'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 19, color: 'var(--brand-primary)' }}>
+            history
+          </span>
+          <h3
+            style={{
+              fontSize: 17, fontWeight: 600, color: 'var(--brand-primary)',
+              margin: 0, flex: 1
+            }}
+          >
+            Chat history
+          </h3>
+          <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+            {history.length} {history.length === 1 ? 'chat' : 'chats'}
+          </span>
+        </header>
+
+        <div style={{ padding: 12, display: 'grid', gap: 10, overflowY: 'auto' }}>
+          <ChatHistory
+            chats={history}
+            activeId={activeChatId}
+            onReopen={reopen}
+            onInspect={setInspectRunId}
+          />
+
+          {/* Prompt starters live under the history — same rail, and both
+              answer "what do I ask next". */}
+          <div style={{ display: 'grid', gap: 6 }}>
+            <span
+              style={{
+                fontSize: 10, fontWeight: 600, letterSpacing: '0.07em',
+                textTransform: 'uppercase', color: 'var(--text-muted)'
+              }}
+            >
+              Starters
+            </span>
+            {PROMPTS.map((p) => (
+              <PromptCard key={p.id} prompt={p} onPick={() => setQ(p.label)} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Co-Pilot — the wide panel. */}
       <section
         style={{
           border: '2px solid var(--accent-teal)',
@@ -323,7 +380,7 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
               margin: 0, flex: 1
             }}
           >
-            Ask this deal
+            Co-Pilot
           </h3>
         </header>
 
@@ -345,7 +402,7 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
               }}
             >
               Ask a question about this deal, or pick a prompt on the right.
-              Answers read only the included messages, and every claim carries a
+              Answers read this deal's messages, and every claim carries a
               quote you can click through to.
             </p>
           )}
@@ -477,61 +534,6 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
         </div>
       </section>
 
-      {/* Right — Prompts */}
-      <section
-        style={{
-          border: '2px solid var(--accent-gold)',
-          borderRadius: 'var(--radius-md)',
-          background: '#fff',
-          display: 'flex', flexDirection: 'column'
-        }}
-      >
-        <header
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '12px 16px',
-            borderBottom: '1px solid var(--border-default)'
-          }}
-        >
-          <span className="ms" style={{ fontSize: 20, color: 'var(--accent-gold)' }}>
-            bolt
-          </span>
-          <h3
-            style={{
-              fontSize: 18, fontWeight: 600, color: 'var(--accent-gold)',
-              margin: 0, flex: 1
-            }}
-          >
-            Prompts
-          </h3>
-          <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
-            For the manager
-          </span>
-        </header>
-
-        <div
-          style={{
-            padding: 12, display: 'flex', flexDirection: 'column', gap: 8
-          }}
-        >
-          {PROMPTS.map((p) => (
-            <PromptCard
-              key={p.id}
-              prompt={p}
-              onPick={() => setQ(p.label)}
-            />
-          ))}
-
-          <ChatHistory
-            chats={history}
-            open={historyOpen}
-            onToggle={() => setHistoryOpen((v) => !v)}
-            activeId={activeChatId}
-            onReopen={reopen}
-            onInspect={setInspectRunId}
-          />
-        </div>
-      </section>
     </div>
   )
 }
@@ -598,36 +600,25 @@ function PromptCard({ prompt, onPick }) {
 // Server-backed (ai_runs), not session state — that's the whole point: a rep
 // who reloads, switches deals and comes back, or picks the deal up tomorrow
 // still has the thread of what was already asked.
-function ChatHistory({ chats, open, onToggle, activeId, onReopen, onInspect }) {
-  if (!chats || chats.length === 0) return null
-  return (
-    <div style={{ display: 'grid', gap: 8 }}>
-      <button
-        onClick={onToggle}
+function ChatHistory({ chats, activeId, onReopen, onInspect }) {
+  if (!chats || chats.length === 0) {
+    return (
+      <p
         style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          cursor: 'pointer', width: '100%',
-          padding: '10px 12px',
-          border: '1px solid var(--border-default)',
-          borderRadius: 'var(--radius-md)',
+          margin: 0, padding: '10px 12px',
           background: 'var(--surface-sunken)',
-          fontFamily: 'var(--font-sans)', textAlign: 'left'
+          borderRadius: 'var(--radius-sm)',
+          fontSize: 12.5, lineHeight: 1.5, color: 'var(--text-muted)'
         }}
       >
-        <span className="ms" style={{ fontSize: 17, color: 'var(--text-muted)' }}>history</span>
-        <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-body)' }}>
-          Chat history
-        </span>
-        <span style={{ fontSize: 12, color: 'var(--text-muted)', flex: 1 }}>
-          {chats.length} {chats.length === 1 ? 'chat' : 'chats'}
-        </span>
-        <span className="ms" style={{ fontSize: 18, color: 'var(--text-faint)' }}>
-          {open ? 'expand_less' : 'expand_more'}
-        </span>
-      </button>
-
-      {open && (
-        <div style={{ display: 'grid', gap: 6 }}>
+        No chats yet. Questions you ask are kept here, so you can pick the
+        thread back up later.
+      </p>
+    )
+  }
+  return (
+    <div style={{ display: 'grid', gap: 8 }}>
+      <div style={{ display: 'grid', gap: 6 }}>
           {chats.map((c) => {
             const active = c.id === activeId
             return (
@@ -694,8 +685,7 @@ function ChatHistory({ chats, open, onToggle, activeId, onReopen, onInspect }) {
               </button>
             )
           })}
-        </div>
-      )}
+      </div>
     </div>
   )
 }
@@ -754,57 +744,74 @@ function Answer({ turn, onJumpToMessage, onInspect }) {
         {turn.answerText}
       </p>
 
+      {/* Quote attributions, inline under the prose — the mockup reads them
+          as part of the answer, not as a separate evidence list. */}
+      {turn.citations?.length > 0 && (
+        <div style={{ padding: '0 14px 10px', display: 'grid', gap: 6 }}>
+          {turn.citations.map((c, i) => (
+            <button
+              key={`${c.messageId}-${i}`}
+              onClick={() => onJumpToMessage && onJumpToMessage(c.messageId)}
+              title={onJumpToMessage ? 'Jump to this message in the timeline' : undefined}
+              style={{
+                display: 'block', textAlign: 'left', width: '100%',
+                padding: 0, border: 'none', background: 'none',
+                cursor: onJumpToMessage ? 'pointer' : 'default',
+                fontFamily: 'var(--font-sans)',
+                fontSize: 13, lineHeight: 1.55, color: 'var(--text-body)'
+              }}
+            >
+              <span style={{ fontStyle: 'italic' }}>&ldquo;{c.quoteText}&rdquo;</span>
+              {c.sourceLabel && (
+                <span style={{ color: 'var(--text-muted)' }}> — {c.sourceLabel}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* BASED ON — which messages the answer came from, and the verification
+          line. The verification is a code-level guarantee, not a claim the
+          model makes: each quote is checked character-exact against its source
+          before the answer is shown, and anything unquotable is dropped. */}
       {turn.citations?.length > 0 && (
         <div
           style={{
             padding: '10px 14px 12px',
-            borderTop: '1px solid var(--border-default)',
-            background: 'var(--gray-25)'
+            borderTop: '1px solid var(--border-default)'
           }}
         >
           <span
             style={{
-              display: 'block', marginBottom: 7,
+              display: 'block', marginBottom: 6,
               fontSize: 10, fontWeight: 600, letterSpacing: '0.07em',
               textTransform: 'uppercase', color: 'var(--text-muted)'
             }}
           >
-            {turn.citations.length === 1 ? 'Evidence' : `Evidence · ${turn.citations.length}`}
+            Based on
           </span>
-          <div style={{ display: 'grid', gap: 6 }}>
-            {turn.citations.map((c, i) => (
-              <button
-                key={`${c.messageId}-${i}`}
-                onClick={() => onJumpToMessage && onJumpToMessage(c.messageId)}
-                title={onJumpToMessage ? 'Jump to this message in the timeline' : undefined}
-                style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 7,
-                  textAlign: 'left', width: '100%',
-                  padding: '7px 9px',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: 'var(--radius-sm)',
-                  background: '#fff',
-                  cursor: onJumpToMessage ? 'pointer' : 'default',
-                  fontFamily: 'var(--font-sans)'
-                }}
-              >
-                <span
-                  className="ms"
-                  style={{ fontSize: 14, color: 'var(--accent-teal)', flex: 'none', marginTop: 1 }}
-                >
-                  format_quote
-                </span>
-                <span
-                  style={{
-                    fontSize: 12.5, lineHeight: 1.5, color: 'var(--text-body)',
-                    fontStyle: 'italic'
-                  }}
-                >
-                  {c.quoteText}
-                </span>
-              </button>
+          <div style={{ display: 'grid', gap: 3 }}>
+            {sourceLines(turn.citations).map((line) => (
+              <span key={line} style={{ fontSize: 12.5, color: 'var(--text-body)' }}>
+                {line}
+              </span>
             ))}
           </div>
+          <span
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              marginTop: 7,
+              fontSize: 11.5, color: 'var(--text-muted)'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 14, color: 'var(--status-done)' }}>
+              verified
+            </span>
+            {turn.citations.length}{' '}
+            {turn.citations.length === 1 ? 'quote' : 'quotes'} verified
+            character-exact against{' '}
+            {turn.citations.length === 1 ? 'its source message' : 'their source messages'}
+          </span>
         </div>
       )}
 
@@ -820,7 +827,65 @@ function Answer({ turn, onJumpToMessage, onInspect }) {
           No verifiable quote was attached to this answer — treat it with care.
         </p>
       )}
+
+      {/* Actions. Both write to GHL, which this app has never done — no POST
+          path, no write scopes. Present but disabled rather than absent, so the
+          shape of the finished panel is visible and nothing silently no-ops. */}
+      {turn.answered && (
+        <div
+          style={{
+            display: 'flex', gap: 6, flexWrap: 'wrap',
+            padding: '10px 14px 12px',
+            borderTop: '1px solid var(--border-default)'
+          }}
+        >
+          <AnswerAction icon="sticky_note_2" label="Save as note" />
+          <AnswerAction icon="task_alt" label="Create task" />
+        </div>
+      )}
     </div>
+  )
+}
+
+// "Email · James Halloran · sent 9 Aug 2026", one line per distinct source
+// message. Deduped: two quotes from the same email are one source, and listing
+// it twice would overstate how much the answer rests on.
+function sourceLines(citations) {
+  const seen = new Set()
+  const out = []
+  for (const c of citations) {
+    const line = c.sourceLabel
+      ? `${c.sourceLabel}`
+      : [c.channelLabel, c.senderName].filter(Boolean).join(' · ')
+    if (!line || seen.has(line)) continue
+    seen.add(line)
+    out.push(line)
+  }
+  return out
+}
+
+// An answer action. Disabled until the write path exists — saving a note or
+// creating a task has to reach GHL, and this app has never written to it.
+function AnswerAction({ icon, label }) {
+  return (
+    <button
+      disabled
+      title="Coming next — this writes back to GoHighLevel"
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        cursor: 'not-allowed',
+        height: 30, padding: '0 12px',
+        border: '1px solid var(--border-default)',
+        borderRadius: 'var(--radius-pill)',
+        background: '#fff',
+        fontFamily: 'var(--font-sans)', fontSize: 12.5,
+        color: 'var(--text-faint)',
+        opacity: 0.7
+      }}
+    >
+      <span className="ms" style={{ fontSize: 15 }}>{icon}</span>
+      {label}
+    </button>
   )
 }
 
