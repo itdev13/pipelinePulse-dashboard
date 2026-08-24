@@ -46,7 +46,12 @@ export default function DealSection({
         }}
       >
         <span className="ms" style={{ fontSize: 20, color: accent }}>person</span>
-        <h3 style={{ fontSize: 'var(--text-xl)', fontWeight: 600, color: accent, margin: 0, flex: 1 }}>
+        <h3
+          style={{
+            fontSize: 'var(--text-xl)', fontWeight: 600, color: accent,
+            margin: 0, flex: 1, letterSpacing: '-0.01em'
+          }}
+        >
           Deal
         </h3>
         {deal.status && deal.status !== 'open' && (
@@ -57,18 +62,27 @@ export default function DealSection({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
           gap: 0
         }}
       >
         <Column label="Customer">
-          <div style={{ fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--text-heading)', lineHeight: 1.25 }}>
+          <div
+            style={{
+              fontSize: 'var(--text-3xl)', fontWeight: 600,
+              color: 'var(--text-heading)',
+              lineHeight: 1.15, letterSpacing: '-0.015em',
+              overflowWrap: 'anywhere'
+            }}
+          >
             {customerName}
           </div>
-          {deal.opportunityName && (
+          {/* GHL names a new opportunity after its contact, so this line was
+              repeating the heading verbatim. Only show it when it differs. */}
+          {deal.opportunityName && deal.opportunityName.trim() !== customerName.trim() && (
             <p
               style={{
-                margin: '6px 0 0', fontSize: 'var(--text-base)', lineHeight: 1.45,
+                margin: '5px 0 0', fontSize: 'var(--text-md)', lineHeight: 1.45,
                 color: 'var(--text-muted)'
               }}
             >
@@ -112,17 +126,48 @@ function ValueColumn({ deal, onExpectedCloseChange }) {
   const [expectedClose, setExpectedClose] = useState(
     deal.forecastCloseDate ? toDateInput(deal.forecastCloseDate) : ''
   )
+  // Only swap in the date picker once the user asks for it — see below.
+  const [editingClose, setEditingClose] = useState(false)
 
   return (
     <Column label="Value">
-      <div
-        style={{
-          fontFamily: 'var(--font-mono)', fontSize: 'var(--text-2xl)', fontWeight: 500,
-          letterSpacing: '-0.02em', color: 'var(--text-heading)'
-        }}
-      >
-        {deal.value || <span style={{ color: 'var(--text-faint)' }}>—</span>}
-      </div>
+      {/* The value is the number the card is about, so it gets display size.
+          A £0 or missing value is styled DOWN rather than shown at full weight:
+          "£0" in 34px bold reads as a real figure, when what it means is "nobody
+          has priced this yet". */}
+      {(() => {
+        const raw = String(deal.value ?? '').replace(/[^0-9.]/g, '')
+        const unpriced = !deal.value || Number(raw) === 0
+        if (unpriced) {
+          return (
+            <div>
+              <div
+                style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 'var(--text-2xl)',
+                  fontWeight: 500, color: 'var(--text-faint)'
+                }}
+              >
+                {deal.value || '—'}
+              </div>
+              <div style={{ marginTop: 2, fontSize: 'var(--text-sm)', color: 'var(--accent-gold-text)' }}>
+                Not priced yet
+              </div>
+            </div>
+          )
+        }
+        return (
+          <div
+            className="pp-num"
+            style={{
+              fontSize: 'var(--text-display)', fontWeight: 600,
+              letterSpacing: '-0.03em', lineHeight: 1.05,
+              color: 'var(--text-heading)'
+            }}
+          >
+            {deal.value}
+          </div>
+        )
+      })()}
 
       {/* Quote revision — GHL has no revision field yet, so this only
           appears once something upstream supplies deal.quoteRevision. */}
@@ -134,23 +179,46 @@ function ValueColumn({ deal, onExpectedCloseChange }) {
       )}
 
       <FieldLabel>Expected close</FieldLabel>
-      <input
-        type="date"
-        value={expectedClose}
-        title="Expected close — write flow coming next"
-        onChange={(e) => {
-          setExpectedClose(e.target.value)
-          if (onExpectedCloseChange) onExpectedCloseChange(e.target.value)
-        }}
-        style={{
-          width: '100%', height: 34, boxSizing: 'border-box',
-          padding: '0 10px',
-          border: '1px solid var(--border-strong)',
-          borderRadius: 'var(--radius-md)',
-          background: '#fff',
-          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', color: 'var(--text-body)'
-        }}
-      />
+      {/* An empty <input type="date"> renders the browser's own "dd/mm/yyyy"
+          placeholder, which reads as a broken or half-loaded field rather than
+          "no date set". Show the state as words; reveal the picker on click. */}
+      {expectedClose || editingClose ? (
+        <input
+          type="date"
+          autoFocus={editingClose && !expectedClose}
+          value={expectedClose}
+          title="Expected close — write flow coming next"
+          onChange={(e) => {
+            setExpectedClose(e.target.value)
+            if (onExpectedCloseChange) onExpectedCloseChange(e.target.value)
+          }}
+          style={{
+            width: '100%', height: 34, boxSizing: 'border-box',
+            padding: '0 10px',
+            border: '1px solid var(--border-strong)',
+            borderRadius: 'var(--radius-md)',
+            background: '#fff',
+            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', color: 'var(--text-body)'
+          }}
+        />
+      ) : (
+        <button
+          onClick={() => setEditingClose(true)}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)',
+            cursor: 'pointer',
+            height: 34, padding: '0 10px',
+            border: '1px dashed var(--border-strong)',
+            borderRadius: 'var(--radius-md)',
+            background: 'transparent',
+            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+            color: 'var(--text-muted)'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 16 }}>event</span>
+          Set a date
+        </button>
+      )}
       {deal.valueProvisional && (
         <p style={{ margin: '6px 0 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
           Provisional — excluded from pipeline totals
@@ -211,7 +279,9 @@ function StageColumn({ deal, stages, onStageChange }) {
       <dl style={{ margin: '12px 0 0', display: 'grid', gap: 7 }}>
         <Row
           label="Owner"
-          value={deal.owner}
+          // GHL stores whatever the user typed — this came through as
+          // "jaladanki srinivas". Title-cased for display only.
+          value={titleCase(deal.owner)}
           // A deal still belongs to its owner after they leave the account
           // — flag it rather than hiding it, so it's visibly reassignable.
           suffix={deal.ownerActive === false ? 'left account' : null}
@@ -260,6 +330,14 @@ const FIELD_CHIPS = [
 ]
 
 function FieldChipRow({ deal }) {
+  const set = FIELD_CHIPS.filter(([, k]) => {
+    const v = deal[k]
+    return v != null && String(v).trim() !== ''
+  })
+  const unset = FIELD_CHIPS.filter((f) => !set.includes(f))
+
+  if (set.length === 0 && unset.length === 0) return null
+
   return (
     <div
       style={{
@@ -268,11 +346,65 @@ function FieldChipRow({ deal }) {
         borderTop: '1px solid var(--border-default)'
       }}
     >
-      {FIELD_CHIPS.map(([label, key]) => (
+      {/* Fields that have a value carry information, so they get the space. */}
+      {set.map(([label, key]) => (
         <FieldChip key={key} label={label} value={deal[key]} />
       ))}
+
+      {/* The unset ones do not.
+          Five dashed "Not set" chips filled an entire row of the card with the
+          same non-information repeated five times — on a new deal that was the
+          most visually prominent thing on the page. Collapsed to one chip that
+          still says a gap exists, with the field names on hover. */}
+      {unset.length > 0 && <UnsetChip fields={unset} />}
     </div>
   )
+}
+
+// One chip for every empty field, rather than one chip each.
+function UnsetChip({ fields }) {
+  const [open, setOpen] = useState(false)
+  const names = fields.map(([label]) => label)
+
+  if (open) {
+    return (
+      <>
+        {fields.map(([label, key]) => (
+          <FieldChip key={key} label={label} value={null} />
+        ))}
+        <button onClick={() => setOpen(false)} style={ghostChipStyle}>
+          <span className="ms" style={{ fontSize: 15 }}>unfold_less</span>
+          Hide
+        </button>
+      </>
+    )
+  }
+
+  return (
+    <button
+      onClick={() => setOpen(true)}
+      title={`Not set on this deal: ${names.join(', ')}. Edit the opportunity in GoHighLevel to fill them in.`}
+      style={{ ...ghostChipStyle, borderStyle: 'dashed', borderColor: 'var(--accent-gold)' }}
+    >
+      <span className="ms" style={{ fontSize: 15, color: 'var(--accent-gold-text)' }}>
+        info
+      </span>
+      <span style={{ color: 'var(--accent-gold-text)' }}>
+        {names.length} {names.length === 1 ? 'field' : 'fields'} not set
+      </span>
+    </button>
+  )
+}
+
+const ghostChipStyle = {
+  display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)',
+  cursor: 'pointer',
+  height: 30, padding: '0 11px',
+  border: '1px solid var(--border-strong)',
+  borderRadius: 'var(--radius-sm)',
+  background: 'transparent',
+  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
+  color: 'var(--text-muted)'
 }
 
 function FieldChip({ label, value }) {
@@ -501,16 +633,16 @@ function Column({ label, children, last }) {
     <div
       style={{
         minWidth: 0,
-        padding: '14px 18px var(--space-4)',
+        // More room than before. The card carries the page's most important
+        // facts and was the tightest thing on it — 14px of padding around
+        // 34px display type reads as cramped.
+        padding: 'var(--space-5) var(--space-5) var(--space-5)',
         borderRight: last ? 'none' : '1px solid var(--border-default)'
       }}
     >
       <span
-        style={{
-          display: 'block', marginBottom: 8,
-          fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
-          textTransform: 'uppercase', color: 'var(--text-muted)'
-        }}
+        className="pp-label"
+        style={{ marginBottom: 'var(--space-3)' }}
       >
         {label}
       </span>
@@ -623,7 +755,22 @@ function primaryName(people = []) {
   const first = (p.firstName || '').trim()
   const last = (p.lastName || '').trim()
   if (first && last) return `${first} ${last}`
-  return first || last || p.email || p.phone || p.business || 'Contact'
+  if (first || last) return first || last
+  // No name on the contact. The business is the next most human label; an
+  // email at least reads as a person. A raw phone number as the card's headline
+  // is the worst option — it was showing "+447338628553" at display size with
+  // the actual name underneath it as a subtitle.
+  if (p.business) return p.business
+  if (p.email) return p.email
+  if (p.phone) return p.phone
+  return 'Unnamed contact'
+}
+
+// GHL stores user names however they were typed — "jaladanki srinivas" came
+// through lowercase. Title-case for display only; never for matching.
+function titleCase(v) {
+  if (!v) return v
+  return String(v).replace(/\b[a-z]/g, (ch) => ch.toUpperCase())
 }
 
 function daysSince(ts) {

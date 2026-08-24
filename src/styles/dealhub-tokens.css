@@ -139,6 +139,8 @@
   --text-lg: 14px;
   --text-xl: 17px;
   --text-2xl: 22px;
+  --text-3xl: 28px;   /* page titles */
+  --text-display: 34px;  /* the one number or name a card is ABOUT */
 
   /* Line heights. Tight for headings, open for anything read in paragraphs. */
   --leading-tight: 1.25;
@@ -326,4 +328,44 @@
 [data-dealhub] .pp-num {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+}
+
+/* Panel headers.
+ *
+ * Every section (Deal, Timeline, Tasks, Notes, Co-Pilot, Qualification) draws
+ * the same header: coloured icon, coloured title, meta on the right. It was
+ * duplicated inline in each component, which is why the weights and sizes had
+ * drifted apart. One definition; components set only the accent.
+ */
+[data-dealhub] .pp-panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-card);
+}
+[data-dealhub] .pp-panel-head h2,
+[data-dealhub] .pp-panel-head h3 {
+  flex: 1;
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em;
+}
+[data-dealhub] .pp-panel-meta {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+}
+
+/* A tinted band under a panel header — the explanatory blurb on Tasks, the
+ * "Company Info" note on Businesses, the coverage line on Co-Pilot. */
+[data-dealhub] .pp-panel-note {
+  margin: 0;
+  padding: 11px var(--space-4);
+  border-bottom: 1px solid var(--border-default);
+  background: var(--gray-25);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--text-body);
 }

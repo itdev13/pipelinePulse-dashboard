@@ -1,4 +1,5 @@
 import React from 'react'
+import { RichBody } from '../shared/ListChrome'
 
 // One deal's merged message timeline.
 //
@@ -524,16 +525,15 @@ function EntryRow({ m, highlighted }) {
             {m.dealTag && <DealPill label={m.dealTag} />}
           </div>
 
-          {/* Body */}
+          {/* Body.
+              Notes and tasks are authored in GHL's rich-text editor, so their
+              bodies are MARKUP. Rendered as a string they print their own tags
+              — "<p style=...>opp note</p>" instead of "opp note". RichBody
+              renders the HTML and carries the plain-text toggle the list pages
+              already use. */}
           {m.body && (
-            <div
-              style={{
-                marginTop: 8,
-                fontSize: 'var(--text-lg)', lineHeight: 1.55, color: 'var(--text-body)',
-                overflowWrap: 'anywhere'
-              }}
-            >
-              {m.body}
+            <div style={{ marginTop: 8 }}>
+              <RichBody html={m.body} size="var(--text-lg)" maxWidth={720} />
             </div>
           )}
         </div>
