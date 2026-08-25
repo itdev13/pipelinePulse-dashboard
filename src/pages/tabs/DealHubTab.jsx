@@ -153,6 +153,19 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
     pendingInclusions.current.set(m.messageId, next)
   }
 
+  // Select or deselect every readable message at once. Same batching as a
+  // single tick, so turning 200 messages off is one request.
+  const setAllIncluded = (next) => {
+    setMessages((prev) =>
+      prev.map((x) => {
+        if (x.kind || x.event) return x
+        if (x.included === next) return x
+        pendingInclusions.current.set(x.messageId, next)
+        return { ...x, included: next }
+      })
+    )
+  }
+
   // Returns a promise so a caller can await it before asking — otherwise the
   // context builder reads the old state.
   const flushInclusions = async () => {
@@ -790,6 +803,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                 messages={filtered}
                 highlightedId={highlightedId}
                 onToggleSelect={toggleIncluded}
+                onSelectAll={setAllIncluded}
               />
               {/* All three panels stacked, no tab to pick between them. With
                   only three sections left, switching cost a click and hid two
