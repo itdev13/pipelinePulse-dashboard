@@ -22,15 +22,7 @@ function accentVar(accent) {
   // 'gray' isn't in the token palette — map to the neutral border.
   return accent === 'gray' ? 'var(--gray-400)' : `var(--accent-${accent})`
 }
-function tintVar(accent) {
-  return accent === 'gray' ? 'var(--gray-50)' : `var(--tint-${accent})`
-}
 
-function formatDateGutter(iso) {
-  const d = new Date(iso)
-  const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-  return { day: d.getDate(), mon: M[d.getMonth()] }
-}
 
 function formatBytes(n) {
   if (!n) return ''
@@ -73,321 +65,235 @@ function AttachmentChip({ att, channelAccent, onClick }) {
 // (opp created, task completed, invoice paid, etc). No card, no checkbox,
 // just a thin line with icon + label + date on the spine.
 function EventRow({ m }) {
-  const gutter = formatDateGutter(m.ts)
-  const col = accentVar(m.channelAccent)
+  // A system event ("Opportunity created", "Task completed") is background, not
+  // conversation. Centred and quiet, so it separates the thread the way a day
+  // divider does rather than competing with the messages either side of it.
+  const label = m.eventLabel || m.channel || 'Event'
+  const body = m.body || ''
+  const startsWithLabel = body.toLowerCase().startsWith(label.toLowerCase())
+  const text = body
+    ? (startsWithLabel ? body : `${label} · ${body}`)
+    : label
+
   return (
     <div
       id={`tl-${m.id}`}
       style={{
-        position: 'relative',
-        display: 'grid', gridTemplateColumns: '40px 1fr',
-        alignItems: 'center', marginBottom: 6, opacity: 0.7
+        display: 'flex', justifyContent: 'center',
+        margin: 'var(--space-2) 0'
       }}
     >
-      {/* Gutter — smaller square for events */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, paddingTop: 3 }}>
-        <div
-          title={m.channel}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 22, height: 22, boxSizing: 'border-box',
-            border: `1px solid ${col}`, borderRadius: 'var(--radius-sm)',
-            background: 'var(--surface-page)'
-          }}
-        >
-          <span className="ms" style={{ fontSize: 12, color: col }}>{m.channelIcon}</span>
-        </div>
-        <div
-          style={{
-            textAlign: 'center', fontSize: 'var(--text-xs)', fontWeight: 500, lineHeight: 1.2,
-            color: 'var(--text-faint)'
-          }}
-        >
-          {gutter.day} {gutter.mon}
-        </div>
-      </div>
-
-      {/* Event line — thin, muted. Two parts:
-            1. LABEL (bold-ish) — "Opportunity" / "Invoice" / "Appointment"
-            2. BODY (regular)   — the human phrase GHL sends, e.g.
-                                  "created" / "Task completed — Send brochure"
-          If the body already starts with the label (e.g. "Opportunity
-          created"), we drop the label to avoid "Opportunity · Opportunity
-          created". */}
-      {(() => {
-        const label = m.eventLabel || m.channel || 'Event'
-        const body = m.body || ''
-        const bodyStartsWithLabel = body.toLowerCase().startsWith(label.toLowerCase())
-        return (
-          <div
-            style={{
-              display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-              padding: 'var(--space-1) var(--space-3)',
-              fontSize: 'var(--text-base)', color: 'var(--text-muted)',
-              minHeight: 24
-            }}
-          >
-            {!bodyStartsWithLabel && (
-              <span
-                style={{
-                  fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
-                  textTransform: 'uppercase', color: col,
-                  padding: '1px 6px', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--surface-sunken)'
-                }}
-              >
-                {label}
-              </span>
-            )}
-            <span style={{ fontWeight: 500, color: 'var(--text-body)' }}>
-              {body || label}
-            </span>
-            {m.senderName && m.senderName !== 'Rep' && m.senderName !== 'Contact' && (
-              <span style={{ color: 'var(--text-faint)' }}>· {m.senderName}</span>
-            )}
-          </div>
-        )
-      })()}
+      <span
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          maxWidth: '80%',
+          padding: '4px 12px',
+          borderRadius: 'var(--radius-pill)',
+          background: 'var(--gray-50)',
+          fontSize: 'var(--text-sm)', color: 'var(--text-muted)'
+        }}
+      >
+        <span className="ms" style={{ fontSize: 14, flex: 'none' }}>
+          {m.channelIcon || 'info'}
+        </span>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {text}
+        </span>
+        <span style={{ flex: 'none', color: 'var(--text-faint)' }}>
+          {formatClock(m.ts)}
+        </span>
+      </span>
     </div>
   )
 }
 
+// One message, as a chat bubble.
+//
+// This is a CONVERSATION, so it reads like one: outbound sits right, inbound
+// sits left, and the bubble hugs its content. Before this every message was an
+// identical full-width boxed card with a five-part header — "SMS → Out ●
+// jaladanki srinivas to Contact" above two characters of text — so you could
+// not tell at a glance who had said what, and a one-word reply occupied the
+// same real estate as a paragraph.
+//
+// The channel, sender and time move BELOW the bubble as one quiet line. They
+// are context, not the message.
+// "14:32". The date lives on the day divider, so each message only needs its
+// time — the old gutter repeated "19 Aug" beside five consecutive messages.
+function formatClock(iso) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+}
+
+// A date separator between days, the way any messaging app does it. Replaces
+// the per-row date gutter.
+function DayDivider({ iso }) {
+  const d = new Date(iso)
+  const label = Number.isNaN(d.getTime())
+    ? 'Unknown date'
+    : (() => {
+        const today = new Date()
+        const startOf = (x) => Date.UTC(x.getFullYear(), x.getMonth(), x.getDate())
+        const days = Math.round((startOf(today) - startOf(d)) / 86400000)
+        if (days === 0) return 'Today'
+        if (days === 1) return 'Yesterday'
+        const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+        const year = d.getFullYear() === today.getFullYear() ? '' : ` ${d.getFullYear()}`
+        return `${d.getDate()} ${M[d.getMonth()]}${year}`
+      })()
+
+  return (
+    <div
+      style={{
+        display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
+        margin: 'var(--space-4) 0 var(--space-3)'
+      }}
+    >
+      <span style={{ flex: 1, height: 1, background: 'var(--border-default)' }} />
+      <span
+        style={{
+          flex: 'none',
+          fontSize: 'var(--text-sm)', fontWeight: 600,
+          color: 'var(--text-muted)'
+        }}
+      >
+        {label}
+      </span>
+      <span style={{ flex: 1, height: 1, background: 'var(--border-default)' }} />
+    </div>
+  )
+}
+
+// Same calendar day? Used to decide where a divider goes.
+function sameDay(a, b) {
+  if (!a || !b) return false
+  const x = new Date(a), y = new Date(b)
+  if (Number.isNaN(x.getTime()) || Number.isNaN(y.getTime())) return false
+  return x.getFullYear() === y.getFullYear()
+    && x.getMonth() === y.getMonth()
+    && x.getDate() === y.getDate()
+}
+
 function MessageRow({ m, highlighted, onJumpAttachment }) {
-  const gutter = formatDateGutter(m.ts)
   const channelCol = accentVar(m.channelAccent)
-  const channelTint = tintVar(m.channelAccent)
-  const senderCol = accentVar(m.senderAccent)
-  // The API passes messages.message_direction straight through, which the
-  // writers store as 'inbound' / 'outbound'.
   const inbound = m.direction === 'inbound'
   const outbound = m.direction === 'outbound'
-  const showDot = inbound || outbound
   const isEvent = m.event || m.channel === 'TASK' || m.channel === 'SYSTEM'
-  const dirLabel = inbound ? 'In ←' : outbound ? '→ Out' : null
-  const dirColor = inbound ? 'var(--green-600)' : 'var(--text-muted)'
   const many = m.toIds && m.toIds.length > 1
   const opacity = m.imported ? 0.6 : 1
+
+  // Ours on the right, theirs on the left — the universal convention. Anything
+  // with no direction (a system row) centres as neutral.
+  const side = outbound ? 'flex-end' : 'flex-start'
 
   return (
     <div
       id={`tl-${m.id}`}
       style={{
-        position: 'relative',
-        display: 'grid', gridTemplateColumns: '40px 1fr',
-        alignItems: 'start', marginBottom: 10,
+        display: 'flex', flexDirection: 'column', alignItems: side,
+        marginBottom: 'var(--space-3)', opacity
       }}
     >
-      {/* Left gutter — channel square + date */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, paddingTop: 11 }}>
-        <div
-          title={CH_LABEL[m.channel]}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 28, height: 28, boxSizing: 'border-box',
-            border: `1.5px solid ${channelCol}`,
-            borderRadius: 'var(--radius-sm)',
-            background: channelTint,
-            opacity,
-          }}
-        >
-          <span className="ms" style={{ fontSize: 16, color: channelCol }}>{m.channelIcon}</span>
-        </div>
-        <div
-          style={{
-            textAlign: 'center', fontSize: 'var(--text-xs)', fontWeight: 600, lineHeight: 1.25,
-            color: 'var(--text-faint)', background: 'var(--surface-page)', padding: '2px 0',
-          }}
-        >
-          {gutter.day}
-          <br />
-          {gutter.mon}
-        </div>
-      </div>
+      <div
+        style={{
+          maxWidth: '78%', minWidth: 0,
+          padding: '10px 14px',
+          // Outbound is brand-tinted, inbound is white with a border. Colour
+          // carries the direction so the label doesn't have to.
+          background: highlighted
+            ? 'var(--tint-gold)'
+            : outbound ? 'var(--tint-pine)' : '#fff',
+          border: `1px solid ${
+            highlighted
+              ? 'var(--accent-gold)'
+              : outbound ? 'var(--green-100)' : 'var(--border-default)'
+          }`,
+          // The corner nearest the speaker is squared off — the tail.
+          borderRadius: outbound
+            ? 'var(--radius-md) var(--radius-md) var(--radius-sm) var(--radius-md)'
+            : 'var(--radius-md) var(--radius-md) var(--radius-md) var(--radius-sm)',
+          transition: 'background 0.4s ease-out'
+        }}
+      >
+        {/* Call rows carry their duration in place of a body. */}
+        {m.isCall && !m.body && (
+          <span
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              fontSize: 'var(--text-md)', color: 'var(--text-muted)'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 16 }}>call</span>
+            Call · {m.callDurationMin ? `${m.callDurationMin} min` : 'unknown length'}
+            {' · '}no transcript, so the agent cannot read it
+          </span>
+        )}
 
-      {/* Card.
-          The channel accent used to be a 4px stripe on BOTH the top and bottom
-          edge of every row. On a twenty-message thread that's forty coloured
-          bars, and it made the list the loudest thing on the page while telling
-          you nothing the gutter icon didn't already say. One thin left rail
-          instead: still colour-coded, no longer shouting. */}
-      <div
-        style={{
-          border: '1px solid var(--border-default)',
-          borderLeft: `3px solid ${channelCol}`,
-          borderRadius: 'var(--radius-md)',
-          opacity,
-          background: highlighted ? 'var(--tint-gold)' : '#fff',
-          transition: 'background 0.4s ease-out',
-          overflow: 'hidden',
-        }}
-      >
-      <div
-        style={{
-          padding: isEvent ? '8px 16px' : '12px 16px',
-        }}
-      >
-        {/* Content — full width now the per-message AI checkbox is gone. */}
-        <div style={{ minWidth: 0 }}>
-          {/* Header row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-            <span
-              style={{
-                fontSize: 'var(--text-sm)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
-                textTransform: 'uppercase', color: channelCol,
-              }}
-            >
-              {CH_LABEL[m.channel]}
-            </span>
-            {dirLabel && (
-              <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: dirColor }}>{dirLabel}</span>
-            )}
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              {showDot && (
-                <span
-                  style={{
-                    width: 9, height: 9, flex: 'none',
-                    borderRadius: 'var(--radius-pill)',
-                    background: senderCol,
-                  }}
-                />
-              )}
-              <span style={{ fontWeight: 600, fontSize: 'var(--text-md)', color: 'var(--text-heading)' }}>
-                {m.senderName}
-              </span>
-            </span>
-            {many && (
-              <span
-                title={`Sent as one message to ${m.toIds.length} people`}
-                style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}
-              >
-                to {m.toNames.join(', ')}
-              </span>
-            )}
-            {!many && outbound && m.toNames && m.toNames.length === 1 && (
-              <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>to {m.toNames[0]}</span>
-            )}
-            {m.ambiguous && (
-              <span
-                title="This contact is on more than one opportunity — file it with the tag on the right"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)',
-                  height: 22, padding: '0 var(--space-2)',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'var(--tint-gold)', color: 'var(--accent-gold-text)',
-                  fontSize: 'var(--text-sm)', fontWeight: 600,
-                }}
-              >
-                <span className="ms" style={{ fontSize: 13 }}>help</span>
-                Which opportunity?
-              </span>
-            )}
-            {m.imported && (
-              <span
-                style={{
-                  fontSize: 'var(--text-sm)', fontWeight: 600,
-                  padding: '2px var(--space-2)', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--gray-100)', color: 'var(--gray-600)',
-                }}
-              >
-                Imported
-              </span>
-            )}
-            {m.manual && (
-              <span
-                style={{
-                  fontSize: 'var(--text-sm)', fontWeight: 600,
-                  padding: '2px var(--space-2)', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--tint-pine)', color: 'var(--accent-pine-text)',
-                }}
-              >
-                Added manually
-              </span>
-            )}
-            {m.excludedBy && (
-              <span
-                style={{
-                  fontSize: 'var(--text-sm)', fontWeight: 600,
-                  padding: '2px var(--space-2)', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--tint-gold)', color: 'var(--accent-gold-text)',
-                }}
-              >
-                Excluded by {m.excludedBy}
-              </span>
-            )}
+        {m.body && (
+          <div
+            style={{
+              fontSize: 'var(--text-lg)', lineHeight: 'var(--leading-normal)',
+              color: isEvent ? 'var(--text-muted)' : 'var(--text-heading)',
+              whiteSpace: 'pre-line', overflowWrap: 'anywhere'
+            }}
+          >
+            {m.body}
           </div>
+        )}
 
-          {/* Call-only note when unreadable */}
-          {m.channel === 'CALL' && !m.readable && (
-            <div
-              style={{
-                marginTop: 6, padding: 'var(--space-2) var(--space-3)',
-                background: 'var(--surface-sunken)',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: 'var(--text-base)', color: 'var(--text-muted)',
-                display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-              }}
-            >
-              <span className="ms" style={{ fontSize: 16, color: 'var(--text-faint)' }}>call</span>
-              Call · {m.callDurationMin} min · no transcript — not readable by AI yet
-            </div>
-          )}
-
-          {/* Body */}
-          {m.body && (
-            <div
-              style={{
-                fontSize: 'var(--text-lg)', lineHeight: 1.5,
-                color: isEvent ? 'var(--text-muted)' : 'var(--text-heading)',
-                marginTop: 5, whiteSpace: 'pre-line',
-              }}
-            >
-              {m.body}
-            </div>
-          )}
-
-          {/* Group message note */}
-          {many && (
-            <div
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                marginTop: 8, fontSize: 'var(--text-sm)', color: 'var(--text-faint)',
-              }}
-            >
-              <span className="ms" style={{ fontSize: 14 }}>group</span>
-              Sent as one message to {m.toIds.length} people
-            </div>
-          )}
-
-          {/* Attachments */}
-          {m.attachments && m.attachments.length > 0 && (
-            <div
-              style={{
-                display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6,
-                marginTop: 10,
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 'var(--text-sm)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
-                  textTransform: 'uppercase',
-                  color: 'var(--text-faint)', marginRight: 2,
-                }}
-              >
-                {m.attachments.length > 1 ? `${m.attachments.length} attachments` : '1 attachment'}
-              </span>
-              {m.attachments.map((att, i) => (
-                <AttachmentChip
-                  key={i}
-                  att={att}
-                  channelAccent={m.channelAccent}
-                  onClick={() => onJumpAttachment && onJumpAttachment(m, att)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        {m.attachments && m.attachments.length > 0 && (
+          <div
+            style={{
+              display: 'flex', flexWrap: 'wrap', gap: 6,
+              marginTop: 'var(--space-2)'
+            }}
+          >
+            {m.attachments.map((att, i) => (
+              <AttachmentChip
+                key={`${att.name}-${i}`}
+                att={att}
+                channelAccent={m.channelAccent}
+                onClick={() => onJumpAttachment && onJumpAttachment(att)}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
+      {/* Meta, below the bubble and aligned to its edge. Channel, who, when —
+          the things that used to crowd the top of every card. */}
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          margin: '4px 2px 0',
+          fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
+        }}
+      >
+        <span className="ms" style={{ fontSize: 13, color: channelCol }}>
+          {m.channelIcon}
+        </span>
+        <span style={{ fontWeight: 600, color: channelCol }}>
+          {CH_LABEL[m.channel] || m.channel}
+        </span>
+        <span aria-hidden>·</span>
+        <span>{m.senderName}</span>
+        <span aria-hidden>·</span>
+        <span>{formatClock(m.ts)}</span>
+
+        {many && (
+          <span title={`Sent as one message to ${m.toIds.length} people`}>
+            {' · '}to {m.toIds.length} people
+          </span>
+        )}
+        {m.ambiguous && (
+          <span
+            title="This contact has more than one open deal — filing may be ambiguous"
+            style={{ color: 'var(--accent-gold-text)' }}
+          >
+            {' · '}also on another deal
+          </span>
+        )}
       </div>
     </div>
   )
@@ -403,49 +309,25 @@ function MessageRow({ m, highlighted, onJumpAttachment }) {
 // Same card frame as a message (stripe + gutter square + deal pill) so the
 // stream reads as one thing rather than three interleaved lists.
 function EntryRow({ m, highlighted }) {
-  const gutter = formatDateGutter(m.ts)
   const col = accentVar(m.channelAccent)
   const isNote = m.kind === 'note'
   const opacity = m.imported ? 0.6 : 1
 
+  // Notes and tasks are neither ours nor theirs — they're internal records
+  // filed against the deal. Full width, centred between the bubbles, with the
+  // channel colour as a left rail. The old date gutter is gone; the day divider
+  // above carries the date.
   return (
     <div
       id={`tl-${m.id}`}
-      style={{
-        position: 'relative',
-        display: 'grid', gridTemplateColumns: '40px 1fr',
-        gap: 0, marginBottom: 8, opacity
-      }}
+      style={{ marginBottom: 'var(--space-3)', opacity }}
     >
-      {/* Gutter — channel square + date, same geometry as a message row. */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, paddingTop: 8 }}>
-        <div
-          title={isNote ? 'Note' : 'Task'}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 30, height: 30, boxSizing: 'border-box',
-            border: `1.5px solid ${col}`, borderRadius: 'var(--radius-sm)',
-            background: tintVar(m.channelAccent)
-          }}
-        >
-          <span className="ms" style={{ fontSize: 16, color: col }}>{m.channelIcon}</span>
-        </div>
-        <div
-          style={{
-            textAlign: 'center', fontSize: 'var(--text-xs)', fontWeight: 500, lineHeight: 1.25,
-            color: 'var(--text-faint)'
-          }}
-        >
-          {gutter.day}<br />{gutter.mon}
-        </div>
-      </div>
-
       <div
         style={{
           border: '1px solid var(--border-default)',
           borderLeft: `3px solid ${col}`,
           borderRadius: 'var(--radius-md)',
-          background: highlighted ? 'var(--surface-selected)' : '#fff',
+          background: highlighted ? 'var(--tint-gold)' : 'var(--gray-25)',
           overflow: 'hidden'
         }}
       >
@@ -597,31 +479,30 @@ export default function Timeline({
           padding: '10px var(--space-3) var(--space-3)',
         }}
       >
-        {/* Vertical spine behind the channel icons */}
-        <div
-          aria-hidden
-          style={{
-            position: 'absolute',
-            left: 31, top: 24, bottom: 24, width: 2,
-            background: 'var(--border-default)',
-          }}
-        />
-        {messages.map((m) =>
-          // Tasks and notes render as their own card — a full card inline in
-          // the thread, not the thin grey EventRow used for GHL activity.
-          m.kind === 'task' || m.kind === 'note' ? (
-            <EntryRow key={m.id} m={m} highlighted={highlightedId === m.id} />
-          ) : m.event ? (
-            <EventRow key={m.id} m={m} />
-          ) : (
-            <MessageRow
-              key={m.id}
-              m={m}
-              highlighted={highlightedId === m.id}
-              onJumpAttachment={onJumpAttachment}
-            />
+        {/* The vertical spine and the per-row date gutter are gone: the spine
+            anchored a column of channel icons that no longer exists, and the
+            gutter printed "19 Aug" beside five consecutive messages. Dates are
+            day dividers now, the way a messaging app does it. */}
+        {messages.map((m, i) => {
+          const prev = i > 0 ? messages[i - 1] : null
+          const newDay = !prev || !sameDay(prev.ts, m.ts)
+          return (
+            <React.Fragment key={m.id}>
+              {newDay && m.ts && <DayDivider iso={m.ts} />}
+              {m.kind === 'task' || m.kind === 'note' ? (
+                <EntryRow m={m} highlighted={highlightedId === m.id} />
+              ) : m.event ? (
+                <EventRow m={m} />
+              ) : (
+                <MessageRow
+                  m={m}
+                  highlighted={highlightedId === m.id}
+                  onJumpAttachment={onJumpAttachment}
+                />
+              )}
+            </React.Fragment>
           )
-        )}
+        })}
       </div>
     </section>
   )
