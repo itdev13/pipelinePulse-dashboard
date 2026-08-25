@@ -113,6 +113,8 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
   const [inspectRunId, setInspectRunId] = useState(null)
   const [composerFocused, setComposerFocused] = useState(false)
   const [dragging, setDragging] = useState(false)
+  // Which attachment is open full-size. Null = closed.
+  const [preview, setPreview] = useState(null)
   // Monotonic id source for attachments — see the note where they're built.
   const attachSeq = useRef(0)
 
@@ -493,6 +495,13 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
         alignItems: 'start'
       }}
     >
+      {preview && (
+        <ImagePreview
+          attachment={preview}
+          onClose={() => setPreview(null)}
+        />
+      )}
+
       {inspectRunId && (
         <MessagesConsideredModal
           runId={inspectRunId}
@@ -866,16 +875,34 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
                     key={a.id}
                     style={{ position: 'relative', display: 'inline-flex', flex: 'none' }}
                   >
-                    <img
-                      src={a.previewUrl}
-                      alt={a.name}
-                      title={a.name}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setPreview(a) }}
+                      aria-label={`View ${a.name}`}
                       style={{
-                        width: 56, height: 56, objectFit: 'cover',
+                        display: 'inline-flex', padding: 0,
+                        border: '1px solid var(--border-strong)',
                         borderRadius: 'var(--radius-sm)',
-                        border: '1px solid var(--border-strong)'
+                        background: 'var(--gray-50)',
+                        cursor: 'zoom-in', overflow: 'hidden'
                       }}
-                    />
+                    >
+                      <img
+                        src={a.previewUrl}
+                        alt={a.name}
+                        // A blank square gives no clue whether the file failed
+                        // to read or the image just can't render. Swap in an
+                        // icon so the state is legible.
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none'
+                          const box = e.currentTarget.parentElement
+                          if (box) box.dataset.failed = 'true'
+                        }}
+                        style={{
+                          display: 'block',
+                          width: 56, height: 56, objectFit: 'cover'
+                        }}
+                      />
+                    </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
@@ -1622,6 +1649,108 @@ function formatElapsed(seconds) {
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
   return `${m}:${String(s).padStart(2, '0')}`
+}
+
+// Full-size view of an attached image.
+//
+// Rendered inside the panel rather than as a portal — the Deal Hub lives in a
+// GHL iframe, so a fixed overlay is bounded by the iframe anyway and a portal
+// buys nothing.
+function ImagePreview({ attachment, onClose }) {
+  // Escape closes, and focus moves to the dialog so a keyboard user isn't left
+  // tabbing through the composer behind it.
+  const ref = useRef(null)
+  useEffect(() => {
+    ref.current?.focus()
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={attachment.name}
+      ref={ref}
+      tabIndex={-1}
+      // Click the backdrop to dismiss. The check keeps a click INSIDE the
+      // image from closing it — otherwise you couldn't select or right-click
+      // the picture you opened.
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 60,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 'var(--space-5)',
+        background: 'rgba(20, 25, 34, 0.72)',
+        outline: 'none'
+      }}
+    >
+      <div
+        style={{
+          display: 'grid', gap: 0,
+          maxWidth: 'min(920px, 100%)', maxHeight: '100%',
+          borderRadius: 'var(--radius-lg)',
+          background: '#fff',
+          boxShadow: 'var(--shadow-overlay)',
+          overflow: 'hidden'
+        }}
+      >
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
+            padding: 'var(--space-3) var(--space-4)',
+            borderBottom: '1px solid var(--border-default)'
+          }}
+        >
+          <span
+            style={{
+              flex: 1, minWidth: 0,
+              fontSize: 'var(--text-lg)', fontWeight: 600,
+              color: 'var(--text-heading)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+            }}
+          >
+            {attachment.name}
+          </span>
+          <span style={{ flex: 'none', fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
+            {formatBytes(attachment.bytes)}
+          </span>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              flex: 'none', width: 32, height: 32, padding: 0,
+              border: 'none', borderRadius: 'var(--radius-sm)',
+              background: 'transparent', color: 'var(--text-muted)',
+              cursor: 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 20 }}>close</span>
+          </button>
+        </div>
+
+        {/* The image scrolls inside its own box rather than growing the dialog
+            past the viewport — a tall screenshot would otherwise push the
+            header off-screen. */}
+        <div style={{ overflow: 'auto', background: 'var(--gray-50)', minHeight: 0 }}>
+          <img
+            src={attachment.previewUrl}
+            alt={attachment.name}
+            style={{ display: 'block', maxWidth: '100%', margin: '0 auto' }}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function formatBytes(bytes) {
+  if (!bytes) return ''
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
 function IconButton({ icon, label, onClick, disabled, active }) {

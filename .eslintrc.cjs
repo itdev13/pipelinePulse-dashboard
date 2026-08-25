@@ -21,6 +21,9 @@ module.exports = {
     // JSX counts as a use, or every component reads as unused.
     'react/jsx-uses-vars': 'error',
     'react/jsx-uses-react': 'error',
+    // no-undef does NOT cover <Component /> references — a missing component
+    // builds fine and crashes at render. This is the JSX equivalent.
+    'react/jsx-no-undef': 'error',
     // A leftover after a rename — how `chatCount` survived.
     'no-unused-vars': ['warn', {
       args: 'none',
