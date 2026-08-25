@@ -117,13 +117,18 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                 >
                   {/* The design loops contacts — a note can involve several
                       people (Sarah and Mark on the same note). */}
-                  {(n.contacts?.length ? n.contacts : n.contact ? [n.contact] : []).map((c) => (
-                    <ContactChip
-                      key={c.id}
-                      name={c.name}
-                      onClick={onOpenContact ? () => onOpenContact(c.id) : undefined}
-                    />
-                  ))}
+                  {/* Skip a contact whose name IS the deal name — GHL default-
+                      names an opportunity after its contact, so the two chips
+                      printed the same person twice. */}
+                  {(n.contacts?.length ? n.contacts : n.contact ? [n.contact] : [])
+                    .filter((c) => !sameName(c.name, n.deal?.name))
+                    .map((c) => (
+                      <ContactChip
+                        key={c.id}
+                        name={c.name}
+                        onClick={onOpenContact ? () => onOpenContact(c.id) : undefined}
+                      />
+                    ))}
                   {/* Always rendered — "No deal" is a real state in v5, not an
                       absence to hide. */}
                   <DealChip
@@ -179,6 +184,13 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
       </Panel>
     </Shell>
   )
+}
+
+// Case- and space-insensitive name match. GHL stores whatever was typed, so
+// "james stevens" and "James Stevens" are the same person.
+function sameName(a, b) {
+  if (!a || !b) return false
+  return String(a).trim().toLowerCase() === String(b).trim().toLowerCase()
 }
 
 function AIBadge() {
