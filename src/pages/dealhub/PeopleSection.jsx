@@ -44,10 +44,10 @@ export default function PeopleSection({
           background: 'var(--panel-tint, var(--gray-25))'
         }}
       >
-        <span className="ms" style={{ fontSize: 20, color: 'var(--accent-sky)' }}>group</span>
+        <span className="ms" style={{ fontSize: 20, color: 'var(--accent-sky-text)' }}>group</span>
         <h3
           style={{
-            fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--accent-sky)',
+            fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--accent-sky-text)',
             margin: 0, flex: 1
           }}
         >
@@ -97,21 +97,57 @@ export default function PeopleSection({
 //   7. "Contact"     — genuine last resort, no data at all
 // Initials follow the same fallback: initials of a real name if we have
 // one, else first char of the chosen identifier, else "?".
+// What to show as the card's heading, and which field it came from.
+//
+// `usedField` matters: whatever gets promoted to the heading must not also
+// appear as a detail row below it. The card was printing "SSEN" as the name and
+// then "📞 SSEN" underneath — a business name behind a phone icon.
+//
+// Order is business → email → phone, not the old email → phone → business. A
+// business is the most human label of the three, and a phone number is the
+// least — it was winning over "SSEN" purely because of where it sat.
 function displayFor(p) {
   const first = (p.firstName || '').trim()
   const last  = (p.lastName || '').trim()
-  if (first && last) return { name: `${first} ${last}`, initials: (first[0] + last[0]).toUpperCase() }
-  if (first)         return { name: first, initials: first[0].toUpperCase() }
-  if (last)          return { name: last, initials: last[0].toUpperCase() }
-  if (p.email)       return { name: p.email, initials: p.email[0].toUpperCase() }
-  if (p.phone)       return { name: p.phone, initials: '#' }
-  if (p.business)    return { name: p.business, initials: p.business[0].toUpperCase() }
-  return { name: 'Contact', initials: '?' }
+  if (first && last) {
+    return { name: `${first} ${last}`, initials: (first[0] + last[0]).toUpperCase(), usedField: null }
+  }
+  if (first) return { name: first, initials: first.slice(0, 2).toUpperCase(), usedField: null }
+  if (last)  return { name: last,  initials: last.slice(0, 2).toUpperCase(), usedField: null }
+
+  if (p.business) {
+    return {
+      name: p.business,
+      initials: initialsFromWords(p.business),
+      usedField: 'business'
+    }
+  }
+  if (p.email) {
+    return { name: p.email, initials: p.email[0].toUpperCase(), usedField: 'email' }
+  }
+  if (p.phone) {
+    // A person icon, not '#'. The old placeholder read as a broken glyph — the
+    // card showed a literal hash in the avatar circle.
+    return { name: p.phone, initials: null, usedField: 'phone' }
+  }
+  return { name: 'Unnamed contact', initials: null, usedField: null }
+}
+
+// "SSEN" -> "SS", "Halloran Architects" -> "HA". Two letters either way, so
+// every avatar is the same visual weight.
+function initialsFromWords(value) {
+  const words = String(value).trim().split(/\s+/).filter(Boolean)
+  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase()
+  return (words[0] || '').slice(0, 2).toUpperCase() || null
 }
 
 function PersonCard({ p, filterActive, onShowInThread, allowRemove }) {
-  const { name: fullName, initials } = displayFor(p)
+  const { name: fullName, initials, usedField } = displayFor(p)
+  // Two variants, two jobs. The vivid fill is right for a 3px border; as TEXT
+  // on its own tint it's 4.13:1, below AA — so the avatar initials use the
+  // darkened -text pair.
   const accent = `var(--accent-${p.accent})`
+  const accentText = `var(--accent-${p.accent}-text)`
   const tint = `var(--tint-${p.accent})`
 
   return (
@@ -133,11 +169,14 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove }) {
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: 34, height: 34, flex: 'none',
             borderRadius: '50%',
-            background: tint, color: accent,
-            fontSize: 'var(--text-base)', fontWeight: 600
+            background: tint, color: accentText,
+            fontSize: 'var(--text-md)', fontWeight: 600
           }}
         >
-          {initials}
+          {/* No usable initials (a phone-only contact) gets a person icon.
+              The old fallback was a literal '#', which read as a broken glyph
+              rather than "we don't know who this is". */}
+          {initials || <span className="ms" style={{ fontSize: 19 }}>person</span>}
         </span>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -186,7 +225,7 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove }) {
           fontSize: 'var(--text-base)', color: 'var(--text-body)'
         }}
       >
-        {p.business && (
+        {p.business && usedField !== 'business' && (
           <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
             <span className="ms" style={{ fontSize: 14, color: 'var(--text-faint)' }}>business</span>
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -194,7 +233,7 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove }) {
             </span>
           </span>
         )}
-        {p.email && (
+        {p.email && usedField !== 'email' && (
           <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
             <span className="ms" style={{ fontSize: 14, color: 'var(--text-faint)' }}>mail</span>
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -202,7 +241,7 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove }) {
             </span>
           </span>
         )}
-        {p.phone && (
+        {p.phone && usedField !== 'phone' && (
           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span className="ms" style={{ fontSize: 14, color: 'var(--text-faint)' }}>call</span>
             {p.phone}

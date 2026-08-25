@@ -3,6 +3,7 @@ import Timeline from '../dealhub/Timeline'
 import StageStepper from '../dealhub/StageStepper'
 import PeopleSection from '../dealhub/PeopleSection'
 import DealSection from '../dealhub/DealSection'
+import MediaSection from '../dealhub/MediaSection'
 import AskDeal from '../dealhub/AskDeal'
 import QualificationSection from '../dealhub/QualificationSection'
 import { DealTasksSection, DealNotesSection } from '../dealhub/DealTasksSection'
@@ -573,34 +574,26 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
               ['media',  'Media',  'folder_open']
             ].map(([id, label, icon]) => {
               const active = leftRail === id
-              const disabled = id === 'media'
               return (
                 <button
                   key={id}
-                  onClick={() => !disabled && setLeftRail(id)}
-                  disabled={disabled}
-                  title={disabled ? 'Coming next' : undefined}
+                  onClick={() => setLeftRail(id)}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 7,
-                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    cursor: 'pointer',
                     height: 32, padding: '0 var(--space-3)',
                     border: active
                       ? '1.5px solid var(--brand-primary)'
                       : '1px solid var(--border-strong)',
                     borderRadius: 'var(--radius-pill)',
                     background: active ? 'var(--brand-primary)' : '#fff',
-                    color: active
-                      // White on the solid brand fill. This was
-                      // 'var(--brand-primary)' — brand text on a brand
-                      // background, so the active tab rendered as an empty
-                      // green pill with no label.
-                      ? '#fff'
-                      : disabled
-                      ? 'var(--text-faint)'
-                      : 'var(--text-body)',
+                    // White on the solid brand fill. This was
+                    // 'var(--brand-primary)' — brand text on a brand
+                    // background, so the active tab rendered as an empty green
+                    // pill with no label.
+                    color: active ? '#fff' : 'var(--text-body)',
                     fontFamily: 'var(--font-sans)',
-                    fontSize: 'var(--text-base)', fontWeight: active ? 600 : 400,
-                    opacity: disabled ? 0.55 : 1
+                    fontSize: 'var(--text-base)', fontWeight: active ? 600 : 400
                   }}
                 >
                   <span className="ms" style={{ fontSize: 16 }}>{icon}</span>
@@ -624,6 +617,13 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
               stages={stages || []}
               siblingDeals={siblingDeals}
               onOpenDeal={onSwitchDeal}
+            />
+          )}
+
+          {leftRail === 'media' && (
+            <MediaSection
+              messages={messages || []}
+              onJumpToMessage={jumpToMessage}
             />
           )}
         </div>

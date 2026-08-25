@@ -371,6 +371,10 @@ const FIELD_CHIPS = [
 ]
 
 function FieldChipRow({ deal }) {
+  // Count only — TagList itself dedupes a tag applied to both the deal and the
+  // contact, so re-deriving the list here would render it twice.
+  const tagCount =
+    (deal.dealTags?.length || 0) + (deal.contactTags?.length || 0)
   const isSet = (k) => {
     const v = deal[k]
     return v != null && String(v).trim() !== ''
@@ -394,6 +398,27 @@ function FieldChipRow({ deal }) {
       {ordered.map(([label, key]) => (
         <FieldChip key={key} label={label} value={deal[key]} />
       ))}
+
+      {/* Tags share this line rather than getting their own labelled block
+          below. They're the same kind of thing — small facts about the deal —
+          and a full section with a stacked TAGS heading spent ~90px of card
+          height on what is often a single pill. */}
+      {tagCount > 0 && (
+        <>
+          <span
+            aria-hidden
+            style={{
+              width: 1, height: 20, flex: 'none',
+              background: 'var(--gray-300)', margin: '0 var(--space-1)'
+            }}
+          />
+          <TagList
+            dealTags={deal.dealTags}
+            contactTags={deal.contactTags}
+            inline
+          />
+        </>
+      )}
     </div>
   )
 }
@@ -449,14 +474,16 @@ function FieldChip({ label, value }) {
   )
 }
 
-// Tags and sibling deals, below the chip row. These were in the Product column;
-// they're full-width footers now that the columns are down to three.
+// Sibling deals, below the chip row. Tags used to live here too, but they now
+// share the chip row — a labelled block spent ~90px of card height on what is
+// often a single pill.
 function ProductFooter({ deal, siblingDeals, onOpenDeal }) {
   // The reassignment-targets payload includes the current deal — it's the
   // "move this message to" list. Here we only want the siblings.
   const others = (siblingDeals || []).filter((d) => d.id && !d.current)
-  const hasTags = (deal.dealTags?.length || 0) + (deal.contactTags?.length || 0) > 0
-  if (!hasTags && others.length === 0) return null
+  // Tags moved up into the chip row — rendering them here too would show every
+  // tag twice. This footer is now sibling deals only.
+  if (others.length === 0) return null
 
   return (
     <div
@@ -466,10 +493,6 @@ function ProductFooter({ deal, siblingDeals, onOpenDeal }) {
         borderTop: '1px solid var(--border-default)'
       }}
     >
-      {hasTags && (
-        <TagList dealTags={deal.dealTags} contactTags={deal.contactTags} />
-      )}
-
       {others.length > 0 && (
         <div>
           <FieldLabel>
@@ -546,7 +569,7 @@ function ContactLines({ person }) {
   )
 }
 
-function TagList({ dealTags = [], contactTags = [] }) {
+function TagList({ dealTags = [], contactTags = [], inline = false }) {
   const [expanded, setExpanded] = useState(false)
 
   const deal = dealTags || []
@@ -562,10 +585,8 @@ function TagList({ dealTags = [], contactTags = [] }) {
   const shown = expanded ? all : all.slice(0, LIMIT)
   const hidden = all.length - shown.length
 
-  return (
+  const pills = (
     <>
-      <FieldLabel>Tags</FieldLabel>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
         {shown.map((t) => (
           <span
             key={`${t.scope}:${t.name}`}
@@ -620,7 +641,17 @@ function TagList({ dealTags = [], contactTags = [] }) {
             {expanded ? 'Show less' : `+${hidden}`}
           </button>
         )}
-      </div>
+    </>
+  )
+
+  // Inline: the pills join the parent's flex row, so no wrapper and no label.
+  // Standalone keeps the labelled block for anywhere else that needs it.
+  if (inline) return pills
+
+  return (
+    <>
+      <FieldLabel>Tags</FieldLabel>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>{pills}</div>
     </>
   )
 }
