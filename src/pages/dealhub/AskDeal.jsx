@@ -412,6 +412,8 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
     // inside the request below would race with the clear.
     const sentImages = attachments
     setAttachments([])
+    // The thumbnails are gone, so a preview of one has nothing behind it.
+    setPreview(null)
     setError(null)
     setPending(true)
     // Show the question immediately; the answer lands under it.
@@ -907,6 +909,10 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
                       onClick={(e) => {
                         e.stopPropagation()
                         setAttachments((prev) => prev.filter((x) => x.id !== a.id))
+                        // Close the preview if it's showing the one being
+                        // removed — otherwise the modal keeps displaying an
+                        // attachment that no longer exists.
+                        setPreview((cur) => (cur?.id === a.id ? null : cur))
                       }}
                       aria-label={`Remove ${a.name}`}
                       style={{
