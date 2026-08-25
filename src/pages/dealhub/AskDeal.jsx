@@ -68,6 +68,18 @@ const PROMPTS = [
     hint: 'Coaching view for the manager'
   }
 ]
+// Mirrors the server's limits in routes/ai.js — validated there too, since a
+// client check is a courtesy and not a guarantee.
+const MAX_ATTACHMENTS = 3
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024
+// Total across all attachments — must match MAX_TOTAL_BYTES in routes/ai.js.
+// Enforced here so an oversized set is refused before it's read and uploaded,
+// rather than after a 5MB round trip.
+const MAX_TOTAL_BYTES = 5 * 1024 * 1024
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+function mbLabel(bytes) {
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
 
 export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, messages = [] }) {
   const [q, setQ] = useState('')
@@ -100,6 +112,63 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
   // Which run's "messages considered" modal is open.
   const [inspectRunId, setInspectRunId] = useState(null)
   const [composerFocused, setComposerFocused] = useState(false)
+
+  // Attached images — a question aid, not evidence. They help the model
+  // understand what is being asked; every claim still needs a message quote.
+  const [attachments, setAttachments] = useState([])
+  const fileRef = useRef(null)
+
+  const addFiles = async (fileList) => {
+    const picked = Array.from(fileList || [])
+    if (!picked.length) return
+    const room = MAX_ATTACHMENTS - attachments.length
+    if (room <= 0) {
+      setError(`At most ${MAX_ATTACHMENTS} images per question.`)
+      return
+    }
+
+    // Counts what's already attached, so the running total spans both the
+    // existing attachments and the ones being added now.
+    let runningTotal = attachments.reduce((n, a) => n + (a.bytes || 0), 0)
+
+    const next = []
+    for (const file of picked.slice(0, room)) {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        setError('Images only — JPEG, PNG, GIF or WebP.')
+        continue
+      }
+      if (file.size > MAX_IMAGE_BYTES) {
+        setError(`${file.name} is ${mbLabel(file.size)} — images must be under 5 MB.`)
+        continue
+      }
+      // Refuse before reading: three 4MB images each pass the per-image check
+      // but together exceed what one request can carry.
+      if (runningTotal + file.size > MAX_TOTAL_BYTES) {
+        setError(
+          `${file.name} would take the attachments over 5 MB in total. Remove one first.`
+        )
+        continue
+      }
+      runningTotal += file.size
+      // Strip the data: prefix — the API wants bare base64, and leaving it on
+      // is the mistake the server rejects with a 400.
+      const dataUrl = await new Promise((resolve, reject) => {
+        const r = new FileReader()
+        r.onload = () => resolve(String(r.result))
+        r.onerror = () => reject(r.error)
+        r.readAsDataURL(file)
+      })
+      next.push({
+        id: `${file.name}-${file.size}-${next.length}`,
+        name: file.name,
+        bytes: file.size,
+        mediaType: file.type,
+        previewUrl: dataUrl,
+        data: dataUrl.split(',')[1] || ''
+      })
+    }
+    if (next.length) setAttachments((prev) => [...prev, ...next])
+  }
   const inputRef = useRef(null)
 
   // ── Dictation ────────────────────────────────────────────────────────
@@ -327,6 +396,11 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
     // doesn't undo it, so without this the box stays as tall as the question
     // that was just sent.
     if (inputRef.current) inputRef.current.style.height = 'auto'
+    // Capture the attachments for THIS question and clear the composer. Read
+    // into a local first: setState is async, so referencing `attachments`
+    // inside the request below would race with the clear.
+    const sentImages = attachments
+    setAttachments([])
     setError(null)
     setPending(true)
     // Show the question immediately; the answer lands under it.
@@ -353,6 +427,8 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
         question: value,
         history,
         channels: channels.length ? channels : null
+        ,
+        images: sentImages.map(({ mediaType, data }) => ({ mediaType, data }))
       })
       setTurns((t) => [
         ...t,
@@ -751,6 +827,47 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
               cursor: 'text'
             }}
           >
+            {/* Thumbnails, above the text — you see what's attached before you
+                finish typing the question about it. */}
+            {attachments.length > 0 && (
+              <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                {attachments.map((a) => (
+                  <span
+                    key={a.id}
+                    style={{ position: 'relative', display: 'inline-flex', flex: 'none' }}
+                  >
+                    <img
+                      src={a.previewUrl}
+                      alt={a.name}
+                      title={a.name}
+                      style={{
+                        width: 56, height: 56, objectFit: 'cover',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border-strong)'
+                      }}
+                    />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setAttachments((prev) => prev.filter((x) => x.id !== a.id))
+                      }}
+                      aria-label={`Remove ${a.name}`}
+                      style={{
+                        position: 'absolute', top: -6, right: -6,
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        width: 20, height: 20, padding: 0,
+                        border: 'none', borderRadius: '50%',
+                        background: 'var(--gray-800)', color: '#fff',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <span className="ms" style={{ fontSize: 14 }}>close</span>
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
             <textarea
               ref={inputRef}
               // The wrapper draws the focus border and ring; without this the
@@ -787,10 +904,28 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
             />
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-              {/* Attach. Disabled: sending a file to the model needs an upload
-                  path and the Files API, neither of which exists yet. Shown so
-                  the composer matches the design rather than silently no-oping. */}
-              <IconButton icon="add" label="Attach a file — coming next" disabled />
+              {/* Attach an image. A question AID — it tells the model what
+                  you're asking about; claims still have to quote the thread. */}
+              <IconButton
+                icon="add"
+                label={
+                  attachments.length >= MAX_ATTACHMENTS
+                    ? `${MAX_ATTACHMENTS} images is the limit`
+                    : 'Attach an image to this question'
+                }
+                onClick={(e) => { e.stopPropagation(); fileRef.current?.click() }}
+                disabled={
+                  pending || available === false || attachments.length >= MAX_ATTACHMENTS
+                }
+              />
+              <input
+                ref={fileRef}
+                type="file"
+                accept={ALLOWED_IMAGE_TYPES.join(',')}
+                multiple
+                onChange={(e) => { addFiles(e.target.files); e.target.value = '' }}
+                style={{ display: 'none' }}
+              />
 
               <span style={{ flex: 1 }} />
 

@@ -3,11 +3,15 @@ import apiClient from './client'
 // Deal Hub AI. Contract mirrors pipelinePulse/server/src/routes/ai.js.
 export const aiAPI = {
   status: () => apiClient.get('/api/ai/status'),
-  ask: (dealId, { question, history = [], channels = null }) =>
+  // `images` are a question aid, not evidence — the server states that boundary
+  // to the model, and validate.js still requires a message quote for every
+  // claim. Each is { mediaType, data } with data as bare base64.
+  ask: (dealId, { question, history = [], channels = null, images = [] }) =>
     apiClient.post(`/api/ai/deals/${encodeURIComponent(dealId)}/ask`, {
       question,
       history,
-      channels
+      channels,
+      images
     }),
   runMessages: (runId) =>
     apiClient.get(`/api/ai/runs/${encodeURIComponent(runId)}/messages`),

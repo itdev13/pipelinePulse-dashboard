@@ -163,19 +163,33 @@ function ValueColumn({ deal, onExpectedCloseChange }) {
         const raw = String(deal.value ?? '').replace(/[^0-9.]/g, '')
         const unpriced = !deal.value || Number(raw) === 0
         if (unpriced) {
+          // Unpriced still reads at display size — it's the number the card is
+          // about, and shrinking it to grey made the least-finished deal the
+          // hardest thing to notice. The amber pill carries the meaning.
           return (
             <div>
               <div
+                className="pp-num"
                 style={{
-                  fontFamily: 'var(--font-mono)', fontSize: 'var(--text-2xl)',
-                  fontWeight: 500, color: 'var(--text-faint)'
+                  fontSize: 'var(--text-display)', fontWeight: 600,
+                  letterSpacing: '-0.03em', lineHeight: 1.05,
+                  color: 'var(--text-faint)'
                 }}
               >
                 {deal.value || '—'}
               </div>
-              <div style={{ marginTop: 2, fontSize: 'var(--text-sm)', color: 'var(--accent-gold-text)' }}>
+              <span
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  marginTop: 6, padding: '3px 10px',
+                  borderRadius: 'var(--radius-pill)',
+                  background: 'var(--tint-gold)', color: 'var(--accent-gold-text)',
+                  fontSize: 'var(--text-sm)', fontWeight: 600
+                }}
+              >
+                <span className="ms" style={{ fontSize: 14 }}>error</span>
                 Not priced yet
-              </div>
+              </span>
             </div>
           )
         }
@@ -278,13 +292,16 @@ function StageColumn({ deal, stages, onStageChange }) {
           if (onStageChange) onStageChange(e.target.value)
         }}
         style={{
-          width: '100%', height: 38, boxSizing: 'border-box',
-          padding: '0 10px',
-          border: '1px solid var(--border-strong)',
+          width: '100%', height: 44, boxSizing: 'border-box',
+          padding: '0 12px',
+          // Brand-tinted rather than a white form field. Changing stage is the
+          // primary action on this card, and a plain <select> read as the least
+          // important thing in the column.
+          border: '2px solid var(--brand-primary)',
           borderRadius: 'var(--radius-md)',
-          background: '#fff',
-          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)', fontWeight: 500,
-          color: 'var(--text-heading)',
+          background: 'var(--tint-pine)',
+          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-xl)', fontWeight: 600,
+          color: 'var(--accent-pine-text)',
           cursor: 'pointer'
         }}
       >
@@ -394,13 +411,16 @@ function FieldChip({ label, value }) {
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 7,
         maxWidth: '100%',
-        height: 30, padding: '0 11px',
+        height: 34, padding: '0 12px',
+        // A SET field is solid and filled — it carries information, so it reads
+        // as content. An UNSET one stays dashed and amber: a gap to fill, not an
+        // error. Before, both were white outlines and the five unset chips were
+        // the loudest thing in the row.
         border: set
           ? '1px solid var(--border-strong)'
-          // Dashed + amber: unset is a gap to fill, not an error.
           : '1px dashed var(--accent-gold)',
         borderRadius: 'var(--radius-sm)',
-        background: '#fff'
+        background: set ? 'var(--gray-25)' : 'transparent'
       }}
     >
       <span
@@ -416,9 +436,11 @@ function FieldChip({ label, value }) {
         style={{
           minWidth: 0,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          fontSize: 'var(--text-base)',
-          fontWeight: set ? 500 : 400,
-          color: set ? 'var(--text-heading)' : 'var(--accent-gold)'
+          fontSize: 'var(--text-md)',
+          fontWeight: set ? 600 : 500,
+          // accent-gold-text, not accent-gold: at 11px on white the lighter
+          // value is 3.25:1, below AA.
+          color: set ? 'var(--text-heading)' : 'var(--accent-gold-text)'
         }}
       >
         {set ? value : 'Not set'}
@@ -555,12 +577,14 @@ function TagList({ dealTags = [], contactTags = [] }) {
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)',
               maxWidth: '100%',
-              height: 24, padding: '0 9px',
+              height: 28, padding: '0 11px',
               borderRadius: 'var(--radius-pill)',
-              border: '1px solid var(--border-default)',
-              background: 'var(--gray-50)',
-              color: 'var(--text-body)',
-              fontSize: 'var(--text-sm)', fontWeight: 500
+              // Tinted rather than grey-on-grey. A tag is a label someone chose
+              // to apply, so it should read as one.
+              border: '1px solid var(--green-100)',
+              background: 'var(--tint-pine)',
+              color: 'var(--accent-pine-text)',
+              fontSize: 'var(--text-md)', fontWeight: 600
             }}
           >
             {/* Deal-scoped tags are rare enough to be worth marking, but
@@ -570,7 +594,7 @@ function TagList({ dealTags = [], contactTags = [] }) {
               <span
                 style={{
                   width: 5, height: 5, flex: 'none',
-                  borderRadius: '50%', background: 'var(--accent-pine)'
+                  borderRadius: '50%', background: 'var(--green-700)'
                 }}
               />
             )}
@@ -611,8 +635,11 @@ function Column({ label, children, last }) {
         // More room than before. The card carries the page's most important
         // facts and was the tightest thing on it — 14px of padding around
         // 34px display type reads as cramped.
-        padding: 'var(--space-5) var(--space-5) var(--space-5)',
-        borderRight: last ? 'none' : '1px solid var(--border-default)'
+        padding: 'var(--space-5)',
+        // gray-300, not border-default. border-default IS gray-200 (1.34:1 on
+        // white) — at that weight the three columns read as one continuous
+        // field rather than three zones.
+        borderRight: last ? 'none' : '1px solid var(--gray-300)'
       }}
     >
       <span
@@ -645,15 +672,36 @@ function Row({ label, value, mono, tone, title, suffix }) {
   return (
     <div
       title={title}
-      style={{ display: 'flex', alignItems: 'baseline', gap: 10, fontSize: 'var(--text-base)' }}
+      style={{
+        display: 'flex', alignItems: 'baseline', gap: 10,
+        // A tinted band on the row that needs attention. Four rows at identical
+        // weight meant a stale "last contact" read exactly like a healthy
+        // "4 days in stage" — the colour was on the value alone, which is a
+        // detail you have to already be looking at to notice.
+        padding: danger ? '3px 8px' : '3px 0',
+        margin: danger ? '0 -8px' : 0,
+        borderRadius: 'var(--radius-sm)',
+        background: danger ? 'var(--tint-rose)' : 'transparent',
+        fontSize: 'var(--text-md)'
+      }}
     >
-      <dt style={{ flex: 1, minWidth: 0, color: 'var(--text-muted)' }}>{label}</dt>
+      <dt
+        style={{
+          flex: 1, minWidth: 0,
+          // status-stuck is a FILL colour — 3.81:1 as text on the rose tint
+          // this row now sits on. status-stuck-text is the AA-passing pair.
+          color: danger ? 'var(--status-stuck-text)' : 'var(--text-muted)',
+          fontWeight: danger ? 600 : 400
+        }}
+      >
+        {label}
+      </dt>
       <dd
         style={{
           margin: 0, flex: 'none', textAlign: 'right',
           fontFamily: mono ? 'var(--font-mono)' : 'var(--font-sans)',
-          fontWeight: 500,
-          color: danger ? 'var(--status-stuck)' : 'var(--text-heading)'
+          fontWeight: 600,
+          color: danger ? 'var(--status-stuck-text)' : 'var(--text-heading)'
         }}
       >
         {value != null && value !== '' ? value : <span style={{ color: 'var(--text-faint)' }}>—</span>}
