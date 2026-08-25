@@ -250,23 +250,6 @@ function Label({ children }) {
   )
 }
 
-function Badge({ tone, children }) {
-  const rose = tone === 'rose'
-  return (
-    <span
-      style={{
-        display: 'inline-flex', alignItems: 'center',
-        height: 22, padding: '0 9px',
-        borderRadius: 'var(--radius-sm)',
-        background: rose ? 'var(--status-stuck)' : 'var(--status-working)',
-        color: '#fff', fontSize: 'var(--text-sm)', fontWeight: 600
-      }}
-    >
-      {children}
-    </span>
-  )
-}
-
 function Toast({ children }) {
   return (
     <div
