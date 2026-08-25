@@ -606,14 +606,19 @@ export function LoadMore({ sentinelRef, hasMore, loadingMore, count, noun = 'ite
 // note into an email, or reading a body whose formatting is noise rather than
 // meaning. Stripping happens here in the browser — no server round trip and
 // nothing stored differently.
-export function RichBody({ html, maxWidth = 640, size = 'var(--text-md)' }) {
+export function RichBody({
+  html, maxWidth = 640, size = 'var(--text-md)',
+  // Callers that pair this with a heading need it muted, so the two lines
+  // separate by colour as well as size. Defaults to body text.
+  color = 'var(--text-body)'
+}) {
   const [plain, setPlain] = useState(false)
   if (!html) return null
 
   const text = plain ? toPlainText(html) : null
   const base = {
     margin: 0, maxWidth,
-    fontSize: size, lineHeight: 1.5, color: 'var(--text-body)'
+    fontSize: size, lineHeight: 1.5, color
   }
 
   return (

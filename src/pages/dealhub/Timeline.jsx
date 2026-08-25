@@ -396,7 +396,7 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
 
         {m.body && (
           <div style={{ marginTop: 2 }}>
-            <RichBody html={m.body} size="var(--text-md)" maxWidth={720} />
+            <RichBody html={m.body} color="var(--text-muted)" size="var(--text-md)" maxWidth={720} />
           </div>
         )}
 

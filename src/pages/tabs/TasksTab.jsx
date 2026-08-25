@@ -127,10 +127,11 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                       textAlign: 'left',
                       cursor: t.deal ? 'pointer' : 'default',
                       fontFamily: 'var(--font-sans)',
-                      // The title is the task. It was the same weight as the
-                      // description below it, so "JAMES" and "descriptipon"
-                      // read as two equal lines.
-                      fontSize: 'var(--text-lg)', fontWeight: 600, lineHeight: 1.35,
+                      // 17px against a 12px description — a 1.4x ratio, which
+                      // is where a size difference starts reading as a
+                      // hierarchy rather than a wobble. At 14px it didn't.
+                      fontSize: 'var(--text-xl)', fontWeight: 600,
+                      lineHeight: 1.3, letterSpacing: '-0.01em',
                       color: 'var(--text-heading)',
                       textDecoration: done ? 'line-through' : 'none'
                     }}
@@ -138,9 +139,17 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                     {t.title || '(untitled task)'}
                   </button>
 
+                  {/* Muted, not near-black. Size alone wasn't enough — the two
+                      lines sat at the same colour weight and read as one block
+                      of text. */}
                   {t.body && (
-                    <div style={{ marginTop: 2 }}>
-                      <RichBody html={t.body} size="var(--text-base)" maxWidth={680} />
+                    <div style={{ marginTop: 3 }}>
+                      <RichBody
+                        html={t.body}
+                        size="var(--text-md)"
+                        color="var(--text-muted)"
+                        maxWidth={680}
+                      />
                     </div>
                   )}
 

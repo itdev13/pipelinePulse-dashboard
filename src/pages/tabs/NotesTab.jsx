@@ -89,8 +89,9 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                   >
                     <span
                       style={{
-                        fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)',
-                        lineHeight: 1.35
+                        fontSize: 'var(--text-xl)', fontWeight: 600,
+                        lineHeight: 1.3, letterSpacing: '-0.01em',
+                        color: 'var(--text-heading)'
                       }}
                     >
                       {heading}
@@ -100,7 +101,7 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
 
                   {rest && (
                     <div style={{ marginTop: 3 }}>
-                      <RichBody html={rest} size="var(--text-base)" />
+                      <RichBody html={rest} color="var(--text-muted)" size="var(--text-base)" />
                     </div>
                   )}
 

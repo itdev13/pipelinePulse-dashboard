@@ -138,7 +138,7 @@ export function DealTasksSection({ dealId }) {
 
             {t.body && (
               <div style={{ marginTop: 2 }}>
-                <RichBody html={t.body} size="var(--text-base)" maxWidth={480} />
+                <RichBody html={t.body} color="var(--text-muted)" size="var(--text-base)" maxWidth={480} />
               </div>
             )}
 
@@ -241,7 +241,7 @@ export function DealNotesSection({ dealId }) {
               </span>
               {rest && (
                 <div style={{ marginTop: 3 }}>
-                  <RichBody html={rest} size="var(--text-base)" maxWidth={480} />
+                  <RichBody html={rest} color="var(--text-muted)" size="var(--text-base)" maxWidth={480} />
                 </div>
               )}
               <span
