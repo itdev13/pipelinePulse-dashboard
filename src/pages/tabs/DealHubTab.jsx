@@ -227,7 +227,13 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
   const filtered = useMemo(() => {
     if (!messages) return []
     return messages.filter((m) => {
-      if (channelFilter && m.channel !== channelFilter) return false
+      if (channelFilter) {
+        // Match on the same bucket dealChannels counted, or selecting Activity
+        // would show nothing — a SYSTEM row's channel is 'SYSTEM', not
+        // 'ACTIVITY'.
+        const key = m.event ? 'ACTIVITY' : m.channel
+        if (key !== channelFilter) return false
+      }
       // Inclusion applies to real messages only — events have no checkbox,
       // so filtering them by it would silently hide the deal's history.
       if (peopleFilter.length > 0) {
@@ -255,8 +261,12 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
     const counts = new Map()
     if (!messages) return counts
     for (const m of messages) {
-      if (m.event) continue
-      counts.set(m.channel, (counts.get(m.channel) || 0) + 1)
+      // System rows (opportunity created, stage changed, DND enabled…) come
+      // through with channel ACTIVITY or SYSTEM. Bucket them together under
+      // one key: a rep filtering for "what happened to this deal" doesn't
+      // distinguish the two, and separate chips would fragment a short list.
+      const key = m.event ? 'ACTIVITY' : m.channel
+      counts.set(key, (counts.get(key) || 0) + 1)
     }
     return counts
   }, [messages])
@@ -270,7 +280,11 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
     ['SMS',      'SMS'],
     ['iMessage', 'IMESSAGE'],
     ['Call',     'CALL'],
-    ['Note',     'NOTE']
+    ['Note',     'NOTE'],
+    ['Task',     'TASK'],
+    // Last: it's the least-read row type, and it's the one you filter TO
+    // deliberately rather than scan past.
+    ['Activity', 'ACTIVITY']
   ]
 
   // `key` defaults to the label, but callers must pass an explicit one when
