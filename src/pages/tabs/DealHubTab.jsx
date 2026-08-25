@@ -138,6 +138,51 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
   // keyed on the row primary key (see routes/deals.js — `id` vs `messageId`).
   // Translate, then scroll + highlight.
   const [highlightedId, setHighlightedId] = useState(null)
+  // Per-message selection — what the agent is allowed to read.
+  //
+  // Ticks are recorded locally and flushed in one batch, not sent per click:
+  // five boxes meant five round trips, and the server state only actually
+  // matters at the moment a question is asked.
+  const pendingInclusions = useRef(new Map())
+
+  const toggleIncluded = (m) => {
+    const next = m.included === false
+    setMessages((prev) =>
+      prev.map((x) => (x.id === m.id ? { ...x, included: next } : x))
+    )
+    pendingInclusions.current.set(m.messageId, next)
+  }
+
+  // Returns a promise so a caller can await it before asking — otherwise the
+  // context builder reads the old state.
+  const flushInclusions = async () => {
+    const pending = pendingInclusions.current
+    if (pending.size === 0) return
+    const changes = [...pending].map(([messageId, included]) => ({ messageId, included }))
+    // Clear before the request: a failure rolls back below, and holding them
+    // would double-send on the next flush.
+    pending.clear()
+    try {
+      await aiAPI.setInclusions(dealId, changes)
+    } catch {
+      // Roll the checkboxes back. A box that silently didn't save is worse than
+      // one that visibly bounces — the rep would believe they'd excluded
+      // something they hadn't.
+      setMessages((prev) =>
+        prev.map((x) => {
+          const c = changes.find((y) => y.messageId === x.messageId)
+          return c ? { ...x, included: !c.included } : x
+        })
+      )
+    }
+  }
+
+  // Leaving the deal (switch or unmount) shouldn't lose the ticks.
+  useEffect(() => {
+    return () => { flushInclusions() }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dealId])
+
   const jumpToMessage = (ghlMessageId) => {
     if (!ghlMessageId || !messages) return
     const row = messages.find((m) => m.messageId === ghlMessageId)
@@ -744,6 +789,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
               <Timeline
                 messages={filtered}
                 highlightedId={highlightedId}
+                onToggleSelect={toggleIncluded}
               />
               {/* All three panels stacked, no tab to pick between them. With
                   only three sections left, switching cost a click and hid two
@@ -758,6 +804,9 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
             <AskDeal
               dealId={dealId}
               onJumpToMessage={jumpToMessage}
+              // Pending ticks must land before the question does, or the server
+              // builds context from the old selection.
+              beforeAsk={flushInclusions}
               // The live timeline rows. AskDeal derives its channel counts
               // from these so a checkbox tick updates them instantly —
               // re-fetching from the server would lag behind unflushed ticks.
