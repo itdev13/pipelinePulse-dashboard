@@ -67,6 +67,13 @@ function AttachmentChip({ att, channelAccent, onClick }) {
 // One header per day, sticky so the date stays visible while you scroll that
 // day's messages. Replaces the per-row date gutter, which printed "19 Aug"
 // three times for messages minutes apart.
+// "16:59". The day header carries the date, so each row only needs its time.
+function formatClock(iso) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+}
+
 function DayHeader({ iso }) {
   const d = new Date(iso)
   const label = (() => {
