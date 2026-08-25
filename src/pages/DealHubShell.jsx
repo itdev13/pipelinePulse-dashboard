@@ -67,12 +67,19 @@ export default function DealHubShell() {
   return (
     <div data-dealhub style={{ minHeight: '100vh', background: 'var(--surface-page)' }}>
       {/* Header bar: brand + tabs + search */}
+      {/* Sticky: the section tabs are how you move around the app, so they
+          shouldn't scroll away on a long deal. zIndex clears the Timeline's
+          sticky day headers, which would otherwise ride over this bar. */}
       <header
         style={{
+          position: 'sticky', top: 0, zIndex: 20,
           display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
           minHeight: 60, padding: '10px 20px',
           borderBottom: '1px solid var(--border-default)',
-          background: '#fff'
+          background: '#fff',
+          // A shadow only once it's over content, so it reads as a layer
+          // rather than a permanent band.
+          boxShadow: '0 1px 2px rgba(23, 33, 46, 0.06)'
         }}
       >
         <span

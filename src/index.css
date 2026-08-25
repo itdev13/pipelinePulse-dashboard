@@ -9,6 +9,10 @@
 
 * { box-sizing: border-box; }
 
+/* The page body is the scroll container, which is what the sticky nav in
+   DealHubShell binds to. Deliberately NOT `overflow: auto` on #root — that
+   would make #root the scroller and stick the header to the top of that box
+   instead of the viewport, so it would scroll away inside the iframe. */
 html, body, #root { height: 100%; }
 
 body {
