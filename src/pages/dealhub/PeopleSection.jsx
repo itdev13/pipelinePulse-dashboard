@@ -189,7 +189,9 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove }) {
                   fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
                   textTransform: 'uppercase',
                   padding: '2px 6px', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--green-50)', color: 'var(--green-600)'
+                  // Solid: on green-50 (1.13:1 against the white card) the badge
+            // was invisible and PRIMARY read as ordinary small text.
+            background: 'var(--green-600)', color: '#fff'
                 }}
               >
                 Primary

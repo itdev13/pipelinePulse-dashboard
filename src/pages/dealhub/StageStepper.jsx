@@ -43,15 +43,20 @@ export default function StageStepper({ stages, onStageClick }) {
         // green, which made the stepper the heaviest element on the page — two
         // dark blocks shouting above the deal it describes. Inverting it (tint
         // for done, solid for now) puts the emphasis on where the deal IS.
+        // Three states, three real fills.
+        //
+        //   done    — solid deep green. It IS complete, so it should look it.
+        //             green-50 (1.13:1 against white) was effectively invisible;
+        //             a completed stage looked the same as an untouched one.
+        //   current — the brightest green, so "where the deal is" wins.
+        //   upcoming— grey, and the only pale state of the three.
         const bg = s.isCurrent
           ? 'var(--brand-primary)'
           : s.isPast
-          ? 'var(--green-50)'
-          : 'var(--gray-50)'
-        const fg = s.isCurrent
-          ? '#fff'
-          : s.isPast
           ? 'var(--green-700)'
+          : 'var(--gray-100)'
+        const fg = s.isCurrent || s.isPast
+          ? '#fff'
           : 'var(--text-muted)'
 
         return (

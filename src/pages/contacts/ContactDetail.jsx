@@ -693,7 +693,7 @@ function AllMessages({ messages = [], onOpenDeal }) {
               height: 28, padding: '0 11px',
               border: `1px solid ${m.dealId ? 'var(--green-300)' : 'var(--border-strong)'}`,
               borderRadius: 'var(--radius-pill)',
-              background: m.dealId ? 'var(--green-50)' : 'var(--gray-50)',
+              background: m.dealId ? 'var(--tint-pine)' : 'var(--gray-50)',
               color: m.dealId ? 'var(--green-600)' : 'var(--text-muted)',
               fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', fontWeight: 500,
               cursor: m.dealId ? 'pointer' : 'default'

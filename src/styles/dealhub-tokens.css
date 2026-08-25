@@ -96,7 +96,10 @@
   --surface-card: var(--white);
   --surface-sunken: var(--gray-50);
   --surface-hover: var(--gray-50);
-  --surface-selected: var(--green-50);
+  /* Selected rows. green-50 is 1.13:1 against a white surface — a "selected"
+   * state you cannot see is not a state. tint-pine is the strengthened tint the
+   * v7 pass introduced. */
+  --surface-selected: var(--tint-pine);
   --text-heading: var(--gray-800);
   --text-body: var(--gray-700);
   --text-muted: var(--gray-500);

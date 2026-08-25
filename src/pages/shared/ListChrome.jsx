@@ -136,7 +136,9 @@ export function Chip({ icon, children, onClick, title, tone, danger }) {
             : 'var(--border-default)'
         }`,
         borderRadius: 'var(--radius-pill)',
-        background: isDeal ? 'var(--green-50)' : '#fff',
+        // tint-pine, not green-50: these chips have a green-300 border so the
+        // shape reads either way, but green-50 is 1.13:1 against a white row.
+        background: isDeal ? 'var(--tint-pine)' : '#fff',
         color: danger
           ? 'var(--status-stuck)'
           : isDeal ? 'var(--green-600)' : 'var(--text-body)',

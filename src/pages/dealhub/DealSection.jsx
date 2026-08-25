@@ -135,6 +135,8 @@ export default function DealSection({
           hiding the chip. */}
       <FieldChipRow deal={deal} />
 
+      <TagRow deal={deal} />
+
       <ProductFooter
         deal={deal}
         siblingDeals={siblingDeals}
@@ -371,10 +373,6 @@ const FIELD_CHIPS = [
 ]
 
 function FieldChipRow({ deal }) {
-  // Count only — TagList itself dedupes a tag applied to both the deal and the
-  // contact, so re-deriving the list here would render it twice.
-  const tagCount =
-    (deal.dealTags?.length || 0) + (deal.contactTags?.length || 0)
   const isSet = (k) => {
     const v = deal[k]
     return v != null && String(v).trim() !== ''
@@ -403,22 +401,40 @@ function FieldChipRow({ deal }) {
           below. They're the same kind of thing — small facts about the deal —
           and a full section with a stacked TAGS heading spent ~90px of card
           height on what is often a single pill. */}
-      {tagCount > 0 && (
-        <>
-          <span
-            aria-hidden
-            style={{
-              width: 1, height: 20, flex: 'none',
-              background: 'var(--gray-300)', margin: '0 var(--space-1)'
-            }}
-          />
-          <TagList
-            dealTags={deal.dealTags}
-            contactTags={deal.contactTags}
-            inline
-          />
-        </>
-      )}
+    </div>
+  )
+}
+
+// Tags, on their own line under the chip row.
+//
+// A "Tags:" prefix rather than a stacked uppercase heading — the label sits on
+// the same line as the pills, so it reads as a sentence and costs one row
+// instead of the ~90px a full labelled section took.
+function TagRow({ deal }) {
+  const count = (deal.dealTags?.length || 0) + (deal.contactTags?.length || 0)
+  if (count === 0) return null
+
+  return (
+    <div
+      style={{
+        display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+        flexWrap: 'wrap',
+        padding: '10px var(--space-4)',
+        borderTop: '1px solid var(--border-default)'
+      }}
+    >
+      <span
+        style={{
+          flex: 'none',
+          fontSize: 'var(--text-md)', fontWeight: 600,
+          color: 'var(--text-muted)'
+        }}
+      >
+        Tags:
+      </span>
+      {/* TagList dedupes a tag applied to both the deal and the contact, so
+          it stays the single source for the pill list. */}
+      <TagList dealTags={deal.dealTags} contactTags={deal.contactTags} inline />
     </div>
   )
 }
