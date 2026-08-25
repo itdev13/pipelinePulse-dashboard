@@ -523,3 +523,22 @@
   --accent-rose-text: #b63659;
   --accent-teal-text: #0d747f;
 }
+
+/* antd overrides, scoped to the Deal Hub.
+ *
+ * The global ConfigProvider theme in main.jsx handles size, radius and border
+ * colour. This is for the one control that needs a different treatment: the
+ * stage Select is the primary action on the Deal card, and an antd default
+ * reads as the least important thing in the column.
+ */
+[data-dealhub] .pp-stage-select .ant-select-selector {
+  border: 2px solid var(--brand-primary) !important;
+  background: var(--tint-pine) !important;
+}
+[data-dealhub] .pp-stage-select .ant-select-selection-item {
+  font-weight: var(--weight-semibold);
+  color: var(--accent-pine-text);
+}
+[data-dealhub] .pp-stage-select .ant-select-arrow {
+  color: var(--accent-pine-text);
+}

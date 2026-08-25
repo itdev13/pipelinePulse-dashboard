@@ -1,3 +1,4 @@
+import { Select } from 'antd'
 import React, { useEffect, useRef, useState } from 'react'
 import { contactsAPI } from '../../api/contacts'
 import {
@@ -262,9 +263,15 @@ function Details({ contact, onSaved }) {
 
   useEffect(() => () => clearTimeout(timer.current), [])
 
-  const commit = (key) => {
-    const value = key === 'contactType' ? type : draft[key]
-    if ((contact[key] || '') === value) return
+  // `override` matters for the antd Select: it fires onChange at selection time,
+  // and setType hasn't flushed yet, so reading `type` here would save the
+  // PREVIOUS value. The native <select> committed onBlur, by which point state
+  // had settled.
+  const commit = (key, override) => {
+    const value = override !== undefined
+      ? override
+      : key === 'contactType' ? type : draft[key]
+    if ((contact[key] || '') === (value || '')) return
     save({ [key]: value })
   }
 
@@ -317,18 +324,30 @@ function Details({ contact, onSaved }) {
           >
             Contact type
           </span>
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-            onBlur={() => commit('contactType')}
-            style={{ ...inputStyle, cursor: 'pointer' }}
-          >
-            <option value="">—</option>
-            {/* Keep an unrecognised value selectable rather than silently
-                rewriting what GHL sent. */}
-            {type && !CONTACT_TYPES.includes(type) && <option value={type}>{type}</option>}
-            {CONTACT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
+          <Select
+            value={type || undefined}
+            onChange={(v) => {
+              // allowClear passes undefined; normalise to '' so clearing sends
+              // an empty string rather than dropping the field from the patch.
+              const next = v ?? ''
+              setType(next)
+              // antd fires onChange at selection rather than on blur, so commit
+              // here — the native <select> committed onBlur, which never fired
+              // if the user picked with the keyboard and moved on.
+              commit('contactType', next)
+            }}
+            placeholder="—"
+            allowClear
+            style={{ width: '100%' }}
+            options={[
+              // Keep an unrecognised value selectable rather than silently
+              // rewriting what GHL sent.
+              ...(type && !CONTACT_TYPES.includes(type)
+                ? [{ value: type, label: type }]
+                : []),
+              ...CONTACT_TYPES.map((t) => ({ value: t, label: t }))
+            ]}
+          />
         </label>
       </div>
 

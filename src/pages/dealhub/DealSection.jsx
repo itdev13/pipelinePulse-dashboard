@@ -1,4 +1,6 @@
 import React, { useState } from 'react'
+import { DatePicker, Select } from 'antd'
+import dayjs from 'dayjs'
 
 // Deal Hub — Deal section (the deal's own facts).
 //
@@ -152,8 +154,6 @@ function ValueColumn({ deal, onExpectedCloseChange }) {
   const [expectedClose, setExpectedClose] = useState(
     deal.forecastCloseDate ? toDateInput(deal.forecastCloseDate) : ''
   )
-  // Only swap in the date picker once the user asks for it — see below.
-  const [editingClose, setEditingClose] = useState(false)
 
   return (
     <Column label="Value">
@@ -219,46 +219,23 @@ function ValueColumn({ deal, onExpectedCloseChange }) {
       )}
 
       <FieldLabel>Expected close</FieldLabel>
-      {/* An empty <input type="date"> renders the browser's own "dd/mm/yyyy"
-          placeholder, which reads as a broken or half-loaded field rather than
-          "no date set". Show the state as words; reveal the picker on click. */}
-      {expectedClose || editingClose ? (
-        <input
-          type="date"
-          autoFocus={editingClose && !expectedClose}
-          value={expectedClose}
-          title="Expected close — write flow coming next"
-          onChange={(e) => {
-            setExpectedClose(e.target.value)
-            if (onExpectedCloseChange) onExpectedCloseChange(e.target.value)
-          }}
-          style={{
-            width: '100%', height: 34, boxSizing: 'border-box',
-            padding: '0 10px',
-            border: '1px solid var(--border-strong)',
-            borderRadius: 'var(--radius-md)',
-            background: '#fff',
-            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', color: 'var(--text-body)'
-          }}
-        />
-      ) : (
-        <button
-          onClick={() => setEditingClose(true)}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)',
-            cursor: 'pointer',
-            height: 34, padding: '0 10px',
-            border: '1px dashed var(--border-strong)',
-            borderRadius: 'var(--radius-md)',
-            background: 'transparent',
-            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
-            color: 'var(--text-muted)'
-          }}
-        >
-          <span className="ms" style={{ fontSize: 16 }}>event</span>
-          Set a date
-        </button>
-      )}
+      {/* antd's picker, which has a real placeholder — the native
+          <input type="date"> renders the browser's own "dd/mm/yyyy" when empty,
+          which read as a broken field. That's also why the old
+          reveal-on-click "Set a date" button existed; the picker makes it
+          unnecessary. */}
+      <DatePicker
+        value={expectedClose ? dayjs(expectedClose) : null}
+        onChange={(d) => {
+          const v = d ? d.format('YYYY-MM-DD') : ''
+          setExpectedClose(v)
+          if (onExpectedCloseChange) onExpectedCloseChange(v)
+        }}
+        format="D MMM YYYY"
+        placeholder="Set a date"
+        style={{ width: '100%' }}
+      />
+
       {deal.valueProvisional && (
         <p style={{ margin: '6px 0 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
           Provisional — excluded from pipeline totals
@@ -286,38 +263,31 @@ function StageColumn({ deal, stages, onStageChange }) {
 
   return (
     <Column label="Stage">
-      <select
-        value={stage}
-        title="Stage change — write flow coming next"
-        onChange={(e) => {
-          setStage(e.target.value)
-          if (onStageChange) onStageChange(e.target.value)
+      {/* antd Select. The stage change is the primary action on this card, so
+          it keeps the brand-tinted treatment via className rather than reverting
+          to a default form control. */}
+      <Select
+        value={stage || undefined}
+        onChange={(v) => {
+          setStage(v)
+          if (onStageChange) onStageChange(v)
         }}
-        style={{
-          width: '100%', height: 44, boxSizing: 'border-box',
-          padding: '0 12px',
-          // Brand-tinted rather than a white form field. Changing stage is the
-          // primary action on this card, and a plain <select> read as the least
-          // important thing in the column.
-          border: '2px solid var(--brand-primary)',
-          borderRadius: 'var(--radius-md)',
-          background: 'var(--tint-pine)',
-          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-xl)', fontWeight: 600,
-          color: 'var(--accent-pine-text)',
-          cursor: 'pointer'
-        }}
-      >
-        {/* The deal's stage may be retired or missing from pipeline_stages
-            (the /stages route already handles that by injecting a virtual
-            entry) — keep it selectable either way so the control never
-            silently shows the wrong stage. */}
-        {stages.length === 0 && stage && <option value={stage}>{stage}</option>}
-        {stages.map((s) => (
-          <option key={s.name} value={s.name}>
-            {s.isActive === false ? `${s.name} (retired)` : s.name}
-          </option>
-        ))}
-      </select>
+        placeholder="No stage"
+        size="large"
+        className="pp-stage-select"
+        style={{ width: '100%' }}
+        // The deal's stage may be retired or missing from pipeline_stages (the
+        // /stages route injects a virtual entry for that) — keep it selectable
+        // either way, so the control never silently shows the wrong stage.
+        options={
+          stages.length
+            ? stages.map((st) => ({
+                value: st.name,
+                label: st.isActive === false ? `${st.name} (retired)` : st.name
+              }))
+            : stage ? [{ value: stage, label: stage }] : []
+        }
+      />
 
       <dl style={{ margin: '12px 0 0', display: 'grid', gap: 7 }}>
         <Row

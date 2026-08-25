@@ -27,6 +27,15 @@ const theme = {
     fontFamily: "'Poppins', -apple-system, 'Segoe UI', sans-serif",
     fontSize: 13,                   // --text-md, the app's body size
     controlHeight: 36,              // --control-h-md
+    colorTextPlaceholder: '#6b7482', // --gray-450, AA on white
+  },
+  components: {
+    // antd's default input border is lighter than the app's, so a native
+    // control and an antd one sat side by side didn't match. These pin the
+    // three the Deal cards use.
+    Input: { colorBorder: '#c3c8d0', activeBorderColor: '#16855f' },
+    DatePicker: { colorBorder: '#c3c8d0', activeBorderColor: '#16855f' },
+    Select: { colorBorder: '#c3c8d0', optionSelectedBg: '#d8ede4' },
   },
 }
 

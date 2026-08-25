@@ -1,4 +1,6 @@
 import React, { useCallback, useState } from 'react'
+import { DatePicker, Select, Input } from 'antd'
+import dayjs from 'dayjs'
 import { dealsAPI } from '../../api/deals'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import {
@@ -171,32 +173,45 @@ function DealCard({ deal, onOpenDeal }) {
         }}
       >
         <Field label="Value">
-          <Control
+          {/* Prefix rather than "£28,000" as text: the currency is a property
+              of the field, not something the user has to type or delete. */}
+          <Input
             value={value}
-            onChange={setValue}
-            mono
-            title="Value — write flow coming next"
+            onChange={(e) => setValue(e.target.value)}
+            prefix={<span style={{ color: 'var(--text-faint)' }}>£</span>}
+            placeholder="Not priced"
+            style={{ fontFamily: 'var(--font-mono)' }}
           />
         </Field>
         <Field label="Expected close">
-          <Control
-            type="date"
-            value={closeDate}
-            onChange={setCloseDate}
-            title="Expected close — write flow coming next"
+          {/* A real picker instead of <input type="date">, whose empty state
+              renders the browser's "dd/mm/yyyy" — that read as a broken field
+              rather than "no date set". */}
+          <DatePicker
+            value={closeDate ? dayjs(closeDate) : null}
+            onChange={(d) => setCloseDate(d ? d.format('YYYY-MM-DD') : '')}
+            format="D MMM YYYY"
+            placeholder="Set a date"
+            style={{ width: '100%' }}
           />
         </Field>
         <Field label="Stage">
-          <Control
-            value={stage}
+          {/* The stage list isn't loaded on this page (it's per-pipeline and
+              the list route doesn't carry it), so this offers the current value
+              only — an option we can't save would invite a dead change. */}
+          <Select
+            value={stage || undefined}
             onChange={setStage}
-            title="Stage — write flow coming next"
+            placeholder="No stage"
+            style={{ width: '100%' }}
+            options={stage ? [{ value: stage, label: stage }] : []}
           />
         </Field>
         <Field label="Owner">
-          <Control
+          <Input
             value={deal.owner || ''}
             readOnly
+            placeholder="Unassigned"
             title="Reassigning an owner writes back to GoHighLevel — coming next"
           />
         </Field>
@@ -337,26 +352,6 @@ function Field({ label, children }) {
   )
 }
 
-function Control({ value, onChange, type = 'text', mono, title, readOnly }) {
-  return (
-    <input
-      type={type}
-      value={value}
-      readOnly={readOnly}
-      title={title}
-      onChange={onChange ? (e) => onChange(e.target.value) : undefined}
-      style={{
-        width: '100%', height: 36, boxSizing: 'border-box',
-        padding: '0 11px',
-        border: '1px solid var(--border-strong)',
-        borderRadius: 'var(--radius-md)',
-        background: readOnly ? 'var(--gray-25)' : '#fff',
-        fontFamily: mono ? 'var(--font-mono)' : 'var(--font-sans)',
-        fontSize: 'var(--text-md)', color: 'var(--text-heading)'
-      }}
-    />
-  )
-}
 
 function toDateInput(ts) {
   const d = new Date(ts)

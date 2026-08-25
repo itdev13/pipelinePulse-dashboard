@@ -51,7 +51,7 @@ export function LoadingScreen({ message = 'Connecting to your sub-account…' })
             color: 'var(--text-heading)'
           }}
         >
-          PipelinePulse
+          Dashboard
         </p>
         <p
           role="status"
