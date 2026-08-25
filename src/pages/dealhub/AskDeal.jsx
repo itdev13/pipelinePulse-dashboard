@@ -112,6 +112,9 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
   // Which run's "messages considered" modal is open.
   const [inspectRunId, setInspectRunId] = useState(null)
   const [composerFocused, setComposerFocused] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  // Monotonic id source for attachments — see the note where they're built.
+  const attachSeq = useRef(0)
 
   // Attached images — a question aid, not evidence. They help the model
   // understand what is being asked; every claim still needs a message quote.
@@ -159,8 +162,14 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
         r.readAsDataURL(file)
       })
       next.push({
-        id: `${file.name}-${file.size}-${next.length}`,
-        name: file.name,
+        // Pasted screenshots all arrive as "image.png" with the same size, so
+        // name+size+index collides across separate paste actions — two pastes
+        // would produce duplicate React keys and the remove button would
+        // delete the wrong thumbnail. attachSeq is monotonic per session.
+        id: `att-${attachSeq.current++}`,
+        // A clipboard image has no meaningful filename. "Pasted image" is
+        // honest; "image.png" three times over is not.
+        name: file.name && file.name !== 'image.png' ? file.name : 'Pasted image',
         bytes: file.size,
         mediaType: file.type,
         previewUrl: dataUrl,
@@ -812,16 +821,37 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
           ) : (
           <div
             onClick={() => inputRef.current?.focus()}
+            // Drag an image onto the composer. Same path as paste and the
+            // attach button — one validation and read routine for all three.
+            onDragOver={(e) => {
+              if (![...(e.dataTransfer?.items || [])].some((it) => it.kind === 'file')) return
+              e.preventDefault()
+              setDragging(true)
+            }}
+            onDragLeave={(e) => {
+              // Fires when crossing into a child too, so ignore anything that
+              // didn't actually leave the wrapper — otherwise the highlight
+              // flickers as the cursor moves over the textarea.
+              if (e.currentTarget.contains(e.relatedTarget)) return
+              setDragging(false)
+            }}
+            onDrop={(e) => {
+              e.preventDefault()
+              setDragging(false)
+              addFiles(e.dataTransfer?.files)
+            }}
             style={{
               display: 'grid', gap: 'var(--space-2)',
               padding: '12px 14px',
               // 2px and a brand-tinted ring on focus. A 1px hairline round the
               // most-used control on the panel read as faint — this is the
               // "bold, vibrant" the client asked for.
-              border: `2px solid ${composerFocused ? 'var(--brand-primary)' : 'var(--border-strong)'}`,
+              border: dragging
+                ? '2px dashed var(--brand-primary)'
+                : `2px solid ${composerFocused ? 'var(--brand-primary)' : 'var(--border-strong)'}`,
               borderRadius: 'var(--radius-lg)',
-              background: '#fff',
-              boxShadow: composerFocused
+              background: dragging ? 'var(--tint-pine)' : '#fff',
+              boxShadow: composerFocused || dragging
                 ? '0 0 0 4px rgba(22, 133, 95, 0.12)'
                 : 'var(--shadow-card)',
               cursor: 'text'
@@ -882,6 +912,23 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
                 const el = e.target
                 el.style.height = 'auto'
                 el.style.height = `${Math.min(el.scrollHeight, 132)}px`
+              }}
+              // Paste an image straight into the box — screenshot, then ⌘V.
+              // Clipboard items expose .getAsFile(), which yields a real File,
+              // so this reuses addFiles rather than duplicating the read,
+              // validation and base64 path.
+              onPaste={(e) => {
+                const files = [...(e.clipboardData?.items || [])]
+                  .filter((it) => it.kind === 'file' && it.type.startsWith('image/'))
+                  .map((it) => it.getAsFile())
+                  .filter(Boolean)
+                if (!files.length) return   // plain text — let it paste normally
+                // Copying from Word or a browser puts BOTH text and an image on
+                // the clipboard. Attach the image and let the text paste too,
+                // rather than silently dropping half of what was copied.
+                const hasText = !!e.clipboardData?.getData('text/plain')
+                if (!hasText) e.preventDefault()
+                addFiles(files)
               }}
               onFocus={() => setComposerFocused(true)}
               onBlur={() => setComposerFocused(false)}
