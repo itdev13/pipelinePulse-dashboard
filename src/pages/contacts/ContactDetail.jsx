@@ -16,6 +16,31 @@ import {
 // The last panel is the useful one: showing all messages together is what
 // makes a wrongly-filed message visible, because it's the row whose deal tag
 // looks wrong beside its content.
+// GHL's echo uses its own camelCase field names; the UI uses ours. Map only the
+// keys we display — an unmapped key would quietly leave a stale value on screen.// GHL's field name -> the label the user sees on that input.
+function labelFor(field) {
+  const map = {
+    firstName: 'First name', lastName: 'Last name', email: 'Email',
+    phone: 'Phone', address1: 'Address', city: 'City', state: 'State',
+    postalCode: 'Postal code', website: 'Website', timezone: 'Timezone',
+    country: 'Country', dateOfBirth: 'Date of birth', tags: 'Tags'
+  }
+  return map[field] || field
+}
+
+function fromGhl(c) {
+  if (!c) return null
+  const out = {}
+  const map = {
+    firstName: 'firstName', lastName: 'lastName', email: 'email', phone: 'phone',
+    address1: 'address', city: 'city', state: 'state', postalCode: 'postalCode',
+    website: 'website', timezone: 'timezone', country: 'country'
+  }
+  for (const [from, to] of Object.entries(map)) {
+    if (c[from] !== undefined) out[to] = c[from]
+  }
+  return Object.keys(out).length ? out : null
+}
 
 export default function ContactDetail({ contactId, onBack, onOpenDeal }) {
   const [contact, setContact] = useState(null)
@@ -241,6 +266,9 @@ function Details({ contact, onSaved }) {
   const [type, setType] = useState(contact.contactType || '')
   const [state, setState] = useState('idle')
   const [error, setError] = useState(null)
+  // Which field GHL rejected, so the message can sit beside the box rather
+  // than as a banner that doesn't say what's wrong.
+  const [errorField, setErrorField] = useState(null)
   const timer = useRef(null)
 
   // Save on blur rather than per keystroke: a PATCH per character is a lot of
@@ -249,14 +277,22 @@ function Details({ contact, onSaved }) {
   const save = async (patch) => {
     setState('saving')
     setError(null)
+    setErrorField(null)
     try {
-      await contactsAPI.update(contact.id, patch)
-      onSaved(patch)
+      const res = await contactsAPI.update(contact.id, patch)
+      // Prefer what GHL echoed back over what we sent. GHL normalises some
+      // fields on write — "+1 888-888-8888" comes back "+18888888888" — so
+      // applying our own patch would show the pre-normalised value until the
+      // next refresh, and the field would appear to have saved wrongly.
+      onSaved(fromGhl(res?.contact) || patch)
       setState('saved')
       clearTimeout(timer.current)
       timer.current = setTimeout(() => setState('idle'), 2000)
     } catch (err) {
-      setError(err.message || 'Could not save')
+      // The API names the offending field, so mark it rather than showing a
+      // banner that doesn't say which box is wrong.
+      setError(err?.response?.data?.error || err.message || 'Could not save')
+      setErrorField(err?.response?.data?.field || null)
       setState('error')
     }
   }
@@ -283,7 +319,11 @@ function Details({ contact, onSaved }) {
       meta={
         state === 'saving' ? 'Saving…'
           : state === 'saved' ? 'Saved'
-          : state === 'error' ? error
+          // Name the field GHL rejected. "That email address is not valid" is
+          // clear; the same message with no field named on a six-input form is
+          // not.
+          : state === 'error'
+            ? (errorField ? `${labelFor(errorField)}: ${error}` : error)
           : 'Editable'
       }
     >
