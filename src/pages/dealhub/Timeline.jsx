@@ -342,13 +342,24 @@ function MessageRow({ m, highlighted, onJumpAttachment, selected, onToggleSelect
 
 // Notes and tasks: the same row, on a tinted ground so an internal record is
 // distinguishable from something the customer said.
-function EntryRow({ m, highlighted }) {
+function EntryRow({ m, highlighted, selected, onToggleSelect }) {
   const col = accentVar(m.channelAccent)
   const isNote = m.kind === 'note'
 
   return (
     <Row id={`tl-${m.id}`} highlighted={highlighted} tone="internal" dim={m.imported}>
-      <span />
+      {/* Notes and tasks are evidence the agent reads (rule 7), so they get the
+          same selection control as a message. Before this a rep could deselect
+          a message but not the note beside it. */}
+      <SelectBox
+        selected={selected}
+        onToggle={() => onToggleSelect && onToggleSelect(m)}
+        title={
+          selected
+            ? `Selected — the agent reads this ${isNote ? 'note' : 'task'}`
+            : `Not selected — the agent skips this ${isNote ? 'note' : 'task'}`
+        }
+      />
       <RowIcon icon={m.channelIcon} colour={col} title={isNote ? 'Note' : 'Task'} />
 
       <div style={{ minWidth: 0 }}>
@@ -441,7 +452,9 @@ export default function Timeline({
     messages.map((m) => m.senderId).filter(Boolean)
   ).size
 
-  const selectable = messages.filter((m) => !m.kind && !m.event)
+  // Everything the agent can read: messages, notes and tasks. Events are
+  // excluded — a "stage changed" row has no content to cite.
+  const selectable = messages.filter((m) => !m.event)
   const selectedCount = selectable.filter((m) => m.included !== false).length
   const allSelected = selectable.length > 0 && selectedCount === selectable.length
   const someSelected = selectedCount > 0
@@ -450,9 +463,11 @@ export default function Timeline({
     // "18 of 20 selected" when some are excluded — the number that decides what
     // the agent reads, so it belongs in the header rather than being something
     // you count by eye.
-    selectedCount === msgCount
+    selectedCount === selectable.length
       ? `${msgCount} ${msgCount === 1 ? 'message' : 'messages'}`
-      : `${selectedCount} of ${msgCount} selected`,
+      // Counts every readable item, not just messages — a deselected note is
+      // as much a gap in the answer as a deselected message.
+      : `${selectedCount} of ${selectable.length} selected`,
     taskCount ? `${taskCount} ${taskCount === 1 ? 'task' : 'tasks'}` : null,
     noteCount ? `${noteCount} ${noteCount === 1 ? 'note' : 'notes'}` : null,
     unreadable ? `${unreadable} ${unreadable === 1 ? 'call' : 'calls'} unreadable` : null,
@@ -534,7 +549,12 @@ export default function Timeline({
             <React.Fragment key={m.id}>
               {newDay && m.ts && <DayHeader iso={m.ts} />}
               {m.kind === 'task' || m.kind === 'note' ? (
-                <EntryRow m={m} highlighted={highlightedId === m.id} />
+                <EntryRow
+                  m={m}
+                  highlighted={highlightedId === m.id}
+                  selected={m.included !== false}
+                  onToggleSelect={onToggleSelect}
+                />
               ) : m.event ? (
                 <EventRow m={m} />
               ) : (

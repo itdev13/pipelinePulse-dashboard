@@ -151,7 +151,12 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
     setMessages((prev) =>
       prev.map((x) => (x.id === m.id ? { ...x, included: next } : x))
     )
-    pendingInclusions.current.set(m.messageId, next)
+    // Keyed "type:id" — a note and a message can carry the same id, and keying
+    // on id alone would let one overwrite the other's pending decision.
+    pendingInclusions.current.set(
+      `${m.subjectType || 'message'}:${m.subjectId || m.messageId}`,
+      next
+    )
   }
 
   // Select or deselect every readable message at once. Same batching as a
@@ -159,9 +164,15 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
   const setAllIncluded = (next) => {
     setMessages((prev) =>
       prev.map((x) => {
-        if (x.kind || x.event) return x
+        // Events have no content to read, so they aren't selectable. Notes and
+        // tasks ARE — they were skipped here, so select-all silently left them
+        // alone while appearing to cover everything.
+        if (x.event) return x
         if (x.included === next) return x
-        pendingInclusions.current.set(x.messageId, next)
+        pendingInclusions.current.set(
+          `${x.subjectType || 'message'}:${x.subjectId || x.messageId}`,
+          next
+        )
         return { ...x, included: next }
       })
     )
@@ -172,7 +183,10 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
   const flushInclusions = async () => {
     const pending = pendingInclusions.current
     if (pending.size === 0) return
-    const changes = [...pending].map(([messageId, included]) => ({ messageId, included }))
+    const changes = [...pending].map(([key, included]) => {
+      const [subjectType, ...rest] = key.split(':')
+      return { subjectType, subjectId: rest.join(':'), included }
+    })
     // Clear before the request: a failure rolls back below, and holding them
     // would double-send on the next flush.
     pending.clear()
@@ -184,7 +198,9 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
       // something they hadn't.
       setMessages((prev) =>
         prev.map((x) => {
-          const c = changes.find((y) => y.messageId === x.messageId)
+          const type = x.subjectType || 'message'
+          const id = x.subjectId || x.messageId
+          const c = changes.find((y) => y.subjectType === type && y.subjectId === id)
           return c ? { ...x, included: !c.included } : x
         })
       )
