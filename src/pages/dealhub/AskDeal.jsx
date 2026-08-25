@@ -479,10 +479,10 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
             for one. */}
         <div
           style={{
-            display: 'flex', gap: 6, flexWrap: 'wrap',
-            padding: '10px var(--space-4)',
+            display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap',
+            padding: '11px var(--space-4)',
             borderBottom: '1px solid var(--border-default)',
-            background: 'var(--surface-sunken)'
+            background: 'var(--gray-25)'
           }}
         >
           {PROMPTS.map((p) => (
@@ -672,10 +672,16 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
             onClick={() => inputRef.current?.focus()}
             style={{
               display: 'grid', gap: 'var(--space-2)',
-              padding: '10px 12px',
-              border: `1px solid ${composerFocused ? 'var(--brand-primary)' : 'var(--border-strong)'}`,
+              padding: '12px 14px',
+              // 2px and a brand-tinted ring on focus. A 1px hairline round the
+              // most-used control on the panel read as faint — this is the
+              // "bold, vibrant" the client asked for.
+              border: `2px solid ${composerFocused ? 'var(--brand-primary)' : 'var(--border-strong)'}`,
               borderRadius: 'var(--radius-lg)',
               background: '#fff',
+              boxShadow: composerFocused
+                ? '0 0 0 4px rgba(22, 133, 95, 0.12)'
+                : 'var(--shadow-card)',
               cursor: 'text'
             }}
           >
@@ -703,11 +709,11 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
               placeholder={pending ? 'Reading the thread…' : 'Ask anything about this deal…'}
               style={{
                 width: '100%', boxSizing: 'border-box',
-                minHeight: 26, maxHeight: 132, resize: 'none',
+                minHeight: 28, maxHeight: 140, resize: 'none',
                 border: 'none', outline: 'none', background: 'transparent',
                 padding: 0,
-                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)',
-                lineHeight: 1.5, color: 'var(--text-body)'
+                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-xl)',
+                lineHeight: 1.45, color: 'var(--text-heading)'
               }}
             />
 
@@ -737,18 +743,21 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
                   <button
                     onClick={(e) => { e.stopPropagation(); submit() }}
                     disabled={!ready}
-                    title={pending ? 'Reading the thread…' : 'Ask'}
+                    // aria-label, not title: a native tooltip here would pop
+                    // the same dark OS box beside the mic.
+                    aria-label={pending ? 'Reading the thread' : 'Ask'}
                     style={{
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       flex: 'none',
-                      width: 34, height: 34, padding: 0,
+                      width: 38, height: 38, padding: 0,
                       border: 'none', borderRadius: 'var(--radius-pill)',
                       background: ready ? 'var(--brand-primary)' : 'var(--gray-200)',
                       color: '#fff',
+                      boxShadow: ready ? '0 2px 6px rgba(13, 91, 64, 0.32)' : 'none',
                       cursor: ready ? 'pointer' : 'not-allowed'
                     }}
                   >
-                    <span className="ms" style={{ fontSize: 19 }}>
+                    <span className="ms" style={{ fontSize: 21 }}>
                       {pending ? 'more_horiz' : 'arrow_upward'}
                     </span>
                   </button>
@@ -779,11 +788,12 @@ function PromptChip({ prompt, onPick }) {
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6,
         cursor: 'pointer',
-        height: 30, padding: '0 11px 0 var(--space-2)',
-        border: '1px solid var(--border-default)',
+        height: 34, padding: '0 13px 0 10px',
+        border: '1px solid var(--border-strong)',
         borderRadius: 'var(--radius-pill)',
         background: '#fff',
-        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
+        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+        fontWeight: 500,
         color: 'var(--text-body)',
         transition: 'background 0.15s ease-out, border-color 0.15s ease-out'
       }}
@@ -796,7 +806,7 @@ function PromptChip({ prompt, onPick }) {
         e.currentTarget.style.borderColor = 'var(--border-default)'
       }}
     >
-      <span className="ms" style={{ fontSize: 16, color: accent }}>{prompt.icon}</span>
+      <span className="ms" style={{ fontSize: 18, color: accent }}>{prompt.icon}</span>
       {prompt.chipLabel || prompt.label}
     </button>
   )
@@ -1235,38 +1245,60 @@ const SCOPE_CHANNELS = [
 // send button without competing with it — the send button is the primary action,
 // these are secondary.
 function IconButton({ icon, label, onClick, disabled, active }) {
+  // Our own tooltip, not the browser's `title`. A native title renders as a
+  // dark OS-styled box that ignores the design and takes ~1s to appear — it
+  // read as a bug in the middle of the composer.
+  const [hint, setHint] = useState(false)
+
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      title={label}
-      aria-label={label}
-      aria-pressed={active ? true : undefined}
-      style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        flex: 'none',
-        width: 32, height: 32, padding: 0,
-        border: 'none',
-        borderRadius: 'var(--radius-sm)',
-        // Recording is a state the user needs to see at a glance, so it gets a
-        // fill rather than a colour change.
-        background: active ? 'var(--status-stuck)' : 'transparent',
-        color: active
-          ? '#fff'
-          : disabled
-            ? 'var(--gray-400)'
-            : 'var(--text-muted)',
-        cursor: disabled ? 'not-allowed' : 'pointer'
-      }}
-      onMouseEnter={(e) => {
-        if (!disabled && !active) e.currentTarget.style.background = 'var(--gray-100)'
-      }}
-      onMouseLeave={(e) => {
-        if (!active) e.currentTarget.style.background = 'transparent'
-      }}
-    >
-      <span className="ms" style={{ fontSize: 19 }}>{icon}</span>
-    </button>
+    <span style={{ position: 'relative', display: 'inline-flex', flex: 'none' }}>
+      {hint && (
+        <span
+          role="tooltip"
+          style={{
+            position: 'absolute', bottom: 'calc(100% + 8px)', left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 3, whiteSpace: 'nowrap', pointerEvents: 'none',
+            padding: '5px 10px',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--gray-800)', color: '#fff',
+            fontSize: 'var(--text-sm)', fontWeight: 500,
+            boxShadow: 'var(--shadow-raised)'
+          }}
+        >
+          {label}
+        </span>
+      )}
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={label}
+        aria-pressed={active ? true : undefined}
+        onMouseEnter={() => setHint(true)}
+        onMouseLeave={() => setHint(false)}
+        onFocus={() => setHint(true)}
+        onBlur={() => setHint(false)}
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 38, height: 38, padding: 0,
+          border: 'none',
+          borderRadius: 'var(--radius-sm)',
+          background: active ? 'var(--status-stuck)' : 'transparent',
+          color: active
+            ? '#fff'
+            : disabled ? 'var(--gray-400)' : 'var(--text-muted)',
+          cursor: disabled ? 'not-allowed' : 'pointer'
+        }}
+        onMouseOver={(e) => {
+          if (!disabled && !active) e.currentTarget.style.background = 'var(--gray-100)'
+        }}
+        onMouseOut={(e) => {
+          if (!active) e.currentTarget.style.background = 'transparent'
+        }}
+      >
+        <span className="ms" style={{ fontSize: 21 }}>{icon}</span>
+      </button>
+    </span>
   )
 }
 
@@ -1298,7 +1330,7 @@ function ChannelScope({ value, onChange, scope }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
       <span
         style={{
-          fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
+          fontSize: 'var(--text-sm)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
           textTransform: 'uppercase', color: 'var(--text-muted)', marginRight: 2
         }}
       >
