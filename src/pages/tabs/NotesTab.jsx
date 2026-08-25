@@ -89,7 +89,7 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                   >
                     <span
                       style={{
-                        fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)',
+                        fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)',
                         lineHeight: 1.35
                       }}
                     >
