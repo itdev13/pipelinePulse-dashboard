@@ -753,6 +753,9 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
           >
             <textarea
               ref={inputRef}
+              // The wrapper draws the focus border and ring; without this the
+              // global :focus-visible rule adds a second one around the text.
+              className="pp-focus-inherit"
               rows={1}
               value={q}
               onChange={(e) => {

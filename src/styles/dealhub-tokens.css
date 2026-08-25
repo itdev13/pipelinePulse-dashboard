@@ -274,6 +274,18 @@
   border-radius: var(--radius-sm);
 }
 
+/* Opt out where a WRAPPER already shows focus.
+ *
+ * The composer's textarea is borderless inside a box that draws its own focus
+ * border and ring, so the global rule above painted a SECOND ring around the
+ * text itself — it read as a stray input border nested in the composer.
+ *
+ * The element stays keyboard-reachable and still shows focus; the focus is
+ * just drawn once, by the box, at the right size. */
+[data-dealhub] .pp-focus-inherit:focus-visible {
+  box-shadow: none;
+}
+
 /* Scrollbars, scoped to the Deal Hub. Slimmer and quieter than the browser
  * default, which is visually heavy next to 1px card borders. */
 [data-dealhub] ::-webkit-scrollbar { width: 10px; height: 10px; }

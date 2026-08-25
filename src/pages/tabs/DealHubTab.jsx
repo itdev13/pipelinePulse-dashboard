@@ -414,6 +414,10 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                   <span className="ms" style={{ fontSize: 17, color: 'var(--text-muted)' }}>search</span>
                   <input
                     autoFocus
+                    // Borderless inside a bordered row, and autoFocused — the
+                    // global :focus-visible ring would draw a stray box round
+                    // the search text as soon as the dropdown opens.
+                    className="pp-focus-inherit"
                     value={switcherQ}
                     onChange={(e) => setSwitcherQ(e.target.value)}
                     onKeyDown={(e) => e.key === 'Escape' && setSwitcherOpen(false)}
