@@ -316,16 +316,23 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
     let untranscribedCalls = 0
     let notes = 0
     let total = 0
+    let deselected = 0
+
+    let tasks = 0
 
     for (const m of messages) {
       // Events (opp created, DND enabled, …) aren't evidence.
       if (m.event) continue
-      // Tasks share the timeline but aren't conversation evidence, so they
-      // don't belong in a message count. Notes DO count — they're written
-      // context the agent reads.
-      if (m.kind === 'task') continue
+      // A DESELECTED item is not read, so it must not be counted — the row
+      // says what the agent will read, and counting an excluded note here
+      // overstated it.
+      if (m.included === false) { deselected++; continue }
       total++
       if (!m.readable) { untranscribedCalls++; continue }
+      // Notes and tasks are both citable evidence (rule 7, migration 057).
+      // Tasks were skipped here from before they reached the model, so the
+      // ASK ABOUT row had no Tasks chip and its count ignored them.
+      if (m.kind === 'task') { tasks++; readable++; continue }
       if (m.channel === 'NOTE' || m.kind === 'note') { notes++; readable++; continue }
       const key = String(m.channel || '').toLowerCase()
       byChannel[key] = (byChannel[key] || 0) + 1
@@ -338,10 +345,14 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
         `${untranscribedCalls} call${untranscribedCalls === 1 ? '' : 's'} not transcribed`
       )
     }
+    if (deselected > 0) {
+      unreadReasons.push(`${deselected} deselected`)
+    }
 
     return {
       readable,
       notes,
+      tasks,
       byChannel,
       coverage: { messagesTotal: total, messagesRead: readable, unreadReasons }
     }
@@ -1522,7 +1533,10 @@ const SCOPE_CHANNELS = [
   ['sms', 'SMS', 'sms'],
   ['whatsapp', 'WhatsApp', 'chat'],
   ['call', 'Calls', 'call'],
-  ['note', 'Notes', 'sticky_note_2']
+  ['note', 'Notes', 'sticky_note_2'],
+  // Tasks are evidence too (rule 7). Without this chip the row implied the
+  // agent doesn't read them, and there was no way to scope a question to them.
+  ['task', 'Tasks', 'task_alt']
 ]
 
 // A composer control: square, quiet, and icon-only. Sized to sit level with the
@@ -1824,7 +1838,12 @@ function ChannelScope({ value, onChange, scope }) {
   const counts = scope?.byChannel || {}
   // Notes aren't a message channel in the payload — they're separate evidence
   // — so their count comes from its own field.
-  const countFor = (key) => (key === 'note' ? scope?.notes ?? null : counts[key] ?? null)
+  // Notes and tasks aren't message channels in the payload — they're separate
+  // evidence kinds, so their counts come from their own fields.
+  const countFor = (key) =>
+    key === 'note' ? scope?.notes ?? null
+      : key === 'task' ? scope?.tasks ?? null
+        : counts[key] ?? null
 
   // How many messages this question will actually read. Nothing selected means
   // everything, which is the number a rep most wants to see before asking.
