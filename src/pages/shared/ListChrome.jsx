@@ -628,8 +628,9 @@ export function RichBody({ html, maxWidth = 640, size = 'var(--text-md)' }) {
         />
       )}
 
-      {/* Only worth offering when there IS markup to strip. */}
-      {hasMarkup(html) && (
+      {/* Only when stripping would change what you read — not merely when
+          markup exists. See hasMeaningfulFormatting. */}
+      {hasMeaningfulFormatting(html) && (
         <button
           onClick={() => setPlain((v) => !v)}
           style={{
@@ -646,11 +647,23 @@ export function RichBody({ html, maxWidth = 640, size = 'var(--text-md)' }) {
   )
 }
 
-// A real tag, not a stray "<" in prose — "keep it < 30k" is common in sales
-// notes and must not count as markup.
-function hasMarkup(s) {
-  return /<\/?[a-z][a-z0-9-]*(\s[^<>]*)?\/?>/i.test(s || '')
-    || /&(?:nbsp|amp|lt|gt|quot|#\d+);/i.test(s || '')
+// Whether stripping the markup would actually change what you READ.
+//
+// Every GHL body arrives wrapped in <p style="...">, so hasMarkup() is true for
+// all of them and the toggle appeared on every single note and task — a
+// permanent line of chrome for an escape hatch almost nobody uses.
+//
+// This asks the narrower question: is there formatting worth toggling? A single
+// wrapper paragraph is not; a list, a link, bold text or several blocks is.
+function hasMeaningfulFormatting(html) {
+  const raw = String(html || '')
+  if (!raw) return false
+  if (/<(ul|ol|li|table|a|strong|b|em|i|u|code|pre|blockquote|h[1-6]|img|br)\b/i.test(raw)) {
+    return true
+  }
+  // More than one block element means real paragraph structure.
+  const blocks = raw.match(/<(p|div)\b/gi) || []
+  return blocks.length > 1
 }
 
 // Browser-native parse — no dependency, and the same engine that rendered the

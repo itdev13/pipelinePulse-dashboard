@@ -91,6 +91,9 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
 
         {tasks.map((t) => {
           const done = t.status !== 'open'
+          // A completed task isn't overdue, whatever its due date says.
+          const overdue = t.overdue && !done
+          const dueToday = t.dueToday && !t.overdue && !done
           const hasChips = t.noteChips?.length > 0
           return (
             <div key={t.id}>
@@ -124,7 +127,10 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                       textAlign: 'left',
                       cursor: t.deal ? 'pointer' : 'default',
                       fontFamily: 'var(--font-sans)',
-                      fontSize: 'var(--text-md)', fontWeight: 500, lineHeight: 1.4,
+                      // The title is the task. It was the same weight as the
+                      // description below it, so "JAMES" and "descriptipon"
+                      // read as two equal lines.
+                      fontSize: 'var(--text-lg)', fontWeight: 600, lineHeight: 1.35,
                       color: 'var(--text-heading)',
                       textDecoration: done ? 'line-through' : 'none'
                     }}
@@ -144,12 +150,26 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                       marginTop: 3, flexWrap: 'wrap'
                     }}
                   >
-                    <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
-                      {[formatDue(t.dueAt), t.owner].filter(Boolean).join(' · ')}
+                    {/* Overdue is COLOUR on the due date, not a separate pill.
+                        With every task overdue, three red badges carried no
+                        information and were the loudest thing on the page —
+                        while the date they referred to sat in grey beside
+                        them. */}
+                    <span
+                      style={{
+                        fontSize: 'var(--text-base)',
+                        fontWeight: overdue ? 600 : 400,
+                        color: overdue
+                          ? 'var(--status-stuck-text)'
+                          : dueToday ? 'var(--accent-gold-text)' : 'var(--text-muted)'
+                      }}
+                    >
+                      {formatDue(t.dueAt) || 'No due date'}
                     </span>
-                    {t.overdue && !done && <Badge tone="rose">Overdue</Badge>}
-                    {t.dueToday && !t.overdue && !done && (
-                      <Badge tone="gold">Due today</Badge>
+                    {t.owner && (
+                      <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-faint)' }}>
+                        · {t.owner}
+                      </span>
                     )}
                   </div>
                 </div>
