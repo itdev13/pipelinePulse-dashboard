@@ -180,13 +180,20 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                     justifyContent: 'flex-end', alignItems: 'center'
                   }}
                 >
-                  {(t.contacts?.length ? t.contacts : t.contact ? [t.contact] : []).map((c) => (
-                    <ContactChip
-                      key={c.id}
-                      name={c.name}
-                      onClick={onOpenContact ? () => onOpenContact(c.id) : undefined}
-                    />
-                  ))}
+                  {/* GHL names a new opportunity after its contact, so the
+                      contact chip and the deal chip below routinely printed the
+                      same string twice — "james stevens" then "James Stevens".
+                      Drop the contact chip when it's the same person; the deal
+                      chip already names them and also says which deal. */}
+                  {(t.contacts?.length ? t.contacts : t.contact ? [t.contact] : [])
+                    .filter((c) => !sameName(c.name, t.deal?.name))
+                    .map((c) => (
+                      <ContactChip
+                        key={c.id}
+                        name={c.name}
+                        onClick={onOpenContact ? () => onOpenContact(c.id) : undefined}
+                      />
+                    ))}
                   {/* "No deal" is shown, not hidden — v5 treats an unattached
                       task as a real state worth seeing. */}
                   <DealChip
@@ -235,6 +242,12 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
       {toast && <Toast>{toast}</Toast>}
     </Shell>
   )
+}
+// Case- and space-insensitive name match. GHL stores whatever was typed, so
+// "james stevens" and "James Stevens" are the same person.
+function sameName(a, b) {
+  if (!a || !b) return false
+  return String(a).trim().toLowerCase() === String(b).trim().toLowerCase()
 }
 
 function Label({ children }) {
