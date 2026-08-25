@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { LoadingScreen, ErrorScreen } from './components/Screens'
 import DealHubShell from './pages/DealHubShell'

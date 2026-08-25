@@ -485,13 +485,6 @@ export function DealCardsSkeleton({ cards = 3 }) {
   )
 }
 
-function Muted({ children }) {
-  return (
-    <div style={{ padding: '22px var(--space-4)', fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
-      {children}
-    </div>
-  )
-}
 
 export function Shell({ children, maxWidth = 1140 }) {
   return (

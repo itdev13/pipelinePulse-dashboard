@@ -107,51 +107,73 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
   // Web Speech API. Chromium and Safari only — Firefox has never shipped it —
   // so the mic is disabled with a reason rather than present and dead.
   //
-  // Deliberately NOT continuous: a rep dictates one question, and continuous
-  // mode keeps the mic open until it times out, which both looks broken and
-  // keeps recording after they've stopped talking.
+  // The composer swaps into a recording state while this runs, the way a
+  // messaging app does: live transcript, elapsed timer, and an explicit
+  // cancel. A mic that silently fills the box gives you no way to abandon a
+  // mis-heard sentence without deleting it by hand.
   const [listening, setListening] = useState(false)
+  const [heard, setHeard] = useState('')        // live transcript, this session
+  const [elapsed, setElapsed] = useState(0)     // seconds
   const recognitionRef = useRef(null)
+  const baseTextRef = useRef('')                // what was typed before recording
+  const cancelledRef = useRef(false)
+  const timerRef = useRef(null)
+
   const speechSupported =
     typeof window !== 'undefined' &&
     !!(window.SpeechRecognition || window.webkitSpeechRecognition)
 
-  const toggleDictation = (e) => {
-    e?.stopPropagation()
-    if (!speechSupported) return
-
-    if (listening) {
-      recognitionRef.current?.stop()
-      return
+  const stopTimer = () => {
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current)
+      timerRef.current = null
     }
+  }
+
+  const startDictation = (e) => {
+    e?.stopPropagation()
+    if (!speechSupported || listening) return
 
     const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition
     const rec = new Ctor()
     rec.lang = 'en-GB'
     rec.interimResults = true
-    rec.continuous = false
+    // Continuous, because the overlay gives an explicit stop. Without one you
+    // get a single utterance and the mic closes itself mid-thought.
+    rec.continuous = true
     recognitionRef.current = rec
 
-    // Append to whatever is already typed rather than replacing it — someone
-    // part-way through a question who taps the mic means "continue", not
-    // "start again". Interim results overwrite only the dictated tail.
-    const base = q
+    // Keep whatever was already typed — tapping the mic part-way through a
+    // question means "carry on", not "start again".
+    baseTextRef.current = q
+    cancelledRef.current = false
+    setHeard('')
+    setElapsed(0)
+
     rec.onresult = (ev) => {
-      let heard = ''
-      for (let i = ev.resultIndex; i < ev.results.length; i++) {
-        heard += ev.results[i][0].transcript
+      let text = ''
+      for (let i = 0; i < ev.results.length; i++) {
+        text += ev.results[i][0].transcript
       }
-      setQ((base ? `${base.replace(/\s+$/, '')} ` : '') + heard.trimStart())
+      setHeard(text.trimStart())
     }
     rec.onend = () => {
+      stopTimer()
       setListening(false)
       recognitionRef.current = null
-      inputRef.current?.focus()
+      // Commit unless the user cancelled. Reading the transcript from state
+      // here would be stale inside this closure, so the commit happens in the
+      // effect below, keyed on `listening` going false.
     }
-    rec.onerror = () => {
-      // Permission denied, no mic, or no speech detected. Nothing actionable
-      // to show — stopping is enough, and the tooltip already explains the
-      // control.
+    rec.onerror = (ev) => {
+      // 'no-speech' and 'aborted' are ordinary — someone tapped the mic and
+      // said nothing. A permission denial is worth surfacing, since the
+      // control looks broken otherwise.
+      if (ev?.error === 'not-allowed' || ev?.error === 'service-not-allowed') {
+        setError('Microphone access is blocked — allow it in your browser to dictate.')
+        cancelledRef.current = true
+      }
+      stopTimer()
       setListening(false)
       recognitionRef.current = null
     }
@@ -159,14 +181,51 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
     try {
       rec.start()
       setListening(true)
+      timerRef.current = window.setInterval(() => setElapsed((n) => n + 1), 1000)
     } catch {
+      stopTimer()
       setListening(false)
     }
   }
 
+  // Finish and keep what was heard.
+  const finishDictation = (e) => {
+    e?.stopPropagation()
+    cancelledRef.current = false
+    recognitionRef.current?.stop()
+  }
+
+  // Abandon: the mic closes and nothing reaches the composer.
+  const cancelDictation = (e) => {
+    e?.stopPropagation()
+    cancelledRef.current = true
+    recognitionRef.current?.abort?.() ?? recognitionRef.current?.stop()
+    setHeard('')
+  }
+
+  // Commit the transcript once recording actually stops. Doing this in
+  // rec.onend would read a stale `heard` from the closure that created the
+  // recogniser.
+  useEffect(() => {
+    if (listening) return
+    if (cancelledRef.current) { setHeard(''); return }
+    const text = heard.trim()
+    if (!text) return
+    const base = baseTextRef.current
+    setQ((base ? `${base.replace(/\s+$/, '')} ` : '') + text)
+    setHeard('')
+    inputRef.current?.focus()
+    // `heard` is intentionally the only trigger alongside `listening`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listening])
+
   // Leaving the deal mid-dictation must release the microphone, or the browser
-  // keeps the recording indicator on after the panel is gone.
-  useEffect(() => () => recognitionRef.current?.stop(), [])
+  // keeps its recording indicator on after the panel is gone.
+  useEffect(() => () => {
+    stopTimer()
+    recognitionRef.current?.abort?.() ?? recognitionRef.current?.stop()
+  }, [])
+
   // Per-channel counts of what the AI would read right now, derived from the
   // live timeline rows rather than fetched — the server count would lag a
   // channel toggle, and the stale number is precisely the one the rep is
@@ -664,10 +723,17 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
           >
           <ChannelScope value={channels} onChange={setChannels} scope={scope} />
 
-          {/* One bordered field holding the textarea and its controls, per the
-              design: `+` attach on the left, mic and circular send on the right.
-              The border is on the WRAPPER, not the textarea, so the controls sit
-              inside the same box. */}
+          {/* While dictating, the composer IS the recorder — the same box, a
+              different state. A separate floating panel would leave a dead
+              text field underneath it. */}
+          {listening ? (
+            <RecordingBar
+              heard={heard}
+              elapsed={elapsed}
+              onCancel={cancelDictation}
+              onFinish={finishDictation}
+            />
+          ) : (
           <div
             onClick={() => inputRef.current?.focus()}
             style={{
@@ -726,15 +792,14 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
               <span style={{ flex: 1 }} />
 
               <IconButton
-                icon={listening ? 'stop_circle' : 'mic'}
+                icon="mic"
                 label={
-                  !speechSupported
-                    ? 'Dictation needs Chrome, Edge or Safari'
-                    : listening ? 'Stop dictating' : 'Dictate your question'
+                  speechSupported
+                    ? 'Dictate your question'
+                    : 'Dictation needs Chrome, Edge or Safari'
                 }
-                onClick={toggleDictation}
+                onClick={startDictation}
                 disabled={!speechSupported || pending || available === false}
-                active={listening}
               />
 
               {(() => {
@@ -765,6 +830,7 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
               })()}
             </div>
           </div>
+          )}
           </div>
         </div>
       </section>
@@ -1244,6 +1310,135 @@ const SCOPE_CHANNELS = [
 // A composer control: square, quiet, and icon-only. Sized to sit level with the
 // send button without competing with it — the send button is the primary action,
 // these are secondary.
+// The composer while dictating — WhatsApp's recording state, in our palette.
+//
+// A pulsing dot and a timer say it's live, the transcript appears as it's
+// heard, and there are exactly two ways out: bin it or keep it. The bin
+// matters — without it a mis-heard sentence has to be deleted by hand, which
+// is worse than not offering dictation at all.
+function RecordingBar({ heard, elapsed, onCancel, onFinish }) {
+  return (
+    <div
+      style={{
+        display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
+        padding: '12px 14px',
+        border: '2px solid var(--status-stuck)',
+        borderRadius: 'var(--radius-lg)',
+        background: 'var(--tint-rose)',
+        boxShadow: '0 0 0 4px rgba(220, 38, 38, 0.10)'
+      }}
+    >
+      <style>{RECORDING_CSS}</style>
+
+      {/* Discard. Left, away from the send button, so the two are hard to
+          confuse under a moving cursor. */}
+      <button
+        onClick={onCancel}
+        aria-label="Discard this recording"
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          flex: 'none', width: 38, height: 38, padding: 0,
+          border: 'none', borderRadius: 'var(--radius-sm)',
+          background: 'transparent', color: 'var(--status-stuck)',
+          cursor: 'pointer'
+        }}
+      >
+        <span className="ms" style={{ fontSize: 22 }}>delete</span>
+      </button>
+
+      <span
+        aria-hidden
+        className="pp-rec-dot"
+        style={{
+          width: 10, height: 10, flex: 'none',
+          borderRadius: '50%', background: 'var(--status-stuck)'
+        }}
+      />
+
+      <span
+        style={{
+          flex: 'none',
+          fontFamily: 'var(--font-mono)', fontSize: 'var(--text-lg)',
+          fontWeight: 600, color: 'var(--status-stuck)',
+          fontVariantNumeric: 'tabular-nums'
+        }}
+      >
+        {formatElapsed(elapsed)}
+      </span>
+
+      {/* Waveform. Decorative — the Web Speech API gives no amplitude, so
+          animating to real levels would need a parallel getUserMedia stream
+          and an analyser node for no functional gain. It signals "listening",
+          which is its whole job. */}
+      <span aria-hidden style={{ display: 'flex', alignItems: 'center', gap: 3, flex: 'none' }}>
+        {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+          <span
+            key={i}
+            className="pp-rec-bar"
+            style={{
+              width: 3, borderRadius: 2,
+              background: 'var(--status-stuck)',
+              animationDelay: `${i * 0.09}s`
+            }}
+          />
+        ))}
+      </span>
+
+      {/* What's been heard so far. Scrolls rather than growing the bar, so a
+          long dictation doesn't push the buttons off-screen. */}
+      <span
+        style={{
+          flex: 1, minWidth: 0, maxHeight: 46, overflowY: 'auto',
+          fontSize: 'var(--text-md)', lineHeight: 'var(--leading-snug)',
+          color: heard ? 'var(--text-heading)' : 'var(--text-muted)',
+          fontStyle: heard ? 'normal' : 'italic'
+        }}
+      >
+        {heard || 'Listening…'}
+      </span>
+
+      <button
+        onClick={onFinish}
+        aria-label="Stop recording and keep the text"
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          flex: 'none', width: 38, height: 38, padding: 0,
+          border: 'none', borderRadius: 'var(--radius-pill)',
+          background: 'var(--brand-primary)', color: '#fff',
+          boxShadow: '0 2px 6px rgba(13, 91, 64, 0.32)',
+          cursor: 'pointer'
+        }}
+      >
+        <span className="ms" style={{ fontSize: 21 }}>check</span>
+      </button>
+    </div>
+  )
+}
+
+const RECORDING_CSS = `
+@keyframes pp-rec-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.35; transform: scale(0.82); }
+}
+@keyframes pp-rec-wave {
+  0%, 100% { height: 7px; }
+  50%      { height: 20px; }
+}
+.pp-rec-dot { animation: pp-rec-pulse 1.1s ease-in-out infinite; }
+.pp-rec-bar { height: 7px; animation: pp-rec-wave 0.9s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .pp-rec-dot, .pp-rec-bar { animation: none; }
+  .pp-rec-bar { height: 13px; }
+}
+`
+
+// "0:07" / "1:24".
+function formatElapsed(seconds) {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
 function IconButton({ icon, label, onClick, disabled, active }) {
   // Our own tooltip, not the browser's `title`. A native title renders as a
   // dark OS-styled box that ignores the design and takes ~1s to appear — it
