@@ -299,16 +299,38 @@ function Details({ contact, onSaved }) {
 
   useEffect(() => () => clearTimeout(timer.current), [])
 
-  // `override` matters for the antd Select: it fires onChange at selection time,
-  // and setType hasn't flushed yet, so reading `type` here would save the
-  // PREVIOUS value. The native <select> committed onBlur, by which point state
-  // had settled.
-  const commit = (key, override) => {
-    const value = override !== undefined
-      ? override
-      : key === 'contactType' ? type : draft[key]
-    if ((contact[key] || '') === (value || '')) return
-    save({ [key]: value })
+  // Which fields differ from what's saved. Compared against `contact`, the last
+  // value the server confirmed — not against the initial draft, so a field
+  // edited and then typed back to its original stops counting as dirty.
+  const isDirty = (key) => {
+    const current = key === 'contactType' ? type : draft[key]
+    return (contact[key] || '') !== (current || '')
+  }
+
+  // contactType is deliberately NOT included: it's a GHL custom field, not a
+  // property of the contact object, so the update endpoint drops it. Including
+  // it here would let someone change the dropdown, press Save, and see nothing
+  // happen.
+  const dirtyKeys = FIELDS.map(([k]) => k).filter(isDirty)
+
+  // One request for every change, not one per field. Each PATCH is a round trip
+  // to GHL plus a webhook back, so saving five fields separately would fire
+  // five of each and the last webhook would win in an unpredictable order.
+  const saveAll = () => {
+    if (!dirtyKeys.length) return
+    const patch = {}
+    for (const k of dirtyKeys) {
+      patch[k] = k === 'contactType' ? type : draft[k]
+    }
+    save(patch)
+  }
+
+  const revert = () => {
+    setDraft(Object.fromEntries(FIELDS.map(([k]) => [k, contact[k] || ''])))
+    setType(contact.contactType || '')
+    setError(null)
+    setErrorField(null)
+    setState('idle')
   }
 
   return (
@@ -348,9 +370,18 @@ function Details({ contact, onSaved }) {
               type={type_}
               value={draft[key]}
               onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
-              onBlur={() => commit(key)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); saveAll() }
+                if (e.key === 'Escape') { e.preventDefault(); revert() }
+              }}
               placeholder={`Add ${label.toLowerCase()}`}
-              style={inputStyle}
+              style={{
+                ...inputStyle,
+                // Mark the fields that differ from what's saved, so it's clear
+                // what pressing Save will send.
+                borderColor: isDirty(key) ? 'var(--brand-primary)' : undefined,
+                background: isDirty(key) ? 'var(--tint-pine)' : undefined
+              }}
             />
           </label>
         ))}
@@ -364,17 +395,22 @@ function Details({ contact, onSaved }) {
           >
             Contact type
           </span>
+          {/* Read-only: contactType is a GHL CUSTOM FIELD, not a property of
+              the contact object, so PUT /contacts/{id} silently ignores it.
+              Editing it needs the custom-field write path — offering it here
+              would be a control that does nothing. */}
           <Select
+            disabled
+            title="Contact type is a custom field — edit it in GoHighLevel"
             value={type || undefined}
             onChange={(v) => {
               // allowClear passes undefined; normalise to '' so clearing sends
               // an empty string rather than dropping the field from the patch.
-              const next = v ?? ''
-              setType(next)
-              // antd fires onChange at selection rather than on blur, so commit
-              // here — the native <select> committed onBlur, which never fired
-              // if the user picked with the keyboard and moved on.
-              commit('contactType', next)
+              // allowClear passes undefined; normalise so clearing sends an
+              // empty string rather than dropping the field from the patch.
+              // No immediate commit — it joins the same Save as the text
+              // fields, so one edit session is one request.
+              setType(v ?? '')
             }}
             placeholder="—"
             allowClear
@@ -416,10 +452,62 @@ function Details({ contact, onSaved }) {
           fontSize: 'var(--text-base)', color: 'var(--text-muted)'
         }}
       >
-        Changes show everywhere this contact appears — deal cards, timelines and
-        search. They are not yet pushed back to GoHighLevel, so an edit there
-        will overwrite one made here.
+        {dirtyKeys.length > 0
+          ? `${dirtyKeys.length} unsaved ${dirtyKeys.length === 1 ? 'change' : 'changes'} — press Enter or Save to send them to GoHighLevel.`
+          : 'Saved changes are written to GoHighLevel, which sends them back to every view here.'}
       </p>
+
+      {/* An explicit Save. Blur-committing meant a half-typed value could reach
+          GHL the moment focus moved, and there was no way to abandon an edit —
+          nor any sign that anything was unsaved. */}
+      {dirtyKeys.length > 0 && (
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+            padding: '11px var(--space-4)',
+            borderTop: '1px solid var(--border-default)',
+            background: 'var(--tint-pine)'
+          }}
+        >
+          <button
+            onClick={saveAll}
+            disabled={state === 'saving'}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              cursor: state === 'saving' ? 'wait' : 'pointer',
+              height: 34, padding: '0 16px',
+              border: 'none', borderRadius: 'var(--radius-md)',
+              background: 'var(--brand-primary)', color: '#fff',
+              boxShadow: '0 2px 6px rgba(13, 91, 64, 0.32)',
+              fontFamily: 'var(--font-sans)',
+              fontSize: 'var(--text-md)', fontWeight: 600
+            }}
+          >
+            <span className="ms" style={{ fontSize: 17 }}>check</span>
+            {state === 'saving' ? 'Saving…' : `Save ${dirtyKeys.length}`}
+          </button>
+
+          <button
+            onClick={revert}
+            disabled={state === 'saving'}
+            style={{
+              cursor: 'pointer',
+              height: 34, padding: '0 14px',
+              border: '1px solid var(--border-strong)',
+              borderRadius: 'var(--radius-md)',
+              background: '#fff',
+              fontFamily: 'var(--font-sans)',
+              fontSize: 'var(--text-md)', color: 'var(--text-body)'
+            }}
+          >
+            Cancel
+          </button>
+
+          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+            Enter saves · Esc cancels
+          </span>
+        </div>
+      )}
     </Panel>
   )
 }
