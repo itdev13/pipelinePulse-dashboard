@@ -4,6 +4,7 @@ import { contactsAPI } from '../../api/contacts'
 import {
   Panel, StateMessage, SkeletonStyles, Bar, formatDate, initialsFor, nameFor
 } from '../shared/ListChrome'
+import TagPicker from '../shared/TagPicker'
 
 // Contact record — everything about one person, in four panels:
 //
@@ -209,26 +210,66 @@ function Header({ contact }) {
         {contact.timezone && <Fact icon="schedule">{contact.timezone}</Fact>}
       </div>
 
-      {contact.tags?.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-          {contact.tags.map((t) => (
-            <span
-              key={t}
-              style={{
-                height: 22, padding: '0 9px',
-                display: 'inline-flex', alignItems: 'center',
-                borderRadius: 'var(--radius-pill)',
-                border: '1px solid var(--border-default)',
-                background: 'var(--gray-50)', color: 'var(--text-body)',
-                fontSize: 'var(--text-sm)', fontWeight: 500
-              }}
-            >
-              {t}
-            </span>
-          ))}
-        </div>
-      )}
+      <TagStrip contactId={contact.id} tags={contact.tags || []} />
     </section>
+  )
+}
+
+// Tags on the contact record. Editable through the dedicated add/remove
+// endpoints — the field-level save on this page goes through the contact update
+// endpoint, which REPLACES the whole tag array and is therefore refused for
+// tags (see the server's contactPatch.js). Hence a separate control rather than
+// another input in the form.
+function TagStrip({ contactId, tags }) {
+  const [current, setCurrent] = useState(tags)
+  const [picking, setPicking] = useState(false)
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
+      {current.map((t) => (
+        <span
+          key={t}
+          style={{
+            height: 22, padding: '0 9px',
+            display: 'inline-flex', alignItems: 'center',
+            borderRadius: 'var(--radius-pill)',
+            border: '1px solid var(--green-100)',
+            background: 'var(--tint-pine)', color: 'var(--accent-pine-text)',
+            fontSize: 'var(--text-sm)', fontWeight: 600
+          }}
+        >
+          {t}
+        </span>
+      ))}
+
+      <button
+        onClick={() => setPicking(true)}
+        title="Add or remove tags"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          height: 22, padding: '0 9px 0 7px',
+          border: '1px dashed var(--border-strong)',
+          borderRadius: 'var(--radius-pill)',
+          background: '#fff', color: 'var(--text-body)',
+          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', fontWeight: 500,
+          cursor: 'pointer'
+        }}
+      >
+        <span className="ms" style={{ fontSize: 14 }}>
+          {current.length ? 'edit' : 'add'}
+        </span>
+        {current.length ? 'Edit tags' : 'Add a tag'}
+      </button>
+
+      {picking && (
+        <TagPicker
+          contactId={contactId}
+          tags={current}
+          onChange={setCurrent}
+          onClose={() => setPicking(false)}
+        />
+      )}
+    </div>
   )
 }
 

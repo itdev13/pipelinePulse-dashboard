@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { DatePicker, Select } from 'antd'
 import dayjs from 'dayjs'
+import TagPicker from '../shared/TagPicker'
 
 // Deal Hub — Deal section (the deal's own facts).
 //
@@ -453,8 +454,24 @@ function FieldChipRow({ deal }) {
 // the same line as the pills, so it reads as a sentence and costs one row
 // instead of the ~90px a full labelled section took.
 function TagRow({ deal }) {
-  const count = (deal.dealTags?.length || 0) + (deal.contactTags?.length || 0)
-  if (count === 0) return null
+  // Local so a change shows immediately. The webhook reconciles our database a
+  // moment later; re-fetching the deal to see a pill appear would be slower and
+  // no more accurate.
+  const [contactTags, setContactTags] = useState(deal.contactTags || [])
+  const [picking, setPicking] = useState(false)
+
+  // Tags live on the CONTACT, so editing needs one. GHL names an opportunity
+  // after its contact and the primary is who the deal is about, so that's the
+  // one to edit — with several people on a deal, a picker for "which person's
+  // tags" would be a question the rep didn't ask.
+  const people = deal.people || []
+  const target = people.find((p) => p.primary) || people[0] || null
+
+  const count = (deal.dealTags?.length || 0) + (contactTags?.length || 0)
+
+  // Unlike before, an untagged deal still renders — the row is now how you ADD
+  // the first tag, so hiding it when empty would hide the only way in.
+  if (count === 0 && !target) return null
 
   return (
     <div
@@ -476,7 +493,44 @@ function TagRow({ deal }) {
       </span>
       {/* TagList dedupes a tag applied to both the deal and the contact, so
           it stays the single source for the pill list. */}
-      <TagList dealTags={deal.dealTags} contactTags={deal.contactTags} inline />
+      <TagList dealTags={deal.dealTags} contactTags={contactTags} inline />
+
+      {count === 0 && (
+        <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
+          None yet
+        </span>
+      )}
+
+      {target && (
+        <button
+          onClick={() => setPicking(true)}
+          title={`Edit tags on ${target.firstName || target.name || 'this contact'}`}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            height: 26, padding: '0 10px 0 8px',
+            border: '1px dashed var(--border-strong)',
+            borderRadius: 'var(--radius-pill)',
+            background: '#fff', color: 'var(--text-body)',
+            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', fontWeight: 500,
+            cursor: 'pointer'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 15 }}>edit</span>
+          Edit
+        </button>
+      )}
+
+      {picking && target && (
+        <TagPicker
+          contactId={target.id}
+          tags={contactTags}
+          // Deal-scoped tags can't be changed through the contact endpoint, so
+          // they're shown locked rather than offered and silently ignored.
+          readOnlyTags={deal.dealTags || []}
+          onChange={setContactTags}
+          onClose={() => setPicking(false)}
+        />
+      )}
     </div>
   )
 }

@@ -575,3 +575,16 @@
 [data-dealhub] .pp-stage-select .ant-select-arrow {
   color: var(--accent-pine-text);
 }
+
+/* Spinner for in-flight saves. Material Symbols' progress_activity is drawn as
+   a partial ring, so rotating it reads as a spinner without any extra markup.
+   Honours reduced-motion by holding still rather than vanishing — the icon is
+   still the "working" signal. */
+@keyframes pp-spin { to { transform: rotate(360deg); } }
+[data-dealhub] .pp-spin {
+  display: inline-block;
+  animation: pp-spin 900ms linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-dealhub] .pp-spin { animation: none; }
+}

@@ -698,6 +698,9 @@ export default function DealHubTab({
           {leftRail === 'media' && (
             <MediaSection
               messages={messages || []}
+              // Notes and tasks attach to a contact, so "Save as note" and
+              // "Create task" need the deal's people.
+              people={deal?.people || []}
               onJumpToMessage={jumpToMessage}
             />
           )}
@@ -925,8 +928,10 @@ export default function DealHubTab({
                   of them for no reason — a rep reading a deal wants the tasks
                   AND the notes. */}
               <div style={{ display: 'grid', gap: 14, minWidth: 0 }}>
-                <DealTasksSection dealId={dealId} />
-                <DealNotesSection dealId={dealId} />
+                {/* people: a task is stored against a contact, so creating
+                    one from the rail needs someone to attach it to. */}
+                <DealTasksSection dealId={dealId} people={deal?.people || []} />
+                <DealNotesSection dealId={dealId} people={deal?.people || []} />
                 <QualificationSection qualification={deal?.qualification || []} />
               </div>
             </div>

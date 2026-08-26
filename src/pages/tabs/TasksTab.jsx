@@ -2,6 +2,8 @@ import React, { useCallback, useState } from 'react'
 import { tasksAPI } from '../../api/tasks'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
+import TaskEditor from '../shared/TaskEditor'
+import ConfirmDialog from '../shared/ConfirmDialog'
 import {
   Shell, PageHeader, Panel, ContactChip, DealChip, RowAction,
   PrimaryAction, FilterChip, NoteChip, StateMessage, LoadMore,
@@ -44,7 +46,7 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
     ({ cursor }) => tasksAPI.list({ status, due: dueFilter, limit: 20, cursor }),
     [status, dueFilter]
   )
-  const { items, error, hasMore, loadingMore, loading, loadMore, patchItem } =
+  const { items, error, hasMore, loadingMore, loading, loadMore, patchItem, reload } =
     usePagedList({ fetchPage, key: 'tasks', deps: [status, dueFilter] })
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
@@ -55,17 +57,64 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
   const countNoun =
     status === 'open' ? 'open' : status === 'completed' ? 'completed' : 'tasks'
 
-  // Optimistic strike-through then roll back: completing a task has to write
-  // to GHL and that path doesn't exist yet. A checkbox that silently didn't
-  // save is worse than one that visibly bounces and says why.
-  const toggle = (t) => {
+  // Tick straight away, then write. The round trip to the CRM and back takes a
+  // moment (their API waits ~2s internally to keep its own stores in sync), and
+  // a checkbox that doesn't move until then feels broken.
+  //
+  // On failure the tick is rolled back and the reason is shown — a box that
+  // silently didn't save is worse than one that visibly bounces and says why.
+  const [saving, setSaving] = useState(() => new Set())
+  // null = closed. { task } = editing that one; { task: null } = creating.
+  const [editor, setEditor] = useState(null)
+  // The task queued for deletion, and any failure from trying.
+  const [confirming, setConfirming] = useState(null)
+  const [confirmError, setConfirmError] = useState(null)
+  const [deleting, setDeleting] = useState(null)
+
+  const removeTask = async () => {
+    const t = confirming
+    if (!t || deleting) return
+    setDeleting(t.id)
+    setConfirmError(null)
+    try {
+      await tasksAPI.remove(t.id)
+      setConfirming(null)
+      reload()
+      setToast('Task deleted')
+      window.setTimeout(() => setToast(null), 2200)
+    } catch (err) {
+      // In the dialog, which stays open, so the reason is where the click was.
+      setConfirmError(err.message || 'Could not delete that task')
+    } finally {
+      setDeleting(null)
+    }
+  }
+
+  const toggle = async (t) => {
+    if (saving.has(t.id)) return          // don't race a click with itself
     const was = t.status
-    patchItem((x) => x.id === t.id, { status: was === 'open' ? 'completed' : 'open' })
-    setToast('Completing a task writes back to your CRM — coming next')
-    window.setTimeout(() => {
+    const next = was === 'open'
+
+    setSaving((s) => new Set(s).add(t.id))
+    patchItem((x) => x.id === t.id, { status: next ? 'completed' : 'open' })
+
+    try {
+      const { task } = await tasksAPI.setCompleted(t.id, next)
+      // Apply what the CRM echoed rather than what we assumed. If it stored
+      // something different, the row should show that.
+      patchItem((x) => x.id === t.id, {
+        status: task?.completed === false ? 'open' : 'completed',
+        completedAt: task?.completed ? (t.completedAt || new Date().toISOString()) : null
+      })
+      setToast(next ? 'Task completed' : 'Task reopened')
+      window.setTimeout(() => setToast(null), 1600)
+    } catch (err) {
       patchItem((x) => x.id === t.id, { status: was })
-      setToast(null)
-    }, 1800)
+      setToast(err.message || 'Could not save that — try again')
+      window.setTimeout(() => setToast(null), 3800)
+    } finally {
+      setSaving((s) => { const n = new Set(s); n.delete(t.id); return n })
+    }
   }
 
   return (
@@ -105,7 +154,11 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
         title="Task queue"
         accent="rose"
         meta={loading ? null : `${openCount}${hasMore ? '+' : ''} ${countNoun}`}
-        toolbar={<PrimaryAction onClick={undefined} icon="add">Add task</PrimaryAction>}
+        toolbar={
+          <PrimaryAction onClick={() => setEditor({ task: null })} icon="add">
+            Add task
+          </PrimaryAction>
+        }
       >
         <StateMessage
           loading={loading}
@@ -145,10 +198,12 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                   type="checkbox"
                   checked={done}
                   onChange={() => toggle(t)}
+                  disabled={saving.has(t.id)}
                   aria-label={`Mark ${t.title || 'task'} ${done ? 'open' : 'complete'}`}
                   style={{
                     marginTop: 2, width: 17, height: 17, flex: 'none',
-                    accentColor: 'var(--brand-primary)', cursor: 'pointer'
+                    accentColor: 'var(--brand-primary)',
+                    cursor: saving.has(t.id) ? 'progress' : 'pointer'
                   }}
                 />
 
@@ -256,7 +311,14 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                   />
                   <RowAction
                     icon="edit"
-                    title="Edit task — people, deal and linked notes (coming next)"
+                    title="Edit this task"
+                    onClick={() => setEditor({ task: t })}
+                  />
+                  <RowAction
+                    icon="close"
+                    danger
+                    title="Delete this task"
+                    onClick={() => { setConfirmError(null); setConfirming(t) }}
                   />
                 </div>
               </div>
@@ -291,10 +353,62 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
         )}
       </Panel>
 
-      {toast && <Toast>{toast}</Toast>}
+      {confirming && (
+        <ConfirmDialog
+          title="Delete this task?"
+          message="This cannot be undone from here."
+          preview={taskPreview(confirming)}
+          confirmLabel="Delete task"
+          busy={deleting === confirming.id}
+          error={confirmError}
+          onConfirm={removeTask}
+          onCancel={() => { setConfirming(null); setConfirmError(null) }}
+        />
+      )}
+
+      {editor && (
+        <TaskEditor
+          task={editor.task}
+          // Editing: the one contact already on the task. Creating from this
+          // page there's no deal in scope to offer people from, so a create
+          // needs the contact chosen elsewhere — see the empty-contacts note
+          // in the editor.
+          contacts={editor.task?.contact ? [editor.task.contact] : []}
+          onClose={() => setEditor(null)}
+          onSaved={(saved) => {
+            if (editor.task && saved) {
+              // Apply what the CRM echoed, not what we sent.
+              patchItem((x) => x.id === editor.task.id, {
+                title: saved.title ?? editor.task.title,
+                body: saved.body ?? editor.task.body,
+                dueAt: saved.dueDate ?? editor.task.dueAt
+              })
+              setToast('Task saved')
+            } else {
+              // A new task reaches our database via the CRM's webhook, which
+              // takes a moment — so it isn't in this list yet. Say so rather
+              // than showing a list that looks like the save failed.
+              setToast('Task created — it appears here once your CRM syncs it back')
+              reload()
+            }
+            window.setTimeout(() => setToast(null), 4000)
+          }}
+        />
+      )}
+
+      {toast && <Toast tone={toastTone(toast)}>{toast}</Toast>}
     </Shell>
   )
 }
+// A task as plain text for the confirm dialog. The title alone is often
+// "Follow Up" — identical across a dozen rows — so the due date goes in too, as
+// that is what distinguishes them in the queue.
+function taskPreview(task) {
+  const title = (task.title || '').trim() || '(untitled task)'
+  const due = formatDue(task.dueAt)
+  return due ? `${title} · ${due}` : title
+}
+
 // Case- and space-insensitive name match. GHL stores whatever was typed, so
 // "james stevens" and "James Stevens" are the same person.
 function sameName(a, b) {
@@ -315,21 +429,38 @@ function Label({ children }) {
   )
 }
 
-function Toast({ children }) {
+// A failed save and a successful one must not look identical. Derived from the
+// message rather than threaded through as state — there's one toast at a time
+// and its wording already carries the outcome.
+function toastTone(message) {
+  return /^Task (completed|reopened|saved|created|deleted)/.test(message)
+    ? 'done'
+    : 'error'
+}
+
+const TOAST_TONES = {
+  done:  { icon: 'check_circle', colour: 'var(--status-done)' },
+  error: { icon: 'error',        colour: 'var(--status-stuck)' }
+}
+
+function Toast({ children, tone = 'error' }) {
+  const { icon, colour } = TOAST_TONES[tone] || TOAST_TONES.error
   return (
     <div
       role="status"
       style={{
         position: 'fixed', bottom: 20, right: 20, zIndex: 40,
         display: 'flex', alignItems: 'center', gap: 7,
+        maxWidth: 420,
         padding: '10px 14px',
+        border: `1px solid ${colour}`,
         borderRadius: 'var(--radius-md)',
         background: '#fff', boxShadow: 'var(--shadow-overlay)',
         fontSize: 'var(--text-md)', color: 'var(--text-heading)'
       }}
     >
-      <span className="ms" style={{ fontSize: 17, color: 'var(--status-working)' }}>
-        info
+      <span className="ms" style={{ fontSize: 17, color: colour, flex: 'none' }}>
+        {icon}
       </span>
       {children}
     </div>

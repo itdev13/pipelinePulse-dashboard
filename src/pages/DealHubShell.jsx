@@ -163,6 +163,13 @@ export default function DealHubShell() {
           boxShadow: '0 1px 2px rgba(23, 33, 46, 0.06)'
         }}
       >
+        <span
+          title={locationName}
+          style={{ fontWeight: 600, fontSize: 'var(--text-lg)', color: 'var(--text-heading)' }}
+        >
+          {locationName}
+        </span>
+
         {/* Back. Disabled rather than hidden on the first screen: a control
             that appears and disappears makes the whole header jump sideways
             every time you navigate, and the tabs beside it move with it. */}
@@ -191,13 +198,6 @@ export default function DealHubShell() {
           <span className="ms" style={{ fontSize: 18 }}>arrow_back</span>
           Back
         </button>
-
-        <span
-          title={locationName}
-          style={{ fontWeight: 600, fontSize: 'var(--text-lg)', color: 'var(--text-heading)' }}
-        >
-          {locationName}
-        </span>
 
         {/* Tab chips */}
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

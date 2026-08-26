@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { aiAPI } from '../../api/ai'
+import NoteEditor from '../shared/NoteEditor'
+import TaskEditor from '../shared/TaskEditor'
 import { SkeletonStyles, Bar } from '../shared/ListChrome'
 
 // Deal Hub — Co-Pilot panel.
@@ -81,7 +83,12 @@ function mbLabel(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, messages = [] }) {
+export default function AskDeal({
+  dealId, onAsk, onJumpToMessage, beforeAsk, messages = [],
+  // The deal's contacts. Notes and tasks are stored against a CONTACT, so
+  // "Save as note" needs one — without any, those actions stay disabled.
+  people = []
+}) {
   const [q, setQ] = useState('')
   // Transcript of this deal's Q&A. Client-held: it's scratch context for
   // follow-ups, and every question is already persisted server-side in
@@ -797,6 +804,7 @@ export default function AskDeal({ dealId, onAsk, onJumpToMessage, beforeAsk, mes
                     turn={t}
                     onJumpToMessage={onJumpToMessage}
                     onInspect={t.runId ? () => setInspectRunId(t.runId) : undefined}
+                    people={people}
                   />
                 )
               )}
@@ -1240,7 +1248,12 @@ function askedAtLabel(ts) {
 // computed server-side in app code, never asked of the model, so it cannot be
 // hallucinated. It's also what makes a thin answer trustworthy: "read 6 of 8,
 // 2 calls not transcribed" tells the rep why the answer is thin.
-function Answer({ turn, onJumpToMessage, onInspect }) {
+function Answer({ turn, onJumpToMessage, onInspect, people = [] }) {
+  // 'note' | 'task' | null — which editor is open over this answer.
+  const [saveAs, setSaveAs] = useState(null)
+
+  const defaultContactId =
+    people.find((p) => p.primary)?.id || people[0]?.id || null
   const cov = turn.coverage
   return (
     <div
@@ -1357,20 +1370,59 @@ function Answer({ turn, onJumpToMessage, onInspect }) {
         </p>
       )}
 
-      {/* Actions. Both write to GHL, which this app has never done — no POST
-          path, no write scopes. Present but disabled rather than absent, so the
-          shape of the finished panel is visible and nothing silently no-ops. */}
+      {/* Actions. Both write to the CRM, and both are now live.
+          The answer text is pre-filled but editable — an agent's wording is a
+          draft, and a rep saving it under their own name should be able to
+          change it first. */}
       {turn.answered && (
-        <div
-          style={{
-            display: 'flex', gap: 6, flexWrap: 'wrap',
-            padding: '10px 14px var(--space-3)',
-            borderTop: '1px solid var(--border-default)'
-          }}
-        >
-          <AnswerAction icon="sticky_note_2" label="Save as note" />
-          <AnswerAction icon="task_alt" label="Create task" />
-        </div>
+        <>
+          <div
+            style={{
+              display: 'flex', gap: 6, flexWrap: 'wrap',
+              padding: '10px 14px var(--space-3)',
+              borderTop: '1px solid var(--border-default)'
+            }}
+          >
+            <AnswerAction
+              icon="sticky_note_2"
+              label="Save as note"
+              onClick={people.length ? () => setSaveAs('note') : undefined}
+              disabledReason={
+                people.length ? null : 'This deal has no contacts, and a note is stored against one'
+              }
+            />
+            <AnswerAction
+              icon="task_alt"
+              label="Create task"
+              onClick={people.length ? () => setSaveAs('task') : undefined}
+              disabledReason={
+                people.length ? null : 'This deal has no contacts, and a task is stored against one'
+              }
+            />
+          </div>
+
+          {/* CREATE, not edit — so no `note`/`task` prop. Passing one would put
+              the editor in edit mode and PATCH a record that doesn't exist.
+              initialBody seeds the text instead. */}
+          {saveAs === 'note' && (
+            <NoteEditor
+              contacts={people}
+              defaultContactId={defaultContactId}
+              initialBody={draftFrom(turn)}
+              onClose={() => setSaveAs(null)}
+              onSaved={() => setSaveAs(null)}
+            />
+          )}
+          {saveAs === 'task' && (
+            <TaskEditor
+              contacts={people}
+              defaultContactId={defaultContactId}
+              initialBody={draftFrom(turn)}
+              onClose={() => setSaveAs(null)}
+              onSaved={() => setSaveAs(null)}
+            />
+          )}
+        </>
       )}
     </div>
   )
@@ -1393,29 +1445,50 @@ function sourceLines(citations) {
   return out
 }
 
-// An answer action. Disabled until the write path exists — saving a note or
-// creating a task has to reach GHL, and this app has never written to it.
-function AnswerAction({ icon, label }) {
+// An answer action. Live now that the note and task write paths exist; still
+// refuses, with a reason, on a deal that has no contact to attach to.
+function AnswerAction({ icon, label, onClick, disabledReason }) {
+  const live = typeof onClick === 'function' && !disabledReason
   return (
     <button
-      disabled
-      title="Coming next — this writes back to your CRM"
+      onClick={live ? onClick : undefined}
+      disabled={!live}
+      title={disabledReason || label}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6,
-        cursor: 'not-allowed',
+        cursor: live ? 'pointer' : 'not-allowed',
         height: 30, padding: '0 var(--space-3)',
-        border: '1px solid var(--border-default)',
+        border: `1px solid ${live ? 'var(--border-strong)' : 'var(--border-default)'}`,
         borderRadius: 'var(--radius-pill)',
         background: '#fff',
         fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
-        color: 'var(--text-faint)',
-        opacity: 0.7
+        color: live ? 'var(--text-body)' : 'var(--text-faint)',
+        opacity: live ? 1 : 0.7
       }}
     >
       <span className="ms" style={{ fontSize: 15 }}>{icon}</span>
       {label}
     </button>
   )
+}
+
+// The answer as plain text, for seeding a note or task.
+//
+// The field is turn.answerText — see where turns are built from res.answerText.
+// Named draftFrom() rather than answerText() so the helper can't be confused
+// with the property it reads.
+//
+// Citation markers are stripped: "[1]" means nothing outside this panel, and a
+// note reading "we agreed the price [2]" in the CRM is worse than one without
+// the marker. The sources are listed beneath instead, so the provenance
+// survives in a form that still makes sense on its own.
+function draftFrom(turn) {
+  const body = String(turn.answerText || '')
+    .replace(/\s*\[\d+\]/g, '')
+    .trim()
+  const sources = sourceLines(turn.citations || [])
+  if (!sources.length) return body
+  return `${body}\n\nSources:\n${sources.map((l) => `- ${l}`).join('\n')}`
 }
 
 function CoverageStamp({ coverage, cached, confidence, readMessageIds, channelScope, onInspect }) {

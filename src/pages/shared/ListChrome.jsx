@@ -155,19 +155,29 @@ export function Chip({ icon, children, onClick, title, tone, danger }) {
 }
 
 // Small square icon button for row-level edit / delete.
+// Live when given an onClick, inert without one. It used to render
+// `cursor: pointer` either way, so the actions still waiting on a write path
+// looked clickable and did nothing.
 export function RowAction({ icon, onClick, title, danger }) {
+  const live = typeof onClick === 'function'
   return (
     <button
       onClick={onClick}
+      disabled={!live}
       title={title}
       style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         width: 30, height: 30, flex: 'none',
-        border: '1px solid var(--border-default)',
+        border: `1px solid ${live ? 'var(--border-strong)' : 'var(--border-default)'}`,
         borderRadius: 'var(--radius-md)',
         background: '#fff',
-        color: danger ? 'var(--status-stuck)' : 'var(--text-muted)',
-        cursor: 'pointer'
+        // Danger keeps its colour either way — the opacity below carries the
+        // disabled state, and a greyed-out red would stop reading as danger.
+        color: danger
+          ? 'var(--status-stuck)'
+          : live ? 'var(--text-muted)' : 'var(--text-faint)',
+        cursor: live ? 'pointer' : 'not-allowed',
+        opacity: live ? 1 : 0.6
       }}
     >
       <span className="ms" style={{ fontSize: 16 }}>{icon}</span>

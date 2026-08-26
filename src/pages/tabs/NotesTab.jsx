@@ -1,6 +1,8 @@
-import React, { useCallback } from 'react'
+import React, { useCallback, useState } from 'react'
 import { notesAPI } from '../../api/notes'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
+import NoteEditor from '../shared/NoteEditor'
+import ConfirmDialog from '../shared/ConfirmDialog'
 import {
   Shell, PageHeader, Panel, ContactChip, DealChip, Chip, RowAction,
   PrimaryAction, NoteChip, StateMessage, LoadMore, RichBody, relativeTime
@@ -23,18 +25,58 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
     ({ cursor }) => notesAPI.list({ limit: 20, cursor }),
     []
   )
-  const { items, error, hasMore, loadingMore, loading, loadMore } =
+  const { items, error, hasMore, loadingMore, loading, loadMore, patchItem, reload } =
     usePagedList({ fetchPage, key: 'notes', deps: [] })
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
   const notes = items || []
+
+  // null = closed. { note } = editing that one; { note: null } = creating.
+  const [editor, setEditor] = useState(null)
+  const [busy, setBusy] = useState(null)
+  const [toast, setToast] = useState(null)
+
+  const say = (message, tone = 'done') => {
+    setToast({ message, tone })
+    window.setTimeout(() => setToast(null), tone === 'done' ? 2200 : 4200)
+  }
+
+  // The note queued for deletion, plus any failure from trying. The CRM has no
+  // restore over OAuth, so this genuinely can't be undone — the dialog says so
+  // and shows the note's own text, rather than asking the reader to trust they
+  // clicked the right row.
+  const [confirming, setConfirming] = useState(null)
+  const [confirmError, setConfirmError] = useState(null)
+
+  const remove = async () => {
+    const n = confirming
+    if (!n || busy) return
+    setBusy(n.id)
+    setConfirmError(null)
+    try {
+      await notesAPI.remove(n.id)
+      setConfirming(null)
+      reload()
+      say('Note deleted')
+    } catch (err) {
+      // Reported inside the dialog, which stays open — the reader can read why
+      // and retry without hunting for the row again.
+      setConfirmError(err.message || 'Could not delete that note')
+    } finally {
+      setBusy(null)
+    }
+  }
 
   return (
     <Shell>
       <PageHeader
         title="Notes"
         subtitle="Agreed information, saved by you or the AI agent — every note also lands on its deal timeline"
-        action={<PrimaryAction onClick={undefined} icon="add">Add note</PrimaryAction>}
+        action={
+          <PrimaryAction onClick={() => setEditor({ note: null })} icon="add">
+            Add note
+          </PrimaryAction>
+        }
       />
 
       <Panel
@@ -56,7 +98,13 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
         />
 
         {notes.map((n) => {
-          const { heading, rest } = splitNote(n.body)
+          // A real title wins over one derived from the body. Before migration
+          // 058 there was no title column, so an author who DID title their
+          // note saw it rendered as body text with a heading invented from the
+          // first sentence.
+          const derived = splitNote(n.body)
+          const heading = n.title || derived.heading
+          const rest = n.title ? n.body : derived.rest
           const byAI = isAIAuthored(n)
           const hasChips = n.noteChips?.length > 0
           return (
@@ -73,10 +121,18 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     width: 28, height: 28, flex: 'none', marginTop: 1,
                     borderRadius: 'var(--radius-sm)',
-                    background: 'var(--tint-gold)'
+                    // The author's own colour when they picked one. It's a
+                    // label they chose, so it should show.
+                    background: n.color || 'var(--tint-gold)'
                   }}
                 >
-                  <span className="ms" style={{ fontSize: 16, color: 'var(--accent-gold)' }}>
+                  <span
+                    className="ms"
+                    style={{
+                      fontSize: 16,
+                      color: n.color ? '#fff' : 'var(--accent-gold)'
+                    }}
+                  >
                     sticky_note_2
                   </span>
                 </span>
@@ -97,6 +153,21 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                       {heading}
                     </span>
                     {byAI && <AIBadge />}
+                    {n.pinned && (
+                      <span
+                        title="Pinned to the top of this contact"
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          padding: '2px 8px',
+                          borderRadius: 'var(--radius-pill)',
+                          background: 'var(--tint-gold)', color: 'var(--accent-gold-text)',
+                          fontSize: 'var(--text-sm)', fontWeight: 600
+                        }}
+                      >
+                        <span className="ms" style={{ fontSize: 13 }}>push_pin</span>
+                        Pinned
+                      </span>
+                    )}
                   </div>
 
                   {rest && (
@@ -153,12 +224,14 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                   </Chip>
                   <RowAction
                     icon="edit"
-                    title="Edit note — contacts, deal and linked notes (coming next)"
+                    title="Edit this note"
+                    onClick={() => setEditor({ note: n })}
                   />
                   <RowAction
                     icon="close"
                     danger
-                    title="Delete note — coming next"
+                    title="Delete this note"
+                    onClick={() => { setConfirmError(null); setConfirming(n) }}
                   />
                 </div>
               </div>
@@ -190,8 +263,103 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
           />
         )}
       </Panel>
+
+      {editor && (
+        <NoteEditor
+          note={editor.note}
+          contacts={editor.note?.contact ? [editor.note.contact] : []}
+          onClose={() => setEditor(null)}
+          onSaved={(saved) => {
+            if (editor.note && saved) {
+              // Apply what the CRM echoed, not what we sent.
+              patchItem((x) => x.id === editor.note.id, {
+                body: saved.body ?? editor.note.body,
+                title: saved.title ?? null,
+                color: saved.color ?? null,
+                pinned: saved.pinned === true
+              })
+              say('Note saved')
+            } else {
+              // A new note reaches our database via the webhook, which takes a
+              // moment — so it isn't in this list yet.
+              say('Note added — it appears here once your CRM syncs it back')
+              reload()
+            }
+          }}
+        />
+      )}
+
+      {confirming && (
+        <ConfirmDialog
+          title="Delete this note?"
+          message="This cannot be undone — your CRM has no restore for notes."
+          preview={previewOf(confirming)}
+          confirmLabel="Delete note"
+          busy={busy === confirming.id}
+          error={confirmError}
+          onConfirm={remove}
+          onCancel={() => { setConfirming(null); setConfirmError(null) }}
+        />
+      )}
+
+      {toast && (
+        <Toast tone={toast.tone}>{toast.message}</Toast>
+      )}
     </Shell>
   )
+}
+
+const TOAST_TONES = {
+  done:  { icon: 'check_circle', colour: 'var(--status-done)' },
+  error: { icon: 'error',        colour: 'var(--status-stuck)' }
+}
+
+// A failed save and a successful one must not look identical.
+function Toast({ children, tone = 'done' }) {
+  const { icon, colour } = TOAST_TONES[tone] || TOAST_TONES.done
+  return (
+    <div
+      role="status"
+      style={{
+        position: 'fixed', bottom: 20, right: 20, zIndex: 40,
+        display: 'flex', alignItems: 'center', gap: 7,
+        maxWidth: 420,
+        padding: '10px 14px',
+        border: `1px solid ${colour}`,
+        borderRadius: 'var(--radius-md)',
+        background: '#fff', boxShadow: 'var(--shadow-overlay)',
+        fontSize: 'var(--text-md)', color: 'var(--text-heading)'
+      }}
+    >
+      <span className="ms" style={{ fontSize: 17, color: colour, flex: 'none' }}>{icon}</span>
+      {children}
+    </div>
+  )
+}
+
+// A note as plain text, for the confirm dialog's preview. Bodies are markup, so
+// the tags have to come off or the reader sees "<p>Hi Ollie</p>" and can't tell
+// whether it's the right note.
+function previewOf(note) {
+  const title = (note.title || '').trim()
+  const raw = String(note.body || '')
+  let text = raw
+  if (/<[a-z][^>]*>/i.test(raw)) {
+    const doc = new DOMParser().parseFromString(raw, 'text/html')
+    // Block boundaries are NOT whitespace in textContent, so
+    // "<p>Hi Ollie</p><p>Thanks</p>" reads as "Hi OllieThanks" without this —
+    // two sentences fused into a non-word, in the one place the reader is
+    // checking they picked the right note.
+    doc.querySelectorAll('br').forEach((el) => el.replaceWith(' '))
+    doc.querySelectorAll('p, div, li, tr, h1, h2, h3, h4, h5, h6')
+      .forEach((el) => el.append(' '))
+    text = doc.body.textContent || ''
+  }
+  const body = text.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim()
+  // Both when they differ — the title alone may not be enough to recognise it,
+  // and the body alone loses the heading the reader was looking at.
+  if (title && body) return `${title} — ${body}`
+  return title || body || '(empty note)'
 }
 
 // Case- and space-insensitive name match. GHL stores whatever was typed, so
