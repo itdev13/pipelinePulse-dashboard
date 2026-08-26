@@ -58,7 +58,7 @@ export function DealTasksSection({ dealId }) {
       title="Tasks"
       accent="rose"
       meta={loading ? null : `${counts.open} open`}
-      blurb="Yours and the agent's, in one list. The agent creates a task only when an action is agreed in chat and you confirm it. Syncs two-way with GHL — most recently updated wins."
+      blurb="Yours and the agent's, in one list. The agent creates a task only when an action is agreed in chat and you confirm it. Syncs two-way with your CRM — most recently updated wins."
       toolbar={
         !loading && items.length > 0 ? (
           <>
@@ -103,7 +103,7 @@ export function DealTasksSection({ dealId }) {
           {/* Disabled: completing a task has to reach GHL. */}
           <button
             disabled
-            title="Completing a task writes back to GoHighLevel — coming next"
+            title="Completing a task writes back to your CRM — coming next"
             style={{
               flex: 'none', marginTop: 1,
               width: 18, height: 18, padding: 0,
@@ -138,7 +138,13 @@ export function DealTasksSection({ dealId }) {
 
             {t.body && (
               <div style={{ marginTop: 2 }}>
-                <RichBody html={t.body} color="var(--text-muted)" size="var(--text-base)" maxWidth={480} />
+                <RichBody
+                  html={t.body}
+                  color="var(--text-muted)"
+                  size="var(--text-md)"
+                  leading="var(--leading-normal)"
+                  maxWidth={480}
+                />
               </div>
             )}
 
@@ -158,7 +164,7 @@ export function DealTasksSection({ dealId }) {
             </span>
           </div>
 
-          <EditButton title="Editing a task writes back to GoHighLevel — coming next" />
+          <EditButton title="Editing a task writes back to your CRM — coming next" />
         </Row>
       ))}
     </Rail>
@@ -241,7 +247,16 @@ export function DealNotesSection({ dealId }) {
               </span>
               {rest && (
                 <div style={{ marginTop: 3 }}>
-                  <RichBody html={rest} color="var(--text-muted)" size="var(--text-base)" maxWidth={480} />
+                  {/* The narrow rail still gets readable body text — 13px, one
+                      step down from the timeline's 14px because the column is
+                      half the width, but not the 12px muted it was. */}
+                  <RichBody
+                    html={rest}
+                    color="var(--text-body)"
+                    size="var(--text-md)"
+                    leading="var(--leading-normal)"
+                    maxWidth={480}
+                  />
                 </div>
               )}
               <span
@@ -254,7 +269,7 @@ export function DealNotesSection({ dealId }) {
               </span>
             </div>
 
-            <EditButton title="Editing a note writes back to GoHighLevel — coming next" />
+            <EditButton title="Editing a note writes back to your CRM — coming next" />
           </Row>
         )
       })}
@@ -482,7 +497,7 @@ function RailFooter({ newLabel, allLabel }) {
     >
       <button
         disabled
-        title="Creating writes back to GoHighLevel — coming next"
+        title="Creating writes back to your CRM — coming next"
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
           cursor: 'not-allowed',

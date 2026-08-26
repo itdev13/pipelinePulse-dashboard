@@ -101,7 +101,14 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
 
                   {rest && (
                     <div style={{ marginTop: 3 }}>
-                      <RichBody html={rest} color="var(--text-muted)" size="var(--text-base)" />
+                      {/* 14px body against the 17px heading. At 12px the note
+                          text was smaller than the metadata line beneath it. */}
+                      <RichBody
+                        html={rest}
+                        color="var(--text-body)"
+                        size="var(--text-lg)"
+                        leading="var(--leading-normal)"
+                      />
                     </div>
                   )}
 

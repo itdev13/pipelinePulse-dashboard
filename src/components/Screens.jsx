@@ -146,7 +146,7 @@ export function ErrorScreen({ error }) {
           }}
         >
           {notConnected
-            ? 'Install PipelinePulse on this sub-account from the GoHighLevel marketplace, then reload.'
+            ? 'Install PipelinePulse on this sub-account from the marketplace, then reload.'
             : String(error)}
         </p>
 

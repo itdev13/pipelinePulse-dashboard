@@ -25,7 +25,59 @@ import { aiAPI } from '../../api/ai'
 //   • Filter chips (people + channels + inclusion) narrow the timeline
 //     client-side per rule 7 — never a round-trip.
 
-export default function DealHubTab({ dealId, onSwitchDeal }) {
+// Chip presentation order — keep the fixed order across deals so users
+// don't hunt for a channel that moved position. We just skip channels
+// that don't exist on the current deal.
+const CHANNEL_CHIPS = [
+  ['Email',    'EMAIL'],
+  ['WhatsApp', 'WHATSAPP'],
+  ['SMS',      'SMS'],
+  ['iMessage', 'IMESSAGE'],
+  ['Call',     'CALL'],
+  ['Note',     'NOTE'],
+  ['Task',     'TASK'],
+  // A CUSTOM message whose provider we could not resolve. Rare, but without a
+  // chip those rows are unreachable: they'd count toward All and no filter
+  // would ever show them on their own.
+  ['Custom',   'CUSTOM'],
+  // Last: it's the least-read row type, and it's the one you filter TO
+  // deliberately rather than scan past.
+  ['Activity', 'ACTIVITY']
+]
+
+// Which filter bucket a message belongs to.
+//
+// A message sent through a CUSTOM conversation provider — goghl.ai's WhatsApp,
+// for instance — normalises to channel 'CUSTOM'. Bucketing all of those
+// together produced one generic "Custom" chip that told a rep nothing about
+// what the messages actually were. Key on the provider instead, so goghl.ai
+// gets its own chip named after itself.
+function channelKeyOf(m) {
+  if (m.channel === 'CUSTOM' && m.providerName) {
+    return `PROVIDER:${m.providerName}`
+  }
+  return m.channel
+}
+
+// The fixed channel chips, plus one per custom provider this deal actually
+// used. Providers are appended rather than interleaved so the standard channels
+// stay in their usual positions.
+function chipsFor(counts) {
+  const providers = [...counts.keys()]
+    .filter((k) => k.startsWith('PROVIDER:'))
+    .sort()
+    .map((k) => [k.slice('PROVIDER:'.length), k])
+  return [...CHANNEL_CHIPS, ...providers]
+}
+
+export default function DealHubTab({
+  dealId, onSwitchDeal, onOpenBusiness,
+  // Landing on the first deal because none was selected is not a move the rep
+  // made, so it must not become a step the Back button walks through. Setting
+  // the deal without recording history is what this is for; every other switch
+  // goes through onSwitchDeal.
+  onAutoSelectDeal
+}) {
   // Deal list for the switcher dropdown
   const [deals, setDeals] = useState(null)
   const [dealsError, setDealsError] = useState(null)
@@ -49,8 +101,13 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
   const [siblingDeals, setSiblingDeals] = useState([])
 
 
-  // Filter state
-  const [channelFilter, setChannelFilter] = useState(null)
+  // Filter state.
+  //
+  // An ARRAY of selected buckets, not one value. Picking Note used to clear
+  // Task, so "notes and tasks, but not the emails" was unreachable — the only
+  // way to see both was All, which brought the whole thread with it. Empty
+  // array = no channel filter = everything, which is what the All chip sets.
+  const [channelFilter, setChannelFilter] = useState([])
   const [peopleFilter, setPeopleFilter] = useState([])
   // null = all, true = included only, false = excluded only.
 
@@ -68,7 +125,8 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
         setDeals(res.deals || [])
         // Auto-select the first open deal if none is selected yet.
         if (!dealId && res.deals && res.deals.length > 0) {
-          onSwitchDeal(res.deals[0].id)
+          const select = onAutoSelectDeal || onSwitchDeal
+          select(res.deals[0].id)
         }
       })
       .catch((err) => alive && setDealsError(err.message || 'Failed to load deals'))
@@ -107,7 +165,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
         setMessages(rows)
         setLoading(false)
         // Reset filters when the deal changes.
-        setChannelFilter(null)
+        setChannelFilter([])
         setPeopleFilter([])
       })
       .catch((err) => {
@@ -227,12 +285,13 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
   const filtered = useMemo(() => {
     if (!messages) return []
     return messages.filter((m) => {
-      if (channelFilter) {
-        // Match on the same bucket dealChannels counted, or selecting Activity
-        // would show nothing — a SYSTEM row's channel is 'SYSTEM', not
-        // 'ACTIVITY'.
-        const key = m.event ? 'ACTIVITY' : m.channel
-        if (key !== channelFilter) return false
+      if (channelFilter.length > 0) {
+        // Match on the same bucket dealChannels counted, or selecting a chip
+        // would show nothing. Any selected bucket matching is enough — the
+        // chips are additive (OR), so Note + Task shows both kinds rather than
+        // the empty intersection of the two.
+        const key = m.event ? 'ACTIVITY' : channelKeyOf(m)
+        if (!channelFilter.includes(key)) return false
       }
       // Inclusion applies to real messages only — events have no checkbox,
       // so filtering them by it would silently hide the deal's history.
@@ -265,27 +324,12 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
       // through with channel ACTIVITY or SYSTEM. Bucket them together under
       // one key: a rep filtering for "what happened to this deal" doesn't
       // distinguish the two, and separate chips would fragment a short list.
-      const key = m.event ? 'ACTIVITY' : m.channel
+      const key = m.event ? 'ACTIVITY' : channelKeyOf(m)
       counts.set(key, (counts.get(key) || 0) + 1)
     }
     return counts
   }, [messages])
 
-  // Chip presentation order — keep the fixed order across deals so users
-  // don't hunt for a channel that moved position. We just skip channels
-  // that don't exist on the current deal.
-  const CHANNEL_CHIPS = [
-    ['Email',    'EMAIL'],
-    ['WhatsApp', 'WHATSAPP'],
-    ['SMS',      'SMS'],
-    ['iMessage', 'IMESSAGE'],
-    ['Call',     'CALL'],
-    ['Note',     'NOTE'],
-    ['Task',     'TASK'],
-    // Last: it's the least-read row type, and it's the one you filter TO
-    // deliberately rather than scan past.
-    ['Activity', 'ACTIVITY']
-  ]
 
   // `key` defaults to the label, but callers must pass an explicit one when
   // labels can repeat — two unnamed contacts both render as "Contact", and a
@@ -331,7 +375,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
         </span>
         <h2 style={{ fontSize: 'var(--text-xl)', marginBottom: 6 }}>No open deals in this location</h2>
         <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-md)' }}>
-          Once a deal is created in GHL, it'll appear here automatically.
+          Once a deal is created in your CRM, it'll appear here automatically.
         </p>
       </div>
     )
@@ -647,6 +691,7 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
               stages={stages || []}
               siblingDeals={siblingDeals}
               onOpenDeal={onSwitchDeal}
+              onOpenBusiness={onOpenBusiness}
             />
           )}
 
@@ -750,23 +795,59 @@ export default function DealHubTab({ dealId, onSwitchDeal }) {
                   for (const n of dealChannels.values()) allCount += n
                   return chip(
                     `All${allCount ? ` · ${allCount}` : ''}`,
-                    !channelFilter,
-                    () => setChannelFilter(null),
+                    // Active only when nothing is picked. All isn't a bucket
+                    // you add to a selection — it's the way to clear one.
+                    channelFilter.length === 0,
+                    () => setChannelFilter([]),
                     null,
                     'all'
                   )
                 })()}
-                {CHANNEL_CHIPS.filter(([, ch]) => dealChannels.has(ch)).map(
+                {chipsFor(dealChannels).filter(([, ch]) => dealChannels.has(ch)).map(
                   ([label, ch]) => {
                     const n = dealChannels.get(ch) || 0
+                    const on = channelFilter.includes(ch)
                     return chip(
                       `${label} · ${n}`,
-                      channelFilter === ch,
-                      () => setChannelFilter(channelFilter === ch ? null : ch),
-                      null,
+                      on,
+                      // Additive: each chip toggles only itself, so Note and
+                      // Task can both be on. Deselecting the last one falls
+                      // back to All rather than showing an empty timeline.
+                      () =>
+                        setChannelFilter((prev) =>
+                          prev.includes(ch)
+                            ? prev.filter((x) => x !== ch)
+                            : [...prev, ch]
+                        ),
+                      // A tick on the selected ones. With several chips lit at
+                      // once, "which of these am I filtering by" has to read at
+                      // a glance rather than from the border weight alone.
+                      on
+                        ? <span className="ms" style={{ fontSize: 15, marginLeft: -3 }}>check</span>
+                        : null,
                       ch
                     )
                   }
+                )}
+                {/* Clearing several chips one at a time is four clicks; All is
+                    one, but it doesn't read as "clear" when the thing you want
+                    is to stop filtering. */}
+                {channelFilter.length > 0 && (
+                  <button
+                    onClick={() => setChannelFilter([])}
+                    title="Clear the channel filter"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      height: 30, padding: '0 12px',
+                      border: 'none', borderRadius: 'var(--radius-pill)',
+                      background: 'transparent', color: 'var(--text-link)',
+                      fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <span className="ms" style={{ fontSize: 15 }}>close</span>
+                    Clear {channelFilter.length}
+                  </button>
                 )}
                 <button
                   title="Attach a message or document the sync missed — coming next"

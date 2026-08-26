@@ -610,7 +610,12 @@ export function RichBody({
   html, maxWidth = 640, size = 'var(--text-md)',
   // Callers that pair this with a heading need it muted, so the two lines
   // separate by colour as well as size. Defaults to body text.
-  color = 'var(--text-body)'
+  color = 'var(--text-body)',
+  // Paragraph-length bodies want more air between lines than a one-line
+  // caption does. Overridable so a caller sizing the text up can loosen the
+  // leading to match — the two have to move together or a bigger font just
+  // reads as more crowded.
+  leading = 1.5
 }) {
   const [plain, setPlain] = useState(false)
   if (!html) return null
@@ -618,7 +623,7 @@ export function RichBody({
   const text = plain ? toPlainText(html) : null
   const base = {
     margin: 0, maxWidth,
-    fontSize: size, lineHeight: 1.5, color
+    fontSize: size, lineHeight: leading, color
   }
 
   return (

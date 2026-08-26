@@ -22,7 +22,7 @@ export default function Dashboard() {
           <div>
             <h1 className="text-xl font-bold text-gray-900 m-0">Connected</h1>
             <p className="text-sm text-gray-500 m-0">
-              Authenticated inside GoHighLevel — sub-account context resolved automatically.
+              Authenticated — sub-account context resolved automatically.
             </p>
           </div>
         </div>

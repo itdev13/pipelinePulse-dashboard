@@ -1,10 +1,11 @@
 import React, { useCallback, useState } from 'react'
 import { tasksAPI } from '../../api/tasks'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
+import { useTabState } from '../../hooks/useTabState'
 import {
   Shell, PageHeader, Panel, ContactChip, DealChip, RowAction,
   PrimaryAction, FilterChip, NoteChip, StateMessage, LoadMore,
-  RichBody, formatDue
+  RichBody, formatDue, relativeTime
 } from '../shared/ListChrome'
 
 // Tasks — v5.
@@ -23,20 +24,36 @@ const DUE_FILTERS = [
   ['month', 'Due next 30 days']
 ]
 
+// Open is the default because the queue is a to-do list, but a completed task
+// is the record of what was actually done — worth being able to look back at,
+// and the only way to confirm a task the agent created was seen to.
+const STATUS_FILTERS = [
+  ['open', 'Open'],
+  ['completed', 'Completed'],
+  ['all', 'All']
+]
+
 export default function TasksTab({ onOpenDeal, onOpenContact }) {
-  const [dueFilter, setDueFilter] = useState('all')
+  // Remembered across tab switches — see useTabState. Clicking a task through
+  // to its deal and coming back used to reset this to 'all'.
+  const [dueFilter, setDueFilter] = useTabState('tasks', 'dueFilter', 'all')
+  const [status, setStatus] = useTabState('tasks', 'status', 'open')
   const [toast, setToast] = useState(null)
 
   const fetchPage = useCallback(
-    ({ cursor }) => tasksAPI.list({ status: 'open', due: dueFilter, limit: 20, cursor }),
-    [dueFilter]
+    ({ cursor }) => tasksAPI.list({ status, due: dueFilter, limit: 20, cursor }),
+    [status, dueFilter]
   )
   const { items, error, hasMore, loadingMore, loading, loadMore, patchItem } =
-    usePagedList({ fetchPage, key: 'tasks', deps: [dueFilter] })
+    usePagedList({ fetchPage, key: 'tasks', deps: [status, dueFilter] })
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
   const tasks = items || []
   const openCount = tasks.length
+  // The panel meta said "N open" whatever was on screen, so the Completed
+  // filter read "20+ open" over a list of finished tasks.
+  const countNoun =
+    status === 'open' ? 'open' : status === 'completed' ? 'completed' : 'tasks'
 
   // Optimistic strike-through then roll back: completing a task has to write
   // to GHL and that path doesn't exist yet. A checkbox that silently didn't
@@ -44,7 +61,7 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
   const toggle = (t) => {
     const was = t.status
     patchItem((x) => x.id === t.id, { status: was === 'open' ? 'completed' : 'open' })
-    setToast('Completing a task writes back to GoHighLevel — coming next')
+    setToast('Completing a task writes back to your CRM — coming next')
     window.setTimeout(() => {
       patchItem((x) => x.id === t.id, { status: was })
       setToast(null)
@@ -58,23 +75,36 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
         subtitle="Tasks come first — each one links to its contact and its deal; click a task to see it on the deal hub"
       />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-        <Label>Due</Label>
-        {DUE_FILTERS.map(([id, label]) => (
-          <FilterChip
-            key={id}
-            label={label}
-            active={dueFilter === id}
-            onClick={() => setDueFilter(id)}
-          />
-        ))}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+          <Label>Status</Label>
+          {STATUS_FILTERS.map(([id, label]) => (
+            <FilterChip
+              key={id}
+              label={label}
+              active={status === id}
+              onClick={() => setStatus(id)}
+            />
+          ))}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+          <Label>Due</Label>
+          {DUE_FILTERS.map(([id, label]) => (
+            <FilterChip
+              key={id}
+              label={label}
+              active={dueFilter === id}
+              onClick={() => setDueFilter(id)}
+            />
+          ))}
+        </div>
       </div>
 
       <Panel
         icon="task_alt"
         title="Task queue"
         accent="rose"
-        meta={loading ? null : `${openCount}${hasMore ? '+' : ''} open`}
+        meta={loading ? null : `${openCount}${hasMore ? '+' : ''} ${countNoun}`}
         toolbar={<PrimaryAction onClick={undefined} icon="add">Add task</PrimaryAction>}
       >
         <StateMessage
@@ -82,9 +112,13 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
           error={error}
           empty={!loading && openCount === 0}
           emptyText={
-            dueFilter === 'all'
-              ? 'No open tasks — you are clear.'
-              : 'Nothing matches these filters — you are clear.'
+            status === 'completed'
+              ? (dueFilter === 'all'
+                  ? 'Nothing completed yet.'
+                  : 'Nothing completed matches this due filter.')
+              : dueFilter === 'all'
+                ? 'No open tasks — you are clear.'
+                : 'Nothing matches these filters — you are clear.'
           }
           loadingText="Loading tasks…"
         />
@@ -164,16 +198,25 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                         information and were the loudest thing on the page —
                         while the date they referred to sat in grey beside
                         them. */}
+                    {/* A finished task doesn't owe a due date. Showing "due 12
+                        days ago" on something already done reads as a task
+                        still outstanding — say when it was completed instead. */}
                     <span
                       style={{
                         fontSize: 'var(--text-base)',
                         fontWeight: overdue ? 600 : 400,
-                        color: overdue
-                          ? 'var(--status-stuck-text)'
-                          : dueToday ? 'var(--accent-gold-text)' : 'var(--text-muted)'
+                        color: done
+                          ? 'var(--accent-pine-text)'
+                          : overdue
+                            ? 'var(--status-stuck-text)'
+                            : dueToday ? 'var(--accent-gold-text)' : 'var(--text-muted)'
                       }}
                     >
-                      {formatDue(t.dueAt) || 'No due date'}
+                      {done
+                        ? (t.completedAt
+                            ? `completed ${relativeTime(t.completedAt)}`
+                            : 'completed')
+                        : formatDue(t.dueAt) || 'No due date'}
                     </span>
                     {t.owner && (
                       <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-faint)' }}>

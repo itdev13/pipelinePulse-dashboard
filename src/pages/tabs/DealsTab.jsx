@@ -3,6 +3,7 @@ import { DatePicker, Select, Input } from 'antd'
 import dayjs from 'dayjs'
 import { dealsAPI } from '../../api/deals'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
+import { useTabState } from '../../hooks/useTabState'
 import {
   Shell, PageHeader, SearchInput, StateMessage, DealCardsSkeleton, LoadMore,
   formatDate, initialsFor, nameFor
@@ -17,10 +18,10 @@ import {
 // primary / Remove and the Deal Hub's stage dropdown.
 
 export default function DealsTab({ onOpenDeal }) {
-  const [q, setQ] = useState('')
+  const [q, setQ] = useTabState('deals', 'q', '')
   // Server-side: filtering only the loaded page would hide matches further
   // down the list.
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useTabState('deals', 'search', '')
 
   const fetchPage = useCallback(
     ({ cursor }) => dealsAPI.list({ status: 'open', limit: 20, cursor, q: search || undefined }),
@@ -212,7 +213,7 @@ function DealCard({ deal, onOpenDeal }) {
             value={deal.owner || ''}
             readOnly
             placeholder="Unassigned"
-            title="Reassigning an owner writes back to GoHighLevel — coming next"
+            title="Reassigning an owner writes back to your CRM — coming next"
           />
         </Field>
       </div>

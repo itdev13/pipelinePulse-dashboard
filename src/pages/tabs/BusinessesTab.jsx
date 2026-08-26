@@ -1,6 +1,7 @@
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { businessesAPI } from '../../api/businesses'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
+import { useTabState } from '../../hooks/useTabState'
 import {
   Shell, PageHeader, Panel, Row, Chip, SearchInput, StateMessage,
   SkeletonStyles, Bar, LoadMore, formatDate
@@ -17,9 +18,20 @@ import {
 // Company Info comes from GHL's ten Business fields. The bracketed merge key
 // sits beside each label so it's obvious which GHL field a value came from.
 
-export default function BusinessesTab({ onOpenDeal, onOpenContact }) {
-  const [q, setQ] = useState('')
-  const [openId, setOpenId] = useState(null)
+export default function BusinessesTab({
+  onOpenDeal, onOpenContact, openBusinessId, onBusinessViewed,
+  // See ContactsTab — opening a card inside this tab is navigation the shell
+  // never sees, so it has to be reported for Back to work.
+  onNavigate
+}) {
+  const [q, setQ] = useTabState('businesses', 'q', '')
+  const [openId, setOpenId] = useTabState('businesses', 'openId', null)
+
+  // A business link elsewhere in the app (the Deal card) hands us an id to
+  // open. Mirrors how ContactsTab handles openContactId.
+  useEffect(() => {
+    if (openBusinessId) setOpenId(openBusinessId)
+  }, [openBusinessId, setOpenId])
 
   const fetchPage = useCallback(
     ({ cursor }) =>
@@ -42,7 +54,12 @@ export default function BusinessesTab({ onOpenDeal, onOpenContact }) {
     return (
       <BusinessDetail
         businessId={openId}
-        onBack={() => setOpenId(null)}
+        onBack={() => {
+          setOpenId(null)
+          if (onBusinessViewed) onBusinessViewed()
+          // Keep the shell's Back in step — see ContactsTab.
+          if (onNavigate) onNavigate({ businessId: null })
+        }}
         onOpenDeal={onOpenDeal}
         onOpenContact={onOpenContact}
       />
@@ -76,7 +93,7 @@ export default function BusinessesTab({ onOpenDeal, onOpenContact }) {
         emptyText={
           q
             ? 'No businesses match that search — try a company name, city, email or website.'
-            : 'No businesses yet. Businesses sync from GoHighLevel once a day, so a newly added one appears after the next sync.'
+            : 'No businesses yet. Businesses sync once a day, so a newly added one appears after the next sync.'
         }
       />
 
@@ -84,7 +101,14 @@ export default function BusinessesTab({ onOpenDeal, onOpenContact }) {
         <>
           <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
             {items.map((b) => (
-              <BusinessCard key={b.id} business={b} onOpen={() => setOpenId(b.id)} />
+              <BusinessCard
+                key={b.id}
+                business={b}
+                onOpen={() => {
+                  setOpenId(b.id)
+                  if (onNavigate) onNavigate({ businessId: b.id })
+                }}
+              />
             ))}
           </div>
           <LoadMore
@@ -244,7 +268,7 @@ function CompanyInfoPanel({ business: b }) {
       icon="domain"
       title={b.name}
       accent="sky"
-      meta="Company Info — from GoHighLevel"
+      meta="Company Info — synced"
     >
       <p
         style={{
@@ -255,8 +279,8 @@ function CompanyInfoPanel({ business: b }) {
           fontSize: 'var(--text-base)', lineHeight: 1.55, color: 'var(--text-muted)'
         }}
       >
-        GHL Company Info fields — the bracketed key is the field identity. These
-        are read-only here; edit them in GoHighLevel and they update on the next
+        Company Info fields — the bracketed key is the field identity. These
+        are read-only here; edit them in your CRM and they update on the next
         daily sync
         {b.lastSyncedAt ? ` (last synced ${formatDate(b.lastSyncedAt)})` : ''}.
       </p>

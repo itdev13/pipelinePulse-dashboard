@@ -34,6 +34,28 @@ const TABS = [
   { id: 'control',    label: 'Control panel', icon: 'tune' }
 ]
 
+// One navigation position. Back has to restore ALL of it, not just the tab:
+// arriving at a contact record sets both activeTab AND openContactId, so
+// rewinding the tab alone would land you on the Contacts LIST rather than the
+// deal you actually came from.
+// What to call a position in the Back tooltip. "Back" on its own doesn't say
+// where, and after two or three jumps that's the thing you actually want to
+// know before clicking.
+function labelForPlace(p) {
+  const tab = TABS.find((t) => t.id === p.tab)
+  const name = tab ? tab.label : p.tab
+  if (p.contactId) return `${name} — contact record`
+  if (p.businessId) return `${name} — business record`
+  return name
+}
+
+function samePlace(a, b) {
+  return a.tab === b.tab
+    && a.dealId === b.dealId
+    && a.contactId === b.contactId
+    && a.businessId === b.businessId
+}
+
 export default function DealHubShell() {
   const { location } = useAuth()
   const locationName = location?.name || location?.id || ''
@@ -51,18 +73,77 @@ export default function DealHubShell() {
     return () => { alive = false }
   }, [])
 
-  const openDeal = (dealId) => {
-    setSelectedDealId(dealId)
-    setActiveTab('hub')
+  const [openBusinessId, setOpenBusinessId] = useState(null)
+  const [openContactId, setOpenContactId] = useState(null)
+
+  // Where we've been. A stack, not the browser's history: the app is one route
+  // inside an iframe, so there are no URLs to go back through — every jump
+  // between tabs and records is a state change the browser never sees.
+  //
+  // Holds only PREVIOUS positions; the current one lives in the state above.
+  const [history, setHistory] = useState([])
+
+  const here = {
+    tab: activeTab,
+    dealId: selectedDealId,
+    contactId: openContactId,
+    businessId: openBusinessId
   }
+
+  // The single way to move. Records where we were, then goes.
+  const navigate = (next) => {
+    const to = { ...here, ...next }
+    // Clicking the tab you're already on, or the same record twice, shouldn't
+    // push a step you then have to click Back through.
+    if (samePlace(here, to)) return
+    setHistory((h) => [...h, here])
+    setActiveTab(to.tab)
+    setSelectedDealId(to.dealId)
+    setOpenContactId(to.contactId)
+    setOpenBusinessId(to.businessId)
+  }
+
+  // A tab telling us it moved internally (opened or closed a record). The tab
+  // has ALREADY changed its own state, so this records the step and syncs the
+  // shell's copy of the position — it must not push the tab again, which is
+  // why it isn't navigate().
+  const noteInternalMove = (next) => {
+    const to = { ...here, ...next }
+    if (samePlace(here, to)) return
+    setHistory((h) => [...h, here])
+    setSelectedDealId(to.dealId)
+    setOpenContactId(to.contactId)
+    setOpenBusinessId(to.businessId)
+  }
+
+  const goBack = () => {
+    setHistory((h) => {
+      if (h.length === 0) return h
+      const prev = h[h.length - 1]
+      setActiveTab(prev.tab)
+      setSelectedDealId(prev.dealId)
+      setOpenContactId(prev.contactId)
+      setOpenBusinessId(prev.businessId)
+      return h.slice(0, -1)
+    })
+  }
+
+  // Opening a record CLEARS the other two ids. Otherwise a contact opened
+  // after a business would leave the business id set, and Back — which
+  // restores the whole position — would reopen a record you'd already left.
+  const openDeal = (dealId) =>
+    navigate({ tab: 'hub', dealId, contactId: null, businessId: null })
 
   // Contact chips on tasks/notes open that person's record. The Contacts tab
   // owns the detail view, so we hand it the id and switch to it.
-  const [openContactId, setOpenContactId] = useState(null)
-  const openContact = (contactId) => {
-    setOpenContactId(contactId)
-    setActiveTab('contacts')
-  }
+  const openContact = (contactId) =>
+    navigate({ tab: 'contacts', contactId, businessId: null })
+
+  // Business links on the Deal card open that business's record. Same pattern
+  // as contact chips: hand the id to the tab that owns the detail view and
+  // switch to it.
+  const openBusiness = (businessId) =>
+    navigate({ tab: 'businesses', businessId, contactId: null })
 
   return (
     <div data-dealhub style={{ minHeight: '100vh', background: 'var(--surface-page)' }}>
@@ -82,6 +163,35 @@ export default function DealHubShell() {
           boxShadow: '0 1px 2px rgba(23, 33, 46, 0.06)'
         }}
       >
+        {/* Back. Disabled rather than hidden on the first screen: a control
+            that appears and disappears makes the whole header jump sideways
+            every time you navigate, and the tabs beside it move with it. */}
+        <button
+          onClick={goBack}
+          disabled={history.length === 0}
+          title={
+            history.length === 0
+              ? 'Nowhere to go back to yet'
+              : `Back to ${labelForPlace(history[history.length - 1])}`
+          }
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            flex: 'none',
+            height: 34, padding: '0 13px 0 10px',
+            border: '1px solid var(--border-strong)',
+            borderRadius: 'var(--radius-pill)',
+            background: '#fff',
+            color: history.length === 0 ? 'var(--text-faint)' : 'var(--text-body)',
+            fontFamily: 'var(--font-sans)',
+            fontSize: 'var(--text-md)', fontWeight: 500,
+            cursor: history.length === 0 ? 'default' : 'pointer',
+            opacity: history.length === 0 ? 0.55 : 1
+          }}
+        >
+          <span className="ms" style={{ fontSize: 18 }}>arrow_back</span>
+          Back
+        </button>
+
         <span
           title={locationName}
           style={{ fontWeight: 600, fontSize: 'var(--text-lg)', color: 'var(--text-heading)' }}
@@ -106,7 +216,7 @@ export default function DealHubShell() {
             return (
               <button
                 key={t.id}
-                onClick={() => setActiveTab(t.id)}
+                onClick={() => navigate({ tab: t.id })}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 7,
                   cursor: 'pointer',
@@ -157,7 +267,9 @@ export default function DealHubShell() {
         {activeTab === 'hub' && (
           <DealHubTab
             dealId={selectedDealId}
-            onSwitchDeal={setSelectedDealId}
+            onSwitchDeal={(id) => navigate({ tab: 'hub', dealId: id })}
+            onAutoSelectDeal={setSelectedDealId}
+            onOpenBusiness={openBusiness}
           />
         )}
         {activeTab === 'deals' && <DealsTab onOpenDeal={openDeal} />}
@@ -165,13 +277,20 @@ export default function DealHubShell() {
         {/* Deal + contact links on a business roll-up reuse the same
             cross-tab navigation as tasks and notes. */}
         {activeTab === 'businesses' && (
-          <BusinessesTab onOpenDeal={openDeal} onOpenContact={openContact} />
+          <BusinessesTab
+            onOpenDeal={openDeal}
+            onOpenContact={openContact}
+            openBusinessId={openBusinessId}
+            onBusinessViewed={() => setOpenBusinessId(null)}
+            onNavigate={noteInternalMove}
+          />
         )}
         {activeTab === 'contacts' && (
           <ContactsTab
             onOpenDeal={openDeal}
             openContactId={openContactId}
             onContactViewed={() => setOpenContactId(null)}
+            onNavigate={noteInternalMove}
           />
         )}
         {/* Deal chips on tasks + notes jump to that deal in the hub, which

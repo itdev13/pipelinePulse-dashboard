@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect } from 'react'
 import { contactsAPI } from '../../api/contacts'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
+import { useTabState } from '../../hooks/useTabState'
 import { CardGridSkeleton, LoadMore } from '../shared/ListChrome'
 import ContactDetail from '../contacts/ContactDetail'
 
@@ -8,19 +9,25 @@ import ContactDetail from '../contacts/ContactDetail'
 // Grid of cards with editable-in-future fields; today they're read-only.
 // Each card leads with the contact's accent (top-edge stripe + avatar tint)
 // so the identity stays consistent with the rest of the app.
-export default function ContactsTab({ onOpenDeal, openContactId, onContactViewed }) {
+export default function ContactsTab({
+  onOpenDeal, openContactId, onContactViewed,
+  // Opening a card is navigation the shell never sees — it happens entirely
+  // inside this tab. Report it so the Back button has a step to return to,
+  // and so pressing Back doesn't restore a record the user has already left.
+  onNavigate
+}) {
   // Which contact's record is open. Null = the grid. Local navigation within
   // this tab, except when another tab hands us a contact to open (a contact
   // chip on a task or note) — openContactId is that entry point.
-  const [openId, setOpenId] = useState(null)
+  const [openId, setOpenId] = useTabState('contacts', 'openId', null)
 
   useEffect(() => {
     if (openContactId) setOpenId(openContactId)
-  }, [openContactId])
-  const [q, setQ] = useState('')
+  }, [openContactId, setOpenId])
+  const [q, setQ] = useTabState('contacts', 'q', '')
   // Server-side search: 19 contacts fits in one page today, but Crittall has
   // thousands — filtering the loaded page would quietly miss most of them.
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useTabState('contacts', 'search', '')
 
   const fetchPage = useCallback(
     ({ cursor }) => contactsAPI.list({ limit: 20, cursor, q: search || undefined }),
@@ -41,6 +48,9 @@ export default function ContactsTab({ onOpenDeal, openContactId, onContactViewed
           // Clear the shell's request too, or coming back to this tab would
           // reopen the same record.
           if (onContactViewed) onContactViewed()
+          // Tell the shell we're back on the list, so its Back button doesn't
+          // reopen the record we just closed.
+          if (onNavigate) onNavigate({ contactId: null })
         }}
         onOpenDeal={onOpenDeal}
       />
@@ -59,7 +69,7 @@ export default function ContactsTab({ onOpenDeal, openContactId, onContactViewed
         <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
           {loading
             ? 'Loading…'
-            : `${contacts.length}${hasMore ? '+' : ''} in this location — edit in GoHighLevel, changes sync back`}
+            : `${contacts.length}${hasMore ? '+' : ''} in this location — edit in your CRM, changes sync back`}
         </span>
         <input
           value={q}
@@ -112,7 +122,15 @@ export default function ContactsTab({ onOpenDeal, openContactId, onContactViewed
         }}
       >
         {contacts.map((c) => (
-          <ContactCard key={c.id} c={c} onOpen={() => setOpenId(c.id)} onOpenDeal={onOpenDeal} />
+          <ContactCard
+            key={c.id}
+            c={c}
+            onOpen={() => {
+              setOpenId(c.id)
+              if (onNavigate) onNavigate({ contactId: c.id })
+            }}
+            onOpenDeal={onOpenDeal}
+          />
         ))}
       </div>
 
@@ -297,7 +315,7 @@ function Field({ label, value, select }) {
         <select
           disabled
           value="v"
-          title={`${label} — edit in GoHighLevel`}
+          title={`${label} — edit in your CRM`}
           style={{ ...shared, appearance: 'auto' }}
         >
           <option value="v">{empty ? 'Not set' : value}</option>
@@ -307,7 +325,7 @@ function Field({ label, value, select }) {
           readOnly
           disabled
           value={empty ? 'Not set' : value}
-          title={`${label} — edit in GoHighLevel`}
+          title={`${label} — edit in your CRM`}
           style={shared}
         />
       )}

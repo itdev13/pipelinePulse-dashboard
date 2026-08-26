@@ -1399,7 +1399,7 @@ function AnswerAction({ icon, label }) {
   return (
     <button
       disabled
-      title="Coming next — this writes back to GoHighLevel"
+      title="Coming next — this writes back to your CRM"
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6,
         cursor: 'not-allowed',

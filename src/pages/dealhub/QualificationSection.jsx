@@ -167,7 +167,7 @@ export default function QualificationSection({ qualification = [] }) {
         >
           {missing.length === 0
             ? 'Every heading filled on this deal.'
-            : `${missing.length} of ${qualification.length} headings are not filled on this deal — edit the opportunity in GoHighLevel to fill them in.`}
+            : `${missing.length} of ${qualification.length} headings are not filled on this deal — edit the opportunity in your CRM to fill them in.`}
         </p>
       )}
     </section>

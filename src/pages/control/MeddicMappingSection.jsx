@@ -27,7 +27,7 @@ export default function MeddicMappingSection({ fields = [] }) {
         icon="checklist"
         title="Qualification headings"
         accent="gold"
-        help="Read from your opportunity custom fields in GoHighLevel."
+        help="Read from your opportunity custom fields."
       >
         <p
           style={{
@@ -36,10 +36,10 @@ export default function MeddicMappingSection({ fields = [] }) {
           }}
         >
           No qualification fields found for this sub-account yet. They come from
-          your GoHighLevel opportunity custom fields — the ones keyed{' '}
+          your opportunity custom fields — the ones keyed{' '}
           <code style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-base)' }}>meddic_1</code>{' '}
           onwards — and sync once a day, so they appear here shortly after being
-          created in GoHighLevel.
+          created in your CRM.
         </p>
       </SectionCard>
     )
@@ -51,7 +51,7 @@ export default function MeddicMappingSection({ fields = [] }) {
       title="Qualification headings"
       accent="gold"
       meta={`${active.length} field${active.length === 1 ? '' : 's'}`}
-      help="These are your own opportunity fields, read straight from GoHighLevel — name and description both. Edit them there and this updates on the next daily sync."
+      help="These are your own opportunity fields, read straight from your CRM — name and description both. Edit them there and this updates on the next daily sync."
     >
       <div>
         {active.map((f, i) => (
@@ -109,7 +109,7 @@ export default function MeddicMappingSection({ fields = [] }) {
                 }}
               >
                 No description — add placeholder text to this field in
-                GoHighLevel and the AI will use it.
+                your CRM and the AI will use it.
               </p>
             )}
           </div>

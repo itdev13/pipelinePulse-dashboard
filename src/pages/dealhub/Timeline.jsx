@@ -225,6 +225,15 @@ function EventRow({ m }) {
     </Row>
   )
 }
+// What to call this message's channel.
+//
+// A message routed through a CUSTOM conversation provider (goghl.ai's WhatsApp,
+// say) arrives with channel 'CUSTOM' — which told a rep nothing about what they
+// were looking at. Name the provider when there is one.
+function channelLabelOf(m) {
+  if (m.channel === 'CUSTOM' && m.providerName) return m.providerName
+  return CH_LABEL[m.channel] || m.channel
+}
 
 function MessageRow({ m, highlighted, onJumpAttachment, selected, onToggleSelect }) {
   const channelCol = accentVar(m.channelAccent)
@@ -247,7 +256,7 @@ function MessageRow({ m, highlighted, onJumpAttachment, selected, onToggleSelect
       <RowIcon
         icon={m.channelIcon}
         colour={channelCol}
-        title={CH_LABEL[m.channel] || m.channel}
+        title={channelLabelOf(m)}
       />
 
       <div style={{ minWidth: 0 }}>
@@ -279,7 +288,7 @@ function MessageRow({ m, highlighted, onJumpAttachment, selected, onToggleSelect
             {inbound ? 'In' : outbound ? 'Out' : ''}
           </span>
           <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
-            {CH_LABEL[m.channel] || m.channel}
+            {channelLabelOf(m)}
           </span>
 
           {m.ambiguous && (
@@ -394,9 +403,20 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
           {m.title || (isNote ? 'Note' : 'Task')}
         </div>
 
+        {/* The most read-heavy text on the page — a customer's note runs to a
+            paragraph or more. 14px on the body against 13px on the title's row
+            of metadata, and text-body rather than muted: at 13px muted it was
+            the smallest, faintest thing on screen while being the thing you
+            actually came to read. */}
         {m.body && (
-          <div style={{ marginTop: 2 }}>
-            <RichBody html={m.body} color="var(--text-muted)" size="var(--text-md)" maxWidth={720} />
+          <div style={{ marginTop: 3 }}>
+            <RichBody
+              html={m.body}
+              color="var(--text-body)"
+              size="var(--text-lg)"
+              leading="var(--leading-normal)"
+              maxWidth={720}
+            />
           </div>
         )}
 

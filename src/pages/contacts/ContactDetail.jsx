@@ -401,7 +401,7 @@ function Details({ contact, onSaved }) {
               would be a control that does nothing. */}
           <Select
             disabled
-            title="Contact type is a custom field — edit it in GoHighLevel"
+            title="Contact type is a custom field — edit it in your CRM"
             value={type || undefined}
             onChange={(v) => {
               // allowClear passes undefined; normalise to '' so clearing sends
@@ -453,8 +453,8 @@ function Details({ contact, onSaved }) {
         }}
       >
         {dirtyKeys.length > 0
-          ? `${dirtyKeys.length} unsaved ${dirtyKeys.length === 1 ? 'change' : 'changes'} — press Enter or Save to send them to GoHighLevel.`
-          : 'Saved changes are written to GoHighLevel, which sends them back to every view here.'}
+          ? `${dirtyKeys.length} unsaved ${dirtyKeys.length === 1 ? 'change' : 'changes'} — press Enter or Save to send them to your CRM.`
+          : 'Saved changes are written to your CRM, which sends them back to every view here.'}
       </p>
 
       {/* An explicit Save. Blur-committing meant a half-typed value could reach

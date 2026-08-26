@@ -23,6 +23,7 @@ export default function DealSection({
   stages = [],
   siblingDeals = [],
   onOpenDeal,
+  onOpenBusiness,
   onStageChange,
   onExpectedCloseChange
 }) {
@@ -123,6 +124,8 @@ export default function DealSection({
           onExpectedCloseChange={onExpectedCloseChange}
         />
 
+        <BusinessColumn deal={deal} onOpenBusiness={onOpenBusiness} />
+
         <StageColumn
           deal={deal}
           stages={stages}
@@ -149,6 +152,75 @@ export default function DealSection({
 }
 
 // ── Columns ───────────────────────────────────────────────────────────
+
+// Businesses this deal reaches.
+//
+// GHL has no opportunities.business_id — a deal links to a business only
+// through the contacts on it (contacts.business_id). So this is usually one
+// company, occasionally two when a deal spans a homeowner and their architect,
+// and often none: the link only exists once the Businesses sync has run and
+// the contact actually carries a businessId.
+function BusinessColumn({ deal, onOpenBusiness }) {
+  const businesses = deal.businesses || []
+
+  return (
+    <Column label={businesses.length === 1 ? 'Business' : 'Businesses'}>
+      {businesses.length === 0 ? (
+        <p
+          style={{
+            margin: 0,
+            fontSize: 'var(--text-md)', lineHeight: 'var(--leading-normal)',
+            color: 'var(--text-faint)'
+          }}
+        >
+          {/* Say WHY it's empty. "No business" reads as a data error; this says
+              what would make one appear. */}
+          No business linked — a business is linked through the contact,
+          so this fills in once one is set there.
+        </p>
+      ) : (
+        <div style={{ display: 'grid', gap: 'var(--space-2)', justifyItems: 'start' }}>
+          {businesses.map((b) => (
+            <button
+              key={b.id}
+              onClick={() => onOpenBusiness && onOpenBusiness(b.id)}
+              title={`Open ${b.name}`}
+              disabled={!onOpenBusiness}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7,
+                maxWidth: '100%',
+                cursor: onOpenBusiness ? 'pointer' : 'default',
+                padding: '7px 12px',
+                border: '1px solid var(--accent-sky)',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--tint-sky)',
+                fontFamily: 'var(--font-sans)',
+                fontSize: 'var(--text-md)', fontWeight: 600,
+                color: 'var(--accent-sky-text)',
+                textAlign: 'left'
+              }}
+            >
+              <span className="ms" style={{ fontSize: 17, flex: 'none' }}>domain</span>
+              <span
+                style={{
+                  minWidth: 0, overflow: 'hidden',
+                  textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                }}
+              >
+                {b.name}
+              </span>
+              {onOpenBusiness && (
+                <span className="ms" style={{ fontSize: 15, flex: 'none' }}>
+                  arrow_forward
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </Column>
+  )
+}
 
 function ValueColumn({ deal, onExpectedCloseChange }) {
   const [expectedClose, setExpectedClose] = useState(
@@ -417,7 +489,7 @@ function FieldChip({ label, value }) {
       title={
         set
           ? `${label}: ${value}`
-          : `${label} has no value on this deal in GoHighLevel`
+          : `${label} has no value on this deal`
       }
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 7,
@@ -579,7 +651,7 @@ function TagList({ dealTags = [], contactTags = [], inline = false }) {
             title={
               t.scope === 'deal'
                 ? 'Set on the opportunity record'
-                : 'Applied to the contact — GHL scopes tags to contacts'
+                : 'Applied to the contact — tags are scoped to contacts'
             }
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)',
