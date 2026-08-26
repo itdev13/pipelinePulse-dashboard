@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { contactsAPI } from '../../api/contacts'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
@@ -33,7 +33,7 @@ export default function ContactsTab({
     ({ cursor }) => contactsAPI.list({ limit: 20, cursor, q: search || undefined }),
     [search]
   )
-  const { items, error, hasMore, loadingMore, loading, loadMore } =
+  const { items, error, hasMore, loadingMore, loading, loadMore, patchItem } =
     usePagedList({ fetchPage, key: 'contacts', deps: [search] })
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
@@ -130,6 +130,19 @@ export default function ContactsTab({
               if (onNavigate) onNavigate({ contactId: c.id })
             }}
             onOpenDeal={onOpenDeal}
+            onSaved={(id, saved) => {
+              // Apply what the CRM echoed rather than what was typed, so a
+              // reformatted phone or trimmed name shows the stored value.
+              if (!saved) return
+              patchItem((x) => x.id === id, {
+                firstName: saved.firstName ?? null,
+                lastName: saved.lastName ?? null,
+                email: saved.email ?? null,
+                phone: saved.phone ?? null,
+                business: saved.companyName ?? saved.business ?? null,
+                address: saved.address1 ?? saved.address ?? null
+              })
+            }}
           />
         ))}
       </div>
@@ -155,8 +168,74 @@ export default function ContactsTab({
 // DISABLED: editing has to write back to GoHighLevel, which this app has never
 // done (no POST path, no write scopes). A live-looking input that silently
 // discards a change would be worse than a visibly read-only one.
-function ContactCard({ c, onOpen, onOpenDeal }) {
+// Editable in place, like the business Company Info panel.
+//
+// These fields used to be `disabled` inputs — they looked like a form and did
+// nothing, which is worse than plain text: a rep would type into one and watch
+// the change vanish. They write to the CRM now.
+//
+// contactType is the exception and stays read-only: it is a GHL CUSTOM FIELD,
+// not a property of the contact, so the update endpoint rejects it. The server's
+// contactPatch drops it for the same reason.
+function ContactCard({ c, onOpen, onOpenDeal, onSaved }) {
   const initials = ((c.firstName?.[0] || '') + (c.lastName?.[0] || '')).toUpperCase() || '?'
+
+  // name → edited value. Absent = untouched, which keeps '' (a deliberate
+  // clear) distinguishable from "not edited".
+  const [edits, setEdits] = useState({})
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+  const [errorField, setErrorField] = useState(null)
+  const [saved, setSaved] = useState(false)
+
+  const valueOf = (name) => (name in edits ? edits[name] : (c[name] ?? ''))
+
+  const changes = useMemo(() => {
+    const out = {}
+    for (const [name, v] of Object.entries(edits)) {
+      const now = String(v ?? '').trim()
+      const was = String(c[name] ?? '').trim()
+      if (now !== was) out[name] = now
+    }
+    return out
+  }, [c, edits])
+
+  const dirty = Object.keys(changes).length > 0
+
+  const setField = (name, v) => {
+    setEdits((prev) => ({ ...prev, [name]: v }))
+    setError(null)
+    setErrorField(null)
+    setSaved(false)
+  }
+
+  const revert = () => {
+    setEdits({})
+    setError(null)
+    setErrorField(null)
+  }
+
+  const save = async () => {
+    if (!dirty || saving) return
+    setSaving(true)
+    setError(null)
+    setErrorField(null)
+    try {
+      const res = await contactsAPI.update(c.id, changes)
+      // Clear the local edits so the card reads from the refreshed record —
+      // otherwise a value the CRM normalised (a reformatted phone number) would
+      // keep showing what was typed.
+      setEdits({})
+      setSaved(true)
+      window.setTimeout(() => setSaved(false), 2000)
+      if (onSaved) onSaved(c.id, res.contact || null)
+    } catch (err) {
+      setError(err.message || 'Could not save that — try again')
+      setErrorField(err.data?.field || null)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div
@@ -199,6 +278,52 @@ function ContactCard({ c, onOpen, onOpenDeal }) {
             </div>
           )}
         </div>
+        {/* Save and Cancel sit BEFORE Record, so the action that keeps your work
+            is nearer than the one that navigates away from it. Both appear only
+            when something is edited — a permanently visible Save on twenty
+            cards would be twenty controls that do nothing. */}
+        {dirty && !saving && (
+          <button
+            onClick={revert}
+            title="Discard these changes"
+            style={{
+              display: 'inline-flex', alignItems: 'center',
+              flex: 'none',
+              height: 30, padding: '0 11px',
+              border: '1px solid var(--border-strong)',
+              borderRadius: 'var(--radius-sm)',
+              background: '#fff',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
+              color: 'var(--text-body)', cursor: 'pointer'
+            }}
+          >
+            Cancel
+          </button>
+        )}
+        {(dirty || saving || saved) && (
+          <button
+            onClick={save}
+            disabled={!dirty || saving}
+            title={`Save ${Object.keys(changes).length} change${Object.keys(changes).length === 1 ? '' : 's'} to your CRM`}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              flex: 'none',
+              height: 30, padding: '0 12px',
+              border: 'none', borderRadius: 'var(--radius-sm)',
+              background: saved ? 'var(--status-done)' : 'var(--brand-primary)',
+              color: '#fff',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 600,
+              cursor: saving ? 'default' : 'pointer'
+            }}
+          >
+            {saving && (
+              <span className="ms pp-spin" style={{ fontSize: 14 }}>progress_activity</span>
+            )}
+            {saved && <span className="ms" style={{ fontSize: 14 }}>check</span>}
+            {saving ? 'Saving' : saved ? 'Saved' : 'Save'}
+          </button>
+        )}
+
         <button
           onClick={onOpen}
           title="Open the full contact record"
@@ -220,14 +345,57 @@ function ContactCard({ c, onOpen, onOpenDeal }) {
 
       {/* Fields, two per row, matching the record's own layout */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <Field label="First name" value={c.firstName} />
-        <Field label="Last name" value={c.lastName} />
-        <Field label="Primary email" value={c.email} />
-        <Field label="Primary phone" value={c.phone} />
-        <Field label="Business" value={c.business} select />
-        <Field label="Contact type" value={c.contactType} select />
+        {[
+          ['firstName', 'First name'],
+          ['lastName',  'Last name'],
+          ['email',     'Primary email'],
+          ['phone',     'Primary phone'],
+          ['business',  'Business']
+        ].map(([name, label]) => (
+          <Field
+            key={name}
+            label={label}
+            value={valueOf(name)}
+            onChange={(v) => setField(name, v)}
+            disabled={saving}
+            invalid={errorField === name}
+            dirty={name in changes}
+          />
+        ))}
+        {/* Read-only: contactType is a GHL custom field, not a contact
+            property, so the update endpoint rejects it. An editable box here
+            would be a control whose every save failed. */}
+        <Field
+          label="Contact type"
+          value={c.contactType}
+          readOnly
+          title="Contact type is a custom field — edit it in your CRM"
+        />
       </div>
-      <Field label="Address" value={c.address} />
+      <Field
+        label="Address"
+        value={valueOf('address')}
+        onChange={(v) => setField('address', v)}
+        disabled={saving}
+        invalid={errorField === 'address'}
+        dirty={'address' in changes}
+      />
+
+      {error && (
+        <div
+          style={{
+            display: 'flex', alignItems: 'flex-start', gap: 6,
+            padding: '8px 10px',
+            border: '1px solid var(--status-stuck)',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--tint-rose)',
+            fontSize: 'var(--text-base)', color: 'var(--status-stuck-text)'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 15, flex: 'none', marginTop: 1 }}>error</span>
+          {error}
+        </div>
+      )}
 
       {/* Contact permissions. Loud on purpose — the AI draft gate refuses these
           channels outright (spec rule 7), and a rep needs to see it before
@@ -292,43 +460,42 @@ function ContactCard({ c, onOpen, onOpenDeal }) {
 
 // A labelled field. Rendered as a real input/select so the card reads as the
 // record, but disabled — see ContactCard's note on write-back.
-function Field({ label, value, select }) {
-  const empty = value == null || String(value).trim() === ''
-  const shared = {
-    width: '100%', boxSizing: 'border-box',
-    height: 34, padding: '0 10px',
-    border: '1px solid var(--border-default)',
-    borderRadius: 'var(--radius-sm)',
-    background: empty ? 'var(--gray-50)' : '#fff',
-    fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
-    color: empty ? 'var(--text-faint)' : 'var(--text-body)',
-    fontStyle: empty ? 'italic' : 'normal',
-    cursor: 'not-allowed'
-  }
+// One field on a contact card.
+//
+// A real input now. It used to be a `disabled` input showing "Not set" as its
+// VALUE — which looked like a form, refused to be typed into, and put the words
+// "Not set" where a value belongs. Now the placeholder says that and the box
+// works.
+function Field({ label, value, onChange, disabled, invalid, dirty, readOnly, title }) {
+  const editable = typeof onChange === 'function' && !readOnly
   return (
     <div style={{ minWidth: 0 }}>
       <FieldLabel>{label}</FieldLabel>
-      {select ? (
-        // A select rather than an input, because these are pick-lists in GHL.
-        // Only the current value is listed: offering options we cannot save
-        // would invite a change that goes nowhere.
-        <select
-          disabled
-          value="v"
-          title={`${label} — edit in your CRM`}
-          style={{ ...shared, appearance: 'auto' }}
-        >
-          <option value="v">{empty ? 'Not set' : value}</option>
-        </select>
-      ) : (
-        <input
-          readOnly
-          disabled
-          value={empty ? 'Not set' : value}
-          title={`${label} — edit in your CRM`}
-          style={shared}
-        />
-      )}
+      <input
+        value={value ?? ''}
+        onChange={editable ? (e) => onChange(e.target.value) : undefined}
+        readOnly={!editable}
+        disabled={disabled}
+        placeholder="Not set"
+        title={title || (editable ? undefined : `${label} — edit in your CRM`)}
+        style={{
+          width: '100%', boxSizing: 'border-box',
+          height: 34, padding: '0 10px',
+          border: `1px solid ${
+            invalid ? 'var(--status-stuck)'
+              : dirty ? 'var(--brand-primary)'
+                : 'var(--border-default)'
+          }`,
+          borderRadius: 'var(--radius-sm)',
+          // Read-only fields stay grey so they read as unavailable rather than
+          // as an empty box someone forgot to fill.
+          background: editable ? '#fff' : 'var(--gray-50)',
+          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
+          color: 'var(--text-body)',
+          cursor: editable ? 'text' : 'not-allowed',
+          outline: 'none'
+        }}
+      />
     </div>
   )
 }
