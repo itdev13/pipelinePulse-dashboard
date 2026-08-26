@@ -6,6 +6,8 @@ import {
   Shell, PageHeader, Panel, Row, Chip, SearchInput, StateMessage,
   SkeletonStyles, Bar, LoadMore, formatDate
 } from '../shared/ListChrome'
+import BusinessEditor from '../shared/BusinessEditor'
+import ConfirmDialog from '../shared/ConfirmDialog'
 
 // Businesses — the roll-up.
 //
@@ -42,13 +44,14 @@ export default function BusinessesTab({
     [q]
   )
 
-  const { items, error, hasMore, loadingMore, loadMore } = usePagedList({
+  const { items, error, hasMore, loadingMore, loadMore, reload } = usePagedList({
     fetchPage,
     key: 'businesses',
     deps: [q]
   })
 
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
+  const [creating, setCreating] = useState(false)
 
   if (openId) {
     return (
@@ -62,6 +65,7 @@ export default function BusinessesTab({
         }}
         onOpenDeal={onOpenDeal}
         onOpenContact={onOpenContact}
+        onDeleted={reload}
       />
     )
   }
@@ -72,14 +76,42 @@ export default function BusinessesTab({
         title="Businesses"
         subtitle="The roll-up — every conversation, deal and contact at a business in one view"
         action={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <button
+            onClick={() => setCreating(true)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              flex: 'none',
+              height: 34, padding: '0 15px',
+              border: 'none', borderRadius: 'var(--radius-md)',
+              background: 'var(--brand-primary)', color: '#fff',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
+              cursor: 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 17 }}>add</span>
+            New business
+          </button>
           <SearchInput
             value={q}
             onChange={setQ}
             placeholder="Search businesses"
             width={260}
           />
+          </div>
         }
       />
+
+      {creating && (
+        <BusinessEditor
+          onClose={() => setCreating(false)}
+          onSaved={() => {
+            // The server already wrote our row from the echo (no webhook
+            // exists), so the new business is there to be fetched immediately.
+            reload()
+          }}
+        />
+      )}
 
       {error && <StateMessage error={error} />}
 
@@ -200,9 +232,31 @@ function BusinessCard({ business: b, onOpen }) {
 
 // ── Detail ────────────────────────────────────────────────────────────
 
-function BusinessDetail({ businessId, onBack, onOpenDeal, onOpenContact }) {
+function BusinessDetail({ businessId, onBack, onOpenDeal, onOpenContact, onDeleted }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
+  const [editing, setEditing] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const [confirmError, setConfirmError] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+
+  const remove = async () => {
+    if (deleting) return
+    setDeleting(true)
+    setConfirmError(null)
+    try {
+      await businessesAPI.remove(businessId)
+      setConfirming(false)
+      // Back to the list — the record we were looking at is gone, and leaving
+      // its detail page on screen would show something that no longer exists.
+      if (onDeleted) onDeleted()
+      onBack()
+    } catch (err) {
+      setConfirmError(err.message || 'Could not delete that business')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   React.useEffect(() => {
     let alive = true
@@ -238,7 +292,11 @@ function BusinessDetail({ businessId, onBack, onOpenDeal, onOpenContact }) {
 
       {data && (
         <div style={{ display: 'grid', gap: 18 }}>
-          <CompanyInfoPanel business={data.business} />
+          <CompanyInfoPanel
+            business={data.business}
+            onEdit={() => setEditing(true)}
+            onDelete={() => { setConfirmError(null); setConfirming(true) }}
+          />
 
           <div
             style={{
@@ -258,17 +316,202 @@ function BusinessDetail({ businessId, onBack, onOpenDeal, onOpenContact }) {
           />
         </div>
       )}
+
+      {editing && data && (
+        <BusinessEditor
+          business={data.business}
+          onClose={() => setEditing(false)}
+          onSaved={(saved) => {
+            // Apply what the CRM echoed rather than what we sent. No webhook
+            // exists for businesses, so the server already wrote our row —
+            // this just updates what's on screen without a refetch.
+            if (saved) {
+              setData((prev) => prev && {
+                ...prev,
+                business: { ...prev.business, ...pickBusinessFields(saved) }
+              })
+            }
+          }}
+        />
+      )}
+
+      {confirming && data && (
+        <ConfirmDialog
+          title="Delete this business?"
+          message={
+            (data.business.contactCount || 0) > 0
+              ? `${data.business.contactCount} contact${data.business.contactCount === 1 ? '' : 's'} `
+                + 'will stay, but stop being linked to a business.'
+              : 'This cannot be undone from here.'
+          }
+          preview={data.business.name}
+          confirmLabel="Delete business"
+          busy={deleting}
+          error={confirmError}
+          onConfirm={remove}
+          onCancel={() => { setConfirming(false); setConfirmError(null) }}
+        />
+      )}
     </Shell>
   )
 }
 
-function CompanyInfoPanel({ business: b }) {
+// GHL's echoed business uses its own field names. Map only what the detail view
+// renders — spreading the raw echo would put `domainname` beside our
+// `domainname` and `postalCode` beside `postalCode` inconsistently.
+function pickBusinessFields(b) {
+  return {
+    name: b.name || 'Unnamed business',
+    description: b.description || null,
+    website: b.website || null,
+    email: b.email || null,
+    phone: b.phone || null,
+    address: b.address || null,
+    city: b.city || null,
+    state: b.state || null,
+    postalCode: b.postalCode || null,
+    country: b.country || null,
+    domainname: b.domainname || null
+  }
+}
+
+// Edited IN PLACE, not in a modal.
+//
+// A modal would hide the page you were reading and duplicate the field list in a
+// second component — two places to keep in step with the server's
+// COMPANY_INFO_FIELDS. Here the same grid becomes editable: every box is an
+// input, and one Save sends only what changed.
+//
+// Save is per-panel, not per-field. A rep correcting an address touches three
+// boxes; three round trips would be three chances to half-fail, and GHL's update
+// endpoint takes a partial body in one call.
+function CompanyInfoPanel({ business: b, onSaved, onDelete }) {
+  // name → edited value. Absent = untouched, which is what makes the diff
+  // exact: '' is a deliberate clear and must be distinguishable from "not
+  // edited".
+  const [edits, setEdits] = useState({})
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+  const [errorField, setErrorField] = useState(null)
+  const [saved, setSaved] = useState(false)
+
+  const valueOf = (f) => (f.name in edits ? edits[f.name] : (f.value ?? ''))
+
+  const changes = useMemo(() => {
+    const out = {}
+    for (const f of b.companyInfo) {
+      if (!(f.name in edits)) continue
+      const now = String(edits[f.name] ?? '').trim()
+      const was = String(f.value ?? '').trim()
+      if (now !== was) out[f.name] = now
+    }
+    return out
+  }, [b.companyInfo, edits])
+
+  const dirty = Object.keys(changes).length > 0
+
+  const setField = (name, v) => {
+    setEdits((prev) => ({ ...prev, [name]: v }))
+    setError(null)
+    setErrorField(null)
+    setSaved(false)
+  }
+
+  const revert = () => {
+    setEdits({})
+    setError(null)
+    setErrorField(null)
+  }
+
+  const save = async () => {
+    if (!dirty || saving) return
+    setSaving(true)
+    setError(null)
+    setErrorField(null)
+    try {
+      const res = await businessesAPI.update(b.id, changes)
+      // Clear the local edits so the panel reads from the refreshed record —
+      // otherwise a value GHL normalised (a trimmed domain, an upper-cased
+      // country) would keep showing what was typed.
+      setEdits({})
+      setSaved(true)
+      window.setTimeout(() => setSaved(false), 2200)
+      if (onSaved) onSaved(res.business || null)
+    } catch (err) {
+      setError(err.message || 'Could not save that — try again')
+      setErrorField(err.data?.field || null)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <Panel
       icon="domain"
       title={b.name}
       accent="sky"
-      meta="Company Info — synced"
+      meta="Company Info"
+      toolbar={
+        <>
+          {dirty && (
+            <button
+              onClick={revert}
+              disabled={saving}
+              style={{
+                height: 30, padding: '0 13px',
+                border: '1px solid var(--border-strong)',
+                borderRadius: 'var(--radius-pill)',
+                background: '#fff', color: 'var(--text-body)',
+                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
+                cursor: saving ? 'default' : 'pointer'
+              }}
+            >
+              Cancel
+            </button>
+          )}
+          <button
+            onClick={save}
+            disabled={!dirty || saving}
+            title={dirty ? 'Save to your CRM' : 'Nothing changed yet'}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              height: 30, padding: '0 14px',
+              border: 'none', borderRadius: 'var(--radius-pill)',
+              background: dirty ? 'var(--brand-primary)' : 'var(--gray-100)',
+              color: dirty ? '#fff' : 'var(--text-faint)',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
+              fontWeight: 600,
+              cursor: dirty && !saving ? 'pointer' : 'default'
+            }}
+          >
+            {saving && (
+              <span className="ms pp-spin" style={{ fontSize: 15 }}>progress_activity</span>
+            )}
+            {saving
+              ? 'Saving'
+              : saved
+                ? 'Saved'
+                : dirty
+                  ? `Save ${Object.keys(changes).length}`
+                  : 'Save'}
+          </button>
+          <button
+            onClick={onDelete}
+            disabled={saving}
+            title="Delete this business"
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 30, height: 30,
+              border: '1px solid var(--border-strong)',
+              borderRadius: 'var(--radius-pill)',
+              background: '#fff', color: 'var(--status-stuck)',
+              cursor: saving ? 'default' : 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 16 }}>delete</span>
+          </button>
+        </>
+      }
     >
       <p
         style={{
@@ -279,9 +522,9 @@ function CompanyInfoPanel({ business: b }) {
           fontSize: 'var(--text-base)', lineHeight: 1.55, color: 'var(--text-muted)'
         }}
       >
-        Company Info fields — the bracketed key is the field identity. These
-        are read-only here; edit them in your CRM and they update on the next
-        daily sync
+        Company Info fields — the bracketed key is the field identity. Edit
+        writes straight back to your CRM; the nightly sync reconciles anything
+        changed there
         {b.lastSyncedAt ? ` (last synced ${formatDate(b.lastSyncedAt)})` : ''}.
       </p>
 
