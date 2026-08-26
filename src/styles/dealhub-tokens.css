@@ -588,3 +588,12 @@
 @media (prefers-reduced-motion: reduce) {
   [data-dealhub] .pp-spin { animation: none; }
 }
+
+/* An antd Select carrying an unsaved change. The text inputs beside it get a
+   green border from an inline style; antd renders its border on an inner
+   .ant-select-selector, which an inline style on the wrapper cannot reach — so
+   the same signal needs a class. Without it a changed country was the one
+   edited field with no marker. */
+[data-dealhub] .pp-dirty-select .ant-select-selector {
+  border-color: var(--brand-primary) !important;
+}

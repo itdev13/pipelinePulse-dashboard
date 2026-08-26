@@ -6,6 +6,8 @@ import {
   Shell, PageHeader, Panel, Row, Chip, SearchInput, StateMessage,
   SkeletonStyles, Bar, LoadMore, formatDate
 } from '../shared/ListChrome'
+import { Select } from 'antd'
+import { countryOptions } from '../../constants/countries'
 import BusinessEditor from '../shared/BusinessEditor'
 import ConfirmDialog from '../shared/ConfirmDialog'
 
@@ -617,14 +619,9 @@ function CompanyInfoPanel({ business: b, onSaved, onDelete }) {
 // Read-only value, styled as a field so the panel still reads as a record.
 // An empty field says "Not set" rather than rendering blank — a blank box looks
 // like a loading failure.
-// Two-letter codes — what GHL accepts. A short list rather than all 249: this
-// is a UK glazing business, and "GB" being one click away beats scrolling past
-// Afghanistan. Free text stays possible for anything not listed.
-const COUNTRY_OPTIONS = [
-  ['GB', 'United Kingdom'], ['IE', 'Ireland'], ['US', 'United States'],
-  ['FR', 'France'], ['DE', 'Germany'], ['ES', 'Spain'], ['NL', 'Netherlands'],
-  ['AU', 'Australia'], ['CA', 'Canada'], ['NZ', 'New Zealand'], ['AE', 'UAE']
-]
+// Built once, not per render — 247 options rebuilt on every keystroke made the
+// dropdown stutter while typing.
+const COUNTRY_OPTIONS = countryOptions()
 
 // One editable field. The whole panel is a form now, so this is an input rather
 // than the read-only span it used to be.
@@ -670,24 +667,34 @@ function FieldInput({ field: f, value, onChange, disabled, invalid, dirty }) {
       style={{ ...box, resize: 'vertical' }}
     />
   ) : f.type === 'select' || f.type === 'country' ? (
-    <>
-      {/* A datalist, not a <select>: GHL accepts any two-letter code and a
-          closed list would block a country we didn't think to include. */}
-      <input
-        list={`country-${f.name}`}
-        value={value}
-        onChange={(e) => onChange(e.target.value.toUpperCase())}
-        disabled={disabled}
-        placeholder="e.g. GB"
-        maxLength={2}
-        style={box}
-      />
-      <datalist id={`country-${f.name}`}>
-        {COUNTRY_OPTIONS.map(([code, label]) => (
-          <option key={code} value={code}>{label}</option>
-        ))}
-      </datalist>
-    </>
+    // antd's Select, not a <datalist>. The datalist this replaces looked like a
+    // plain text box, and the list Chrome showed over it was its own autofill —
+    // addresses, "Manage addresses…" — rather than anything we rendered.
+    //
+    // Full 247-country list, common ones grouped at the top. `label` holds
+    // "United Kingdom (GB)" so optionFilterProp="label" matches on the name AND
+    // the code without a custom filter.
+    <Select
+      // pp-dirty-select paints the same green border the text inputs get, via
+      // antd's selector element — our `box` style cannot reach inside it.
+      className={dirty ? 'pp-dirty-select' : undefined}
+      value={value || undefined}
+      onChange={(v) => onChange(v || '')}
+      options={COUNTRY_OPTIONS}
+      placeholder="Not set"
+      disabled={disabled}
+      showSearch
+      allowClear
+      optionFilterProp="label"
+      status={invalid ? 'error' : undefined}
+      style={{ width: '100%' }}
+      // The panel scrolls; without this the menu detaches from its box.
+      getPopupContainer={(node) => node.parentElement || document.body}
+      // 247 rows — virtualise (antd does by default) and cap the height so the
+      // list doesn't run off the panel.
+      listHeight={280}
+      notFoundContent="No country matches that"
+    />
   ) : (
     <input
       value={value}

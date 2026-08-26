@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Input, Select } from 'antd'
 import { businessesAPI } from '../../api/businesses'
+import { countryOptions } from '../../constants/countries'
 
 // Create or edit a business.
 //
@@ -36,14 +37,13 @@ const FIELDS = [
   { name: 'country',     label: 'Country',      type: 'country' }
 ]
 
-// Two-letter codes, which is what GHL accepts. A short list rather than all 249
-// — this is a UK glazing business, and "GB" being three clicks away beats
-// scrolling past Afghanistan.
-const COUNTRIES = [
-  ['GB', 'United Kingdom'], ['IE', 'Ireland'], ['US', 'United States'],
-  ['FR', 'France'], ['DE', 'Germany'], ['ES', 'Spain'], ['NL', 'Netherlands'],
-  ['AU', 'Australia'], ['CA', 'Canada'], ['NZ', 'New Zealand'], ['AE', 'UAE']
-]
+// The shared list — GHL's own 247 countries, common ones grouped first. This
+// file used to carry its own eleven, so the create form and the edit panel
+// offered different countries for the same field.
+//
+// Built once at module scope: rebuilding 247 options per render made the
+// dropdown stutter while typing.
+const COUNTRY_OPTIONS = countryOptions()
 
 // Contact count above which GHL rate-limits renames. Their number, not ours.
 const RENAME_LIMIT_CONTACTS = 2000
@@ -228,13 +228,17 @@ export default function BusinessEditor({
                   <Select
                     value={values[f.name] || undefined}
                     onChange={(v) => set(f.name, v || '')}
-                    options={COUNTRIES.map(([code, label]) => ({
-                      value: code, label: `${label} (${code})`
-                    }))}
+                    options={COUNTRY_OPTIONS}
                     placeholder="Not set"
                     allowClear
                     showSearch
+                    // "United Kingdom (GB)" is the label, so this one prop
+                    // searches the name AND the code.
                     optionFilterProp="label"
+                    listHeight={280}
+                    notFoundContent="No country matches that"
+                    // The form body scrolls; without this the menu detaches.
+                    getPopupContainer={(node) => node.parentElement || document.body}
                     style={{ width: '100%' }}
                     status={errorField === f.name ? 'error' : undefined}
                   />
