@@ -120,12 +120,15 @@ export default function DealSection({
           <ContactLines person={primaryPerson(deal.people)} />
         </Column>
 
+        {/* Businesses sits INSIDE this column, under Expected close. As its own
+            column it took a quarter of the card's width to say "no business
+            linked" — a whole panel for a field that is usually empty and never
+            more than a chip or two when filled. */}
         <ValueColumn
           deal={deal}
           onExpectedCloseChange={onExpectedCloseChange}
+          onOpenBusiness={onOpenBusiness}
         />
-
-        <BusinessColumn deal={deal} onOpenBusiness={onOpenBusiness} />
 
         <StageColumn
           deal={deal}
@@ -161,11 +164,14 @@ export default function DealSection({
 // company, occasionally two when a deal spans a homeowner and their architect,
 // and often none: the link only exists once the Businesses sync has run and
 // the contact actually carries a businessId.
-function BusinessColumn({ deal, onOpenBusiness }) {
+// A block within the Value column rather than a column of its own — see the
+// grid above. Keeps its own label so the field is still named.
+function BusinessBlock({ deal, onOpenBusiness }) {
   const businesses = deal.businesses || []
 
   return (
-    <Column label={businesses.length === 1 ? 'Business' : 'Businesses'}>
+    <div style={{ marginTop: 'var(--space-4)' }}>
+      <FieldLabel>{businesses.length === 1 ? 'Business' : 'Businesses'}</FieldLabel>
       {businesses.length === 0 ? (
         <p
           style={{
@@ -174,13 +180,15 @@ function BusinessColumn({ deal, onOpenBusiness }) {
             color: 'var(--text-faint)'
           }}
         >
-          {/* Say WHY it's empty. "No business" reads as a data error; this says
-              what would make one appear. */}
-          No business linked — a business is linked through the contact,
-          so this fills in once one is set there.
+          {/* One line now, not three. In a narrower slot the old sentence wrapped
+              to three lines and became the largest thing in the column — a lot of
+              text to explain an absence. The "why" moves to the tooltip. */}
+          <span title="A business is linked through the contact, so this fills in once one is set there.">
+            None linked
+          </span>
         </p>
       ) : (
-        <div style={{ display: 'grid', gap: 'var(--space-2)', justifyItems: 'start' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {businesses.map((b) => (
             <button
               key={b.id}
@@ -219,11 +227,11 @@ function BusinessColumn({ deal, onOpenBusiness }) {
           ))}
         </div>
       )}
-    </Column>
+    </div>
   )
 }
 
-function ValueColumn({ deal, onExpectedCloseChange }) {
+function ValueColumn({ deal, onExpectedCloseChange, onOpenBusiness }) {
   const [expectedClose, setExpectedClose] = useState(
     deal.forecastCloseDate ? toDateInput(deal.forecastCloseDate) : ''
   )
@@ -314,6 +322,8 @@ function ValueColumn({ deal, onExpectedCloseChange }) {
           Provisional — excluded from pipeline totals
         </p>
       )}
+
+      <BusinessBlock deal={deal} onOpenBusiness={onOpenBusiness} />
     </Column>
   )
 }

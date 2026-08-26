@@ -190,7 +190,7 @@ export default function DealHubShell() {
             background: '#fff',
             color: history.length === 0 ? 'var(--text-faint)' : 'var(--text-body)',
             fontFamily: 'var(--font-sans)',
-            fontSize: 'var(--text-md)', fontWeight: 500,
+            fontSize: 'var(--text-md)', fontWeight: 600,
             cursor: history.length === 0 ? 'default' : 'pointer',
             opacity: history.length === 0 ? 0.55 : 1
           }}
