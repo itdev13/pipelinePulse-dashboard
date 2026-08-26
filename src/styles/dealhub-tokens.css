@@ -679,3 +679,11 @@
   font-size: var(--text-md);
   color: var(--text-muted);
 }
+
+/* An antd Select whose value the server rejected. Same reason .pp-dirty-select
+   exists: antd draws its border on an inner .ant-select-selector, and a
+   className is the only hook that reaches it. Without this the contact picker
+   showed the error message with no marker on the box that caused it. */
+[data-dealhub] .pp-invalid-select .ant-select-selector {
+  border-color: var(--status-stuck) !important;
+}

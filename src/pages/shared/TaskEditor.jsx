@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { DatePicker, Input, Select } from 'antd'
+import { DatePicker, Input } from 'antd'
 import dayjs from 'dayjs'
 import { tasksAPI } from '../../api/tasks'
+import ContactPicker from './ContactPicker'
 
 // Create or edit one task. Shared by the Tasks page and the Deal Hub's task
 // rail so the two can't drift apart in what they accept.
@@ -71,13 +72,6 @@ export default function TaskEditor({
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose, saving])
 
-  const contactOptions = useMemo(
-    () => contacts.map((c) => ({
-      value: c.id,
-      label: c.name || c.firstName || c.email || c.phone || 'Contact'
-    })),
-    [contacts]
-  )
 
   // What's actually changed. Sending only this means an edit can't overwrite a
   // field someone else changed in the CRM meanwhile.
@@ -231,16 +225,16 @@ export default function TaskEditor({
                 would be a control that silently does nothing. */}
             {!editing && (
               <Field label="Contact" required error={errorField === 'contactId' ? error : null}>
-                <Select
-                  value={contactId || undefined}
+                {/* Searches every contact in the sub-account, not just the ones
+                    the caller happened to pass. On this page there is no deal in
+                    scope, so the old Select was handed an empty list and
+                    rendered DISABLED — a task could not be created here at all.
+                    `seed` keeps the deal case a single click. */}
+                <ContactPicker
+                  value={contactId}
                   onChange={setContactId}
-                  options={contactOptions}
-                  placeholder={contactOptions.length ? 'Who is it about?' : 'No contacts'}
-                  disabled={contactOptions.length === 0}
-                  style={{ width: '100%' }}
-                  status={errorField === 'contactId' ? 'error' : undefined}
-                  showSearch
-                  optionFilterProp="label"
+                  seed={contacts}
+                  invalid={errorField === 'contactId'}
                 />
               </Field>
             )}

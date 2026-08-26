@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Input, Select } from 'antd'
+import { Input } from 'antd'
 import { notesAPI } from '../../api/notes'
+import ContactPicker from './ContactPicker'
 
 // Create or edit one note. Shared by the Notes page and the Deal Hub's note
 // rail so the two can't drift apart in what they accept.
@@ -71,13 +72,6 @@ export default function NoteEditor({
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose, saving])
 
-  const contactOptions = useMemo(
-    () => contacts.map((c) => ({
-      value: c.id,
-      label: c.name || c.firstName || c.email || c.phone || 'Contact'
-    })),
-    [contacts]
-  )
 
   // GHL's limit. Only blocks turning pinning ON, and never for a note that's
   // already pinned — it already holds one of the two slots.
@@ -247,16 +241,16 @@ export default function NoteEditor({
 
             {!editing && (
               <Field label="Contact" required error={errorField === 'contactId' ? error : null}>
-                <Select
-                  value={contactId || undefined}
+                {/* Searches every contact in the sub-account, not just the ones
+                    the caller happened to pass. On this page there is no deal in
+                    scope, so the old Select was handed an empty list and
+                    rendered DISABLED — a task could not be created here at all.
+                    `seed` keeps the deal case a single click. */}
+                <ContactPicker
+                  value={contactId}
                   onChange={setContactId}
-                  options={contactOptions}
-                  placeholder={contactOptions.length ? 'Who is it about?' : 'No contacts'}
-                  disabled={contactOptions.length === 0}
-                  style={{ width: '100%' }}
-                  status={errorField === 'contactId' ? 'error' : undefined}
-                  showSearch
-                  optionFilterProp="label"
+                  seed={contacts}
+                  invalid={errorField === 'contactId'}
                 />
               </Field>
             )}
