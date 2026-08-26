@@ -235,7 +235,6 @@ function BusinessCard({ business: b, onOpen }) {
 function BusinessDetail({ businessId, onBack, onOpenDeal, onOpenContact, onDeleted }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
-  const [editing, setEditing] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [confirmError, setConfirmError] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -294,7 +293,21 @@ function BusinessDetail({ businessId, onBack, onOpenDeal, onOpenContact, onDelet
         <div style={{ display: 'grid', gap: 18 }}>
           <CompanyInfoPanel
             business={data.business}
-            onEdit={() => setEditing(true)}
+            onSaved={(saved) => {
+              // Apply the CRM's echo. No webhook exists for businesses, so the
+              // server already wrote our row — this refreshes what's on screen
+              // without a refetch, and shows any value GHL normalised.
+              if (saved) {
+                setData((prev) => prev && {
+                  ...prev,
+                  business: {
+                    ...prev.business,
+                    ...pickBusinessFields(saved),
+                    companyInfo: mergeCompanyInfo(prev.business.companyInfo, saved)
+                  }
+                })
+              }
+            }}
             onDelete={() => { setConfirmError(null); setConfirming(true) }}
           />
 
@@ -317,24 +330,6 @@ function BusinessDetail({ businessId, onBack, onOpenDeal, onOpenContact, onDelet
         </div>
       )}
 
-      {editing && data && (
-        <BusinessEditor
-          business={data.business}
-          onClose={() => setEditing(false)}
-          onSaved={(saved) => {
-            // Apply what the CRM echoed rather than what we sent. No webhook
-            // exists for businesses, so the server already wrote our row —
-            // this just updates what's on screen without a refetch.
-            if (saved) {
-              setData((prev) => prev && {
-                ...prev,
-                business: { ...prev.business, ...pickBusinessFields(saved) }
-              })
-            }
-          }}
-        />
-      )}
-
       {confirming && data && (
         <ConfirmDialog
           title="Delete this business?"
@@ -354,6 +349,20 @@ function BusinessDetail({ businessId, onBack, onOpenDeal, onOpenContact, onDelet
       )}
     </Shell>
   )
+}
+
+// The panel renders from companyInfo, not from the flat fields, so the echo has
+// to be folded into THAT array as well. Missing this was the bug where a saved
+// value flicked back to its old text on the next render.
+//
+// Keyed on the descriptor's own `name`, which the server sets to GHL's field
+// name — so this needs no mapping table of its own and can't drift from the
+// server's COMPANY_INFO_FIELDS.
+function mergeCompanyInfo(companyInfo, echoed) {
+  if (!Array.isArray(companyInfo)) return companyInfo
+  return companyInfo.map((f) => (
+    f.name in echoed ? { ...f, value: echoed[f.name] ?? null } : f
+  ))
 }
 
 // GHL's echoed business uses its own field names. Map only what the detail view
@@ -560,10 +569,47 @@ function CompanyInfoPanel({ business: b, onSaved, onDelete }) {
                 {f.key}
               </span>
             </span>
-            <FieldValue field={f} />
+            <FieldInput
+              field={f}
+              value={valueOf(f)}
+              onChange={(v) => setField(f.name, v)}
+              disabled={saving || f.writable === false}
+              invalid={errorField === f.name}
+              // Dirty marker per field, so with several edited it's clear which.
+              dirty={f.name in changes}
+            />
+            {errorField === f.name && (
+              <span
+                style={{
+                  display: 'block', marginTop: 4,
+                  fontSize: 'var(--text-sm)', color: 'var(--status-stuck-text)'
+                }}
+              >
+                {error}
+              </span>
+            )}
           </div>
         ))}
       </div>
+
+      {/* An error with no field of its own — a permission problem, a rename
+          rate-limit, a connection failure. */}
+      {error && !errorField && (
+        <div
+          style={{
+            display: 'flex', alignItems: 'flex-start', gap: 7,
+            margin: '0 16px 16px',
+            padding: '9px 11px',
+            border: '1px solid var(--status-stuck)',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--tint-rose)',
+            fontSize: 'var(--text-md)', color: 'var(--status-stuck-text)'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 16, flex: 'none', marginTop: 1 }}>error</span>
+          {error}
+        </div>
+      )}
     </Panel>
   )
 }
@@ -571,42 +617,118 @@ function CompanyInfoPanel({ business: b, onSaved, onDelete }) {
 // Read-only value, styled as a field so the panel still reads as a record.
 // An empty field says "Not set" rather than rendering blank — a blank box looks
 // like a loading failure.
-function FieldValue({ field: f }) {
-  const empty = f.value == null || f.value === ''
-  const base = {
-    display: 'block',
+// Two-letter codes — what GHL accepts. A short list rather than all 249: this
+// is a UK glazing business, and "GB" being one click away beats scrolling past
+// Afghanistan. Free text stays possible for anything not listed.
+const COUNTRY_OPTIONS = [
+  ['GB', 'United Kingdom'], ['IE', 'Ireland'], ['US', 'United States'],
+  ['FR', 'France'], ['DE', 'Germany'], ['ES', 'Spain'], ['NL', 'Netherlands'],
+  ['AU', 'Australia'], ['CA', 'Canada'], ['NZ', 'New Zealand'], ['AE', 'UAE']
+]
+
+// One editable field. The whole panel is a form now, so this is an input rather
+// than the read-only span it used to be.
+//
+// The LINK affordance is kept: a website, email or phone still opens, via a
+// small button beside the box. Making the value itself a link would mean you
+// couldn't click into it to edit — and losing "call this number" to gain
+// editing would be a bad trade.
+function FieldInput({ field: f, value, onChange, disabled, invalid, dirty }) {
+  const empty = value == null || value === ''
+
+  const box = {
+    width: '100%', boxSizing: 'border-box',
     minHeight: 38,
-    padding: '9px 11px',
-    border: '1px solid var(--border-default)',
+    padding: '8px 11px',
+    border: `1px solid ${
+      invalid ? 'var(--status-stuck)'
+        : dirty ? 'var(--brand-primary)'
+          : 'var(--border-default)'
+    }`,
     borderRadius: 'var(--radius-sm)',
-    background: empty ? 'var(--gray-50)' : '#fff',
+    background: disabled ? 'var(--gray-50)' : '#fff',
     fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
     lineHeight: 1.45,
-    color: empty ? 'var(--text-faint)' : 'var(--text-body)',
-    fontStyle: empty ? 'italic' : 'normal',
+    color: 'var(--text-body)',
+    outline: 'none',
     overflowWrap: 'anywhere'
   }
 
-  if (empty) return <span style={base}>Not set</span>
+  const linkable = !empty && ['url', 'email', 'phone', 'domain'].includes(f.type)
+  const href = !linkable ? null
+    : f.type === 'email' ? `mailto:${value}`
+      : f.type === 'phone' ? `tel:${String(value).replace(/\s+/g, '')}`
+        : withProtocol(value)
 
-  if (f.type === 'url' || f.type === 'email' || f.type === 'phone') {
-    const href =
-      f.type === 'url' ? withProtocol(f.value)
-        : f.type === 'email' ? `mailto:${f.value}`
-          : `tel:${String(f.value).replace(/\s+/g, '')}`
-    return (
+  const control = f.type === 'multiline' ? (
+    <textarea
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      rows={2}
+      placeholder="Not set"
+      style={{ ...box, resize: 'vertical' }}
+    />
+  ) : f.type === 'select' || f.type === 'country' ? (
+    <>
+      {/* A datalist, not a <select>: GHL accepts any two-letter code and a
+          closed list would block a country we didn't think to include. */}
+      <input
+        list={`country-${f.name}`}
+        value={value}
+        onChange={(e) => onChange(e.target.value.toUpperCase())}
+        disabled={disabled}
+        placeholder="e.g. GB"
+        maxLength={2}
+        style={box}
+      />
+      <datalist id={`country-${f.name}`}>
+        {COUNTRY_OPTIONS.map(([code, label]) => (
+          <option key={code} value={code}>{label}</option>
+        ))}
+      </datalist>
+    </>
+  ) : (
+    <input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      placeholder={f.type === 'domain' ? 'example.com' : 'Not set'}
+      style={box}
+    />
+  )
+
+  if (!href) return control
+
+  return (
+    <span style={{ display: 'flex', alignItems: 'flex-start', gap: 5 }}>
+      <span style={{ minWidth: 0, flex: 1 }}>{control}</span>
       <a
         href={href}
-        target={f.type === 'url' ? '_blank' : undefined}
-        rel={f.type === 'url' ? 'noreferrer noopener' : undefined}
-        style={{ ...base, color: 'var(--accent-sky)', textDecoration: 'none' }}
+        target={f.type === 'email' || f.type === 'phone' ? undefined : '_blank'}
+        rel="noreferrer noopener"
+        title={
+          f.type === 'email' ? `Email ${value}`
+            : f.type === 'phone' ? `Call ${value}`
+              : `Open ${value}`
+        }
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          flex: 'none',
+          width: 32, height: 38,
+          border: '1px solid var(--border-default)',
+          borderRadius: 'var(--radius-sm)',
+          background: 'var(--gray-25)',
+          color: 'var(--accent-sky)',
+          textDecoration: 'none'
+        }}
       >
-        {f.value}
+        <span className="ms" style={{ fontSize: 16 }}>
+          {f.type === 'email' ? 'mail' : f.type === 'phone' ? 'call' : 'open_in_new'}
+        </span>
       </a>
-    )
-  }
-
-  return <span style={base}>{f.value}</span>
+    </span>
+  )
 }
 
 // A bare domain in an href resolves relative to the current page, which inside
