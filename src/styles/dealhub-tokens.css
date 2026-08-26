@@ -322,6 +322,22 @@
   box-shadow: none;
 }
 
+/* Same problem, in antd's controls.
+ *
+ * A Select renders a real <input> INSIDE its .ant-select-selector, and a
+ * DatePicker does the same. The global rule above therefore painted a focus
+ * ring around that inner input — a green box nested inside the selector's own
+ * green box, which is the double border visible on the country field.
+ *
+ * antd already draws focus on the selector (border + shadow), so the inner
+ * input should draw none. Listed by component rather than a blanket `input`
+ * opt-out, so a plain input inside an antd wrapper still gets its ring. */
+[data-dealhub] .ant-select-selection-search-input:focus-visible,
+[data-dealhub] .ant-select-selector input:focus-visible,
+[data-dealhub] .ant-picker input:focus-visible {
+  box-shadow: none;
+}
+
 /* Scrollbars, scoped to the Deal Hub. Slimmer and quieter than the browser
  * default, which is visually heavy next to 1px card borders. */
 [data-dealhub] ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -596,4 +612,70 @@
    edited field with no marker. */
 [data-dealhub] .pp-dirty-select .ant-select-selector {
   border-color: var(--brand-primary) !important;
+}
+
+/* antd dropdown menus, brought into the app's own type and spacing.
+ *
+ * The default is 32px rows at antd's font — noticeably tighter and smaller than
+ * everything around it, so a 247-row country list read as a foreign control
+ * dropped into the page. These match the row height and typeface used elsewhere.
+ *
+ * NOT scoped under [data-dealhub], and the tokens are REDECLARED below, because
+ * antd renders its menu into document.body — OUTSIDE the [data-dealhub] wrapper
+ * where every token is defined. A var() reference alone resolves to nothing out
+ * there, so the menu would render with no font, no colours and square corners.
+ *
+ * Only the handful the menu uses. If one changes in the block at the top of this
+ * file, change it here too: there is no way to inherit across the boundary short
+ * of putting the tokens on :root, which would leak them into the host page's own
+ * Ant Design. */
+.pp-menu {
+  --font-sans: 'Poppins', -apple-system, 'Segoe UI', sans-serif;
+  --text-xs: 10px;
+  --text-md: 13px;
+  --gray-50: #f5f6f8;
+  --tint-pine: #d8ede4;
+  --accent-pine-text: #1e7659;
+  --text-body: #323844;
+  --text-muted: #676f7c;
+  --weight-semibold: 600;
+  --tracking-label: 0.07em;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --shadow-overlay: 0 8px 28px rgba(31, 36, 48, 0.16);
+
+  font-family: var(--font-sans);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-overlay);
+  padding: 4px;
+}
+.pp-menu .ant-select-item {
+  min-height: 38px;
+  padding: 8px 11px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-md);
+  color: var(--text-body);
+}
+.pp-menu .ant-select-item-option-active:not(.ant-select-item-option-disabled) {
+  background: var(--gray-50);
+}
+.pp-menu .ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
+  background: var(--tint-pine);
+  color: var(--accent-pine-text);
+  font-weight: var(--weight-semibold);
+}
+/* Group headings — "Common" / "All countries". Uppercase micro-label, matching
+   every other section label in the app. */
+.pp-menu .ant-select-item-group {
+  padding: 9px 11px 5px;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.pp-menu .ant-select-item-empty {
+  padding: 12px;
+  font-size: var(--text-md);
+  color: var(--text-muted);
 }

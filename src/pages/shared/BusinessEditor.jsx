@@ -235,10 +235,9 @@ export default function BusinessEditor({
                     // "United Kingdom (GB)" is the label, so this one prop
                     // searches the name AND the code.
                     optionFilterProp="label"
+                    popupClassName="pp-menu"
                     listHeight={280}
                     notFoundContent="No country matches that"
-                    // The form body scrolls; without this the menu detaches.
-                    getPopupContainer={(node) => node.parentElement || document.body}
                     style={{ width: '100%' }}
                     status={errorField === f.name ? 'error' : undefined}
                   />

@@ -462,67 +462,6 @@ function CompanyInfoPanel({ business: b, onSaved, onDelete }) {
       title={b.name}
       accent="sky"
       meta="Company Info"
-      toolbar={
-        <>
-          {dirty && (
-            <button
-              onClick={revert}
-              disabled={saving}
-              style={{
-                height: 30, padding: '0 13px',
-                border: '1px solid var(--border-strong)',
-                borderRadius: 'var(--radius-pill)',
-                background: '#fff', color: 'var(--text-body)',
-                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
-                cursor: saving ? 'default' : 'pointer'
-              }}
-            >
-              Cancel
-            </button>
-          )}
-          <button
-            onClick={save}
-            disabled={!dirty || saving}
-            title={dirty ? 'Save to your CRM' : 'Nothing changed yet'}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              height: 30, padding: '0 14px',
-              border: 'none', borderRadius: 'var(--radius-pill)',
-              background: dirty ? 'var(--brand-primary)' : 'var(--gray-100)',
-              color: dirty ? '#fff' : 'var(--text-faint)',
-              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
-              fontWeight: 600,
-              cursor: dirty && !saving ? 'pointer' : 'default'
-            }}
-          >
-            {saving && (
-              <span className="ms pp-spin" style={{ fontSize: 15 }}>progress_activity</span>
-            )}
-            {saving
-              ? 'Saving'
-              : saved
-                ? 'Saved'
-                : dirty
-                  ? `Save ${Object.keys(changes).length}`
-                  : 'Save'}
-          </button>
-          <button
-            onClick={onDelete}
-            disabled={saving}
-            title="Delete this business"
-            style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 30, height: 30,
-              border: '1px solid var(--border-strong)',
-              borderRadius: 'var(--radius-pill)',
-              background: '#fff', color: 'var(--status-stuck)',
-              cursor: saving ? 'default' : 'pointer'
-            }}
-          >
-            <span className="ms" style={{ fontSize: 16 }}>delete</span>
-          </button>
-        </>
-      }
     >
       <p
         style={{
@@ -612,6 +551,98 @@ function CompanyInfoPanel({ business: b, onSaved, onDelete }) {
           {error}
         </div>
       )}
+      {/* Actions at the BOTTOM RIGHT, after the fields.
+          In the panel header they sat above the form, so the eye met Save
+          before it met anything to save — and Delete was the first control on
+          a panel whose job is editing. Reading order is now fields, then what
+          to do with them. */}
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+          justifyContent: 'flex-end',
+          padding: '11px var(--space-4)',
+          borderTop: '1px solid var(--border-default)',
+          background: 'var(--gray-25)'
+        }}
+      >
+        {/* Says what will happen before you commit it, and takes the left of
+            the row so the buttons stay where the eye expects them. */}
+        <span
+          style={{
+            flex: 1, minWidth: 0,
+            fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
+          }}
+        >
+          {saving
+            ? 'Saving to your CRM…'
+            : saved
+              ? 'Saved'
+              : dirty
+                ? `${Object.keys(changes).length} unsaved change${Object.keys(changes).length === 1 ? '' : 's'}`
+                : ''}
+        </span>
+
+        {dirty && (
+          <button
+            onClick={revert}
+            disabled={saving}
+            style={{
+              height: 34, padding: '0 15px',
+              border: '1px solid var(--border-strong)',
+              borderRadius: 'var(--radius-md)',
+              background: '#fff', color: 'var(--text-body)',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
+              cursor: saving ? 'default' : 'pointer'
+            }}
+          >
+            Cancel
+          </button>
+        )}
+        <button
+          onClick={save}
+          disabled={!dirty || saving}
+          title={dirty ? 'Save to your CRM' : 'Nothing changed yet'}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 7,
+            height: 34, padding: '0 18px',
+            border: 'none', borderRadius: 'var(--radius-md)',
+            background: dirty ? 'var(--brand-primary)' : 'var(--gray-200)',
+            color: dirty ? '#fff' : 'var(--text-faint)',
+            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
+            cursor: dirty && !saving ? 'pointer' : 'default'
+          }}
+        >
+          {saving && (
+            <span className="ms pp-spin" style={{ fontSize: 15 }}>progress_activity</span>
+          )}
+          {saving ? 'Saving' : 'Save'}
+        </button>
+        {/* Separated by a rule: deleting is not a variant of saving, and
+            sitting flush against Save invites the wrong click. */}
+        <span
+          aria-hidden
+          style={{
+            width: 1, height: 22, flex: 'none',
+            background: 'var(--border-default)', margin: '0 2px'
+          }}
+        />
+        <button
+          onClick={onDelete}
+          disabled={saving}
+          title="Delete this business"
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 34, height: 34,
+            border: '1px solid var(--border-strong)',
+            borderRadius: 'var(--radius-md)',
+            background: '#fff', color: 'var(--status-stuck)',
+            cursor: saving ? 'default' : 'pointer'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 17 }}>delete</span>
+        </button>
+      </div>
+
     </Panel>
   )
 }
@@ -688,10 +719,9 @@ function FieldInput({ field: f, value, onChange, disabled, invalid, dirty }) {
       optionFilterProp="label"
       status={invalid ? 'error' : undefined}
       style={{ width: '100%' }}
-      // The panel scrolls; without this the menu detaches from its box.
-      getPopupContainer={(node) => node.parentElement || document.body}
       // 247 rows — virtualise (antd does by default) and cap the height so the
       // list doesn't run off the panel.
+      popupClassName="pp-menu"
       listHeight={280}
       notFoundContent="No country matches that"
     />

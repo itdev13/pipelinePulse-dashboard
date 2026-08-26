@@ -617,13 +617,23 @@ export default function DealHubTab({
             is cleared on switch, so hold the row's height with a placeholder
             instead of letting the header collapse and rebound. */}
         {loading ? (
-          <div style={{ display: 'flex', gap: 'var(--space-2)', paddingTop: 10 }}>
+          // Shaped like the stepper it stands in for: 40px tall (StageStepper's
+          // own height) and full width, with flex:1 segments. The old version
+          // was 26px fixed-width pills covering half the card, so the header
+          // visibly collapsed and rebounded on every deal switch — which is the
+          // one thing a skeleton exists to prevent.
+          <div style={{ display: 'flex', gap: 2, paddingTop: 10 }}>
             <SkeletonStyles />
-            {[96, 112, 88, 104, 92].map((w, i) => (
+            {[0, 1, 2, 3, 4].map((i) => (
               <span
                 key={i}
                 className="pp-sk"
-                style={{ display: 'block', width: w, height: 26, borderRadius: 'var(--radius-pill)' }}
+                style={{
+                  display: 'block', flex: 1, minWidth: 0, height: 40,
+                  // Square-ish, like the stepper's chevrons — pill ends read as
+                  // a row of tags rather than a segmented bar.
+                  borderRadius: 'var(--radius-sm)'
+                }}
               />
             ))}
           </div>

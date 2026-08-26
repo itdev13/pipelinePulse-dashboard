@@ -263,8 +263,15 @@ export function DealHubSkeleton() {
             <Bar w={320} h={38} r="var(--radius-md)" />
             <span style={{ marginLeft: 'auto' }}><Bar w={128} h={26} /></span>
           </div>
-          <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-            {[104, 118, 96, 110, 88].map((w, i) => <Pill key={i} w={w} h={26} />)}
+          {/* Matches StageStepper: 40px tall, full width, equal segments. As
+              26px fixed-width pills this covered half the card, so the header
+              collapsed and rebounded when the real stepper arrived. */}
+          <div style={{ display: 'flex', gap: 2 }}>
+            {[0, 1, 2, 3, 4].map((i) => (
+              <span key={i} style={{ flex: 1, minWidth: 0 }}>
+                <Bar w="100%" h={40} r="var(--radius-sm)" />
+              </span>
+            ))}
           </div>
         </div>
       </div>
