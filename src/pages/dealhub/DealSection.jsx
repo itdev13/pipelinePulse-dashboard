@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { DatePicker, Select } from 'antd'
 import dayjs from 'dayjs'
 import TagPicker from '../shared/TagPicker'
@@ -25,8 +25,12 @@ export default function DealSection({
   siblingDeals = [],
   onOpenDeal,
   onOpenBusiness,
-  onStageChange,
-  onExpectedCloseChange
+  // (field, value) => Promise. One field at a time: this card has no Save
+  // button, and a picker commits the moment it changes.
+  onSaveField,
+  // The field currently in flight, so its control can show progress.
+  saving = null,
+  saveError = null
 }) {
   if (!deal) return null
 
@@ -126,14 +130,16 @@ export default function DealSection({
             more than a chip or two when filled. */}
         <ValueColumn
           deal={deal}
-          onExpectedCloseChange={onExpectedCloseChange}
+          onSaveField={onSaveField}
+          saving={saving}
           onOpenBusiness={onOpenBusiness}
         />
 
         <StageColumn
           deal={deal}
           stages={stages}
-          onStageChange={onStageChange}
+          onSaveField={onSaveField}
+          saving={saving}
         />
 
       </div>
@@ -143,6 +149,23 @@ export default function DealSection({
           to fetch — hence the dashed amber "Not set" treatment instead of
           hiding the chip. */}
       <FieldChipRow deal={deal} />
+
+      {saveError && (
+        <div
+          style={{
+            display: 'flex', alignItems: 'flex-start', gap: 7,
+            margin: '0 var(--space-4) 12px',
+            padding: '9px 11px',
+            border: '1px solid var(--status-stuck)',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--tint-rose)',
+            fontSize: 'var(--text-md)', color: 'var(--status-stuck-text)'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 16, flex: 'none', marginTop: 1 }}>error</span>
+          {saveError}
+        </div>
+      )}
 
       <TagRow deal={deal} />
 
@@ -231,10 +254,15 @@ function BusinessBlock({ deal, onOpenBusiness }) {
   )
 }
 
-function ValueColumn({ deal, onExpectedCloseChange, onOpenBusiness }) {
+function ValueColumn({ deal, onSaveField, saving, onOpenBusiness }) {
   const [expectedClose, setExpectedClose] = useState(
     deal.forecastCloseDate ? toDateInput(deal.forecastCloseDate) : ''
   )
+
+  // Follow the deal — see StageColumn.
+  useEffect(() => {
+    setExpectedClose(deal.forecastCloseDate ? toDateInput(deal.forecastCloseDate) : '')
+  }, [deal.id, deal.forecastCloseDate])
 
   return (
     <Column label="Value">
@@ -307,11 +335,13 @@ function ValueColumn({ deal, onExpectedCloseChange, onOpenBusiness }) {
           unnecessary. */}
       <DatePicker
         value={expectedClose ? dayjs(expectedClose) : null}
+        // Commits on pick. GHL stores a DATE only, so an empty pick clears it.
         onChange={(d) => {
           const v = d ? d.format('YYYY-MM-DD') : ''
           setExpectedClose(v)
-          if (onExpectedCloseChange) onExpectedCloseChange(v)
+          if (onSaveField) onSaveField('expectedCloseDate', v || null)
         }}
+        disabled={saving === 'expectedCloseDate'}
         format="D MMM YYYY"
         placeholder="Set a date"
         style={{ width: '100%' }}
@@ -328,14 +358,24 @@ function ValueColumn({ deal, onExpectedCloseChange, onOpenBusiness }) {
   )
 }
 
-function StageColumn({ deal, stages, onStageChange }) {
-  const [stage, setStage] = useState(deal.stage || '')
-
+function StageColumn({ deal, stages, onSaveField, saving }) {
   // Days in stage comes from the stage the deal currently sits on. The
   // stages endpoint carries enteredAt on the current entry when available;
   // otherwise fall back to the deal's own updated_at, which moves on every
   // stage change.
   const current = stages.find((s) => s.isCurrent)
+
+  // The picker is keyed on the stage ID, not its name. GHL's update endpoint
+  // takes pipelineStageId; no write endpoint accepts a name, so a picker whose
+  // values were names could never save.
+  const [stageId, setStageId] = useState(current?.id || null)
+
+  // Follow the deal. useState seeds once, and DealSection is not keyed on the
+  // deal id — so switching deals left the picker showing the PREVIOUS deal's
+  // stage while the rest of the card updated.
+  useEffect(() => {
+    setStageId(current?.id || null)
+  }, [current?.id, deal.id])
   const enteredAt = current?.enteredAt || deal.currentStageEnteredAt
   const daysInStage = daysSince(enteredAt)
 
@@ -350,25 +390,35 @@ function StageColumn({ deal, stages, onStageChange }) {
           it keeps the brand-tinted treatment via className rather than reverting
           to a default form control. */}
       <Select
-        value={stage || undefined}
+        value={stageId || current?.name || deal.stage || undefined}
         onChange={(v) => {
-          setStage(v)
-          if (onStageChange) onStageChange(v)
+          setStageId(v)
+          if (onSaveField) onSaveField('pipelineStageId', v)
         }}
         placeholder="No stage"
         size="large"
         className="pp-stage-select"
         style={{ width: '100%' }}
+        disabled={saving === 'pipelineStageId'}
+        loading={saving === 'pipelineStageId'}
+        popupClassName="pp-menu"
         // The deal's stage may be retired or missing from pipeline_stages (the
-        // /stages route injects a virtual entry for that) — keep it selectable
+        // /stages route injects a virtual entry for that) — keep it visible
         // either way, so the control never silently shows the wrong stage.
+        //
+        // An entry with no id is DISABLED: we can show where the deal sits but
+        // cannot move it there, and an option that always fails is worse than
+        // one that says it can't be picked.
         options={
           stages.length
             ? stages.map((st) => ({
-                value: st.name,
-                label: st.isActive === false ? `${st.name} (retired)` : st.name
+                value: st.id || st.name,
+                disabled: !st.id && !st.isCurrent,
+                label: st.isActive === false
+                  ? `${st.name} (retired)`
+                  : !st.id ? `${st.name} (not in this pipeline)` : st.name
               }))
-            : stage ? [{ value: stage, label: stage }] : []
+            : deal.stage ? [{ value: deal.stage, label: deal.stage, disabled: true }] : []
         }
       />
 

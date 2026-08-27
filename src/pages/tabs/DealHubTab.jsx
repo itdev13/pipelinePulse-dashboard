@@ -193,6 +193,57 @@ export default function DealHubTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [switcherOpen])
 
+  // Field writes from the Deal card. One field at a time: the card has no Save
+  // button of its own, and a picker or dropdown commits the moment it changes.
+  //
+  // Nothing is written locally — opportunities have full webhook coverage and
+  // stage_history is maintained only by that path (see the server's
+  // ghlOpportunityWrite.js). So the value shown is updated optimistically and
+  // rolled back on failure; the webhook reconciles a moment later.
+  const [savingField, setSavingField] = useState(null)
+  const [saveError, setSaveError] = useState(null)
+
+  const saveDealField = async (field, value) => {
+    if (savingField) return
+    setSavingField(field)
+    setSaveError(null)
+    const before = deal
+    try {
+      let res
+      if (field === 'status') {
+        // Its own endpoint — the only one that records a lost reason.
+        await dealsAPI.setStatus(dealId, value?.status ?? value, value?.lostReasonId)
+        setDeal((d) => d && { ...d, status: value?.status ?? value })
+      } else {
+        res = await dealsAPI.update(dealId, { [field]: value })
+        // Apply what GHL echoed rather than what was sent — it truncates the
+        // close date to a day and may reformat the value.
+        const o = res?.opportunity
+        setDeal((d) => d && {
+          ...d,
+          ...(field === 'pipelineStageId' && o?.pipelineStageId
+            ? { stageId: o.pipelineStageId }
+            : {}),
+          ...(o?.name != null ? { dealTag: o.name } : {}),
+          ...(o?.monetaryValue != null ? { monetaryValueRaw: o.monetaryValue } : {}),
+          ...(o?.forecastExpectedCloseDate !== undefined
+            ? { forecastCloseDate: o.forecastExpectedCloseDate }
+            : {})
+        })
+      }
+      // Stage moves change the stepper, which is driven by a separate fetch.
+      if (field === 'pipelineStageId' || field === 'status') {
+        dealsAPI.get(dealId).then(setDeal).catch(() => {})
+      }
+    } catch (err) {
+      setDeal(before)
+      setSaveError(err.message || 'Could not save that — try again')
+      window.setTimeout(() => setSaveError(null), 5000)
+    } finally {
+      setSavingField(null)
+    }
+  }
+
   // AI citations reference the GHL message_id; the timeline's jump anchors are
   // keyed on the row primary key (see routes/deals.js — `id` vs `messageId`).
   // Translate, then scroll + highlight.
@@ -702,6 +753,12 @@ export default function DealHubTab({
               siblingDeals={siblingDeals}
               onOpenDeal={onSwitchDeal}
               onOpenBusiness={onOpenBusiness}
+              // These existed on DealSection but were never passed, so every
+              // edit to value, stage or close date was discarded on reload —
+              // the card accepted input and silently threw it away.
+              onSaveField={saveDealField}
+              saving={savingField}
+              saveError={saveError}
             />
           )}
 
