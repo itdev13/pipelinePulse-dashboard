@@ -92,11 +92,55 @@ export default function DealsTab({ onOpenDeal }) {
 }
 
 function DealCard({ deal, onOpenDeal }) {
-  const [value, setValue] = useState(deal.value || '')
+  // The RAW number, not deal.value — that is display-formatted ("£26,000") and
+  // this input prints its own £ prefix, so binding to it rendered "£ £0". It
+  // would also have sent the formatted string back on save.
+  const [value, setValue] = useState(
+    deal.monetaryValue != null ? String(deal.monetaryValue) : ''
+  )
   const [closeDate, setCloseDate] = useState(
     deal.forecastCloseDate ? toDateInput(deal.forecastCloseDate) : ''
   )
   const [stage, setStage] = useState(deal.stage || '')
+
+  // These controls used to be local state that went nowhere — the card accepted
+  // an edit and discarded it on reload. They write now.
+  const [saving, setSaving] = useState(null)
+  const [error, setError] = useState(null)
+
+  const saveField = async (field, v, revert) => {
+    if (saving) return
+    setSaving(field)
+    setError(null)
+    try {
+      const res = await dealsAPI.update(deal.id, { [field]: v })
+      // Apply what GHL echoed — it truncates the close date to a day and may
+      // round the value.
+      const o = res?.opportunity
+      if (o?.monetaryValue != null && field === 'value') {
+        setValue(String(o.monetaryValue))
+      }
+      if (o?.forecastExpectedCloseDate !== undefined && field === 'expectedCloseDate') {
+        setCloseDate(o.forecastExpectedCloseDate || '')
+      }
+    } catch (err) {
+      if (revert) revert()
+      setError(err.message || 'Could not save that — try again')
+      window.setTimeout(() => setError(null), 5000)
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  // Only when it actually changed — blur fires whether or not anything was
+  // typed, and a save per focus-out would be a request every time the rep
+  // tabbed past the field.
+  const saveValue = () => {
+    const now = value.trim()
+    const was = deal.monetaryValue != null ? String(deal.monetaryValue) : ''
+    if (now === was) return
+    saveField('value', now === '' ? null : now, () => setValue(was))
+  }
 
   const people = deal.people || []
   const daysInStage = daysSince(deal.currentStageEnteredAt)
@@ -179,6 +223,11 @@ function DealCard({ deal, onOpenDeal }) {
           <Input
             value={value}
             onChange={(e) => setValue(e.target.value)}
+            // Commit on blur or Enter, not per keystroke — a write per
+            // character would be a request per character.
+            onBlur={() => saveValue()}
+            onPressEnter={() => saveValue()}
+            disabled={saving === 'value'}
             prefix={<span style={{ color: 'var(--text-faint)' }}>£</span>}
             placeholder="Not priced"
             style={{ fontFamily: 'var(--font-mono)' }}
@@ -190,7 +239,13 @@ function DealCard({ deal, onOpenDeal }) {
               rather than "no date set". */}
           <DatePicker
             value={closeDate ? dayjs(closeDate) : null}
-            onChange={(d) => setCloseDate(d ? d.format('YYYY-MM-DD') : '')}
+            onChange={(d) => {
+              const was = closeDate
+              const v = d ? d.format('YYYY-MM-DD') : ''
+              setCloseDate(v)
+              saveField('expectedCloseDate', v || null, () => setCloseDate(was))
+            }}
+            disabled={saving === 'expectedCloseDate'}
             format="D MMM YYYY"
             placeholder="Set a date"
             style={{ width: '100%' }}
@@ -217,6 +272,23 @@ function DealCard({ deal, onOpenDeal }) {
           />
         </Field>
       </div>
+
+      {error && (
+        <div
+          style={{
+            display: 'flex', alignItems: 'flex-start', gap: 7,
+            margin: '10px var(--space-4) 0',
+            padding: '8px 10px',
+            border: '1px solid var(--status-stuck)',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--tint-rose)',
+            fontSize: 'var(--text-base)', color: 'var(--status-stuck-text)'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 15, flex: 'none', marginTop: 1 }}>error</span>
+          {error}
+        </div>
+      )}
 
       {facts.length > 0 && (
         <p
