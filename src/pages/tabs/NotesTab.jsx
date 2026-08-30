@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { notesAPI } from '../../api/notes'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import NoteEditor from '../shared/NoteEditor'
@@ -47,6 +47,42 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
   // clicked the right row.
   const [confirming, setConfirming] = useState(null)
   const [confirmError, setConfirmError] = useState(null)
+
+  // Wait for a newly-created note to arrive via the webhook.
+  //
+  // Backs off rather than hammering: most notes land on the second or third
+  // try. Gives up after ~8s and says so — a spinner that never resolves is
+  // worse than an honest "refresh in a moment".
+  const pollTimers = useRef([])
+  useEffect(() => () => pollTimers.current.forEach(window.clearTimeout), [])
+
+  const pollForNote = (noteId) => {
+    const delays = [600, 1000, 1500, 2000, 3000]
+    let attempt = 0
+
+    const tick = async () => {
+      try {
+        const res = await notesAPI.list({ limit: 20 })
+        const arrived = !noteId || (res.notes || []).some((n) => n.id === noteId)
+        if (arrived) {
+          reload()
+          say('Note added')
+          return
+        }
+      } catch {
+        // Ignore and retry — a failed poll is not a failed save.
+      }
+      attempt++
+      if (attempt >= delays.length) {
+        reload()
+        say('Note saved — it will appear here shortly', 'done')
+        return
+      }
+      pollTimers.current.push(window.setTimeout(tick, delays[attempt]))
+    }
+
+    pollTimers.current.push(window.setTimeout(tick, delays[0]))
+  }
 
   const remove = async () => {
     const n = confirming
@@ -280,10 +316,16 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
               })
               say('Note saved')
             } else {
-              // A new note reaches our database via the webhook, which takes a
-              // moment — so it isn't in this list yet.
-              say('Note added — it appears here once your CRM syncs it back')
-              reload()
+              // A new note reaches our database via the CRM's webhook, and that
+              // round trip (our POST → CRM → webhook → the CRM fetch the webhook
+              // makes → our DB) takes a second or two. A single immediate
+              // reload() therefore lost the race almost every time, and the note
+              // only appeared on a manual refresh.
+              //
+              // Poll instead, until it shows up or we give up. `saved.id` is the
+              // CRM's own note id, which is what our rows are keyed on.
+              say('Note added — syncing…')
+              pollForNote(saved?.id)
             }
           }}
         />

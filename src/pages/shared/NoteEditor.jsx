@@ -19,15 +19,24 @@ import ContactPicker from './ContactPicker'
 //   • COLOUR IS A HEX STRING (#FFF or #FFAA00). A named colour or rgb() is
 //     rejected, so this offers a fixed palette rather than a free text box.
 
-// Values GHL accepts, in the accent hues the rest of the app already uses so a
-// coloured note doesn't look foreign on the timeline.
+// GHL's own note palette.
+//
+// These were previously the app's saturated accent hues, which meant the same
+// note showed one colour in GHL and a different one here — and a rep picking
+// "yellow" in GHL saw our amber, or nothing at all if the hex didn't match one
+// of ours. Note colours are pastel FILLS behind text, not accents, so the
+// values are theirs rather than ours.
+//
+// If GHL adds a colour, add it here: an unrecognised hex still renders (see
+// the swatch row below), it just isn't offered as a choice.
 const COLOURS = [
-  ['#FFAA00', 'Amber'],
-  ['#1F7A5C', 'Green'],
-  ['#2470C2', 'Blue'],
-  ['#7B5CC9', 'Purple'],
-  ['#C23A5F', 'Rose'],
-  ['#0F7F8B', 'Teal']
+  ['#FFF2B2', 'Yellow'],
+  ['#FFD9B2', 'Orange'],
+  ['#FFC2C2', 'Red'],
+  ['#E5C2FF', 'Purple'],
+  ['#C2D9FF', 'Blue'],
+  ['#C2F0E0', 'Green'],
+  ['#E0E4EA', 'Grey']
 ]
 
 export default function NoteEditor({
@@ -236,6 +245,13 @@ export default function NoteEditor({
                     onClick={() => setColour(hex)}
                   />
                 ))}
+                {/* A colour set in GHL that isn't in the list above — one they
+                    added, or an older note. Shown as a selected swatch rather
+                    than silently reading as "None", which would make the next
+                    save clear a colour the rep never touched. */}
+                {colour && !COLOURS.some(([hex]) => hex === colour) && (
+                  <Swatch colour={colour} label={`${colour} (from your CRM)`} active onClick={() => {}} />
+                )}
               </div>
             </Field>
 
