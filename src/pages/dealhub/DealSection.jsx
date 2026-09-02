@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { DatePicker, Select } from 'antd'
 import dayjs from 'dayjs'
 import TagPicker from '../shared/TagPicker'
@@ -538,12 +538,27 @@ function FieldChipRow({ deal, fieldOptions = {}, onSaveField, saving }) {
     const v = deal[k]
     return v != null && String(v).trim() !== ''
   }
-  // Set fields first: a rep scanning the card wants the values it HAS before
-  // the gaps. Order within each group stays as declared.
-  const ordered = [
+
+  // THE ORDER IS FROZEN ONCE, not recomputed on every render.
+  //
+  // This was the flicker, and it was not the Select's fault.
+  //
+  // Set fields sort before unset ones. Picking a value flips a field from
+  // unset to set, so the chip being edited JUMPED from the end of the row to
+  // the front — mid-interaction, because DealHubTab applies the value
+  // optimistically the moment it is picked. React then reconciles a list whose
+  // order changed, the picker's slot moves, and its `open` state resets: the
+  // dropdown snapped shut and reopened.
+  //
+  // useMemo with an empty dep list pins the order to the first render, so the
+  // row is stable for as long as the card is mounted. The sort still does its
+  // job — a rep opening a deal sees values before gaps — it just does not
+  // re-sort under the cursor. A reload picks up the new order.
+  const ordered = useMemo(() => [
     ...FIELD_CHIPS.filter(([, k]) => isSet(k)),
     ...FIELD_CHIPS.filter(([, k]) => !isSet(k))
-  ]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [])
 
   // Both spellings, for the fields where GHL's own key is inconsistent — the
   // definitions endpoint reports whatever that location has, and a lookup that
@@ -806,9 +821,6 @@ function FieldPicker({ label, value, spec, saving, onChange }) {
   return (
     <span
       style={{
-        // The label is positioned against this, not laid out beside the
-        // Select — see below.
-        position: 'relative',
         display: 'inline-flex', alignItems: 'center',
         height: 34,
         // width:100% + the slot's minWidth:220 means the slot keeps whatever
@@ -817,25 +829,6 @@ function FieldPicker({ label, value, spec, saving, onChange }) {
         width: '100%'
       }}
     >
-      {/* THE LABEL COSTS NO HORIZONTAL SPACE.
-          It was a flex:none sibling of the Select, so "FIRST CONTACT METHOD"
-          — 20 characters of uppercase — took most of a 220px slot and squeezed
-          the dropdown to about 100px. The value rendered as "Not…" and the
-          popup was too narrow to read.
-          Absolute and above the box instead: the Select gets the full width,
-          and the label still says which field is being edited. */}
-      <span
-        style={{
-          position: 'absolute',
-          bottom: 'calc(100% + 2px)', left: 2,
-          whiteSpace: 'nowrap', pointerEvents: 'none',
-          fontSize: 'var(--text-xs)', fontWeight: 600,
-          letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase',
-          color: 'var(--text-muted)'
-        }}
-      >
-        {label}
-      </span>
       <Select
         autoFocus
         defaultOpen
@@ -875,7 +868,16 @@ function FieldPicker({ label, value, spec, saving, onChange }) {
         showSearch
         optionFilterProp="label"
         options={spec.options.map((o) => ({ value: o, label: o }))}
-        placeholder="Not set"
+        // The field name lives in the PLACEHOLDER, not a label element.
+        //
+        // A floating label above the box overlapped the chip row above it —
+        // the picker is only 34px tall and sits in a tight wrapping row, so
+        // there is no vertical room outside it. A sibling label ate the
+        // horizontal space instead (that was the "Not…" truncation).
+        //
+        // The placeholder costs neither: it names the field while empty, and
+        // once a value is picked the value itself says what it is.
+        placeholder={label}
         allowClear
         // flex:1 so it fills the fixed-height wrapper above rather than
         // setting its own width. minWidth:0 is the flex-child fix — without it
