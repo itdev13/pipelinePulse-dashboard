@@ -236,9 +236,35 @@ export default function DealHubTab({
         res = await dealsAPI.update(dealId, {
           customFields: [{ id: value.id, field_value: value.value }]
         })
-        // Refetch — a custom field change doesn't map onto one deal property,
-        // and the echo's shape differs from our read model.
-        dealsAPI.get(dealId).then(setDeal).catch(() => {})
+
+        // Show the new value NOW.
+        //
+        // This used to refetch immediately, which lost a race it could never
+        // win: our PUT goes to GHL, GHL fires a webhook, the webhook handler
+        // fetches the opportunity back and only then writes our row. A GET
+        // issued microseconds after the PUT returns the OLD value — so the
+        // write succeeded, the database updated a second later, and the chip
+        // still read "Not set".
+        //
+        // `dealKey` is the camelCase property the card renders from; the picker
+        // passes it because only it knows which chip was edited.
+        if (value.dealKey) {
+          setDeal((d) => d && {
+            ...d,
+            // `|| null` on the joined result too: clearing a multi-select
+            // yields [], which joins to '' — and an empty string reads as
+            // "set" to the chip, so it would render blank rather than
+            // "Not set".
+            [value.dealKey]: (Array.isArray(value.value)
+              ? value.value.join(', ')
+              : value.value) || null
+          })
+        }
+        // Then reconcile once the webhook has had time to land, so anything
+        // GHL normalised replaces the optimistic value.
+        window.setTimeout(() => {
+          dealsAPI.get(dealId).then(setDeal).catch(() => {})
+        }, 2500)
       } else if (field === 'status') {
         // Its own endpoint — the only one that records a lost reason.
         await dealsAPI.setStatus(dealId, value?.status ?? value, value?.lostReasonId)

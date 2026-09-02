@@ -542,7 +542,9 @@ function FieldChipRow({ deal, fieldOptions = {}, onSaveField, saving }) {
             value={deal[key]}
             spec={spec}
             saving={saving === spec.id}
-            onChange={(v) => onSaveField('customField', { id: spec.id, value: v })}
+            // dealKey travels so the handler can update the right property
+            // optimistically — the response shape doesn't name it.
+            onChange={(v) => onSaveField('customField', { id: spec.id, value: v, dealKey: key })}
           />
         ) : (
           <FieldChip key={key} label={label} value={deal[key]} />
