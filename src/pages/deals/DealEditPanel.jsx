@@ -558,11 +558,15 @@ export default function DealEditPanel({
             textAlign: 'right'
           }}
         >
+          {/* Nothing shown on a pristine panel. "No changes" sat beside a
+              button labelled Close and a disabled Update, restating what both
+              already said — three controls reporting one fact. The count
+              earns its place only when there IS something unsaved. */}
           {saving
             ? 'Saving to your CRM…'
             : dirty
               ? `${changeCount} unsaved change${changeCount === 1 ? '' : 's'}`
-              : 'No changes'}
+              : ''}
         </span>
 
         <button
