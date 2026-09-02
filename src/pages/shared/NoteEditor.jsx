@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Input } from 'antd'
+import { Input, Select } from 'antd'
 import { notesAPI } from '../../api/notes'
 import ContactPicker from './ContactPicker'
 
@@ -51,6 +51,13 @@ export default function NoteEditor({
   // How many notes are already pinned on the target contact, so the pin toggle
   // can say when there's no room. Optional — omitted means don't claim.
   pinnedCount = null,
+  // The deal and company this note is about — GHL associations, not note
+  // fields. `deals` and `businesses` are the pickable lists; omitting a list
+  // hides its picker rather than showing an empty dropdown.
+  deals = [],
+  businesses = [],
+  // Preselected when the editor is opened from a deal, which already knows.
+  defaultOpportunityId = null,
   onClose,
   onSaved
 }) {
@@ -60,6 +67,14 @@ export default function NoteEditor({
   const [body, setBody] = useState(() => stripHtml(note?.body || initialBody || ''))
   const [colour, setColour] = useState(note?.color || null)
   const [pinned, setPinned] = useState(note?.pinned === true)
+  // A note links to ONE deal — GHL's note→opportunity cap is 1, so attaching a
+  // second replaces the first. Modelled as a single value for that reason, not
+  // as a simplification.
+  const [opportunityId, setOpportunityId] = useState(
+    note?.opportunityId || defaultOpportunityId || null
+  )
+  const [businessId, setBusinessId] = useState(note?.businessId || null)
+
   const [contactId, setContactId] = useState(
     note?.contact?.id || defaultContactId || (contacts.length === 1 ? contacts[0].id : null)
   )
@@ -110,15 +125,46 @@ export default function NoteEditor({
     setError(null)
     setErrorField(null)
     try {
-      const res = editing
-        ? await notesAPI.update(note.id, changes)
-        : await notesAPI.create({
-            contactId,
-            body: body.trim(),
-            title: title.trim() || undefined,
-            color: colour || undefined,
-            pinned: pinned || undefined
-          })
+      let res
+      if (editing) {
+        res = await notesAPI.update(note.id, changes)
+        // Relations go separately — a different GHL endpoint, and the note
+        // patch rejects unknown fields. Only when they actually changed, so
+        // editing the text alone stays one request.
+        const oppChanged = (opportunityId || null) !== (note.opportunityId || null)
+        const bizChanged = (businessId || null) !== (note.businessId || null)
+        if (oppChanged || bizChanged) {
+          // Detach first, then attach. Skipping the detach would leave the old
+          // company attached (its cap is 1000, so it appends) — only the deal
+          // link replaces itself.
+          const gone = {}
+          if (oppChanged && note.opportunityId) gone.opportunityId = note.opportunityId
+          if (bizChanged && note.businessId) gone.businessId = note.businessId
+          if (Object.keys(gone).length) await notesAPI.removeRelations(note.id, gone)
+
+          const added = {}
+          if (oppChanged && opportunityId) added.opportunityId = opportunityId
+          if (bizChanged && businessId) added.businessId = businessId
+          if (Object.keys(added).length) await notesAPI.setRelations(note.id, added)
+        }
+      } else {
+        res = await notesAPI.create({
+          contactId,
+          body: body.trim(),
+          title: title.trim() || undefined,
+          color: colour || undefined,
+          pinned: pinned || undefined,
+          opportunityId: opportunityId || undefined,
+          businessId: businessId || undefined
+        })
+        // The note saved but its link did not. Report it without discarding
+        // the note — the server deliberately returns 201 here.
+        if (res?.relationError) {
+          setError(`Note saved, but couldn't link it: ${res.relationError}`)
+          setSaving(false)
+          return
+        }
+      }
       onSaved(res.note || null)
       onClose()
     } catch (err) {
@@ -267,6 +313,59 @@ export default function NoteEditor({
                   onChange={setContactId}
                   seed={contacts}
                   invalid={errorField === 'contactId'}
+                />
+              </Field>
+            )}
+
+            {/* Shown in BOTH create and edit mode, unlike Contact above: a
+                note's contact is fixed by GHL once written, but which deal and
+                company it is filed against is exactly the thing a rep corrects
+                later.
+
+                Rendered only when there is something to pick — an empty
+                dropdown is worse than no dropdown. */}
+            {deals.length > 0 && (
+              <Field
+                label="Deal"
+                error={errorField === 'opportunityId' ? error : null}
+                hint="One deal per note — picking another replaces it"
+              >
+                <Select
+                  value={opportunityId || undefined}
+                  onChange={(v) => setOpportunityId(v || null)}
+                  disabled={saving}
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder="Not linked to a deal"
+                  options={deals.map((d) => ({
+                    value: d.id,
+                    label: d.dealTag || d.opportunityName || d.name || d.id
+                  }))}
+                  notFoundContent="No matching deal"
+                  popupClassName="pp-menu"
+                  style={{ width: '100%' }}
+                />
+              </Field>
+            )}
+
+            {businesses.length > 0 && (
+              <Field label="Company" error={errorField === 'businessId' ? error : null}>
+                <Select
+                  value={businessId || undefined}
+                  onChange={(v) => setBusinessId(v || null)}
+                  disabled={saving}
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder="Not linked to a company"
+                  options={businesses.map((b) => ({
+                    value: b.id,
+                    label: b.name || b.id
+                  }))}
+                  notFoundContent="No matching company"
+                  popupClassName="pp-menu"
+                  style={{ width: '100%' }}
                 />
               </Field>
             )}

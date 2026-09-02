@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { notesAPI } from '../../api/notes'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import NoteEditor from '../shared/NoteEditor'
+import { useLinkTargets } from '../../hooks/useLinkTargets'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import {
   Shell, PageHeader, Panel, ContactChip, DealChip, Chip, RowAction,
@@ -33,6 +34,9 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
 
   // null = closed. { note } = editing that one; { note: null } = creating.
   const [editor, setEditor] = useState(null)
+  // Deals and companies for the editor's link pickers. Lazy: fetched when
+  // an editor first opens, so reading the list costs nothing extra.
+  const linkTargets = useLinkTargets(!!editor)
   const [busy, setBusy] = useState(null)
   const [toast, setToast] = useState(null)
 
@@ -304,6 +308,10 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
         <NoteEditor
           note={editor.note}
           contacts={editor.note?.contact ? [editor.note.contact] : []}
+          // There is no deal in scope on this page, so the rep picks one. The
+          // lists load on the first editor open, not on page load.
+          deals={linkTargets.deals}
+          businesses={linkTargets.businesses}
           onClose={() => setEditor(null)}
           onSaved={(saved) => {
             if (editor.note && saved) {

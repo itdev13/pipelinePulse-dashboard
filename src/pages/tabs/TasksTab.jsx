@@ -3,6 +3,7 @@ import { tasksAPI } from '../../api/tasks'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
 import TaskEditor from '../shared/TaskEditor'
+import { useLinkTargets } from '../../hooks/useLinkTargets'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import {
   Shell, PageHeader, Panel, ContactChip, DealChip, RowAction,
@@ -66,6 +67,9 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
   const [saving, setSaving] = useState(() => new Set())
   // null = closed. { task } = editing that one; { task: null } = creating.
   const [editor, setEditor] = useState(null)
+  // Deals and companies for the editor's link pickers. Lazy: fetched when
+  // an editor first opens, so reading the list costs nothing extra.
+  const linkTargets = useLinkTargets(!!editor)
   // The task queued for deletion, and any failure from trying.
   const [confirming, setConfirming] = useState(null)
   const [confirmError, setConfirmError] = useState(null)
@@ -374,6 +378,10 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
           // needs the contact chosen elsewhere — see the empty-contacts note
           // in the editor.
           contacts={editor.task?.contact ? [editor.task.contact] : []}
+          // No deal in scope on this page, so the rep picks one. Lists load on
+          // the first editor open, not on page load.
+          deals={linkTargets.deals}
+          businesses={linkTargets.businesses}
           onClose={() => setEditor(null)}
           onSaved={(saved) => {
             if (editor.task && saved) {

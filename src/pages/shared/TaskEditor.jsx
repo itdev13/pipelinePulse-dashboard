@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { DatePicker, Input } from 'antd'
+import { DatePicker, Input, Select } from 'antd'
 import dayjs from 'dayjs'
 import { tasksAPI } from '../../api/tasks'
 import ContactPicker from './ContactPicker'
@@ -37,11 +37,27 @@ export default function TaskEditor({
   contacts = [],
   // Pre-selected contact for a create — the deal's primary, usually.
   defaultContactId = null,
+  // The deal and company this task is about — GHL associations, not task
+  // fields. An empty list hides its picker rather than showing an empty
+  // dropdown.
+  deals = [],
+  businesses = [],
+  defaultOpportunityId = null,
   onClose,
   // Called with the CRM's echoed task after a successful save.
   onSaved
 }) {
   const editing = !!task
+
+  // UNLIKE NOTES, a task's GHL caps are 10 rather than 1, so these links are
+  // genuinely additive — attaching a second deal adds it instead of replacing
+  // the first. The UI still offers one, because "the deal this task belongs to"
+  // is the question a rep is answering; the difference is that changing it
+  // needs an explicit detach of the old one, handled in save().
+  const [opportunityId, setOpportunityId] = useState(
+    task?.opportunityId || defaultOpportunityId || null
+  )
+  const [businessId, setBusinessId] = useState(task?.businessId || null)
 
   const [title, setTitle] = useState(task?.title || '')
   const [body, setBody] = useState(() => stripHtml(task?.body || initialBody || ''))
@@ -98,14 +114,41 @@ export default function TaskEditor({
     setError(null)
     setErrorField(null)
     try {
-      const res = editing
-        ? await tasksAPI.update(task.id, changes)
-        : await tasksAPI.create({
-            contactId,
-            title: title.trim(),
-            body: body.trim() || undefined,
-            dueDate: dueDate.toISOString()
-          })
+      let res
+      if (editing) {
+        res = await tasksAPI.update(task.id, changes)
+        const oppChanged = (opportunityId || null) !== (task.opportunityId || null)
+        const bizChanged = (businessId || null) !== (task.businessId || null)
+        if (oppChanged || bizChanged) {
+          // Detach the old link BEFORE attaching the new one. Task caps are 10,
+          // so without this the task would end up linked to both deals — the
+          // silent-replace behaviour that notes get does not apply here.
+          const gone = {}
+          if (oppChanged && task.opportunityId) gone.opportunityId = task.opportunityId
+          if (bizChanged && task.businessId) gone.businessId = task.businessId
+          if (Object.keys(gone).length) await tasksAPI.removeRelations(task.id, gone)
+
+          const added = {}
+          if (oppChanged && opportunityId) added.opportunityId = opportunityId
+          if (bizChanged && businessId) added.businessId = businessId
+          if (Object.keys(added).length) await tasksAPI.setRelations(task.id, added)
+        }
+      } else {
+        res = await tasksAPI.create({
+          contactId,
+          title: title.trim(),
+          body: body.trim() || undefined,
+          dueDate: dueDate.toISOString(),
+          opportunityId: opportunityId || undefined,
+          businessId: businessId || undefined
+        })
+        // The task saved but its link did not — report without discarding it.
+        if (res?.relationError) {
+          setError(`Task saved, but couldn't link it: ${res.relationError}`)
+          setSaving(false)
+          return
+        }
+      }
       onSaved(res.task || null)
       onClose()
     } catch (err) {
@@ -235,6 +278,48 @@ export default function TaskEditor({
                   onChange={setContactId}
                   seed={contacts}
                   invalid={errorField === 'contactId'}
+                />
+              </Field>
+            )}
+
+            {/* In both create and edit mode: which deal and company a task is
+                filed against is exactly what a rep corrects later. Rendered
+                only when there is something to pick. */}
+            {deals.length > 0 && (
+              <Field label="Deal" error={errorField === 'opportunityId' ? error : null}>
+                <Select
+                  value={opportunityId || undefined}
+                  onChange={(v) => setOpportunityId(v || null)}
+                  disabled={saving}
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder="Not linked to a deal"
+                  options={deals.map((d) => ({
+                    value: d.id,
+                    label: d.dealTag || d.opportunityName || d.name || d.id
+                  }))}
+                  notFoundContent="No matching deal"
+                  popupClassName="pp-menu"
+                  style={{ width: '100%' }}
+                />
+              </Field>
+            )}
+
+            {businesses.length > 0 && (
+              <Field label="Company" error={errorField === 'businessId' ? error : null}>
+                <Select
+                  value={businessId || undefined}
+                  onChange={(v) => setBusinessId(v || null)}
+                  disabled={saving}
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder="Not linked to a company"
+                  options={businesses.map((b) => ({ value: b.id, label: b.name || b.id }))}
+                  notFoundContent="No matching company"
+                  popupClassName="pp-menu"
+                  style={{ width: '100%' }}
                 />
               </Field>
             )}
