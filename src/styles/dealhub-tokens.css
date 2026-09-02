@@ -1023,3 +1023,33 @@
 [data-dealhub] .pp-field-select.ant-select-multiple .ant-select-selection-item {
   flex: none;
 }
+
+/* ── Skeleton shimmer ─────────────────────────────────────────────────────
+ *
+ * Also defined in ListChrome.jsx's SHIMMER_CSS, which injects it via a
+ * <SkeletonStyles /> element. That works for the list tabs that render it, but
+ * it makes .pp-sk conditional on a particular component being mounted — a
+ * shared dialog (the tag picker's loading rows) cannot rely on that.
+ *
+ * Declared here so the class always exists. The injected copy is identical and
+ * harmless: same keyframes name, same declarations, so whichever lands last
+ * produces the same result.
+ */
+@keyframes pp-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.pp-sk {
+  background: linear-gradient(
+    90deg,
+    var(--gray-100) 25%,
+    var(--gray-50)  37%,
+    var(--gray-100) 63%
+  );
+  background-size: 200% 100%;
+  animation: pp-shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pp-sk { animation: none; }
+}

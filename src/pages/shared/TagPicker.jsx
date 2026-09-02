@@ -22,6 +22,17 @@ import { contactsAPI } from '../../api/contacts'
 //     something else would be a small lie, so the input previews what will
 //     actually be saved.
 
+// Module-level cache for the tag catalogue.
+//
+// The list is location-wide and refreshed by a DAILY cron, so re-fetching it
+// every time the dialog opens was pure latency for data that had not changed.
+// `promise` dedupes concurrent first opens; `tags` serves every open after.
+//
+// Deliberately NOT persisted (no localStorage): a tag created in GHL should
+// appear after a reload, and a session-lifetime cache gets that for free
+// without a staleness policy to reason about.
+const TAG_CACHE = { tags: null, promise: null }
+
 export default function TagPicker({
   contactId,
   // Contact-scoped tags — editable.
@@ -38,6 +49,12 @@ export default function TagPicker({
   const modalRef = useModal()
   const [draft, setDraft] = useState('')
   const [catalogue, setCatalogue] = useState([])
+  // Starts true: the fetch fires on mount, so the very first render is already
+  // loading. Defaulting to false made the list render as "empty" for the
+  // length of the request, which is exactly why it looked like nothing was
+  // happening.
+  const [catalogueLoading, setCatalogueLoading] = useState(true)
+  const [catalogueError, setCatalogueError] = useState(false)
   const [busy, setBusy] = useState(null)      // the tag mid-flight
   const [error, setError] = useState(null)
   const inputRef = useRef(null)
@@ -56,11 +73,36 @@ export default function TagPicker({
   // The location's tag catalogue, so a rep picks "hot-lead" rather than
   // inventing "hot lead" beside it. Read from our own synced table, not GHL
   // per keystroke.
+  //
+  // CACHED ACROSS MOUNTS. This ran on every dialog open, so opening the tag
+  // picker on a second contact re-fetched a list that changes about once a day
+  // (it is refreshed by the daily tagsSync). The cache makes every open after
+  // the first instant.
   useEffect(() => {
+    if (TAG_CACHE.tags) {
+      setCatalogue(TAG_CACHE.tags)
+      setCatalogueLoading(false)
+      return
+    }
     let alive = true
-    contactsAPI.tagCatalogue()
-      .then((r) => { if (alive) setCatalogue((r.tags || []).map((t) => t.name)) })
-      .catch(() => {})   // autocomplete is a convenience, not a requirement
+    setCatalogueLoading(true)
+    // A single in-flight promise shared by every mount, so two pickers opened
+    // in quick succession do not both request it.
+    TAG_CACHE.promise = TAG_CACHE.promise || contactsAPI.tagCatalogue()
+    TAG_CACHE.promise
+      .then((r) => {
+        const names = (r.tags || []).map((t) => t.name)
+        TAG_CACHE.tags = names
+        if (alive) setCatalogue(names)
+      })
+      .catch(() => {
+        // Autocomplete is a convenience, not a requirement — typing a new tag
+        // still works. Clear the promise so a later open can retry rather
+        // than caching the failure forever.
+        TAG_CACHE.promise = null
+        if (alive) setCatalogueError(true)
+      })
+      .finally(() => { if (alive) setCatalogueLoading(false) })
     return () => { alive = false }
   }, [])
 
@@ -135,7 +177,10 @@ export default function TagPicker({
       window.removeEventListener('scroll', measure, true)
       window.removeEventListener('resize', measure)
     }
-  }, [focused, suggestions.length])
+    // catalogueLoading is a dependency because the popover's height changes
+    // when the skeleton rows are replaced by real ones — without it the flip
+    // decision and maxHeight would be based on the loading state's size.
+  }, [focused, suggestions.length, catalogueLoading])
 
   // Already on the contact? Then Add would be a no-op, so say so rather than
   // firing a request that changes nothing.
@@ -324,7 +369,12 @@ export default function TagPicker({
 
               {/* Open while the input has focus, not only once something is
                   typed — otherwise the catalogue is undiscoverable. */}
-              {focused && suggestions.length > 0 && anchor && (
+              {/* Open while loading as well as when there are options.
+                  Gating on suggestions.length alone meant NOTHING rendered
+                  until the request came back — the dialog looked inert and the
+                  list appeared to take seconds to "open" when it had simply
+                  not been drawn yet. */}
+              {focused && anchor && (catalogueLoading || catalogueError || suggestions.length > 0) && (
                 <div
                   // .pp-pop gives it the same material as the antd menus and
                   // the dialogs — layered shadow, radius-lg, the shared
@@ -360,8 +410,38 @@ export default function TagPicker({
                       textTransform: 'uppercase', color: 'var(--text-faint)'
                     }}
                   >
-                    {normalised ? 'Matching tags' : 'Tags in your CRM'}
+                    {catalogueLoading
+                      ? 'Loading your tags'
+                      : normalised ? 'Matching tags' : 'Tags in your CRM'}
                   </p>
+
+                  {/* Skeleton rows rather than a spinner: the list's shape is
+                      known, so placeholders in that shape mean the real rows
+                      land without the popover resizing. A centred spinner
+                      would collapse the box and then jump it open. */}
+                  {catalogueLoading && [0, 1, 2, 3].map((i) => (
+                    <div key={i} style={{ padding: '7px 9px' }}>
+                      <span
+                        className="pp-sk"
+                        style={{
+                          display: 'block', height: 13, borderRadius: 3,
+                          // Varied widths so it reads as text, not as bars.
+                          width: ['62%', '78%', '48%', '70%'][i]
+                        }}
+                      />
+                    </div>
+                  ))}
+
+                  {catalogueError && !catalogueLoading && (
+                    <p
+                      style={{
+                        margin: 0, padding: '8px 9px',
+                        fontSize: 'var(--text-md)', color: 'var(--text-muted)'
+                      }}
+                    >
+                      Couldn’t load your tags — type a new one instead.
+                    </p>
+                  )}
                   {suggestions.map((name) => (
                     <button
                       key={name}

@@ -806,24 +806,29 @@ function FieldPicker({ label, value, spec, saving, onChange }) {
   return (
     <span
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 6,
+        // The label is positioned against this, not laid out beside the
+        // Select — see below.
+        position: 'relative',
+        display: 'inline-flex', alignItems: 'center',
         height: 34,
-        // Fills the slot rather than setting its own width.
-        //
-        // A fixed 220 was wrong for the wide chips: "CLIENT TYPE Interior
-        // Designer, Architect, Contractor, General, Homeowner" makes its slot
-        // far wider than 220, so opening it SHRANK the slot and the row jumped
-        // again — the same bug, in the other direction.
-        //
         // width:100% + the slot's minWidth:220 means the slot keeps whatever
         // width the closed chip gave it (never less than 220), and the picker
-        // simply occupies it. Nothing resizes.
+        // occupies it. Nothing resizes on the swap.
         width: '100%'
       }}
     >
+      {/* THE LABEL COSTS NO HORIZONTAL SPACE.
+          It was a flex:none sibling of the Select, so "FIRST CONTACT METHOD"
+          — 20 characters of uppercase — took most of a 220px slot and squeezed
+          the dropdown to about 100px. The value rendered as "Not…" and the
+          popup was too narrow to read.
+          Absolute and above the box instead: the Select gets the full width,
+          and the label still says which field is being edited. */}
       <span
         style={{
-          flex: 'none',
+          position: 'absolute',
+          bottom: 'calc(100% + 2px)', left: 2,
+          whiteSpace: 'nowrap', pointerEvents: 'none',
           fontSize: 'var(--text-xs)', fontWeight: 600,
           letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase',
           color: 'var(--text-muted)'
@@ -847,12 +852,19 @@ function FieldPicker({ label, value, spec, saving, onChange }) {
           setOpen(false)
           if (v !== current) onChange(v)
         }}
-        // Commit on the popup actually closing, not on blur. A click on an
-        // option inside a multi-select popup can blur the input, which would
-        // commit halfway through picking. onOpenChange fires once, on dismiss.
-        // (onOpenChange, not the deprecated onDropdownVisibleChange — antd 5.)
+        // ONLY onOpenChange. onBlur was also wired to commit(), and commit()
+        // calls setOpen(false) — which unmounts the Select and renders the chip
+        // again.
+        //
+        // That was survivable before this control had a search box. With
+        // showSearch, antd moves focus between the selector and its search
+        // input, so a transient blur fired mid-interaction: the picker
+        // collapsed to a chip, focus came back, it reopened. Visible as a
+        // flicker the moment the dropdown opened.
+        //
+        // onOpenChange fires once, on real dismissal — a click away, Escape,
+        // or a pick — which is exactly when a commit is wanted.
         onOpenChange={(o) => { if (!o) commit() }}
-        onBlur={commit}
         // Searchable: these are GHL picklists and some are long — the country
         // and product lists run to dozens of entries.
         //
@@ -871,6 +883,19 @@ function FieldPicker({ label, value, spec, saving, onChange }) {
         // and the row reflows again, which is the bug this branch exists to
         // avoid.
         style={{ flex: 1, minWidth: 0 }}
+        // The popup may be WIDER than the box, never narrower.
+        //
+        // antd's default sizes the popup to the trigger, so options were
+        // truncated to whatever width the chip's slot happened to be —
+        // "Telep…", "What…", "Unkn…" in a 100px dropdown. A minimum keeps
+        // short values from a cramped list while letting long option names
+        // show in full.
+        popupMatchSelectWidth={false}
+        // styles.popup.root, NOT popupStyle (which does not exist on this
+        // component) and NOT dropdownStyle (deprecated in antd 5.25 in favour
+        // of this). Checked against the installed typings — my first attempt
+        // used popupStyle, which would have been silently ignored.
+        styles={{ popup: { root: { minWidth: 240 } } }}
         // Pins the control to the chip's 34px so the swap does not change the
         // row's height — antd's default is 32px, and its box is on an inner
         // element a style prop cannot reach.
