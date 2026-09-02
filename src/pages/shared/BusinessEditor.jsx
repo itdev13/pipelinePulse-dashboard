@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useModal } from '../../hooks/useModal'
 import { Input, Select } from 'antd'
 import { businessesAPI } from '../../api/businesses'
 import { countryOptions } from '../../constants/countries'
@@ -22,19 +23,25 @@ import { countryOptions } from '../../constants/countries'
 
 // Ordered as the detail panel lays them out, so editing feels like the same
 // screen rather than a different form.
+// `group` splits eleven fields into three answerable questions. Eleven controls
+// in one flat grid asked the rep to hold the whole form in their head; a
+// postcode and a company name were weighted identically.
+//
+// The groups are the natural seams, not arbitrary thirds: who they are, how to
+// reach them, where they are.
 const FIELDS = [
-  { name: 'name',        label: 'Company name', type: 'text',      required: true },
-  { name: 'description', label: 'Description',  type: 'multiline' },
-  { name: 'website',     label: 'Website',      type: 'text',      placeholder: 'www.example.com' },
+  { name: 'name',        label: 'Company name', type: 'text',      required: true, group: 'Company' },
+  { name: 'description', label: 'Description',  type: 'multiline', group: 'Company' },
+  { name: 'website',     label: 'Website',      type: 'text',      placeholder: 'www.example.com', group: 'Company' },
   { name: 'domainname',  label: 'Domain',       type: 'text',      placeholder: 'example.com',
-    hint: 'The bare domain — no https://. Only one business per domain.' },
-  { name: 'email',       label: 'Email',        type: 'text' },
-  { name: 'phone',       label: 'Phone',        type: 'text',      placeholder: '+44…' },
-  { name: 'address',     label: 'Address',      type: 'text' },
-  { name: 'city',        label: 'City',         type: 'text' },
-  { name: 'state',       label: 'County / State', type: 'text' },
-  { name: 'postalCode',  label: 'Postcode',     type: 'text' },
-  { name: 'country',     label: 'Country',      type: 'country' }
+    hint: 'The bare domain — no https://. Only one business per domain.', group: 'Company' },
+  { name: 'email',       label: 'Email',        type: 'text',      group: 'Contact' },
+  { name: 'phone',       label: 'Phone',        type: 'text',      placeholder: '+44…', group: 'Contact' },
+  { name: 'address',     label: 'Address',      type: 'text',      group: 'Address' },
+  { name: 'city',        label: 'City',         type: 'text',      group: 'Address' },
+  { name: 'state',       label: 'County / State', type: 'text',    group: 'Address' },
+  { name: 'postalCode',  label: 'Postcode',     type: 'text',      group: 'Address' },
+  { name: 'country',     label: 'Country',      type: 'country',   group: 'Address' }
 ]
 
 // The shared list — GHL's own 247 countries, common ones grouped first. This
@@ -54,6 +61,8 @@ export default function BusinessEditor({
   onSaved
 }) {
   const editing = !!business
+
+  const modalRef = useModal()
 
   const [values, setValues] = useState(() => {
     const seed = {}
@@ -134,30 +143,28 @@ export default function BusinessEditor({
 
   return (
     <div
-      style={{
-        position: 'fixed', inset: 0, zIndex: 60,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 20,
-        background: 'rgba(23, 33, 46, 0.45)'
-      }}
+      className="pp-backdrop"
       onMouseDown={(e) => { if (e.target === e.currentTarget && !saving) onClose() }}
     >
       <div
+        // Scroll lock + focus trap, shared by every dialog. Escape stays
+        // with each component: theirs is guarded against mid-save.
+        ref={modalRef}
+        className="pp-modal"
         role="dialog"
         aria-modal="true"
         aria-label={editing ? 'Edit business' : 'New business'}
         onKeyDown={(e) => {
           if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); save() }
         }}
-        style={{
-          width: 'min(680px, 100%)', maxHeight: '90vh',
-          display: 'flex', flexDirection: 'column',
-          borderRadius: 'var(--radius-md)',
-          background: '#fff', boxShadow: 'var(--shadow-overlay)',
-          overflow: 'hidden'
-        }}
+        // Widest of the five — it carries the most fields, including the
+        // country picker and a full address block.
+        // maxHeight/flex now come from .pp-modal, which caps every dialog at
+        // the viewport rather than only this one.
+        style={{ width: 'min(680px, 100%)' }}
       >
         <header
+          className="pp-modal-head"
           style={{
             display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
             flex: 'none',
@@ -194,8 +201,9 @@ export default function BusinessEditor({
         </header>
 
         <div
+          className="pp-modal-body"
           style={{
-            flex: 1, overflowY: 'auto',
+            flex: 1,
             display: 'grid', gap: 'var(--space-3)',
             gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
             padding: 'var(--space-4)'
@@ -203,8 +211,33 @@ export default function BusinessEditor({
         >
           {FIELDS.map((f, i) => {
             const wide = f.type === 'multiline'
+            // A rule whenever the group changes — not before the first, which
+            // would put a heading directly under the modal's own title.
+            const newGroup = i > 0 && f.group !== FIELDS[i - 1].group
             return (
-              <div key={f.name} style={{ minWidth: 0, gridColumn: wide ? '1 / -1' : undefined }}>
+              <React.Fragment key={f.name}>
+              {newGroup && (
+                <div
+                  style={{
+                    gridColumn: '1 / -1',
+                    display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+                    marginTop: 'var(--space-1)'
+                  }}
+                >
+                  <span
+                    style={{
+                      flex: 'none',
+                      fontSize: 'var(--text-xs)', fontWeight: 600,
+                      letterSpacing: 'var(--tracking-label)',
+                      textTransform: 'uppercase', color: 'var(--text-faint)'
+                    }}
+                  >
+                    {f.group}
+                  </span>
+                  <span style={{ flex: 1, height: 1, background: 'var(--border-default)' }} />
+                </div>
+              )}
+              <div style={{ minWidth: 0, gridColumn: wide ? '1 / -1' : undefined }}>
                 <span
                   style={{
                     display: 'block', marginBottom: 5,
@@ -272,6 +305,7 @@ export default function BusinessEditor({
                   </span>
                 )}
               </div>
+              </React.Fragment>
             )
           })}
 
@@ -312,6 +346,7 @@ export default function BusinessEditor({
         </div>
 
         <footer
+          className="pp-modal-foot"
           style={{
             display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
             flex: 'none',

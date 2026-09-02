@@ -239,12 +239,12 @@ function ContactCard({ c, onOpen, onOpenDeal, onSaved }) {
 
   return (
     <div
+      className="pp-card"
       style={{
-        border: '1px solid var(--border-default)',
+        // The per-contact accent stripe stays: .pp-card sets a uniform border
+        // and this overrides the top edge only, so the card keeps its identity
+        // colour while gaining the shared shadow and hover lift.
         borderTop: `3px solid var(--accent-${c.accent})`,
-        borderRadius: 'var(--radius-md)',
-        background: '#fff',
-        boxShadow: 'var(--shadow-card)',
         padding: 14,
         display: 'grid', gap: 'var(--space-3)'
       }}

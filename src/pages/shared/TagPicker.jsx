@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useModal } from '../../hooks/useModal'
 import { contactsAPI } from '../../api/contacts'
 
 // Add and remove tags on a contact.
@@ -33,6 +34,8 @@ export default function TagPicker({
   onClose
 }) {
   const [current, setCurrent] = useState(() => [...tags])
+
+  const modalRef = useModal()
   const [draft, setDraft] = useState('')
   const [catalogue, setCatalogue] = useState([])
   const [busy, setBusy] = useState(null)      // the tag mid-flight
@@ -63,15 +66,28 @@ export default function TagPicker({
 
   const normalised = normaliseTag(draft)
 
+  // Whether the input has focus, so the catalogue can be browsed rather than
+  // guessed at.
+  const [focused, setFocused] = useState(false)
+
   const suggestions = useMemo(() => {
-    if (!normalised) return []
     const have = new Set(current.map(normaliseTag))
-    return catalogue
-      .filter((name) => {
-        const n = normaliseTag(name)
-        return n && n.includes(normalised) && !have.has(n)
-      })
-      .slice(0, 8)
+    const available = catalogue.filter((name) => {
+      const n = normaliseTag(name)
+      return n && !have.has(n)
+    })
+    // EMPTY INPUT SHOWS THE WHOLE CATALOGUE.
+    //
+    // This used to `return []` when nothing had been typed, so a rep had to
+    // already know a tag existed before the picker would reveal it — the
+    // autocomplete could confirm a guess but never answer "what tags do we
+    // have?". Existing tags are the thing you want to pick from; inventing a
+    // new one is the exception.
+    //
+    // Cap is higher when browsing than when filtering: a list of everything is
+    // worth scrolling, whereas 8 matches for a typed prefix is already plenty.
+    if (!normalised) return available.slice(0, 50)
+    return available.filter((name) => normaliseTag(name).includes(normalised)).slice(0, 8)
   }, [catalogue, normalised, current])
 
   // Already on the contact? Then Add would be a no-op, so say so rather than
@@ -121,26 +137,23 @@ export default function TagPicker({
 
   return (
     <div
-      style={{
-        position: 'fixed', inset: 0, zIndex: 60,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 20,
-        background: 'rgba(23, 33, 46, 0.45)'
-      }}
+      className="pp-backdrop"
       onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onClose() }}
     >
       <div
+        // Scroll lock + focus trap, shared by every dialog. Escape stays
+        // with each component: theirs is guarded against mid-save.
+        ref={modalRef}
+        className="pp-modal"
         role="dialog"
         aria-modal="true"
         aria-label="Tags"
-        style={{
-          width: 'min(520px, 100%)',
-          borderRadius: 'var(--radius-md)',
-          background: '#fff', boxShadow: 'var(--shadow-overlay)',
-          overflow: 'hidden'
-        }}
+        // Narrower than the default: this dialog is one input and a row of
+        // pills, and 580px left it looking half-empty.
+        style={{ width: 'min(520px, 100%)' }}
       >
         <header
+          className="pp-modal-head"
           style={{
             display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
             padding: '13px var(--space-4)',
@@ -177,7 +190,10 @@ export default function TagPicker({
           </button>
         </header>
 
-        <div style={{ padding: 'var(--space-4)', display: 'grid', gap: 'var(--space-3)' }}>
+        <div
+          className="pp-modal-body"
+          style={{ padding: 'var(--space-4)', display: 'grid', gap: 'var(--space-3)' }}
+        >
           {/* Each change saves on its own — there's no Save button, because
               there's no batch: add and remove are separate calls and either can
               fail independently. Showing one Save would imply otherwise. */}
@@ -232,8 +248,21 @@ export default function TagPicker({
                     e.preventDefault()
                     if (!alreadyThere) add(draft)
                   }
+                  // Escape closes the list, not the dialog. Without this the
+                  // only way to dismiss an open catalogue was to click away,
+                  // and the dialog's own Escape handler would close the whole
+                  // thing instead.
+                  if (e.key === 'Escape' && focused && suggestions.length > 0) {
+                    e.stopPropagation()
+                    setFocused(false)
+                  }
                 }}
-                placeholder="Type a tag, then press Enter"
+                onFocus={() => setFocused(true)}
+                // Delayed: the suggestion buttons use onMouseDown, but a plain
+                // blur would still tear the list down before a click on a
+                // scrollbar or padding could land.
+                onBlur={() => window.setTimeout(() => setFocused(false), 120)}
+                placeholder="Pick an existing tag or type a new one"
                 maxLength={100}
                 disabled={!!busy}
                 style={{
@@ -246,18 +275,36 @@ export default function TagPicker({
                 }}
               />
 
-              {suggestions.length > 0 && (
+              {/* Open while the input has focus, not only once something is
+                  typed — otherwise the catalogue is undiscoverable. */}
+              {focused && suggestions.length > 0 && (
                 <div
+                  // .pp-pop gives it the same material as the antd menus and
+                  // the dialogs — layered shadow, radius-lg, the shared
+                  // entrance. It was a flat 1px box with a single blur.
+                  className="pp-pop"
                   style={{
-                    position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
+                    position: 'absolute', top: 'calc(100% + 5px)', left: 0, right: 0,
                     zIndex: 2,
-                    maxHeight: 200, overflowY: 'auto',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius-md)',
-                    background: '#fff', boxShadow: 'var(--shadow-raised)',
-                    padding: 4
+                    maxHeight: 220, overflowY: 'auto',
+                    background: '#fff',
+                    padding: 5
                   }}
                 >
+                  {/* Says which list this is. Browsing the catalogue and
+                      filtering it look identical otherwise, and "no matches"
+                      after typing means something different from an empty
+                      catalogue. */}
+                  <p
+                    style={{
+                      margin: '2px 4px 5px',
+                      fontSize: 'var(--text-xs)', fontWeight: 600,
+                      letterSpacing: 'var(--tracking-label)',
+                      textTransform: 'uppercase', color: 'var(--text-faint)'
+                    }}
+                  >
+                    {normalised ? 'Matching tags' : 'Tags in your CRM'}
+                  </p>
                   {suggestions.map((name) => (
                     <button
                       key={name}
@@ -321,6 +368,7 @@ export default function TagPicker({
         </div>
 
         <footer
+          className="pp-modal-foot"
           style={{
             display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
             padding: '11px var(--space-4)',

@@ -642,13 +642,54 @@
   --tracking-label: 0.07em;
   --radius-sm: 4px;
   --radius-md: 8px;
+  /* Needed here too: antd portals this to document.body, outside
+     [data-dealhub], so any token used below must be redeclared. That is the
+     same trap that required the eleven above. */
+  --radius-lg: 12px;
   --shadow-overlay: 0 8px 28px rgba(31, 36, 48, 0.16);
 
   font-family: var(--font-sans);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-overlay);
-  padding: 4px;
+  /* radius-lg and the modals' layered shadow, so a dropdown opened from a
+     dialog is the same material as the dialog. A flat single-blur popover
+     beside the new panels read as a different app. */
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 0 0 1px rgba(31, 36, 48, 0.06),
+    0 2px 6px rgba(31, 36, 48, 0.08),
+    0 12px 32px rgba(31, 36, 48, 0.18);
+  padding: 5px;
+  /* Faster and shorter than the modal's: a menu appears under the cursor that
+     asked for it, so it needs acknowledgement, not an entrance. */
+  animation: pp-pop-in 130ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* Grow from the control, not from the middle of the popover. */
+  transform-origin: top center;
 }
+
+/* Shared by every popover: the antd menus, the tag catalogue and the date
+   panel. Declared here rather than per-component so they cannot drift. */
+@keyframes pp-pop-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-menu,
+  .pp-pop { animation: none; }
+}
+
+/* A hand-rolled popover — the tag catalogue. Same material as .pp-menu, but it
+   is our own markup rather than antd's, so it needs its own hook. */
+.pp-pop {
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 0 0 1px rgba(31, 36, 48, 0.06),
+    0 2px 6px rgba(31, 36, 48, 0.08),
+    0 12px 32px rgba(31, 36, 48, 0.18);
+  animation: pp-pop-in 130ms cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: top center;
+  overscroll-behavior: contain;
+}
+
 .pp-menu .ant-select-item {
   min-height: 38px;
   padding: 8px 11px;
@@ -686,4 +727,260 @@
    showed the error message with no marker on the box that caused it. */
 [data-dealhub] .pp-invalid-select .ant-select-selector {
   border-color: var(--status-stuck) !important;
+}
+
+/* ── Modals ───────────────────────────────────────────────────────────────
+ *
+ * One definition for the five dialogs (note, task, tag, business, confirm).
+ * Each one hand-rolled its own fixed overlay and a plain white box, so they
+ * were structurally correct — role="dialog", aria-modal, click-away — but
+ * visually flat: a hard-cut backdrop, no depth, no motion. Restyling five
+ * files by hand would guarantee they drift, so the look lives here and the
+ * components carry a class.
+ *
+ * NOT scoped to [data-dealhub]. A dialog is rendered inside the shell today,
+ * but the scoping bit us before: .pp-menu had to redeclare eleven tokens
+ * because antd portals its dropdowns to document.body, outside the attribute.
+ * Anything that might portal should not depend on an ancestor selector. The
+ * rules below therefore use only tokens that resolve at :root.
+ */
+
+@keyframes pp-modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+@keyframes pp-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.pp-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  /* Cooler and deeper than the old flat rgba(23,33,46,.45): the panel reads as
+     lifted off the page rather than pasted onto a grey wash. */
+  background: rgba(19, 28, 40, 0.52);
+  /* Blur is a progressive enhancement — unsupported browsers just get the
+     wash, which is why the colour above is opaque enough to stand alone. */
+  backdrop-filter: blur(3px) saturate(115%);
+  -webkit-backdrop-filter: blur(3px) saturate(115%);
+  animation: pp-backdrop-in 160ms cubic-bezier(0.4, 0, 0.2, 1);
+  /* A long form on a short viewport must still be reachable. Centred while it
+     fits, scrollable when it doesn't. */
+  overflow-y: auto;
+}
+
+.pp-modal {
+  /* Default only. The dialogs are deliberately different widths — a confirm is
+     460px, a tag picker 520, a business form 680 — so each overrides this
+     inline. Forcing one width here would have made every dialog the size of
+     the note editor. */
+  width: min(580px, 100%);
+  /* Never taller than the viewport, so the footer with the save button cannot
+     end up below the fold — the single worst modal failure. */
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  /* radius-lg, not md: a 580px panel with an 8px radius reads as a rectangle
+     that happens to have soft corners. */
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  /* Layered rather than one big blur — a tight contact shadow for the edge, a
+     wide ambient one for the lift, and a hairline ring so the panel has a
+     defined edge against a light backdrop. */
+  box-shadow:
+    0 0 0 1px rgba(31, 36, 48, 0.06),
+    0 2px 6px rgba(31, 36, 48, 0.08),
+    0 16px 48px rgba(31, 36, 48, 0.22);
+  overflow: hidden;
+  animation: pp-modal-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* The panel is a fixed anchor while its content scrolls. */
+  flex: none;
+}
+
+/* The scrolling middle. The header and footer stay put, so the title and the
+   actions are always visible — on a long note the old layout scrolled the
+   whole panel and the Save button went with it. */
+.pp-modal-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Momentum scrolling inside the panel on iOS, which the GHL iframe hits. */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* A footer that sits above scrolled content rather than being overrun by it. */
+.pp-modal-foot {
+  flex: none;
+  border-top: 1px solid var(--border-default);
+  background: var(--surface-sunken);
+}
+
+.pp-modal-head {
+  flex: none;
+  border-bottom: 1px solid var(--border-default);
+}
+
+/* Same reasoning as the global transition block above: this is exactly the
+   motion someone enables the OS setting to avoid. */
+@media (prefers-reduced-motion: reduce) {
+  .pp-backdrop,
+  .pp-modal {
+    animation: none;
+  }
+}
+
+/* ── The date panel ───────────────────────────────────────────────────────
+ *
+ * The four DatePickers rendered antd's stock calendar: Inter-ish system font,
+ * a blue today marker, a blue selected cell. Next to the app's Poppins and
+ * pine-green everything else, it was visibly a third-party control.
+ *
+ * PORTALED, like .pp-menu — antd renders this to document.body, outside
+ * [data-dealhub], so every token used below has to be redeclared here. That is
+ * the same trap that made .pp-menu redeclare eleven.
+ */
+.pp-cal {
+  /* Every value below is the RESOLVED original, checked against the :root
+     block rather than eyeballed — my first pass guessed four of them wrong
+     (brand-primary, gray-100, text-faint, accent-pine-text) and a calendar
+     tinted a slightly different green from everything else is worse than an
+     obviously foreign one. */
+  --font-sans: 'Poppins', -apple-system, 'Segoe UI', sans-serif;
+  --text-sm: 11px;
+  --text-md: 13px;
+  --gray-50: #f5f6f8;
+  --gray-100: #eceef1;
+  --brand-primary: #1f7a5c;       /* green-500 */
+  --accent-pine-text: #1f7a5c;
+  --text-heading: #1f2430;        /* gray-800 */
+  --text-body: #323844;           /* gray-700 */
+  --text-muted: #676f7c;          /* gray-500 */
+  --text-faint: #6f7784;          /* gray-450 */
+  --radius-sm: 4px;
+  --radius-lg: 12px;
+
+  font-family: var(--font-sans);
+  animation: pp-pop-in 130ms cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: top center;
+}
+
+/* Same material as the menus and the dialogs. */
+.pp-cal .ant-picker-panel-container {
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 0 0 1px rgba(31, 36, 48, 0.06),
+    0 2px 6px rgba(31, 36, 48, 0.08),
+    0 12px 32px rgba(31, 36, 48, 0.18);
+}
+
+.pp-cal .ant-picker-header {
+  border-bottom: 1px solid var(--gray-100);
+  color: var(--text-heading);
+  font-weight: 600;
+}
+.pp-cal .ant-picker-header button { color: var(--text-muted); }
+.pp-cal .ant-picker-header button:hover { color: var(--text-heading); }
+
+/* Weekday initials are a legend, not data — they should recede. */
+.pp-cal .ant-picker-content th {
+  color: var(--text-faint);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pp-cal .ant-picker-cell .ant-picker-cell-inner {
+  border-radius: var(--radius-sm);
+  font-size: var(--text-md);
+  color: var(--text-body);
+}
+.pp-cal .ant-picker-cell:hover:not(.ant-picker-cell-selected) .ant-picker-cell-inner {
+  background: var(--gray-50);
+}
+
+/* Today is a HINT — a ring, not a fill. antd ships it as a blue border that
+   competes with the selected day for attention; only one cell should read as
+   chosen. */
+.pp-cal .ant-picker-cell-today .ant-picker-cell-inner::before {
+  border-color: var(--gray-100) !important;
+}
+.pp-cal .ant-picker-cell-today:not(.ant-picker-cell-selected) .ant-picker-cell-inner {
+  color: var(--accent-pine-text);
+  font-weight: 600;
+}
+
+/* Selected: brand green, not antd blue. */
+.pp-cal .ant-picker-cell-selected .ant-picker-cell-inner {
+  background: var(--brand-primary) !important;
+  color: #fff !important;
+  font-weight: 600;
+}
+
+/* Days spilling in from the neighbouring month are context, not choices. */
+.pp-cal .ant-picker-cell:not(.ant-picker-cell-in-view) .ant-picker-cell-inner {
+  color: var(--text-faint);
+  opacity: 0.6;
+}
+
+.pp-cal .ant-picker-footer { border-top: 1px solid var(--gray-100); }
+.pp-cal .ant-picker-today-btn { color: var(--accent-pine-text); font-weight: 600; }
+
+/* ── Cards ────────────────────────────────────────────────────────────────
+ *
+ * The read surfaces: deal cards, contact cards, business cards. Each was a
+ * 1px border with the flat --shadow-card hairline and NO hover state, so a row
+ * carrying two buttons gave no sign it was under the cursor.
+ *
+ * A class rather than inline styles because hover cannot be expressed inline —
+ * which is exactly why none of these had one.
+ */
+[data-dealhub] .pp-card {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  /* Two layers even at rest: a hairline ring for the edge plus a soft drop, so
+     the card sits ON the page rather than being drawn onto it. */
+  box-shadow:
+    0 0 0 1px rgba(31, 36, 48, 0.02),
+    0 1px 2px rgba(31, 36, 48, 0.05),
+    0 1px 8px rgba(31, 36, 48, 0.04);
+  transition-property: box-shadow, border-color, transform;
+  transition-duration: 160ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Lift on hover. 1px, not 4 — the cue should register without the list
+   feeling like it is moving under the cursor. */
+[data-dealhub] .pp-card:hover {
+  border-color: var(--border-strong);
+  box-shadow:
+    0 0 0 1px rgba(31, 36, 48, 0.03),
+    0 2px 4px rgba(31, 36, 48, 0.06),
+    0 8px 20px rgba(31, 36, 48, 0.08);
+  transform: translateY(-1px);
+}
+
+/* An expanded card stays lifted and takes the brand edge: it is the one the
+   rep is working on, and it should not drop back the moment the pointer
+   leaves. */
+[data-dealhub] .pp-card-open,
+[data-dealhub] .pp-card-open:hover {
+  border-color: var(--brand-primary);
+  box-shadow:
+    0 0 0 1px rgba(31, 122, 92, 0.14),
+    0 2px 6px rgba(31, 36, 48, 0.07),
+    0 10px 28px rgba(31, 36, 48, 0.1);
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-dealhub] .pp-card,
+  [data-dealhub] .pp-card:hover { transform: none; }
 }

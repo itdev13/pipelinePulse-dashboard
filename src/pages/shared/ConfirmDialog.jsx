@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react'
+import { useModal } from '../../hooks/useModal'
 
 // A confirmation the app draws itself.
 //
@@ -42,6 +43,8 @@ export default function ConfirmDialog({
   const cancelRef = useRef(null)
   const danger = tone === 'danger'
 
+  const modalRef = useModal()
+
   useEffect(() => {
     const t = window.setTimeout(() => cancelRef.current?.focus(), 40)
     return () => window.clearTimeout(t)
@@ -61,26 +64,25 @@ export default function ConfirmDialog({
 
   return (
     <div
-      style={{
-        position: 'fixed', inset: 0, zIndex: 70,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 20,
-        background: 'rgba(23, 33, 46, 0.5)'
-      }}
+      className="pp-backdrop"
+      // zIndex above the other dialogs: a confirm is always raised FROM one
+      // (delete a note, delete a deal), so it must sit over its parent.
+      style={{ zIndex: 70 }}
       onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onCancel() }}
     >
       <div
+        // Scroll lock + focus trap, shared by every dialog. Escape stays
+        // with each component: theirs is guarded against mid-save.
+        ref={modalRef}
+        className="pp-modal"
         role="alertdialog"
         aria-modal="true"
         aria-label={title}
-        style={{
-          width: 'min(460px, 100%)',
-          borderRadius: 'var(--radius-md)',
-          background: '#fff', boxShadow: 'var(--shadow-overlay)',
-          overflow: 'hidden'
-        }}
+        // Narrowest of the five: a question and two buttons.
+        style={{ width: 'min(460px, 100%)' }}
       >
         <header
+          className="pp-modal-head"
           style={{
             display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
             padding: '13px var(--space-4)',
@@ -102,7 +104,10 @@ export default function ConfirmDialog({
           </h2>
         </header>
 
-        <div style={{ display: 'grid', gap: 'var(--space-3)', padding: 'var(--space-4)' }}>
+        <div
+          className="pp-modal-body"
+          style={{ display: 'grid', gap: 'var(--space-3)', padding: 'var(--space-4)' }}
+        >
           <p
             style={{
               margin: 0,
@@ -154,6 +159,7 @@ export default function ConfirmDialog({
         </div>
 
         <footer
+          className="pp-modal-foot"
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
             gap: 'var(--space-2)',

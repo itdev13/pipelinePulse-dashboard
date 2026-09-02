@@ -164,22 +164,15 @@ function BusinessCard({ business: b, onOpen }) {
   return (
     <button
       onClick={onOpen}
+      // Hover moved to .pp-card. It was two JS mouse handlers mutating inline
+      // styles — which worked, but meant this card's hover was defined
+      // separately from every other card's (and the others had none at all).
+      // CSS also covers focus-visible and touch, which the handlers did not.
+      className="pp-card"
       style={{
         display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
         padding: '14px var(--space-4)',
-        border: '1px solid var(--border-strong)',
-        borderRadius: 'var(--radius-md)',
-        background: '#fff',
-        fontFamily: 'var(--font-sans)',
-        transition: 'border-color 0.15s ease-out, box-shadow 0.15s ease-out'
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = 'var(--brand-primary)'
-        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)'
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = 'var(--border-strong)'
-        e.currentTarget.style.boxShadow = 'none'
+        fontFamily: 'var(--font-sans)'
       }}
     >
       <span style={{ display: 'flex', alignItems: 'center', gap: 11 }}>

@@ -161,12 +161,10 @@ export default function DealEditPanel({
     if (value.trim() !== wasValue) out.value = clean(value)
     if (assignedTo !== (deal.assignedTo || null)) out.assignedTo = assignedTo
     if (closeDate !== wasClose) out.expectedCloseDate = closeDate || null
-    if (clean(source) !== clean(deal.source)) out.source = clean(source)
     return out
   }, [
     name, wasName, pipelineId, stageId, value, wasValue, assignedTo,
-    closeDate, wasClose, source, deal.pipelineId, deal.stageId,
-    deal.assignedTo, deal.source
+    closeDate, wasClose, deal.pipelineId, deal.stageId, deal.assignedTo
   ])
 
   const statusChanged = status !== (deal.status || 'open')
@@ -305,6 +303,10 @@ export default function DealEditPanel({
             <Select
               value={pipelineId || undefined}
               onChange={onPipelineChange}
+              // Searchable: a location can carry a dozen pipelines and the
+              // names are long ('Marketing pipeline', 'Chris Spilsbury').
+              showSearch
+              optionFilterProp="label"
               disabled={saving}
               loading={loadingRef}
               placeholder={loadingRef ? 'Loading…' : 'No pipeline'}
@@ -318,6 +320,8 @@ export default function DealEditPanel({
             <Select
               value={stageId || undefined}
               onChange={setStageId}
+              showSearch
+              optionFilterProp="label"
               disabled={saving || !pipelineId}
               loading={loadingRef}
               placeholder={pipelineId ? 'No stage' : 'Pick a pipeline first'}
@@ -368,6 +372,8 @@ export default function DealEditPanel({
               <Select
                 value={lostReasonId || undefined}
                 onChange={setLostReasonId}
+                showSearch
+                optionFilterProp="label"
                 disabled={saving}
                 loading={lostReasons === null}
                 status={errorField === 'lostReasonId' ? 'error' : undefined}
@@ -436,6 +442,7 @@ export default function DealEditPanel({
         <Row>
           <Field label="Expected close">
             <DatePicker
+              popupClassName="pp-cal"
               value={closeDate ? dayjs(closeDate) : null}
               onChange={(d) => setCloseDate(d ? d.format('YYYY-MM-DD') : '')}
               disabled={saving}
@@ -445,12 +452,19 @@ export default function DealEditPanel({
               style={{ width: '100%' }}
             />
           </Field>
+          {/* READ-ONLY, and it has to be.
+              GHL's opportunity update endpoint has no writable `source` — it
+              is absent from opportunityPatch's FIELD_MAP, so a patch key for
+              it is dropped silently. This was an editable Input, which meant
+              typing a source looked like it saved and never did. GHL sets it
+              from how the opportunity was created ("public api" here). */}
           <Field label="Source">
             <Input
               value={source}
-              onChange={(e) => setSource(e.target.value)}
-              disabled={saving}
-              placeholder="Where did it come from?"
+              readOnly
+              disabled
+              placeholder="Not recorded"
+              title="Your CRM sets this from how the deal was created — it can't be edited"
             />
           </Field>
         </Row>

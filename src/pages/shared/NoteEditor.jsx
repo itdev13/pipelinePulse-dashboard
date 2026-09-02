@@ -1,7 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Input, Select } from 'antd'
+import { useModal } from '../../hooks/useModal'
+import { Input } from 'antd'
 import { notesAPI } from '../../api/notes'
 import ContactPicker from './ContactPicker'
+import RemotePicker from './RemotePicker'
+import {
+  searchDeals, searchBusinesses, dealOption, businessOption
+} from '../../hooks/useLinkTargets'
 
 // Create or edit one note. Shared by the Notes page and the Deal Hub's note
 // rail so the two can't drift apart in what they accept.
@@ -54,14 +59,23 @@ export default function NoteEditor({
   // The deal and company this note is about — GHL associations, not note
   // fields. `deals` and `businesses` are the pickable lists; omitting a list
   // hides its picker rather than showing an empty dropdown.
+  // Seed lists for the deal/company pickers. EMPTY IS NOT "HIDE": the pickers
+  // search the server, so an empty seed just means nothing is preloaded.
+  //
+  // To hide them — as the Deal Hub rails do, where the deal is already known
+  // and a picker would invite refiling onto another one — pass
+  // showLinks={false}.
   deals = [],
   businesses = [],
+  showLinks = true,
   // Preselected when the editor is opened from a deal, which already knows.
   defaultOpportunityId = null,
   onClose,
   onSaved
 }) {
   const editing = !!note
+
+  const modalRef = useModal()
 
   const [title, setTitle] = useState(note?.title || '')
   const [body, setBody] = useState(() => stripHtml(note?.body || initialBody || ''))
@@ -183,28 +197,25 @@ export default function NoteEditor({
   }
 
   return (
+    // .pp-backdrop / .pp-modal carry the blur, the layered shadow and the
+    // entrance motion — see the Modals block in dealhub-tokens.css. Held in
+    // CSS rather than inline styles so the five dialogs cannot drift apart.
     <div
-      style={{
-        position: 'fixed', inset: 0, zIndex: 60,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 20,
-        background: 'rgba(23, 33, 46, 0.45)'
-      }}
+      className="pp-backdrop"
       onMouseDown={(e) => { if (e.target === e.currentTarget && !saving) onClose() }}
     >
       <div
+        // Scroll lock + focus trap, shared by every dialog. Escape stays
+        // with each component: theirs is guarded against mid-save.
+        ref={modalRef}
+        className="pp-modal"
         role="dialog"
         aria-modal="true"
         aria-label={editing ? 'Edit note' : 'New note'}
         onKeyDown={onFormKeyDown}
-        style={{
-          width: 'min(580px, 100%)',
-          borderRadius: 'var(--radius-md)',
-          background: '#fff', boxShadow: 'var(--shadow-overlay)',
-          overflow: 'hidden'
-        }}
       >
         <header
+          className="pp-modal-head"
           style={{
             display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
             padding: '13px var(--space-4)',
@@ -241,7 +252,10 @@ export default function NoteEditor({
           </button>
         </header>
 
-        <div style={{ display: 'grid', gap: 'var(--space-3)', padding: 'var(--space-4)' }}>
+        <div
+          className="pp-modal-body"
+          style={{ display: 'grid', gap: 'var(--space-3)', padding: 'var(--space-4)' }}
+        >
           <Field label="Note" required error={errorField === 'body' ? error : null}>
             <Input.TextArea
               ref={bodyRef}
@@ -324,47 +338,46 @@ export default function NoteEditor({
 
                 Rendered only when there is something to pick — an empty
                 dropdown is worse than no dropdown. */}
-            {deals.length > 0 && (
+            {/* RemotePicker, not a plain Select: these search the SERVER.
+                They used to filter the seed list client-side, so on a location
+                with more than 200 deals the rest were unreachable and nothing
+                said so. The seed is still passed, so the common case shows
+                options with no request.
+
+                No `deals.length > 0` guard any more either — an empty seed no
+                longer means "nothing to pick", it just means nothing is
+                preloaded. */}
+            {showLinks && (
               <Field
                 label="Deal"
                 error={errorField === 'opportunityId' ? error : null}
                 hint="One deal per note — picking another replaces it"
               >
-                <Select
-                  value={opportunityId || undefined}
-                  onChange={(v) => setOpportunityId(v || null)}
+                <RemotePicker
+                  value={opportunityId}
+                  onChange={setOpportunityId}
+                  search={searchDeals}
+                  seed={deals.map(dealOption)}
                   disabled={saving}
-                  allowClear
-                  showSearch
-                  optionFilterProp="label"
+                  invalid={errorField === 'opportunityId'}
                   placeholder="Not linked to a deal"
-                  options={deals.map((d) => ({
-                    value: d.id,
-                    label: d.dealTag || d.opportunityName || d.name || d.id
-                  }))}
-                  notFoundContent="No matching deal"
-                  popupClassName="pp-menu"
+                  emptyText="No deal matches that"
                   style={{ width: '100%' }}
                 />
               </Field>
             )}
 
-            {businesses.length > 0 && (
+            {showLinks && (
               <Field label="Company" error={errorField === 'businessId' ? error : null}>
-                <Select
-                  value={businessId || undefined}
-                  onChange={(v) => setBusinessId(v || null)}
+                <RemotePicker
+                  value={businessId}
+                  onChange={setBusinessId}
+                  search={searchBusinesses}
+                  seed={businesses.map(businessOption)}
                   disabled={saving}
-                  allowClear
-                  showSearch
-                  optionFilterProp="label"
+                  invalid={errorField === 'businessId'}
                   placeholder="Not linked to a company"
-                  options={businesses.map((b) => ({
-                    value: b.id,
-                    label: b.name || b.id
-                  }))}
-                  notFoundContent="No matching company"
-                  popupClassName="pp-menu"
+                  emptyText="No company matches that"
                   style={{ width: '100%' }}
                 />
               </Field>
@@ -430,6 +443,7 @@ export default function NoteEditor({
         </div>
 
         <footer
+          className="pp-modal-foot"
           style={{
             display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
             padding: '11px var(--space-4)',

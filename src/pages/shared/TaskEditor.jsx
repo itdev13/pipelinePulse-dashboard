@@ -1,8 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { DatePicker, Input, Select } from 'antd'
+import { useModal } from '../../hooks/useModal'
+import { DatePicker, Input } from 'antd'
 import dayjs from 'dayjs'
 import { tasksAPI } from '../../api/tasks'
 import ContactPicker from './ContactPicker'
+import RemotePicker from './RemotePicker'
+import {
+  searchDeals, searchBusinesses, dealOption, businessOption
+} from '../../hooks/useLinkTargets'
 
 // Create or edit one task. Shared by the Tasks page and the Deal Hub's task
 // rail so the two can't drift apart in what they accept.
@@ -17,13 +22,6 @@ import ContactPicker from './ContactPicker'
 //     the button shows progress rather than appearing to do nothing.
 //   • A rejected field comes back named, so the error lands on the input that
 //     caused it instead of in a banner that doesn't say which box is wrong.
-
-const OVERLAY = {
-  position: 'fixed', inset: 0, zIndex: 60,
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  padding: 20,
-  background: 'rgba(23, 33, 46, 0.45)'
-}
 
 export default function TaskEditor({
   // Editing an existing task: pass it. Creating: leave null.
@@ -40,14 +38,20 @@ export default function TaskEditor({
   // The deal and company this task is about — GHL associations, not task
   // fields. An empty list hides its picker rather than showing an empty
   // dropdown.
+  // Seed lists only — the pickers search the server, so empty means "nothing
+  // preloaded", not "hide". Pass showLinks={false} to hide them, as the Deal
+  // Hub rails do.
   deals = [],
   businesses = [],
+  showLinks = true,
   defaultOpportunityId = null,
   onClose,
   // Called with the CRM's echoed task after a successful save.
   onSaved
 }) {
   const editing = !!task
+
+  const modalRef = useModal()
 
   // UNLIKE NOTES, a task's GHL caps are 10 rather than 1, so these links are
   // genuinely additive — attaching a second deal adds it instead of replacing
@@ -171,23 +175,23 @@ export default function TaskEditor({
 
   return (
     <div
-      style={OVERLAY}
+      className="pp-backdrop"
       // Click the backdrop to dismiss, but never mid-save.
       onMouseDown={(e) => { if (e.target === e.currentTarget && !saving) onClose() }}
     >
       <div
+        // Scroll lock + focus trap, shared by every dialog. Escape stays
+        // with each component: theirs is guarded against mid-save.
+        ref={modalRef}
+        className="pp-modal"
         role="dialog"
         aria-modal="true"
         aria-label={editing ? 'Edit task' : 'New task'}
         onKeyDown={onFormKeyDown}
-        style={{
-          width: 'min(560px, 100%)',
-          borderRadius: 'var(--radius-md)',
-          background: '#fff', boxShadow: 'var(--shadow-overlay)',
-          overflow: 'hidden'
-        }}
+        style={{ width: 'min(560px, 100%)' }}
       >
         <header
+          className="pp-modal-head"
           style={{
             display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
             padding: '13px var(--space-4)',
@@ -224,7 +228,10 @@ export default function TaskEditor({
           </button>
         </header>
 
-        <div style={{ display: 'grid', gap: 'var(--space-3)', padding: 'var(--space-4)' }}>
+        <div
+          className="pp-modal-body"
+          style={{ display: 'grid', gap: 'var(--space-3)', padding: 'var(--space-4)' }}
+        >
           <Field label="Title" required error={errorField === 'title' ? error : null}>
             <Input
               ref={titleRef}
@@ -254,6 +261,7 @@ export default function TaskEditor({
               error={errorField === 'dueDate' ? error : null}
             >
               <DatePicker
+                popupClassName="pp-cal"
                 value={dueDate}
                 onChange={setDueDate}
                 format="D MMM YYYY"
@@ -285,40 +293,36 @@ export default function TaskEditor({
             {/* In both create and edit mode: which deal and company a task is
                 filed against is exactly what a rep corrects later. Rendered
                 only when there is something to pick. */}
-            {deals.length > 0 && (
+            {/* Server-searched, like the note editor's — the seed list was
+                capped at 200, so anything beyond that was unreachable through
+                a client-side filter. */}
+            {showLinks && (
               <Field label="Deal" error={errorField === 'opportunityId' ? error : null}>
-                <Select
-                  value={opportunityId || undefined}
-                  onChange={(v) => setOpportunityId(v || null)}
+                <RemotePicker
+                  value={opportunityId}
+                  onChange={setOpportunityId}
+                  search={searchDeals}
+                  seed={deals.map(dealOption)}
                   disabled={saving}
-                  allowClear
-                  showSearch
-                  optionFilterProp="label"
+                  invalid={errorField === 'opportunityId'}
                   placeholder="Not linked to a deal"
-                  options={deals.map((d) => ({
-                    value: d.id,
-                    label: d.dealTag || d.opportunityName || d.name || d.id
-                  }))}
-                  notFoundContent="No matching deal"
-                  popupClassName="pp-menu"
+                  emptyText="No deal matches that"
                   style={{ width: '100%' }}
                 />
               </Field>
             )}
 
-            {businesses.length > 0 && (
+            {showLinks && (
               <Field label="Company" error={errorField === 'businessId' ? error : null}>
-                <Select
-                  value={businessId || undefined}
-                  onChange={(v) => setBusinessId(v || null)}
+                <RemotePicker
+                  value={businessId}
+                  onChange={setBusinessId}
+                  search={searchBusinesses}
+                  seed={businesses.map(businessOption)}
                   disabled={saving}
-                  allowClear
-                  showSearch
-                  optionFilterProp="label"
+                  invalid={errorField === 'businessId'}
                   placeholder="Not linked to a company"
-                  options={businesses.map((b) => ({ value: b.id, label: b.name || b.id }))}
-                  notFoundContent="No matching company"
-                  popupClassName="pp-menu"
+                  emptyText="No company matches that"
                   style={{ width: '100%' }}
                 />
               </Field>
@@ -354,6 +358,7 @@ export default function TaskEditor({
         </div>
 
         <footer
+          className="pp-modal-foot"
           style={{
             display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
             padding: '11px var(--space-4)',

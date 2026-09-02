@@ -360,6 +360,7 @@ function ValueColumn({ deal, onSaveField, saving, onOpenBusiness }) {
           reveal-on-click "Set a date" button existed; the picker makes it
           unnecessary. */}
       <DatePicker
+        popupClassName="pp-cal"
         value={expectedClose ? dayjs(expectedClose) : null}
         // Commits on pick. GHL stores a DATE only, so an empty pick clears it.
         onChange={(d) => {
@@ -424,6 +425,10 @@ function StageColumn({ deal, stages, onSaveField, saving }) {
         placeholder="No stage"
         size="large"
         className="pp-stage-select"
+        // A pipeline can carry a dozen stages with similar names ("Marketing
+        // Qualified" / "Sales Qualified"), so typing beats scrolling.
+        showSearch
+        optionFilterProp="label"
         style={{ width: '100%' }}
         disabled={saving === 'pipelineStageId'}
         loading={saving === 'pipelineStageId'}
@@ -796,6 +801,15 @@ function FieldPicker({ label, value, spec, saving, onChange }) {
         // (onOpenChange, not the deprecated onDropdownVisibleChange — antd 5.)
         onOpenChange={(o) => { if (!o) commit() }}
         onBlur={commit}
+        // Searchable: these are GHL picklists and some are long — the country
+        // and product lists run to dozens of entries.
+        //
+        // optionFilterProp="label" rather than the default: antd filters on
+        // `value` by default, and these options use the same string for both,
+        // so filtering on label is equivalent here AND stays correct if the
+        // shape ever splits into an id/name pair.
+        showSearch
+        optionFilterProp="label"
         options={spec.options.map((o) => ({ value: o, label: o }))}
         placeholder="Not set"
         allowClear

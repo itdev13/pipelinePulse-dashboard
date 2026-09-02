@@ -27,8 +27,12 @@ export function useLinkTargets(enabled) {
     Promise.all([
       // status: 'all' — a note can legitimately be filed against a won or lost
       // deal, and the default list route returns open ones only.
-      dealsAPI.list({ status: 'all', limit: 200 }).catch(() => null),
-      businessesAPI.list({ limit: 200 }).catch(() => null)
+      // 25, not 200. These are only a SEED — the pickers search the server for
+      // anything not in this list (see searchDeals below), so preloading 200
+      // rows to filter client-side was both a heavy request and a false
+      // promise: it silently capped what could be found.
+      dealsAPI.list({ status: 'all', limit: 25 }).catch(() => null),
+      businessesAPI.list({ limit: 25 }).catch(() => null)
     ]).then(([d, b]) => {
       if (!alive) return
       // `deals` and `businesses` are the actual response keys — checked
@@ -43,4 +47,38 @@ export function useLinkTargets(enabled) {
   }, [enabled, targets])
 
   return targets || { deals: [], businesses: [] }
+}
+
+// Search functions for RemotePicker, shaped to { value, label }.
+//
+// Live here beside useLinkTargets so the seed list and the search that extends
+// it agree on how a deal and a business are labelled — the note editor and the
+// task editor both use these, and a label that differed between the two would
+// look like two different records.
+//
+// `status: 'all'`: a note or task can legitimately be filed against a won or
+// lost deal, and the list route defaults to open only.
+//
+// 20 rows, not 200: this is a search result the rep is about to pick from, not
+// a list to browse. A longer page would just be more to scroll past.
+const SEARCH_PAGE = 20
+
+export function searchDeals(q) {
+  return dealsAPI.list({ status: 'all', q, limit: SEARCH_PAGE })
+    .then((r) => (r?.deals || []).map(dealOption))
+}
+
+export function searchBusinesses(q) {
+  return businessesAPI.list({ q, limit: SEARCH_PAGE })
+    .then((r) => (r?.businesses || []).map(businessOption))
+}
+
+// One place that decides what a deal is called in a picker. `dealTag` is the
+// opportunity name; the fallbacks cover a deal with no name, which GHL allows.
+export function dealOption(d) {
+  return { value: d.id, label: d.dealTag || d.opportunityName || d.name || d.id }
+}
+
+export function businessOption(b) {
+  return { value: b.id, label: b.name || b.id }
 }

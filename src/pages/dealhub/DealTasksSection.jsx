@@ -303,13 +303,11 @@ export function DealTasksSection({ dealId, people = [] }) {
             || null
           }
           // Created from a deal, so it is linked to that deal — the whole
-          // point of opening the editor from here.
-          //
-          // NO `deals` list passed, deliberately: that hides the picker. A
-          // one-option dropdown is a control with no choice, and a rail on a
-          // deal is not where a rep refiles a task onto a different one. The
-          // Tasks page, which has no deal in scope, is where the picker
-          // belongs.
+          // point of opening the editor from here. showLinks={false} hides the
+          // pickers: a rail on a deal is not where a rep refiles a task onto a
+          // different one. The Tasks page, which has no deal in scope, is
+          // where the pickers belong.
+          showLinks={false}
           defaultOpportunityId={dealId}
           onClose={() => setEditor(null)}
           onSaved={(saved) => {
@@ -538,8 +536,12 @@ export function DealNotesSection({ dealId, people = [] }) {
           note={editor.note}
           contacts={people}
           defaultContactId={targetContactId}
-          // Linked to this deal on create. No `deals` list — see the note on
-          // TaskEditor above: the picker is for the standalone Notes page.
+          // Linked to this deal on create. showLinks={false} hides the deal
+          // and company pickers: the deal is already known here, and the
+          // pickers now search the whole sub-account, so leaving them visible
+          // would invite refiling a note onto a different deal from a rail
+          // that belongs to this one.
+          showLinks={false}
           defaultOpportunityId={dealId}
           // How many notes are already pinned on the target contact, so the pin
           // toggle can say when there's no room rather than failing on save.

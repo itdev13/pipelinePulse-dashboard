@@ -3,6 +3,7 @@ import { dealsAPI } from '../../api/deals'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
 import DealEditPanel from '../deals/DealEditPanel'
+import DealCreatePanel from '../deals/DealCreatePanel'
 import {
   Shell, PageHeader, SearchInput, StateMessage, DealCardsSkeleton, LoadMore,
   formatDate, initialsFor, nameFor
@@ -32,6 +33,10 @@ export default function DealsTab({ onOpenDeal }) {
   // sets of unsaved changes and no way to tell which Update belongs to which.
   const [editingId, setEditingId] = useState(null)
 
+  // The create form, above the list. Mutually exclusive with an open editor —
+  // two draft forms on screen is two things to lose.
+  const [creating, setCreating] = useState(false)
+
   // Pipelines and users, fetched ONCE for the whole tab rather than per row.
   // They are location-wide and identical for every deal; fetching them in the
   // panel would be two requests every time a row is expanded.
@@ -42,7 +47,9 @@ export default function DealsTab({ onOpenDeal }) {
   const [refError, setRefError] = useState(null)
 
   useEffect(() => {
-    if (editingId === null || refData !== null) return
+    // Also when the create form opens — it needs the pipeline list to be
+    // usable at all, since a pipeline is required.
+    if ((editingId === null && !creating) || refData !== null) return
     let alive = true
     Promise.all([
       dealsAPI.pipelines().catch(() => null),
@@ -55,7 +62,7 @@ export default function DealsTab({ onOpenDeal }) {
       setRefData({ pipelines: p?.pipelines || [], users: u?.users || [] })
     })
     return () => { alive = false }
-  }, [editingId, refData])
+  }, [editingId, creating, refData])
 
   const fetchPage = useCallback(
     ({ cursor }) => dealsAPI.list({ status: 'open', limit: 20, cursor, q: search || undefined }),
@@ -93,16 +100,54 @@ export default function DealsTab({ onOpenDeal }) {
         title="Deals"
         subtitle="Expand any deal to edit it — changes save straight to your CRM"
         action={
-          <SearchInput
-            value={q}
-            onChange={setQ}
-            onKeyDown={(e) => { if (e.key === 'Enter') setSearch(q.trim()) }}
-            onBlur={() => setSearch(q.trim())}
-            placeholder="Search deal name — press Enter"
-            width={320}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <SearchInput
+              value={q}
+              onChange={setQ}
+              onKeyDown={(e) => { if (e.key === 'Enter') setSearch(q.trim()) }}
+              onBlur={() => setSearch(q.trim())}
+              placeholder="Search deal name — press Enter"
+              width={280}
+            />
+            {/* Opening the create form closes any open editor — see `creating`
+                above. */}
+            <button
+              onClick={() => { setCreating(true); setEditingId(null) }}
+              disabled={creating}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                flex: 'none',
+                height: 36, padding: '0 15px',
+                border: 'none', borderRadius: 'var(--radius-md)',
+                background: creating ? 'var(--gray-200)' : 'var(--brand-primary)',
+                color: creating ? 'var(--text-faint)' : '#fff',
+                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
+                cursor: creating ? 'default' : 'pointer'
+              }}
+            >
+              <span className="ms" style={{ fontSize: 18 }}>add</span>
+              New deal
+            </button>
+          </div>
         }
       />
+
+      {creating && (
+        <DealCreatePanel
+          pipelines={refData?.pipelines || null}
+          users={refData?.users || null}
+          refError={refError}
+          onClose={() => setCreating(false)}
+          // A new deal is not in the loaded page, and it may not be on page one
+          // either, so this is a full reload rather than a patch. The delay is
+          // the webhook race: our POST goes to GHL and our row is written when
+          // the webhook lands, so an immediate refetch would not include it.
+          onCreated={() => {
+            setCreating(false)
+            window.setTimeout(() => reload(), 2500)
+          }}
+        />
+      )}
 
       {/* Cards, not rows — so the loading state mirrors the card shape
           rather than the generic row skeleton. */}
@@ -134,7 +179,10 @@ export default function DealsTab({ onOpenDeal }) {
           deal={d}
           onOpenDeal={onOpenDeal}
           expanded={editingId === d.id}
-          onToggleExpand={() => setEditingId((cur) => (cur === d.id ? null : d.id))}
+          onToggleExpand={() => {
+            setCreating(false)
+            setEditingId((cur) => (cur === d.id ? null : d.id))
+          }}
           pipelines={refData?.pipelines || null}
           users={refData?.users || null}
           refError={refError}
@@ -178,13 +226,15 @@ function DealCard({
 
   return (
     <section
+      // .pp-card carries the border, the layered shadow and — the part that
+      // could not be done inline — the hover lift. .pp-card-open keeps the
+      // expanded row raised with a brand edge so it does not drop back when
+      // the pointer leaves the card being edited.
+      className={expanded ? 'pp-card pp-card-open' : 'pp-card'}
       style={{
-        border: '1px solid var(--border-default)',
-        boxShadow: 'var(--shadow-card)',
         ['--panel-accent']: 'var(--accent-pine-text)',
         ['--panel-tint']: 'var(--tint-pine)',
-        borderRadius: 'var(--radius-md)',
-        background: '#fff', overflow: 'hidden'
+        overflow: 'hidden'
       }}
     >
       <header
