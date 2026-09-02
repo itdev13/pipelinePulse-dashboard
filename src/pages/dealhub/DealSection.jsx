@@ -493,12 +493,27 @@ function StageColumn({ deal, stages, onSaveField, saving }) {
 // so a blank is a real gap in the record — the dashed amber "Not set" is the
 // point, not a placeholder for missing data on our side. Hiding an unset chip
 // would make an incomplete deal look complete.
+// [label, the deal property, GHL's custom-field key]
+//
+// The third column is EXPLICIT rather than derived from the second. A mechanical
+// camelCase→snake_case conversion got three of five right and silently failed
+// on the other two, so those chips rendered as read-only text while the rest
+// became pickers:
+//
+//   firstContactMethod → first_contact_method   but GHL's key is
+//                        first_contact__method  (double underscore — their typo,
+//                                                but it is their key)
+//   leadSource         → lead_source            but GHL's key is
+//                        lead_source_opportunity
+//
+// stageHistoryWriter already accounts for the double underscore; the derivation
+// here did not. Anything keyed off GHL's field names has to be spelled out.
 const FIELD_CHIPS = [
-  ['Client type',           'clientType'],
-  ['Product system',        'productSystem'],
-  ['Product type',          'productType'],
-  ['First contact method',  'firstContactMethod'],
-  ['Lead source opportunity', 'leadSource']
+  ['Client type',             'clientType',         'client_type'],
+  ['Product system',          'productSystem',      'product_system'],
+  ['Product type',            'productType',        'product_type'],
+  ['First contact method',    'firstContactMethod', 'first_contact__method'],
+  ['Lead source opportunity', 'leadSource',         'lead_source_opportunity']
 ]
 
 // The five opportunity custom fields, as editable pickers.
@@ -521,6 +536,14 @@ function FieldChipRow({ deal, fieldOptions = {}, onSaveField, saving }) {
     ...FIELD_CHIPS.filter(([, k]) => isSet(k)),
     ...FIELD_CHIPS.filter(([, k]) => !isSet(k))
   ]
+
+  // Both spellings, for the fields where GHL's own key is inconsistent — the
+  // definitions endpoint reports whatever that location has, and a lookup that
+  // misses leaves the chip read-only with no clue why.
+  const specFor = (ghlKey, dealKey) =>
+    fieldOptions[ghlKey]
+    || fieldOptions[ghlKey.replace('__', '_')]
+    || fieldOptions[dealKey.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)]
   if (ordered.length === 0) return null
 
   return (
@@ -531,10 +554,8 @@ function FieldChipRow({ deal, fieldOptions = {}, onSaveField, saving }) {
         borderTop: '1px solid var(--border-default)'
       }}
     >
-      {ordered.map(([label, key]) => {
-        // The deal response uses camelCase (clientType); the definitions are
-        // keyed by GHL's snake_case field key (client_type).
-        const spec = fieldOptions[toSnake(key)]
+      {ordered.map(([label, key, ghlKey]) => {
+        const spec = specFor(ghlKey, key)
         return spec && onSaveField ? (
           <FieldPicker
             key={key}
@@ -646,12 +667,6 @@ function TagRow({ deal }) {
   )
 }
 
-
-// clientType -> client_type. The deal response and the custom-field
-// definitions use different conventions for the same field.
-function toSnake(key) {
-  return key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
-}
 
 // An editable custom field. Reads as a chip until clicked, then becomes a
 // picker — so a card with five of these still scans as a row of facts rather
