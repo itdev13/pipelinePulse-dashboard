@@ -35,6 +35,16 @@ export const dealsAPI = {
   // deal card. Location-wide; fetch once per session.
   customFieldOptions: () => apiClient.get('/api/deals/custom-field-options'),
 
+  // Every pipeline with its stages nested. One request rather than a stages
+  // call per pipeline: the expanding row needs the target pipeline's stages the
+  // moment a rep picks it, and a location has single-digit pipelines.
+  // Location-wide; fetch once per session.
+  pipelines: () => apiClient.get('/api/deals/pipelines'),
+
+  // Active CRM users, for the Owner and Followers pickers. Both take a GHL user
+  // id. Location-wide; fetch once per session.
+  users: () => apiClient.get('/api/deals/users'),
+
   create: (fields) => apiClient.post('/api/deals', fields),
   remove: (id) => apiClient.delete(`/api/deals/${encodeURIComponent(id)}`),
 

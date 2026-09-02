@@ -1,21 +1,26 @@
-import React, { useCallback, useMemo, useState } from 'react'
-import { DatePicker, Select, Input } from 'antd'
-import dayjs from 'dayjs'
+import React, { useCallback, useEffect, useState } from 'react'
 import { dealsAPI } from '../../api/deals'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
+import DealEditPanel from '../deals/DealEditPanel'
 import {
   Shell, PageHeader, SearchInput, StateMessage, DealCardsSkeleton, LoadMore,
   formatDate, initialsFor, nameFor
 } from '../shared/ListChrome'
 
-// Deals tab — one card per open deal, each showing the facts a rep scans for
-// and the full contact list on the deal.
+// Deals tab — one card per open deal, each showing the facts a rep scans for,
+// the contacts on the deal, and an Edit expander.
 //
-// Value / expected close / stage / owner render as controls per the design.
-// /api/deals is read-only (no PATCH route yet), so they hold local state and
-// carry a "coming next" title — same convention as PeopleSection's Make
-// primary / Remove and the Deal Hub's stage dropdown.
+// EDITING LIVES IN THE EXPANDER, not on the card face. The card used to carry
+// four inline controls (value, expected close, stage, owner), of which two
+// worked: the Stage picker offered only the deal's current stage because the
+// list route sent no stage ids, and Owner was a read-only Input labelled
+// "coming next".
+//
+// A rep scans this list far more often than they edit it, so the card is now
+// read-only and the full field set — everything GHL's own edit modal offers —
+// opens in place via DealEditPanel. That removed the half-working controls and
+// made the rest actually saveable.
 
 export default function DealsTab({ onOpenDeal }) {
   const [q, setQ] = useTabState('deals', 'q', '')
@@ -23,12 +28,61 @@ export default function DealsTab({ onOpenDeal }) {
   // down the list.
   const [search, setSearch] = useTabState('deals', 'search', '')
 
+  // Which row is expanded for editing. One at a time: two open editors mean two
+  // sets of unsaved changes and no way to tell which Update belongs to which.
+  const [editingId, setEditingId] = useState(null)
+
+  // Pipelines and users, fetched ONCE for the whole tab rather than per row.
+  // They are location-wide and identical for every deal; fetching them in the
+  // panel would be two requests every time a row is expanded.
+  //
+  // Lazy: the fetch runs when the first row is expanded, not on page load, so a
+  // rep who only reads the list never pays for it.
+  const [refData, setRefData] = useState(null)
+  const [refError, setRefError] = useState(null)
+
+  useEffect(() => {
+    if (editingId === null || refData !== null) return
+    let alive = true
+    Promise.all([
+      dealsAPI.pipelines().catch(() => null),
+      dealsAPI.users().catch(() => null)
+    ]).then(([p, u]) => {
+      if (!alive) return
+      // A failed reference fetch does not break the panel — the text fields
+      // still save. Only the affected dropdown degrades, and it says why.
+      if (!p && !u) setRefError('Could not load pipelines or users')
+      setRefData({ pipelines: p?.pipelines || [], users: u?.users || [] })
+    })
+    return () => { alive = false }
+  }, [editingId, refData])
+
   const fetchPage = useCallback(
     ({ cursor }) => dealsAPI.list({ status: 'open', limit: 20, cursor, q: search || undefined }),
     [search]
   )
-  const { items, error, hasMore, loadingMore, loading, loadMore } =
+  const { items, error, hasMore, loadingMore, loading, loadMore, patchItem, reload } =
     usePagedList({ fetchPage, key: 'deals', deps: [search] })
+
+  // After a save: refetch THAT deal and patch it in place.
+  //
+  // Not reload() — that resets to page one, so a rep who had scrolled to deal
+  // 60 would be thrown back to the top for editing one row.
+  //
+  // Delayed, because our writes go to GoHighLevel and nothing is written to our
+  // database until the webhook lands. An immediate refetch returns the OLD row:
+  // the same race that made the Deal Hub chips read "Not set" after a
+  // successful save.
+  const refreshDeal = useCallback((id) => {
+    window.setTimeout(() => {
+      dealsAPI.get(id)
+        .then((fresh) => {
+          if (!fresh) return
+          patchItem((it) => it.id === id, fresh)
+        })
+        .catch(() => {})
+    }, 2500)
+  }, [patchItem])
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
   const deals = items || []
@@ -37,7 +91,7 @@ export default function DealsTab({ onOpenDeal }) {
     <Shell maxWidth={1240}>
       <PageHeader
         title="Deals"
-        subtitle="Value, expected close, stage and owner are editable inline"
+        subtitle="Expand any deal to edit it — changes save straight to your CRM"
         action={
           <SearchInput
             value={q}
@@ -75,7 +129,20 @@ export default function DealsTab({ onOpenDeal }) {
       )}
 
       {deals.map((d) => (
-        <DealCard key={d.id} deal={d} onOpenDeal={onOpenDeal} />
+        <DealCard
+          key={d.id}
+          deal={d}
+          onOpenDeal={onOpenDeal}
+          expanded={editingId === d.id}
+          onToggleExpand={() => setEditingId((cur) => (cur === d.id ? null : d.id))}
+          pipelines={refData?.pipelines || null}
+          users={refData?.users || null}
+          refError={refError}
+          onSaved={() => refreshDeal(d.id)}
+          // A deleted deal is gone from the list entirely, so this is the one
+          // case that warrants a full reload rather than patching a row.
+          onDeleted={() => { setEditingId(null); reload() }}
+        />
       ))}
 
       {!loading && deals.length > 0 && (
@@ -91,74 +158,12 @@ export default function DealsTab({ onOpenDeal }) {
   )
 }
 
-function DealCard({ deal, onOpenDeal }) {
-  // The RAW number, not deal.value — that is display-formatted ("£26,000") and
-  // this input prints its own £ prefix, so binding to it rendered "£ £0". It
-  // would also have sent the formatted string back on save.
-  const [value, setValue] = useState(
-    deal.monetaryValue != null ? String(deal.monetaryValue) : ''
-  )
-  const [closeDate, setCloseDate] = useState(
-    deal.forecastCloseDate ? toDateInput(deal.forecastCloseDate) : ''
-  )
-  const [stage, setStage] = useState(deal.stage || '')
-
-  // These controls used to be local state that went nowhere — the card accepted
-  // an edit and discarded it on reload. They write now.
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [error, setError] = useState(null)
-  const [errorField, setErrorField] = useState(null)
-
-  // What actually changed, against the deal as loaded.
-  //
-  // These used to save on blur with no button. Two problems: nothing told you a
-  // write had happened — you typed a value, clicked away, and the card looked
-  // identical whether it saved or not — and editing two fields fired two
-  // separate requests. One button, one request, one confirmation.
-  const wasValue = deal.monetaryValue != null ? String(deal.monetaryValue) : ''
-  const wasClose = deal.forecastCloseDate ? toDateInput(deal.forecastCloseDate) : ''
-
-  const changes = useMemo(() => {
-    const out = {}
-    if (value.trim() !== wasValue) out.value = value.trim() === '' ? null : value.trim()
-    if (closeDate !== wasClose) out.expectedCloseDate = closeDate || null
-    return out
-  }, [value, closeDate, wasValue, wasClose])
-
-  const dirty = Object.keys(changes).length > 0
-
-  const revert = () => {
-    setValue(wasValue)
-    setCloseDate(wasClose)
-    setError(null)
-    setErrorField(null)
-  }
-
-  const save = async () => {
-    if (!dirty || saving) return
-    setSaving(true)
-    setError(null)
-    setErrorField(null)
-    try {
-      const res = await dealsAPI.update(deal.id, changes)
-      // Apply what GHL echoed — it truncates the close date to a day and may
-      // round the value.
-      const o = res?.opportunity
-      if (o?.monetaryValue != null) setValue(String(o.monetaryValue))
-      if (o?.forecastExpectedCloseDate !== undefined) {
-        setCloseDate(o.forecastExpectedCloseDate || '')
-      }
-      setSaved(true)
-      window.setTimeout(() => setSaved(false), 2200)
-    } catch (err) {
-      setError(err.message || 'Could not save that — try again')
-      setErrorField(err.data?.field || null)
-    } finally {
-      setSaving(false)
-    }
-  }
-
+function DealCard({
+  deal, onOpenDeal, expanded, onToggleExpand,
+  pipelines, users, refError, onSaved, onDeleted
+}) {
+  // No edit state on the card any more — DealEditPanel owns the whole draft,
+  // so there is one place a change can live and one Update that commits it.
   const people = deal.people || []
   const daysInStage = daysSince(deal.currentStageEnteredAt)
 
@@ -210,6 +215,29 @@ function DealCard({ deal, onOpenDeal }) {
           )}
         </div>
 
+        {/* Edit before Open deal: editing is the action a rep takes on a row in
+            a list, and Open deal navigates away from it. */}
+        <button
+          onClick={onToggleExpand}
+          aria-expanded={expanded}
+          title={expanded ? 'Close the editor' : 'Edit this deal without leaving the list'}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            height: 34, padding: '0 13px',
+            border: '1px solid var(--border-strong)',
+            borderRadius: 'var(--radius-md)',
+            background: expanded ? 'var(--gray-100)' : '#fff',
+            color: 'var(--text-heading)',
+            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
+            cursor: 'pointer', flex: 'none'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 16 }}>
+            {expanded ? 'expand_less' : 'edit'}
+          </span>
+          {expanded ? 'Close' : 'Edit'}
+        </button>
+
         <button
           onClick={() => onOpenDeal && onOpenDeal(deal.id)}
           style={{
@@ -226,143 +254,24 @@ function DealCard({ deal, onOpenDeal }) {
         </button>
       </header>
 
-      {/* Inline-editable fields */}
+      {/* A read-only summary of the numbers a rep scans for. These were
+          editable controls on the card face; editing now happens in the
+          expander, so the card can show the value formatted (with its currency)
+          rather than as a raw number in a text input. */}
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: 'var(--space-3)', padding: 'var(--space-3) var(--space-4) 0'
+          display: 'flex', alignItems: 'baseline', gap: 'var(--space-4)',
+          flexWrap: 'wrap', padding: 'var(--space-3) var(--space-4) 0'
         }}
       >
-        <Field label="Value">
-          {/* Prefix rather than "£28,000" as text: the currency is a property
-              of the field, not something the user has to type or delete. */}
-          <Input
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            // Commit on blur or Enter, not per keystroke — a write per
-            // character would be a request per character.
-            onPressEnter={save}
-            disabled={saving}
-            status={errorField === 'value' ? 'error' : undefined}
-            prefix={<span style={{ color: 'var(--text-faint)' }}>£</span>}
-            placeholder="Not priced"
-            style={{ fontFamily: 'var(--font-mono)' }}
-          />
-        </Field>
-        <Field label="Expected close">
-          {/* A real picker instead of <input type="date">, whose empty state
-              renders the browser's "dd/mm/yyyy" — that read as a broken field
-              rather than "no date set". */}
-          <DatePicker
-            value={closeDate ? dayjs(closeDate) : null}
-            onChange={(d) => setCloseDate(d ? d.format('YYYY-MM-DD') : '')}
-            disabled={saving}
-            status={errorField === 'expectedCloseDate' ? 'error' : undefined}
-            format="D MMM YYYY"
-            placeholder="Set a date"
-            style={{ width: '100%' }}
-          />
-        </Field>
-        <Field label="Stage">
-          {/* The stage list isn't loaded on this page (it's per-pipeline and
-              the list route doesn't carry it), so this offers the current value
-              only — an option we can't save would invite a dead change. */}
-          <Select
-            value={stage || undefined}
-            onChange={setStage}
-            placeholder="No stage"
-            style={{ width: '100%' }}
-            options={stage ? [{ value: stage, label: stage }] : []}
-            // Otherwise antd's generic "No data" — which reads as a failure
-            // rather than as "this list isn't available here on purpose".
-            notFoundContent="Open the deal to change its stage"
-          />
-        </Field>
-        <Field label="Owner">
-          <Input
-            value={deal.owner || ''}
-            readOnly
-            placeholder="Unassigned"
-            title="Reassigning an owner writes back to your CRM — coming next"
-          />
-        </Field>
+        <Stat label="Value" value={deal.value} mono />
+        <Stat label="Stage" value={deal.stage} />
+        <Stat
+          label="Expected close"
+          value={deal.forecastCloseDate ? formatDate(deal.forecastCloseDate) : null}
+        />
+        <Stat label="Owner" value={deal.owner} />
       </div>
-
-      {error && (
-        <div
-          style={{
-            display: 'flex', alignItems: 'flex-start', gap: 7,
-            margin: '10px var(--space-4) 0',
-            padding: '8px 10px',
-            border: '1px solid var(--status-stuck)',
-            borderRadius: 'var(--radius-sm)',
-            background: 'var(--tint-rose)',
-            fontSize: 'var(--text-base)', color: 'var(--status-stuck-text)'
-          }}
-        >
-          <span className="ms" style={{ fontSize: 15, flex: 'none', marginTop: 1 }}>error</span>
-          {error}
-        </div>
-      )}
-
-      {/* Appears only once something is edited. A permanently visible Save on
-          every card in a list of twenty would be twenty controls doing nothing,
-          and the card is read far more often than it is edited. */}
-      {(dirty || saving || saved) && (
-        <div
-          style={{
-            display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-            margin: '10px var(--space-4) 0',
-            padding: '9px 0 0',
-            borderTop: '1px solid var(--border-default)'
-          }}
-        >
-          <span style={{ flex: 1, fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
-            {saving
-              ? 'Saving to your CRM…'
-              : saved
-                ? 'Saved'
-                : `${Object.keys(changes).length} unsaved change${Object.keys(changes).length === 1 ? '' : 's'}`}
-          </span>
-          {dirty && !saving && (
-            <button
-              onClick={revert}
-              style={{
-                height: 30, padding: '0 13px',
-                border: '1px solid var(--border-strong)',
-                borderRadius: 'var(--radius-sm)',
-                background: '#fff', color: 'var(--text-body)',
-                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
-                cursor: 'pointer'
-              }}
-            >
-              Cancel
-            </button>
-          )}
-          <button
-            onClick={save}
-            disabled={!dirty || saving}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              height: 30, padding: '0 14px',
-              border: 'none', borderRadius: 'var(--radius-sm)',
-              background: saved
-                ? 'var(--status-done)'
-                : dirty ? 'var(--brand-primary)' : 'var(--gray-200)',
-              color: dirty || saved ? '#fff' : 'var(--text-faint)',
-              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 600,
-              cursor: dirty && !saving ? 'pointer' : 'default'
-            }}
-          >
-            {saving && (
-              <span className="ms pp-spin" style={{ fontSize: 14 }}>progress_activity</span>
-            )}
-            {saved && <span className="ms" style={{ fontSize: 14 }}>check</span>}
-            {saving ? 'Saving' : saved ? 'Saved' : 'Save'}
-          </button>
-        </div>
-      )}
 
       {facts.length > 0 && (
         <p
@@ -396,7 +305,53 @@ function DealCard({ deal, onOpenDeal }) {
           </div>
         </div>
       )}
+
+      {/* Mounted only while expanded, so the panel's draft state resets when
+          it closes — a half-typed value must not survive a reopen and read as
+          the deal's actual figure. */}
+      {expanded && (
+        <DealEditPanel
+          deal={deal}
+          pipelines={pipelines}
+          users={users}
+          refError={refError}
+          onSaved={onSaved}
+          onDeleted={onDeleted}
+        />
+      )}
     </section>
+  )
+}
+
+// A read-only label/value pair for the card face.
+//
+// Renders "Not set" rather than being omitted: on a card these four sit in a
+// fixed row, and dropping one would shift the others so the same field appears
+// in a different place on every card.
+function Stat({ label, value, mono = false }) {
+  const set = value != null && String(value).trim() !== ''
+  return (
+    <div style={{ minWidth: 0 }}>
+      <span
+        style={{
+          display: 'block', marginBottom: 2,
+          fontSize: 'var(--text-xs)', fontWeight: 600,
+          letterSpacing: 'var(--tracking-label)',
+          textTransform: 'uppercase', color: 'var(--text-muted)'
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          fontSize: 'var(--text-lg)', fontWeight: 600,
+          fontFamily: mono && set ? 'var(--font-mono)' : 'var(--font-sans)',
+          color: set ? 'var(--text-heading)' : 'var(--text-faint)'
+        }}
+      >
+        {set ? String(value) : 'Not set'}
+      </span>
+    </div>
   )
 }
 
@@ -480,30 +435,6 @@ function PersonPill({ person }) {
       )}
     </span>
   )
-}
-
-function Field({ label, children }) {
-  return (
-    <div style={{ minWidth: 0 }}>
-      <span
-        style={{
-          display: 'block', marginBottom: 5,
-          fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
-          textTransform: 'uppercase', color: 'var(--text-muted)'
-        }}
-      >
-        {label}
-      </span>
-      {children}
-    </div>
-  )
-}
-
-
-function toDateInput(ts) {
-  const d = new Date(ts)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toISOString().slice(0, 10)
 }
 
 function daysSince(ts) {
