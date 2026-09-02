@@ -1051,6 +1051,12 @@ export default function DealHubTab({
                 highlightedId={highlightedId}
                 onToggleSelect={toggleIncluded}
                 onSelectAll={setAllIncluded}
+                // So the empty state can tell "this deal has no history" from
+                // "your chips hide all of it" — only this component knows the
+                // unfiltered count and which chips are on.
+                totalCount={messages?.length ?? null}
+                filtersActive={channelFilter.length > 0 || peopleFilter.length > 0}
+                onClearFilters={() => { setChannelFilter([]); setPeopleFilter([]) }}
               />
               {/* All three panels stacked, no tab to pick between them. With
                   only three sections left, switching cost a click and hid two

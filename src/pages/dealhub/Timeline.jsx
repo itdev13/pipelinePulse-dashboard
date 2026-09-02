@@ -1,5 +1,5 @@
 import React from 'react'
-import { RichBody } from '../shared/ListChrome'
+import { RichBody, StateMessage } from '../shared/ListChrome'
 
 // One deal's merged message timeline.
 //
@@ -461,6 +461,12 @@ export default function Timeline({
   onJumpAttachment,
   onToggleSelect,
   onSelectAll,
+  // Empty-state wording depends on WHY the list is empty, and only the caller
+  // knows: it holds the unfiltered set and the active filters. `totalCount` is
+  // every row before filtering; `filtersActive` says chips are narrowing it.
+  totalCount = null,
+  filtersActive = false,
+  onClearFilters = null,
 }) {
   // The header counts each kind separately — tasks and notes now share the
   // stream, and folding them into "23 messages" would overstate the thread.
@@ -528,7 +534,12 @@ export default function Timeline({
 
       {/* A bar that says what the checkboxes are for. They were unlabelled, so
           nothing on screen explained that ticking one changes what the agent
-          reads. */}
+          reads.
+
+          Hidden when there is nothing to tick: a "select every message"
+          checkbox above an empty list is a control that cannot do anything,
+          and it was the only thing rendered on an empty timeline. */}
+      {selectable.length > 0 && (
       <div
         style={{
           display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
@@ -554,7 +565,50 @@ export default function Timeline({
           Ticked messages are the ones Co-Pilot reads
         </span>
       </div>
+      )}
 
+      {/* Empty states. messages.map over [] rendered NOTHING, so an empty
+          timeline was a header above a large blank panel — the one place in the
+          app that looked broken rather than empty.
+
+          Three cases, because they need different words and only one is
+          actionable:
+            filters hide everything → offer to clear them
+            nothing on the deal yet → explain what will appear here
+            (a deal with rows) → the list
+          `totalCount` is null when the caller doesn't pass it, in which case
+          we can't tell the two apart and give the neutral wording. */}
+      {messages.length === 0 ? (
+        <StateMessage
+          empty
+          inline
+          emptyIcon={filtersActive ? 'filter_alt_off' : 'forum'}
+          emptyTitle={filtersActive ? 'Nothing matches those filters' : 'No conversation yet'}
+          emptyText={
+            filtersActive
+              ? totalCount
+                ? `This deal has ${totalCount} ${totalCount === 1 ? 'row' : 'rows'}, but none match what you've selected above.`
+                : 'Try selecting fewer chips above.'
+              : 'Messages, notes, tasks and stage changes will appear here as the deal progresses.'
+          }
+          action={filtersActive && onClearFilters ? (
+            <button
+              onClick={onClearFilters}
+              style={{
+                height: 34, padding: '0 14px',
+                border: '1px solid var(--border-strong)',
+                borderRadius: 'var(--radius-md)',
+                background: '#fff',
+                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+                fontWeight: 600, color: 'var(--text-heading)',
+                cursor: 'pointer'
+              }}
+            >
+              Clear filters
+            </button>
+          ) : null}
+        />
+      ) : (
       <div
         style={{
           position: 'relative',
@@ -593,6 +647,7 @@ export default function Timeline({
           )
         })}
       </div>
+      )}
     </section>
   )
 }

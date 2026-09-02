@@ -442,6 +442,7 @@ function Details({ contact, onSaved }) {
               would be a control that does nothing. */}
           <Select
             disabled
+            notFoundContent="No contact type set"
             title="Contact type is a custom field — edit it in your CRM"
             value={type || undefined}
             onChange={(v) => {

@@ -397,7 +397,10 @@ function Pill({ name, onRemove, busy, locked }) {
             color: 'var(--accent-pine-text)'
           }}
         >
-          <span className="ms" style={{ fontSize: 13 }}>
+          <span
+            className={busy ? 'ms pp-spin' : 'ms'}
+            style={{ fontSize: 13 }}
+          >
             {busy ? 'progress_activity' : 'close'}
           </span>
         </button>

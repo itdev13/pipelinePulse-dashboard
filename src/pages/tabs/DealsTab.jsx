@@ -274,6 +274,9 @@ function DealCard({ deal, onOpenDeal }) {
             placeholder="No stage"
             style={{ width: '100%' }}
             options={stage ? [{ value: stage, label: stage }] : []}
+            // Otherwise antd's generic "No data" — which reads as a failure
+            // rather than as "this list isn't available here on purpose".
+            notFoundContent="Open the deal to change its stage"
           />
         </Field>
         <Field label="Owner">

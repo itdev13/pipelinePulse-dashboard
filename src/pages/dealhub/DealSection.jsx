@@ -428,6 +428,9 @@ function StageColumn({ deal, stages, onSaveField, saving }) {
         disabled={saving === 'pipelineStageId'}
         loading={saving === 'pipelineStageId'}
         popupClassName="pp-menu"
+        // Stages come from a separate fetch, so an empty list means that call
+        // failed — say so instead of antd's generic "No data".
+        notFoundContent="Couldn't load this pipeline's stages"
         // The deal's stage may be retired or missing from pipeline_stages (the
         // /stages route injects a virtual entry for that) — keep it visible
         // either way, so the control never silently shows the wrong stage.
@@ -746,7 +749,14 @@ function FieldPicker({ label, value, spec, saving, onChange }) {
         >
           {set ? String(value) : 'Not set'}
         </span>
-        <span className="ms" style={{ fontSize: 15, color: 'var(--text-faint)' }}>
+        {/* pp-spin only while saving — the icon swapped to progress_activity
+            but kept plain "ms", so it rendered as a static glyph that looked
+            like a stalled spinner. Every other spinner in the app is
+            "ms pp-spin"; this one was the outlier. */}
+        <span
+          className={saving ? 'ms pp-spin' : 'ms'}
+          style={{ fontSize: 15, color: 'var(--text-faint)' }}
+        >
           {saving ? 'progress_activity' : 'edit'}
         </span>
       </button>

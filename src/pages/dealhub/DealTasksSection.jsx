@@ -252,7 +252,10 @@ export function DealTasksSection({ dealId, people = [] }) {
               color: 'var(--status-stuck-text)'
             }}
           >
-            <span className="ms" style={{ fontSize: 15 }}>
+            <span
+              className={deleting === t.id ? 'ms pp-spin' : 'ms'}
+              style={{ fontSize: 15 }}
+            >
               {deleting === t.id ? 'progress_activity' : 'close'}
             </span>
           </button>
@@ -482,7 +485,10 @@ export function DealNotesSection({ dealId, people = [] }) {
                 color: 'var(--status-stuck-text)'
               }}
             >
-              <span className="ms" style={{ fontSize: 15 }}>
+              <span
+                className={busy === n.id ? 'ms pp-spin' : 'ms'}
+                style={{ fontSize: 15 }}
+              >
                 {busy === n.id ? 'progress_activity' : 'close'}
               </span>
             </button>

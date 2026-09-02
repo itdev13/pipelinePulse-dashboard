@@ -255,8 +255,22 @@ export function SearchInput({ value, onChange, placeholder, width = 300, onKeyDo
 // `loading` renders row skeletons rather than a text line: these panels are
 // the page's whole content, so a bare "Loading…" leaves the layout empty and
 // then snaps. Pass skeletonRows to match the density of the real rows.
+// The empty state takes an icon and tint so a panel can match its own accent
+// instead of every empty state in the app being gold with an inbox glyph — a
+// teal Timeline panel showing a gold card read as a warning rather than as
+// "nothing here yet".
+//
+// `inline` drops the border, tint and margin for an empty state rendered
+// INSIDE an already-bordered panel, where the default card-in-a-card looks
+// like a layout bug. It keeps the padding and centring so the panel still has
+// deliberate height rather than collapsing to nothing.
+//
+// `emptyTitle` is the short answer ("No messages yet"); `emptyText` is the
+// explanation under it. Title alone is fine — a state nobody needs explaining
+// shouldn't be padded out with a sentence.
 export function StateMessage({
-  loading, error, empty, emptyText, loadingText, skeletonRows = 4
+  loading, error, empty, emptyText, emptyTitle, loadingText, skeletonRows = 4,
+  emptyIcon = 'inbox', inline = false, action = null
 }) {
   if (error) {
     return (
@@ -287,29 +301,58 @@ export function StateMessage({
     return (
       <div
         style={{
-          margin: 'var(--space-2) 0',
-          padding: '28px var(--space-5)',
-          border: '1px dashed var(--accent-gold)',
-          borderRadius: 'var(--radius-md)',
-          background: 'var(--tint-gold)',
+          margin: inline ? 0 : 'var(--space-2) 0',
+          padding: inline ? '44px var(--space-5)' : '28px var(--space-5)',
+          border: inline ? 'none' : '1px dashed var(--accent-gold)',
+          borderRadius: inline ? 0 : 'var(--radius-md)',
+          background: inline ? 'transparent' : 'var(--tint-gold)',
           textAlign: 'center'
         }}
       >
+        {/* A tinted disc behind the glyph. A bare icon on a white panel reads
+            as a stray character; the disc makes it deliberate. */}
         <span
-          className="ms"
-          style={{ fontSize: 30, color: 'var(--accent-gold-text)' }}
-        >
-          inbox
-        </span>
-        <p
           style={{
-            margin: '8px auto 0', maxWidth: 380,
-            fontSize: 'var(--text-md)', lineHeight: 'var(--leading-normal)',
-            color: 'var(--text-body)'
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 46, height: 46, borderRadius: '50%',
+            background: inline ? 'var(--panel-tint, var(--gray-50))' : 'transparent'
           }}
         >
-          {emptyText}
-        </p>
+          <span
+            className="ms"
+            style={{
+              fontSize: 26,
+              color: inline
+                ? 'var(--panel-accent, var(--text-faint))'
+                : 'var(--accent-gold-text)'
+            }}
+          >
+            {emptyIcon}
+          </span>
+        </span>
+        {emptyTitle && (
+          <p
+            style={{
+              margin: '10px 0 0',
+              fontSize: 'var(--text-lg)', fontWeight: 600,
+              color: 'var(--text-heading)'
+            }}
+          >
+            {emptyTitle}
+          </p>
+        )}
+        {emptyText && (
+          <p
+            style={{
+              margin: emptyTitle ? '4px auto 0' : '8px auto 0', maxWidth: 380,
+              fontSize: 'var(--text-md)', lineHeight: 'var(--leading-normal)',
+              color: 'var(--text-muted)'
+            }}
+          >
+            {emptyText}
+          </p>
+        )}
+        {action && <div style={{ marginTop: 'var(--space-3)' }}>{action}</div>}
       </div>
     )
   }
