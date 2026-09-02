@@ -671,6 +671,15 @@ function TagRow({ deal }) {
 // An editable custom field. Reads as a chip until clicked, then becomes a
 // picker — so a card with five of these still scans as a row of facts rather
 // than a form.
+// One save per EDIT, not per click.
+//
+// This used to call onChange — a PUT to GHL, ~700ms — on every option click.
+// On a multi-select that meant three round trips to pick three options, with
+// the dropdown blocked on each one, so picking felt like it hung.
+//
+// Now the picks are held in a local draft and written once, when the dropdown
+// closes. Multi-select gets the bigger win (n saves become 1); single-select
+// still saves immediately on pick, since choosing an option IS closing it.
 function FieldPicker({ label, value, spec, saving, onChange }) {
   const [open, setOpen] = useState(false)
   const set = value != null && String(value).trim() !== ''
@@ -680,6 +689,25 @@ function FieldPicker({ label, value, spec, saving, onChange }) {
   const current = spec.multiple
     ? (Array.isArray(value) ? value : (set ? String(value).split(',').map((v) => v.trim()) : []))
     : (set ? String(value) : undefined)
+
+  // The uncommitted selection. null means "nothing picked yet this session" —
+  // distinct from [], which is a deliberate clear of every option.
+  const [draft, setDraft] = useState(null)
+  const shown = draft === null ? current : draft
+
+  // Commit only when the draft actually differs. Opening a dropdown and
+  // closing it again must not fire a write, and order is irrelevant for a
+  // checkbox set, so both sides are sorted before comparing.
+  const commit = () => {
+    setOpen(false)
+    if (draft === null) return
+    const same = Array.isArray(draft) && Array.isArray(current)
+      ? draft.length === current.length &&
+        [...draft].sort().join('\u0000') === [...current].sort().join('\u0000')
+      : draft === current
+    setDraft(null)
+    if (!same) onChange(draft)
+  }
 
   if (!open) {
     return (
@@ -740,13 +768,24 @@ function FieldPicker({ label, value, spec, saving, onChange }) {
         autoFocus
         defaultOpen
         mode={spec.multiple ? 'multiple' : undefined}
-        value={current}
+        value={shown}
         onChange={(v) => {
-          onChange(v)
-          if (!spec.multiple) setOpen(false)
+          if (spec.multiple) {
+            // Local only — written by commit() when the dropdown closes.
+            setDraft(v)
+            return
+          }
+          // Single-select: picking IS closing, so save straight away.
+          setDraft(null)
+          setOpen(false)
+          if (v !== current) onChange(v)
         }}
-        // Multi-select stays open while picking; close on blur instead.
-        onBlur={() => setOpen(false)}
+        // Commit on the popup actually closing, not on blur. A click on an
+        // option inside a multi-select popup can blur the input, which would
+        // commit halfway through picking. onOpenChange fires once, on dismiss.
+        // (onOpenChange, not the deprecated onDropdownVisibleChange — antd 5.)
+        onOpenChange={(o) => { if (!o) commit() }}
+        onBlur={commit}
         options={spec.options.map((o) => ({ value: o, label: o }))}
         placeholder="Not set"
         allowClear
