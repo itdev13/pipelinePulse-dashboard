@@ -70,6 +70,19 @@ export default function TagPicker({
   // guessed at.
   const [focused, setFocused] = useState(false)
 
+  // Where to draw the suggestion list, in VIEWPORT coordinates.
+  //
+  // It used to be position:absolute inside the field. That worked until the
+  // modal body became a scroll container (overflow-y:auto, so a long form
+  // cannot push the footer off screen) — an absolutely positioned child is
+  // clipped by the nearest scrolling ancestor, so the list was cut off at the
+  // body's edge and scrolled away with the content instead of floating over
+  // the dialog.
+  //
+  // position:fixed escapes the clip, but fixed coordinates do not follow the
+  // element, so they have to be measured and refreshed while it is open.
+  const [anchor, setAnchor] = useState(null)
+
   const suggestions = useMemo(() => {
     const have = new Set(current.map(normaliseTag))
     const available = catalogue.filter((name) => {
@@ -89,6 +102,40 @@ export default function TagPicker({
     if (!normalised) return available.slice(0, 50)
     return available.filter((name) => normaliseTag(name).includes(normalised)).slice(0, 8)
   }, [catalogue, normalised, current])
+
+  // Measure while the list is open, and keep measuring: the modal body scrolls
+  // and the window can resize, and a fixed element does not move with either.
+  useEffect(() => {
+    if (!focused) { setAnchor(null); return }
+    const measure = () => {
+      const el = inputRef.current
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      // Flip above the input when there is not enough room below it — near the
+      // bottom of a short viewport a downward list would be cut off by the
+      // window, which is the same failure in a different container.
+      const below = window.innerHeight - r.bottom
+      const flip = below < 240 && r.top > below
+      setAnchor({
+        left: r.left,
+        width: r.width,
+        top: flip ? undefined : r.bottom + 5,
+        bottom: flip ? window.innerHeight - r.top + 5 : undefined,
+        // Never taller than the room available, so it scrolls internally
+        // rather than off screen.
+        maxHeight: Math.min(220, Math.max(120, flip ? r.top - 12 : below - 12))
+      })
+    }
+    measure()
+    // capture:true — the scroll happens on .pp-modal-body, an ancestor, and a
+    // non-capturing window listener never sees it.
+    window.addEventListener('scroll', measure, true)
+    window.addEventListener('resize', measure)
+    return () => {
+      window.removeEventListener('scroll', measure, true)
+      window.removeEventListener('resize', measure)
+    }
+  }, [focused, suggestions.length])
 
   // Already on the contact? Then Add would be a no-op, so say so rather than
   // firing a request that changes nothing.
@@ -277,16 +324,26 @@ export default function TagPicker({
 
               {/* Open while the input has focus, not only once something is
                   typed — otherwise the catalogue is undiscoverable. */}
-              {focused && suggestions.length > 0 && (
+              {focused && suggestions.length > 0 && anchor && (
                 <div
                   // .pp-pop gives it the same material as the antd menus and
                   // the dialogs — layered shadow, radius-lg, the shared
-                  // entrance. It was a flat 1px box with a single blur.
+                  // entrance.
                   className="pp-pop"
                   style={{
-                    position: 'absolute', top: 'calc(100% + 5px)', left: 0, right: 0,
-                    zIndex: 2,
-                    maxHeight: 220, overflowY: 'auto',
+                    // FIXED, not absolute, and positioned from the measured
+                    // input rect — see the `anchor` effect above. Absolute
+                    // meant the modal body's overflow-y:auto clipped this and
+                    // scrolled it away with the content.
+                    position: 'fixed',
+                    left: anchor.left,
+                    width: anchor.width,
+                    top: anchor.top,
+                    bottom: anchor.bottom,
+                    // Above .pp-modal (60) and .pp-backdrop, below a confirm
+                    // dialog (70) — a popover must not cover a confirmation.
+                    zIndex: 65,
+                    maxHeight: anchor.maxHeight, overflowY: 'auto',
                     background: '#fff',
                     padding: 5
                   }}
