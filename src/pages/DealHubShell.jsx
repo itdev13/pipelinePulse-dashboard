@@ -163,9 +163,23 @@ export default function DealHubShell() {
           boxShadow: '0 1px 2px rgba(23, 33, 46, 0.06)'
         }}
       >
+        {/* The sub-account name, set apart from the navigation.
+            marginRight on top of the header's gap: 14 spaced the name from
+            Back exactly as far as the chips are spaced from each other, so the
+            name read as the first item in the nav rather than as the label for
+            what follows. The extra room is what separates "whose account this
+            is" from "where to go in it".
+            flex: 'none' so a long sub-account name is truncated by the header
+            rather than squeezing the chips. */}
         <span
           title={locationName}
-          style={{ fontWeight: 600, fontSize: 'var(--text-lg)', color: 'var(--text-heading)' }}
+          style={{
+            flex: 'none',
+            maxWidth: 260,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            marginRight: 'var(--space-5)',
+            fontWeight: 600, fontSize: 'var(--text-lg)', color: 'var(--text-heading)'
+          }}
         >
           {locationName}
         </span>

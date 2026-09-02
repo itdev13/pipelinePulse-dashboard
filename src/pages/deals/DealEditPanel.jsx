@@ -78,7 +78,7 @@ const sameSet = (a = [], b = []) => {
 // each one. `refError` likewise comes from the parent, which knows whether the
 // single shared fetch failed.
 export default function DealEditPanel({
-  deal, pipelines, users, refError, onSaved, onDeleted
+  deal, pipelines, users, refError, onSaved, onDeleted, onClose
 }) {
   const [lostReasons, setLostReasons] = useState(null)
 
@@ -566,19 +566,32 @@ export default function DealEditPanel({
         </span>
 
         <button
-          onClick={revert}
-          disabled={!dirty || saving}
+          // Cancel does two jobs depending on state, and is NEVER disabled.
+          //
+          // It used to be `disabled={!dirty || saving}`, which left the panel
+          // with no way out: with no changes to discard the button was inert,
+          // so closing meant scrolling back up to the Edit toggle. A visible
+          // control that does nothing is worse than no control.
+          //
+          // With edits  → discard them and stay open, so the rep can see the
+          //               original values restored.
+          // Without     → close the panel.
+          onClick={dirty ? revert : onClose}
+          disabled={saving}
+          title={dirty ? 'Discard these changes' : 'Close the editor'}
           style={{
             height: 34, padding: '0 15px',
             border: '1px solid var(--border-strong)',
             borderRadius: 'var(--radius-md)',
             background: '#fff', color: 'var(--text-body)',
             fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
-            cursor: dirty && !saving ? 'pointer' : 'default',
-            opacity: dirty && !saving ? 1 : 0.55
+            cursor: saving ? 'default' : 'pointer',
+            opacity: saving ? 0.55 : 1
           }}
         >
-          Cancel
+          {/* The label names what the click will do. "Cancel" on a pristine
+              panel reads as "cancel what?" — there is nothing to cancel. */}
+          {dirty ? 'Cancel' : 'Close'}
         </button>
         <button
           onClick={save}

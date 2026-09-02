@@ -317,6 +317,9 @@ function DealCard({
           refError={refError}
           onSaved={onSaved}
           onDeleted={onDeleted}
+          // Cancel closes the panel when there is nothing to discard, so it
+          // needs the same toggle the Edit button uses.
+          onClose={onToggleExpand}
         />
       )}
     </section>
