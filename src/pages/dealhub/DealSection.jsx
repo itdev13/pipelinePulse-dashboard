@@ -30,6 +30,7 @@ export default function DealSection({
   onSaveField,
   // The field currently in flight, so its control can show progress.
   saving = null,
+  saved = null,
   saveError = null
 }) {
   if (!deal) return null
@@ -149,6 +150,23 @@ export default function DealSection({
           to fetch — hence the dashed amber "Not set" treatment instead of
           hiding the chip. */}
       <FieldChipRow deal={deal} />
+
+      {/* Confirms a write. The controls on this card commit as soon as you pick
+          a date or a stage — correct for a dropdown, but it meant a successful
+          save looked exactly like doing nothing. */}
+      {saved && !saveError && (
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            margin: '0 var(--space-4) 12px',
+            fontSize: 'var(--text-sm)', fontWeight: 600,
+            color: 'var(--status-done-text)'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 15 }}>check_circle</span>
+          Saved to your CRM
+        </div>
+      )}
 
       {saveError && (
         <div

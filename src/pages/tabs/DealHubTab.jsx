@@ -202,6 +202,9 @@ export default function DealHubTab({
   // rolled back on failure; the webhook reconciles a moment later.
   const [savingField, setSavingField] = useState(null)
   const [saveError, setSaveError] = useState(null)
+  // Names the field just written, so the card can confirm it. Without this a
+  // save was completely silent on success — only failures said anything.
+  const [savedField, setSavedField] = useState(null)
 
   const saveDealField = async (field, value) => {
     if (savingField) return
@@ -235,6 +238,8 @@ export default function DealHubTab({
       if (field === 'pipelineStageId' || field === 'status') {
         dealsAPI.get(dealId).then(setDeal).catch(() => {})
       }
+      setSavedField(field)
+      window.setTimeout(() => setSavedField((f) => (f === field ? null : f)), 2200)
     } catch (err) {
       setDeal(before)
       setSaveError(err.message || 'Could not save that — try again')
@@ -758,6 +763,7 @@ export default function DealHubTab({
               // the card accepted input and silently threw it away.
               onSaveField={saveDealField}
               saving={savingField}
+              saved={savedField}
               saveError={saveError}
             />
           )}

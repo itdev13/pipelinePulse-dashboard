@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { DatePicker, Select, Input } from 'antd'
 import dayjs from 'dayjs'
 import { dealsAPI } from '../../api/deals'
@@ -105,41 +105,58 @@ function DealCard({ deal, onOpenDeal }) {
 
   // These controls used to be local state that went nowhere — the card accepted
   // an edit and discarded it on reload. They write now.
-  const [saving, setSaving] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
   const [error, setError] = useState(null)
+  const [errorField, setErrorField] = useState(null)
 
-  const saveField = async (field, v, revert) => {
-    if (saving) return
-    setSaving(field)
+  // What actually changed, against the deal as loaded.
+  //
+  // These used to save on blur with no button. Two problems: nothing told you a
+  // write had happened — you typed a value, clicked away, and the card looked
+  // identical whether it saved or not — and editing two fields fired two
+  // separate requests. One button, one request, one confirmation.
+  const wasValue = deal.monetaryValue != null ? String(deal.monetaryValue) : ''
+  const wasClose = deal.forecastCloseDate ? toDateInput(deal.forecastCloseDate) : ''
+
+  const changes = useMemo(() => {
+    const out = {}
+    if (value.trim() !== wasValue) out.value = value.trim() === '' ? null : value.trim()
+    if (closeDate !== wasClose) out.expectedCloseDate = closeDate || null
+    return out
+  }, [value, closeDate, wasValue, wasClose])
+
+  const dirty = Object.keys(changes).length > 0
+
+  const revert = () => {
+    setValue(wasValue)
+    setCloseDate(wasClose)
     setError(null)
+    setErrorField(null)
+  }
+
+  const save = async () => {
+    if (!dirty || saving) return
+    setSaving(true)
+    setError(null)
+    setErrorField(null)
     try {
-      const res = await dealsAPI.update(deal.id, { [field]: v })
+      const res = await dealsAPI.update(deal.id, changes)
       // Apply what GHL echoed — it truncates the close date to a day and may
       // round the value.
       const o = res?.opportunity
-      if (o?.monetaryValue != null && field === 'value') {
-        setValue(String(o.monetaryValue))
-      }
-      if (o?.forecastExpectedCloseDate !== undefined && field === 'expectedCloseDate') {
+      if (o?.monetaryValue != null) setValue(String(o.monetaryValue))
+      if (o?.forecastExpectedCloseDate !== undefined) {
         setCloseDate(o.forecastExpectedCloseDate || '')
       }
+      setSaved(true)
+      window.setTimeout(() => setSaved(false), 2200)
     } catch (err) {
-      if (revert) revert()
       setError(err.message || 'Could not save that — try again')
-      window.setTimeout(() => setError(null), 5000)
+      setErrorField(err.data?.field || null)
     } finally {
-      setSaving(null)
+      setSaving(false)
     }
-  }
-
-  // Only when it actually changed — blur fires whether or not anything was
-  // typed, and a save per focus-out would be a request every time the rep
-  // tabbed past the field.
-  const saveValue = () => {
-    const now = value.trim()
-    const was = deal.monetaryValue != null ? String(deal.monetaryValue) : ''
-    if (now === was) return
-    saveField('value', now === '' ? null : now, () => setValue(was))
   }
 
   const people = deal.people || []
@@ -225,9 +242,9 @@ function DealCard({ deal, onOpenDeal }) {
             onChange={(e) => setValue(e.target.value)}
             // Commit on blur or Enter, not per keystroke — a write per
             // character would be a request per character.
-            onBlur={() => saveValue()}
-            onPressEnter={() => saveValue()}
-            disabled={saving === 'value'}
+            onPressEnter={save}
+            disabled={saving}
+            status={errorField === 'value' ? 'error' : undefined}
             prefix={<span style={{ color: 'var(--text-faint)' }}>£</span>}
             placeholder="Not priced"
             style={{ fontFamily: 'var(--font-mono)' }}
@@ -239,13 +256,9 @@ function DealCard({ deal, onOpenDeal }) {
               rather than "no date set". */}
           <DatePicker
             value={closeDate ? dayjs(closeDate) : null}
-            onChange={(d) => {
-              const was = closeDate
-              const v = d ? d.format('YYYY-MM-DD') : ''
-              setCloseDate(v)
-              saveField('expectedCloseDate', v || null, () => setCloseDate(was))
-            }}
-            disabled={saving === 'expectedCloseDate'}
+            onChange={(d) => setCloseDate(d ? d.format('YYYY-MM-DD') : '')}
+            disabled={saving}
+            status={errorField === 'expectedCloseDate' ? 'error' : undefined}
             format="D MMM YYYY"
             placeholder="Set a date"
             style={{ width: '100%' }}
@@ -287,6 +300,64 @@ function DealCard({ deal, onOpenDeal }) {
         >
           <span className="ms" style={{ fontSize: 15, flex: 'none', marginTop: 1 }}>error</span>
           {error}
+        </div>
+      )}
+
+      {/* Appears only once something is edited. A permanently visible Save on
+          every card in a list of twenty would be twenty controls doing nothing,
+          and the card is read far more often than it is edited. */}
+      {(dirty || saving || saved) && (
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+            margin: '10px var(--space-4) 0',
+            padding: '9px 0 0',
+            borderTop: '1px solid var(--border-default)'
+          }}
+        >
+          <span style={{ flex: 1, fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
+            {saving
+              ? 'Saving to your CRM…'
+              : saved
+                ? 'Saved'
+                : `${Object.keys(changes).length} unsaved change${Object.keys(changes).length === 1 ? '' : 's'}`}
+          </span>
+          {dirty && !saving && (
+            <button
+              onClick={revert}
+              style={{
+                height: 30, padding: '0 13px',
+                border: '1px solid var(--border-strong)',
+                borderRadius: 'var(--radius-sm)',
+                background: '#fff', color: 'var(--text-body)',
+                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
+                cursor: 'pointer'
+              }}
+            >
+              Cancel
+            </button>
+          )}
+          <button
+            onClick={save}
+            disabled={!dirty || saving}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              height: 30, padding: '0 14px',
+              border: 'none', borderRadius: 'var(--radius-sm)',
+              background: saved
+                ? 'var(--status-done)'
+                : dirty ? 'var(--brand-primary)' : 'var(--gray-200)',
+              color: dirty || saved ? '#fff' : 'var(--text-faint)',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 600,
+              cursor: dirty && !saving ? 'pointer' : 'default'
+            }}
+          >
+            {saving && (
+              <span className="ms pp-spin" style={{ fontSize: 14 }}>progress_activity</span>
+            )}
+            {saved && <span className="ms" style={{ fontSize: 14 }}>check</span>}
+            {saving ? 'Saving' : saved ? 'Saved' : 'Save'}
+          </button>
         </div>
       )}
 
