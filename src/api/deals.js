@@ -31,6 +31,10 @@ export const dealsAPI = {
   // The location's lost reasons, for the picker shown when marking a deal lost.
   lostReasons: () => apiClient.get('/api/deals/lost-reasons'),
 
+  // Picklist choices for the opportunity custom fields shown as chips on the
+  // deal card. Location-wide; fetch once per session.
+  customFieldOptions: () => apiClient.get('/api/deals/custom-field-options'),
+
   create: (fields) => apiClient.post('/api/deals', fields),
   remove: (id) => apiClient.delete(`/api/deals/${encodeURIComponent(id)}`),
 

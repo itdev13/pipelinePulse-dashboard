@@ -31,7 +31,10 @@ export default function DealSection({
   // The field currently in flight, so its control can show progress.
   saving = null,
   saved = null,
-  saveError = null
+  saveError = null,
+  // { client_type: { id, label, options[], multiple }, ... } from
+  // GET /api/deals/custom-field-options.
+  fieldOptions = {}
 }) {
   if (!deal) return null
 
@@ -149,7 +152,12 @@ export default function DealSection({
           unset one is a real gap in the record rather than something we failed
           to fetch — hence the dashed amber "Not set" treatment instead of
           hiding the chip. */}
-      <FieldChipRow deal={deal} />
+      <FieldChipRow
+        deal={deal}
+        fieldOptions={fieldOptions}
+        onSaveField={onSaveField}
+        saving={saving}
+      />
 
       {/* Confirms a write. The controls on this card commit as soon as you pick
           a date or a stage — correct for a dropdown, but it meant a successful
@@ -493,7 +501,16 @@ const FIELD_CHIPS = [
   ['Lead source opportunity', 'leadSource']
 ]
 
-function FieldChipRow({ deal }) {
+// The five opportunity custom fields, as editable pickers.
+//
+// These were read-only chips because nothing sent their options — GHL defines
+// them as picklists and customFieldsSync has stored the choices since migration
+// 023, but no route exposed them. `fieldOptions` now carries
+// { id, label, options[], multiple } per field.
+//
+// A field with no options in the response stays a plain chip: a free-text
+// custom field must not render as an empty dropdown.
+function FieldChipRow({ deal, fieldOptions = {}, onSaveField, saving }) {
   const isSet = (k) => {
     const v = deal[k]
     return v != null && String(v).trim() !== ''
@@ -514,9 +531,23 @@ function FieldChipRow({ deal }) {
         borderTop: '1px solid var(--border-default)'
       }}
     >
-      {ordered.map(([label, key]) => (
-        <FieldChip key={key} label={label} value={deal[key]} />
-      ))}
+      {ordered.map(([label, key]) => {
+        // The deal response uses camelCase (clientType); the definitions are
+        // keyed by GHL's snake_case field key (client_type).
+        const spec = fieldOptions[toSnake(key)]
+        return spec && onSaveField ? (
+          <FieldPicker
+            key={key}
+            label={label}
+            value={deal[key]}
+            spec={spec}
+            saving={saving === spec.id}
+            onChange={(v) => onSaveField('customField', { id: spec.id, value: v })}
+          />
+        ) : (
+          <FieldChip key={key} label={label} value={deal[key]} />
+        )
+      })}
 
       {/* Tags share this line rather than getting their own labelled block
           below. They're the same kind of thing — small facts about the deal —
@@ -613,6 +644,102 @@ function TagRow({ deal }) {
   )
 }
 
+
+// clientType -> client_type. The deal response and the custom-field
+// definitions use different conventions for the same field.
+function toSnake(key) {
+  return key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
+}
+
+// An editable custom field. Reads as a chip until clicked, then becomes a
+// picker — so a card with five of these still scans as a row of facts rather
+// than a form.
+function FieldPicker({ label, value, spec, saving, onChange }) {
+  const [open, setOpen] = useState(false)
+  const set = value != null && String(value).trim() !== ''
+
+  // GHL multi-selects arrive as an array or a comma-joined string depending on
+  // the path; the picker needs an array either way.
+  const current = spec.multiple
+    ? (Array.isArray(value) ? value : (set ? String(value).split(',').map((v) => v.trim()) : []))
+    : (set ? String(value) : undefined)
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        disabled={saving}
+        title={`Change ${label}`}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 7,
+          maxWidth: '100%',
+          height: 34, padding: '0 12px',
+          border: set
+            ? '1px solid var(--border-strong)'
+            : '1px dashed var(--accent-gold)',
+          borderRadius: 'var(--radius-md)',
+          background: set ? '#fff' : 'var(--tint-gold)',
+          fontFamily: 'var(--font-sans)',
+          cursor: saving ? 'progress' : 'pointer'
+        }}
+      >
+        <span
+          style={{
+            fontSize: 'var(--text-xs)', fontWeight: 600,
+            letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase',
+            color: 'var(--text-muted)'
+          }}
+        >
+          {label}
+        </span>
+        <span
+          style={{
+            fontSize: 'var(--text-md)', fontWeight: 600,
+            color: set ? 'var(--text-heading)' : 'var(--accent-gold-text)',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+          }}
+        >
+          {set ? String(value) : 'Not set'}
+        </span>
+        <span className="ms" style={{ fontSize: 15, color: 'var(--text-faint)' }}>
+          {saving ? 'progress_activity' : 'edit'}
+        </span>
+      </button>
+    )
+  }
+
+  return (
+    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 3, minWidth: 200 }}>
+      <span
+        style={{
+          fontSize: 'var(--text-xs)', fontWeight: 600,
+          letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase',
+          color: 'var(--text-muted)'
+        }}
+      >
+        {label}
+      </span>
+      <Select
+        autoFocus
+        defaultOpen
+        mode={spec.multiple ? 'multiple' : undefined}
+        value={current}
+        onChange={(v) => {
+          onChange(v)
+          if (!spec.multiple) setOpen(false)
+        }}
+        // Multi-select stays open while picking; close on blur instead.
+        onBlur={() => setOpen(false)}
+        options={spec.options.map((o) => ({ value: o, label: o }))}
+        placeholder="Not set"
+        allowClear
+        style={{ minWidth: 200 }}
+        popupClassName="pp-menu"
+        getPopupContainer={undefined}
+      />
+    </span>
+  )
+}
 
 function FieldChip({ label, value }) {
   const set = value != null && String(value).trim() !== ''

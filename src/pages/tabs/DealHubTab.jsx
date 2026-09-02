@@ -116,6 +116,20 @@ export default function DealHubTab({
   const [switcherQ, setSwitcherQ] = useState('')
   const switcherRef = useRef(null)
 
+  // Picklist choices for the five opportunity custom fields, so those chips can
+  // be dropdowns rather than read-only text. Location-wide and rarely changing,
+  // so fetched once rather than per deal.
+  const [fieldOptions, setFieldOptions] = useState({})
+  useEffect(() => {
+    let alive = true
+    dealsAPI.customFieldOptions()
+      .then((r) => { if (alive) setFieldOptions(r.fields || {}) })
+      // A failure here costs the dropdowns, not the page — the chips fall back
+      // to read-only, which is what they were before.
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
+
   // Load the deal list once — used by the switcher and the auto-select.
   useEffect(() => {
     let alive = true
@@ -208,12 +222,24 @@ export default function DealHubTab({
 
   const saveDealField = async (field, value) => {
     if (savingField) return
-    setSavingField(field)
+    // Custom fields are keyed by their GHL id, so the right picker shows
+    // progress rather than all five at once.
+    setSavingField(field === 'customField' ? value.id : field)
     setSaveError(null)
     const before = deal
     try {
       let res
-      if (field === 'status') {
+      if (field === 'customField') {
+        // GHL takes customFields as a list of { id, field_value }. One field at
+        // a time here: each picker commits on its own, and sending the whole
+        // set would overwrite fields the rep never touched.
+        res = await dealsAPI.update(dealId, {
+          customFields: [{ id: value.id, field_value: value.value }]
+        })
+        // Refetch — a custom field change doesn't map onto one deal property,
+        // and the echo's shape differs from our read model.
+        dealsAPI.get(dealId).then(setDeal).catch(() => {})
+      } else if (field === 'status') {
         // Its own endpoint — the only one that records a lost reason.
         await dealsAPI.setStatus(dealId, value?.status ?? value, value?.lostReasonId)
         setDeal((d) => d && { ...d, status: value?.status ?? value })
@@ -765,6 +791,7 @@ export default function DealHubTab({
               saving={savingField}
               saved={savedField}
               saveError={saveError}
+              fieldOptions={fieldOptions}
             />
           )}
 
