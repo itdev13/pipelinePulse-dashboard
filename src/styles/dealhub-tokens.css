@@ -984,3 +984,42 @@
   [data-dealhub] .pp-card,
   [data-dealhub] .pp-card:hover { transform: none; }
 }
+
+/* ── The inline field picker ──────────────────────────────────────────────
+ *
+ * The chip row on the deal card swaps a 34px chip for an antd Select when a
+ * field is being edited. antd's default control is 32px, so without this the
+ * swap changed the row's height by 2px and every chip after it shifted.
+ *
+ * Height pinned on the SELECTOR, not the wrapper: antd draws the box on an
+ * inner .ant-select-selector, and a height on the outer element leaves the
+ * inner one at its own size — the same reason .pp-dirty-select and
+ * .pp-invalid-select exist.
+ */
+[data-dealhub] .pp-field-select .ant-select-selector {
+  height: 34px !important;
+  min-height: 34px;
+  border-radius: var(--radius-md);
+}
+
+/* Single-select: centre the text in the taller box. */
+[data-dealhub] .pp-field-select.ant-select-single .ant-select-selector .ant-select-selection-item,
+[data-dealhub] .pp-field-select.ant-select-single .ant-select-selector .ant-select-selection-placeholder,
+[data-dealhub] .pp-field-select.ant-select-single .ant-select-selector .ant-select-selection-search-input {
+  height: 32px;
+  line-height: 32px;
+}
+
+/* Multi-select: the tags set the height, so let it scroll inside the fixed box
+   rather than growing it — a third selected value would otherwise push the row
+   taller and reflow the chips again. */
+[data-dealhub] .pp-field-select.ant-select-multiple .ant-select-selector {
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-wrap: nowrap;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+[data-dealhub] .pp-field-select.ant-select-multiple .ant-select-selection-item {
+  flex: none;
+}

@@ -562,19 +562,42 @@ function FieldChipRow({ deal, fieldOptions = {}, onSaveField, saving }) {
         borderTop: '1px solid var(--border-default)'
       }}
     >
+      {/* Each chip sits in a slot with a reserved minimum width.
+          Without this the row still jumped horizontally: a closed chip is
+          sized to its text ("FIRST CONTACT METHOD Not set"), and the open
+          picker is a fixed 220px, so swapping them changed the slot's width
+          and every chip after it moved along the wrapping row.
+
+          minWidth on the slot, not the chip — the chip keeps its own hug-the-
+          text sizing inside, so a short chip does not stretch its border to
+          220px and look like an empty input. */}
       {ordered.map(([label, key, ghlKey]) => {
         const spec = specFor(ghlKey, key)
+        // The slot. Editable fields reserve the picker's width so the swap is
+        // dimensionless; a read-only chip has no open state and needs none.
         return spec && onSaveField ? (
-          <FieldPicker
+          <span
             key={key}
-            label={label}
-            value={deal[key]}
-            spec={spec}
-            saving={saving === spec.id}
-            // dealKey travels so the handler can update the right property
-            // optimistically — the response shape doesn't name it.
-            onChange={(v) => onSaveField('customField', { id: spec.id, value: v, dealKey: key })}
-          />
+            style={{
+              display: 'inline-flex', alignItems: 'center',
+              height: 34,
+              // At least wide enough for a usable dropdown; wider if the
+              // closed chip's own text needs it. flex:none so the wrapping row
+              // never squeezes a slot below the width its chip established —
+              // that squeeze was itself a source of movement.
+              minWidth: 220, flex: 'none'
+            }}
+          >
+            <FieldPicker
+              label={label}
+              value={deal[key]}
+              spec={spec}
+              saving={saving === spec.id}
+              // dealKey travels so the handler can update the right property
+              // optimistically — the response shape doesn't name it.
+              onChange={(v) => onSaveField('customField', { id: spec.id, value: v, dealKey: key })}
+            />
+          </span>
         ) : (
           <FieldChip key={key} label={label} value={deal[key]} />
         )
@@ -768,10 +791,39 @@ function FieldPicker({ label, value, spec, saving, onChange }) {
     )
   }
 
+  // SAME FOOTPRINT AS THE CHIP, which is the whole point of this branch's
+  // layout.
+  //
+  // This used to be a flexDirection: column block — the label stacked ABOVE
+  // the Select — with minWidth: 200. So opening a picker made the element both
+  // taller and wider than the 34px chip it replaced, and since the row is a
+  // wrapping flex container, every other chip reflowed around it. Clicking a
+  // dropdown visibly threw the row about.
+  //
+  // Now: one row, 34px tall like the chip, with the label INSIDE as a prefix
+  // rather than above. Nothing outside this element changes size, so nothing
+  // moves.
   return (
-    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 3, minWidth: 200 }}>
+    <span
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        height: 34,
+        // Fills the slot rather than setting its own width.
+        //
+        // A fixed 220 was wrong for the wide chips: "CLIENT TYPE Interior
+        // Designer, Architect, Contractor, General, Homeowner" makes its slot
+        // far wider than 220, so opening it SHRANK the slot and the row jumped
+        // again — the same bug, in the other direction.
+        //
+        // width:100% + the slot's minWidth:220 means the slot keeps whatever
+        // width the closed chip gave it (never less than 220), and the picker
+        // simply occupies it. Nothing resizes.
+        width: '100%'
+      }}
+    >
       <span
         style={{
+          flex: 'none',
           fontSize: 'var(--text-xs)', fontWeight: 600,
           letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase',
           color: 'var(--text-muted)'
@@ -813,7 +865,16 @@ function FieldPicker({ label, value, spec, saving, onChange }) {
         options={spec.options.map((o) => ({ value: o, label: o }))}
         placeholder="Not set"
         allowClear
-        style={{ minWidth: 200 }}
+        // flex:1 so it fills the fixed-height wrapper above rather than
+        // setting its own width. minWidth:0 is the flex-child fix — without it
+        // a long multi-select value forces the item wider than its container
+        // and the row reflows again, which is the bug this branch exists to
+        // avoid.
+        style={{ flex: 1, minWidth: 0 }}
+        // Pins the control to the chip's 34px so the swap does not change the
+        // row's height — antd's default is 32px, and its box is on an inner
+        // element a style prop cannot reach.
+        className="pp-field-select"
         popupClassName="pp-menu"
         getPopupContainer={undefined}
       />
