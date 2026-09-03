@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { DatePicker, Select } from 'antd'
 import dayjs from 'dayjs'
-import TagPicker from '../shared/TagPicker'
+import TagSelect from '../shared/TagSelect'
 
 // Deal Hub — Deal section (the deal's own facts).
 //
@@ -636,7 +636,6 @@ function TagRow({ deal }) {
   // moment later; re-fetching the deal to see a pill appear would be slower and
   // no more accurate.
   const [contactTags, setContactTags] = useState(deal.contactTags || [])
-  const [picking, setPicking] = useState(false)
 
   // Tags live on the CONTACT, so editing needs one. GHL names an opportunity
   // after its contact and the primary is who the deal is about, so that's the
@@ -669,44 +668,35 @@ function TagRow({ deal }) {
       >
         Tags:
       </span>
-      {/* TagList dedupes a tag applied to both the deal and the contact, so
-          it stays the single source for the pill list. */}
-      <TagList dealTags={deal.dealTags} contactTags={contactTags} inline />
+      {/* DEAL tags only. The select below renders the contact tags as its own
+          pills, so passing them here too showed every contact tag twice.
+          Deal-scoped tags have no editable control — the contact endpoints
+          cannot touch them — so this is the only place they appear. */}
+      {(deal.dealTags?.length || 0) > 0 && (
+        <TagList dealTags={deal.dealTags} contactTags={[]} inline />
+      )}
 
-      {count === 0 && (
+      {count === 0 && !target && (
         <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
           None yet
         </span>
       )}
 
+      {/* INLINE, not a dialog behind an Edit button.
+          Tags are one field, and a modal for one field dimmed the deal, trapped
+          focus and had to be closed to edit a row of pills. Its suggestion list
+          also grew taller than the dialog containing it.
+          The select shows the current pills AND edits them, so the separate
+          pill list above is only needed for the deal-scoped tags it cannot
+          touch. */}
       {target && (
-        <button
-          onClick={() => setPicking(true)}
-          title={`Edit tags on ${target.firstName || target.name || 'this contact'}`}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5,
-            height: 26, padding: '0 10px 0 8px',
-            border: '1px dashed var(--border-strong)',
-            borderRadius: 'var(--radius-pill)',
-            background: '#fff', color: 'var(--text-body)',
-            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', fontWeight: 500,
-            cursor: 'pointer'
-          }}
-        >
-          <span className="ms" style={{ fontSize: 15 }}>edit</span>
-          Edit
-        </button>
-      )}
-
-      {picking && target && (
-        <TagPicker
+        <TagSelect
           contactId={target.id}
           tags={contactTags}
           // Deal-scoped tags can't be changed through the contact endpoint, so
-          // they're shown locked rather than offered and silently ignored.
+          // they're listed as locked rather than offered and silently ignored.
           readOnlyTags={deal.dealTags || []}
           onChange={setContactTags}
-          onClose={() => setPicking(false)}
         />
       )}
     </div>

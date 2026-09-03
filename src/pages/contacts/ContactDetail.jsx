@@ -4,7 +4,7 @@ import { contactsAPI } from '../../api/contacts'
 import {
   Panel, StateMessage, SkeletonStyles, Bar, formatDate, initialsFor, nameFor
 } from '../shared/ListChrome'
-import TagPicker from '../shared/TagPicker'
+import TagSelect from '../shared/TagSelect'
 
 // Contact record — everything about one person, in four panels:
 //
@@ -222,54 +222,16 @@ function Header({ contact }) {
 // another input in the form.
 function TagStrip({ contactId, tags }) {
   const [current, setCurrent] = useState(tags)
-  const [picking, setPicking] = useState(false)
 
+  // The select renders the pills AND edits them, so the hand-rolled pill list
+  // and the "Edit tags" button that opened a modal are both gone — three
+  // controls for one field became one.
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
-      {current.map((t) => (
-        <span
-          key={t}
-          style={{
-            height: 22, padding: '0 9px',
-            display: 'inline-flex', alignItems: 'center',
-            borderRadius: 'var(--radius-pill)',
-            border: '1px solid var(--green-100)',
-            background: 'var(--tint-pine)', color: 'var(--accent-pine-text)',
-            fontSize: 'var(--text-sm)', fontWeight: 600
-          }}
-        >
-          {t}
-        </span>
-      ))}
-
-      <button
-        onClick={() => setPicking(true)}
-        title="Add or remove tags"
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 4,
-          height: 22, padding: '0 9px 0 7px',
-          border: '1px dashed var(--border-strong)',
-          borderRadius: 'var(--radius-pill)',
-          background: '#fff', color: 'var(--text-body)',
-          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', fontWeight: 500,
-          cursor: 'pointer'
-        }}
-      >
-        <span className="ms" style={{ fontSize: 14 }}>
-          {current.length ? 'edit' : 'add'}
-        </span>
-        {current.length ? 'Edit tags' : 'Add a tag'}
-      </button>
-
-      {picking && (
-        <TagPicker
-          contactId={contactId}
-          tags={current}
-          onChange={setCurrent}
-          onClose={() => setPicking(false)}
-        />
-      )}
-    </div>
+    <TagSelect
+      contactId={contactId}
+      tags={current}
+      onChange={setCurrent}
+    />
   )
 }
 

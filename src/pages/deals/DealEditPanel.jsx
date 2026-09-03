@@ -512,7 +512,7 @@ export default function DealEditPanel({
             </Field>
           </Row>
           {/* NO TAG PICKER HERE, deliberately.
-              TagPicker edits CONTACT tags and needs the contact's current list
+              TagSelect edits CONTACT tags and needs the contact's current list
               to diff against. The list route does not send it: `deal.tags` is
               opportunities.tags (the OPPORTUNITY's tags), and contact tags come
               from a separate contact_tags query that only GET /api/deals/:id
