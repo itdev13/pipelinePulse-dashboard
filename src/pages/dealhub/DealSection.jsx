@@ -668,19 +668,11 @@ function TagRow({ deal }) {
       >
         Tags:
       </span>
-      {/* DEAL tags only. The select below renders the contact tags as its own
-          pills, so passing them here too showed every contact tag twice.
-          Deal-scoped tags have no editable control — the contact endpoints
-          cannot touch them — so this is the only place they appear. */}
-      {(deal.dealTags?.length || 0) > 0 && (
-        <TagList dealTags={deal.dealTags} contactTags={[]} inline />
-      )}
-
-      {count === 0 && !target && (
-        <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
-          None yet
-        </span>
-      )}
+      {/* NO TagList any more. TagSelect's collapsed view renders the contact
+          tags AND the locked deal tags itself, so this duplicated both — the
+          deal tags twice, and before that the contact tags twice.
+          One component owns the pills and the editing, which is the point of
+          collapsing it rather than keeping a separate display list. */}
 
       {/* INLINE, not a dialog behind an Edit button.
           Tags are one field, and a modal for one field dimmed the deal, trapped
@@ -702,7 +694,6 @@ function TagRow({ deal }) {
     </div>
   )
 }
-
 
 // An editable custom field. Reads as a chip until clicked, then becomes a
 // picker — so a card with five of these still scans as a row of facts rather
@@ -1041,93 +1032,6 @@ function ContactLines({ person }) {
         </span>
       ))}
     </div>
-  )
-}
-
-function TagList({ dealTags = [], contactTags = [], inline = false }) {
-  const [expanded, setExpanded] = useState(false)
-
-  const deal = dealTags || []
-  const seen = new Set(deal)
-  const contact = (contactTags || []).filter((t) => !seen.has(t))
-  const all = [
-    ...deal.map((t) => ({ name: t, scope: 'deal' })),
-    ...contact.map((t) => ({ name: t, scope: 'contact' }))
-  ]
-  if (all.length === 0) return null
-
-  const LIMIT = 6
-  const shown = expanded ? all : all.slice(0, LIMIT)
-  const hidden = all.length - shown.length
-
-  const pills = (
-    <>
-        {shown.map((t) => (
-          <span
-            key={`${t.scope}:${t.name}`}
-            title={
-              t.scope === 'deal'
-                ? 'Set on the opportunity record'
-                : 'Applied to the contact — tags are scoped to contacts'
-            }
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)',
-              maxWidth: '100%',
-              height: 28, padding: '0 11px',
-              borderRadius: 'var(--radius-pill)',
-              // Tinted rather than grey-on-grey. A tag is a label someone chose
-              // to apply, so it should read as one.
-              border: '1px solid var(--green-100)',
-              background: 'var(--tint-pine)',
-              color: 'var(--accent-pine-text)',
-              fontSize: 'var(--text-md)', fontWeight: 600
-            }}
-          >
-            {/* Deal-scoped tags are rare enough to be worth marking, but
-                not worth a second colour scheme — a dot reads as "more
-                specific" without implying contact tags are lesser. */}
-            {t.scope === 'deal' && (
-              <span
-                style={{
-                  width: 5, height: 5, flex: 'none',
-                  borderRadius: '50%', background: 'var(--green-700)'
-                }}
-              />
-            )}
-            <span
-              style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-            >
-              {t.name}
-            </span>
-          </span>
-        ))}
-        {(hidden > 0 || expanded) && (
-          <button
-            onClick={() => setExpanded((v) => !v)}
-            style={{
-              height: 24, padding: '0 9px',
-              border: '1px solid var(--border-strong)',
-              borderRadius: 'var(--radius-pill)',
-              background: '#fff', color: 'var(--text-muted)',
-              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', fontWeight: 500,
-              cursor: 'pointer'
-            }}
-          >
-            {expanded ? 'Show less' : `+${hidden}`}
-          </button>
-        )}
-    </>
-  )
-
-  // Inline: the pills join the parent's flex row, so no wrapper and no label.
-  // Standalone keeps the labelled block for anywhere else that needs it.
-  if (inline) return pills
-
-  return (
-    <>
-      <FieldLabel>Tags</FieldLabel>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>{pills}</div>
-    </>
   )
 }
 

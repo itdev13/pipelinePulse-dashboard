@@ -8,7 +8,7 @@ import ContactPicker from './ContactPicker'
 // editor. Suspense falls back to a sized placeholder so the dialog does not
 // jump when it arrives.
 const RichEditor = React.lazy(() => import('./RichEditor'))
-import { sanitiseHtml } from '../../utils/sanitiseHtml'
+import { sanitiseHtml, htmlToText } from '../../utils/sanitiseHtml'
 import RemotePicker from './RemotePicker'
 import {
   searchDeals, searchBusinesses, dealOption, businessOption
@@ -149,7 +149,15 @@ export default function NoteEditor({
   }, [editing, note, body, title, colour, pinned])
 
   const dirty = editing ? Object.keys(changes).length > 0 : body.trim().length > 0
-  const canSave = !saving && dirty
+  // Over the limit blocks the save.
+  //
+  // The editor's counter turned red but Save stayed enabled, so the only way
+  // to discover the limit was a rejected request. Counted as TEXT, matching
+  // both the counter and the server — the HTML is far longer than what is
+  // stored against the limit.
+  const bodyLength = htmlToText(body).length
+  const tooLong = bodyLength > 65000
+  const canSave = !saving && dirty && !tooLong
     && body.trim().length > 0
     && (editing || !!contactId)
 
@@ -305,6 +313,7 @@ export default function NoteEditor({
               placeholder="What's worth recording?"
               disabled={saving}
               invalid={errorField === 'body'}
+              // Mirrors notePatch.js's MAX_BODY on the server.
               maxLength={65000}
               minHeight={150}
               autoFocus={!editing}
@@ -493,8 +502,17 @@ export default function NoteEditor({
             borderTop: '1px solid var(--border-default)'
           }}
         >
-          <span className="pp-modal-status">
-            {saving ? 'Saving to your CRM…' : editing && !dirty ? 'No changes yet' : '⌘↵ to save'}
+          {/* Says WHY Save is disabled. An inert button with no reason is
+              the worst of the three states. */}
+          <span
+            className="pp-modal-status"
+            style={tooLong ? { color: 'var(--status-stuck-text)' } : undefined}
+          >
+            {tooLong
+              ? `The note is ${(bodyLength - 65000).toLocaleString()} characters over the limit`
+              : saving
+                ? 'Saving to your CRM…'
+                : editing && !dirty ? 'No changes yet' : '⌘↵ to save'}
           </span>
           <button
             onClick={onClose}

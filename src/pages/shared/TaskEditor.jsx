@@ -5,7 +5,7 @@ import dayjs from 'dayjs'
 import { tasksAPI } from '../../api/tasks'
 import ContactPicker from './ContactPicker'
 import RemotePicker from './RemotePicker'
-import { sanitiseHtml } from '../../utils/sanitiseHtml'
+import { sanitiseHtml, htmlToText } from '../../utils/sanitiseHtml'
 
 // Lazy, same reason as the note editor: TipTap is ~127 KB gzipped and only
 // needed once a dialog opens. Shares the chunk with NoteEditor's copy.
@@ -132,7 +132,15 @@ export default function TaskEditor({
   }, [editing, task, title, body, dueDate])
 
   const dirty = editing ? Object.keys(changes).length > 0 : title.trim().length > 0
-  const canSave = !saving && dirty
+  // Over the limit blocks the save.
+  //
+  // The editor's counter turned red but Save stayed enabled, so the only way
+  // to discover the limit was a rejected request. Counted as TEXT, matching
+  // both the counter and the server — the HTML is far longer than what is
+  // stored against the limit.
+  const bodyLength = htmlToText(body).length
+  const tooLong = bodyLength > 2000
+  const canSave = !saving && dirty && !tooLong
     && title.trim().length > 0
     && (editing || (!!contactId && !!dueDate))
 
@@ -299,7 +307,10 @@ export default function TaskEditor({
                 placeholder="Anything worth remembering about it"
                 disabled={saving}
                 invalid={errorField === 'body'}
-                maxLength={5000}
+                // Mirrors taskPatch.js's MAX_LENGTHS.body on the server, which
+                // is the enforcing rule — this only stops the rep discovering
+                // it via a rejected save.
+                maxLength={2000}
                 minHeight={110}
               />
             </React.Suspense>
@@ -415,8 +426,17 @@ export default function TaskEditor({
             borderTop: '1px solid var(--border-default)'
           }}
         >
-          <span className="pp-modal-status">
-            {saving ? 'Saving to your CRM…' : editing && !dirty ? 'No changes yet' : '⌘↵ to save'}
+          {/* Says WHY Save is disabled. An inert button with no reason is
+              the worst of the three states. */}
+          <span
+            className="pp-modal-status"
+            style={tooLong ? { color: 'var(--status-stuck-text)' } : undefined}
+          >
+            {tooLong
+              ? `The description is ${(bodyLength - 2000).toLocaleString()} characters over the limit`
+              : saving
+                ? 'Saving to your CRM…'
+                : editing && !dirty ? 'No changes yet' : '⌘↵ to save'}
           </span>
           <button
             onClick={onClose}

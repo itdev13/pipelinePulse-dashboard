@@ -1195,6 +1195,11 @@
 
 /* The editable surface. */
 [data-dealhub] .pp-editor-content {
+  /* Set by RichEditor as an inline custom property on the wrapper, so the
+     EDITABLE element carries the height rather than its container — see the
+     comment there. Without this the box below the text was not clickable. */
+  min-height: var(--pp-editor-min, 120px);
+  box-sizing: border-box;
   padding: 10px 12px;
   font-family: var(--font-sans);
   font-size: var(--text-lg);

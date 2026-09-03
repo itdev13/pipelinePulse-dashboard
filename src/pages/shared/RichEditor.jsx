@@ -127,10 +127,20 @@ export default function RichEditor({
         }}
       >
         <Toolbar editor={editor} disabled={disabled} />
+        {/* minHeight goes on the EDITABLE surface via a CSS variable, not on
+            this wrapper.
+            EditorContent renders a wrapper div and ProseMirror renders the
+            contentEditable inside it. A minHeight here sized the wrapper while
+            the editable child stayed as tall as its text — so the click target
+            ended where the text ended, and the leftover wrapper height showed
+            below it as a second empty box with a line between. That line was
+            the bottom of the editable area, not a border.
+            Setting it on .pp-editor-content instead means the whole box is
+            editable and clicking the empty space places the cursor. */}
         <EditorContent
           editor={editor}
-          style={{ minHeight }}
-          // The placeholder is CSS-driven (see .pp-editor-content:empty::before)
+          style={{ ['--pp-editor-min']: `${minHeight}px` }}
+          // The placeholder is CSS-driven (see the is-editor-empty rule)
           // because ProseMirror always has a paragraph node, so an empty
           // document is not an empty element.
           data-placeholder={placeholder}

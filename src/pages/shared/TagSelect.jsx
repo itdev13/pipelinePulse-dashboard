@@ -38,6 +38,8 @@ export default function TagSelect({
   const [catalogue, setCatalogue] = useState(TAG_CACHE.tags || [])
   const [loading, setLoading] = useState(!TAG_CACHE.tags)
   const [busy, setBusy] = useState(false)
+  // Collapsed until the pencil is clicked — see the render below.
+  const [editing, setEditing] = useState(false)
   const [error, setError] = useState(null)
 
   // Re-sync when the parent's list genuinely changes — a refetch, or another
@@ -155,12 +157,101 @@ export default function TagSelect({
     }
   }
 
+  const shown = current.map(normaliseTag).filter(Boolean)
+
+  // COLLAPSED BY DEFAULT: pills, then a pencil.
+  //
+  // The select box was always visible, so a read surface (the deal card, a
+  // contact record) carried what looked like an open form field with a
+  // dropdown arrow — inviting an edit nobody had asked to make, and reading as
+  // unsaved input rather than as the record's current tags.
+  //
+  // Same pattern as the deal card's FieldPicker: show the value, offer a
+  // pencil, swap in the control on click. Editing is the exception, not the
+  // resting state.
+  if (!editing) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        {shown.map((t) => (
+          <span
+            key={t}
+            style={{
+              display: 'inline-flex', alignItems: 'center',
+              height: 24, padding: '0 10px',
+              borderRadius: 'var(--radius-pill)',
+              border: '1px solid var(--green-100)',
+              background: 'var(--tint-pine)', color: 'var(--accent-pine-text)',
+              fontSize: 'var(--text-sm)', fontWeight: 600
+            }}
+          >
+            {t}
+          </span>
+        ))}
+
+        {/* Deal tags: shown, marked locked, not editable — they live on the
+            opportunity and the contact endpoints cannot touch them. */}
+        {locked.filter((t) => !shown.includes(t)).map((t) => (
+          <span
+            key={t}
+            title="On the deal — change it on the deal record"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              height: 24, padding: '0 9px',
+              borderRadius: 'var(--radius-pill)',
+              border: '1px solid var(--border-default)',
+              background: 'var(--surface-sunken)', color: 'var(--text-muted)',
+              fontSize: 'var(--text-sm)', fontWeight: 600
+            }}
+          >
+            <span className="ms" style={{ fontSize: 12 }}>lock</span>
+            {t}
+          </span>
+        ))}
+
+        {shown.length === 0 && locked.length === 0 && (
+          <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-faint)' }}>
+            No tags
+          </span>
+        )}
+
+        {!disabled && contactId && (
+          <button
+            onClick={() => setEditing(true)}
+            title={shown.length ? 'Edit tags' : 'Add a tag'}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              height: 24, padding: '0 9px 0 7px',
+              border: '1px dashed var(--border-strong)',
+              borderRadius: 'var(--radius-pill)',
+              background: 'var(--surface-card)', color: 'var(--text-muted)',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', fontWeight: 500,
+              cursor: 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 14 }}>
+              {shown.length ? 'edit' : 'add'}
+            </span>
+            {shown.length ? 'Edit' : 'Add a tag'}
+          </button>
+        )}
+      </span>
+    )
+  }
+
   return (
     <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 3, minWidth: 240 }}>
       <Select
         mode="tags"
-        value={current.map(normaliseTag).filter(Boolean)}
+        value={shown}
         onChange={apply}
+        // Opens straight into the dropdown — the pencil WAS the decision to
+        // edit, so a second click to open the list would be a click for
+        // nothing.
+        autoFocus
+        defaultOpen
+        // Collapse back to pills on click-away. Every change has already saved
+        // on its own, so there is nothing to commit here.
+        onBlur={() => setEditing(false)}
         disabled={disabled || !contactId}
         loading={loading || busy}
         options={options}
