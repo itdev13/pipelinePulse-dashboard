@@ -1,5 +1,5 @@
 import React from 'react'
-import { RichBody, StateMessage } from '../shared/ListChrome'
+import { RichBody, StateMessage, AttachmentCount } from '../shared/ListChrome'
 
 // One deal's merged message timeline.
 //
@@ -388,6 +388,9 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
             {isNote ? 'Note' : 'Task'}
           </span>
           {isNote && m.isAi && <Badge tone="sky" icon="auto_awesome">AI note</Badge>}
+          {/* GHL omits attachments from note webhooks, so noteWriter fetches
+              GET /notes/:id and the server counts them out of raw_note. */}
+          {isNote && <AttachmentCount count={m.attachmentCount} />}
           {!isNote && m.status === 'completed' && <Badge tone="pine" icon="check">Done</Badge>}
           {!isNote && m.overdue && m.status !== 'completed' && (
             <Badge tone="rose" icon="schedule">Overdue</Badge>

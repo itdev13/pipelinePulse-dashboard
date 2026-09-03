@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { tasksAPI } from '../../api/tasks'
 import { notesAPI } from '../../api/notes'
-import { formatDue, relativeTime, RichBody } from '../shared/ListChrome'
+import { formatDue, relativeTime, RichBody, AttachmentCount } from '../shared/ListChrome'
 import TaskEditor from '../shared/TaskEditor'
 import NoteEditor from '../shared/NoteEditor'
 import ConfirmDialog from '../shared/ConfirmDialog'
@@ -468,14 +468,17 @@ export function DealNotesSection({ dealId, people = [], onOpenAll }) {
                   />
                 </div>
               )}
-              <span
+              <div
                 style={{
-                  display: 'block', marginTop: 5,
-                  fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
+                  display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+                  marginTop: 5
                 }}
               >
-                {[n.author, relativeTime(n.createdAt)].filter(Boolean).join(' · ')}
-              </span>
+                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
+                  {[n.author, relativeTime(n.createdAt)].filter(Boolean).join(' · ')}
+                </span>
+                <AttachmentCount count={n.attachmentCount} />
+              </div>
             </div>
 
             <EditButton

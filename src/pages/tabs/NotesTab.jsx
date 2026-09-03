@@ -6,7 +6,8 @@ import { useLinkTargets } from '../../hooks/useLinkTargets'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import {
   Shell, PageHeader, Panel, ContactChip, DealChip, Chip, RowAction,
-  PrimaryAction, NoteChip, StateMessage, LoadMore, RichBody, relativeTime
+  PrimaryAction, NoteChip, StateMessage, LoadMore, RichBody, relativeTime,
+  AttachmentCount
 } from '../shared/ListChrome'
 
 // Notes — v5.
@@ -208,6 +209,7 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                         Pinned
                       </span>
                     )}
+                    <AttachmentCount count={n.attachmentCount} />
                   </div>
 
                   {rest && (

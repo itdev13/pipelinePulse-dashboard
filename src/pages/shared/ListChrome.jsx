@@ -660,6 +660,32 @@ export function LoadMore({ sentinelRef, hasMore, loadingMore, count, noun = 'ite
 // note into an email, or reading a body whose formatting is noise rather than
 // meaning. Stripping happens here in the browser — no server round trip and
 // nothing stored differently.
+// "2 files" — the count only, never the files themselves.
+//
+// GHL does not send attachments on a note webhook, so noteWriter fetches
+// GET /notes/:id and the response lands in raw_note; the server counts the
+// array in SQL. The URLs GHL returns are signed and expire, so offering them
+// from our stored copy would hand out links that may already be dead. A count
+// tells a rep the note has files and to open it in the CRM to read them.
+export function AttachmentCount({ count }) {
+  if (!count) return null
+  return (
+    <span
+      title={`${count} ${count === 1 ? 'file' : 'files'} attached — open the note in your CRM to view`}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        padding: '2px 8px',
+        borderRadius: 'var(--radius-pill)',
+        background: 'var(--surface-sunken)', color: 'var(--text-muted)',
+        fontSize: 'var(--text-sm)', fontWeight: 600
+      }}
+    >
+      <span className="ms" style={{ fontSize: 13 }}>attach_file</span>
+      {count} {count === 1 ? 'file' : 'files'}
+    </span>
+  )
+}
+
 export function RichBody({
   html, maxWidth = 640, size = 'var(--text-md)',
   // Callers that pair this with a heading need it muted, so the two lines
