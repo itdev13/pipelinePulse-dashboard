@@ -1136,3 +1136,105 @@
   font-size: var(--text-base);
   color: var(--text-faint);
 }
+
+/* ── Rich editor ──────────────────────────────────────────────────────────
+ *
+ * The note/task body editor (TipTap). Styles live here rather than inline
+ * because the editable surface and its content are rendered by ProseMirror —
+ * a style prop cannot reach `.ProseMirror` or the paragraphs inside it.
+ */
+[data-dealhub] .pp-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-sunken);
+  /* A long toolbar in a 460px dialog must not force the panel wider. */
+  flex-wrap: wrap;
+}
+
+[data-dealhub] .pp-tb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+[data-dealhub] .pp-tb-btn:hover:not(:disabled) {
+  background: var(--gray-100);
+  color: var(--text-heading);
+}
+[data-dealhub] .pp-tb-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* An active mark reads as pressed. Brand tint rather than a border, so the
+   button does not change size when it toggles. */
+[data-dealhub] .pp-tb-on {
+  background: var(--tint-pine);
+  color: var(--accent-pine-text);
+}
+[data-dealhub] .pp-tb-on:hover:not(:disabled) {
+  background: var(--tint-pine);
+  color: var(--accent-pine-text);
+}
+
+[data-dealhub] .pp-tb-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--border-default);
+}
+
+/* The editable surface. */
+[data-dealhub] .pp-editor-content {
+  padding: 10px 12px;
+  font-family: var(--font-sans);
+  font-size: var(--text-lg);
+  line-height: var(--leading-normal);
+  color: var(--text-body);
+  outline: none;
+  overflow-y: auto;
+  max-height: 320px;
+}
+
+/* ProseMirror always holds at least one paragraph, so :empty never matches —
+   it marks the empty document with its own class instead. */
+[data-dealhub] .pp-editor-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--text-faint);
+}
+
+/* Content spacing. ProseMirror emits bare <p>, and the browser default margin
+   leaves a gap above the first line that reads as broken padding. */
+[data-dealhub] .pp-editor-content > p { margin: 0 0 var(--space-2); }
+[data-dealhub] .pp-editor-content > p:last-child { margin-bottom: 0; }
+[data-dealhub] .pp-editor-content ul,
+[data-dealhub] .pp-editor-content ol { margin: 0 0 var(--space-2); padding-left: 22px; }
+[data-dealhub] .pp-editor-content li > p { margin: 0; }
+[data-dealhub] .pp-editor-content blockquote {
+  margin: 0 0 var(--space-2);
+  padding-left: 10px;
+  border-left: 3px solid var(--border-strong);
+  color: var(--text-muted);
+}
+[data-dealhub] .pp-editor-content a {
+  color: var(--text-link);
+  text-decoration: underline;
+}
+
+/* Focus ring on the WRAPPER, since the editable child has outline:none. */
+[data-dealhub] .pp-editor:focus-within {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(31, 122, 92, 0.12);
+}

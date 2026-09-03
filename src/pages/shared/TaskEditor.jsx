@@ -5,6 +5,11 @@ import dayjs from 'dayjs'
 import { tasksAPI } from '../../api/tasks'
 import ContactPicker from './ContactPicker'
 import RemotePicker from './RemotePicker'
+import { sanitiseHtml } from '../../utils/sanitiseHtml'
+
+// Lazy, same reason as the note editor: TipTap is ~127 KB gzipped and only
+// needed once a dialog opens. Shares the chunk with NoteEditor's copy.
+const RichEditor = React.lazy(() => import('./RichEditor'))
 import {
   searchDeals, searchBusinesses, dealOption, businessOption
 } from '../../hooks/useLinkTargets'
@@ -64,7 +69,16 @@ export default function TaskEditor({
   const [businessId, setBusinessId] = useState(task?.businessId || null)
 
   const [title, setTitle] = useState(task?.title || '')
-  const [body, setBody] = useState(() => stripHtml(task?.body || initialBody || ''))
+  // HTML, not stripped text — see the note in NoteEditor. initialBody comes
+  // from Co-Pilot as PLAIN text, so it is escaped and wrapped in a paragraph.
+  const [body, setBody] = useState(() => {
+    const raw = task?.body || ''
+    if (raw) return sanitiseHtml(raw)
+    if (!initialBody) return ''
+    const esc = String(initialBody)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    return `<p>${esc}</p>`
+  })
   const [dueDate, setDueDate] = useState(
     task?.dueAt ? dayjs(task.dueAt) : null
   )
@@ -99,7 +113,9 @@ export default function TaskEditor({
     if (!editing) return null
     const out = {}
     if (title.trim() !== (task.title || '')) out.title = title.trim()
-    if (body.trim() !== stripHtml(task.body || '')) out.body = body.trim()
+    // Both sides sanitised, so markup our sanitiser would strip is not
+    // mistaken for an edit.
+    if (body.trim() !== sanitiseHtml(task.body || '').trim()) out.body = body.trim()
     const wasDue = task.dueAt ? dayjs(task.dueAt) : null
     const sameDue = (!wasDue && !dueDate)
       || (wasDue && dueDate && wasDue.isSame(dueDate, 'minute'))
@@ -253,14 +269,32 @@ export default function TaskEditor({
           </Field>
 
           <Field label="Description" error={errorField === 'body' ? error : null}>
-            <Input.TextArea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder="Anything worth remembering about it"
-              rows={3}
-              maxLength={5000}
-              status={errorField === 'body' ? 'error' : undefined}
-            />
+            {/* Rich text, like the note editor. Task bodies already RENDER as
+                HTML through RichBody, so a plain textarea here was the same
+                asymmetry notes had: formatting could be displayed but never
+                written, and editing a formatted task flattened it. */}
+            <React.Suspense
+              fallback={
+                <div
+                  style={{
+                    minHeight: 110,
+                    border: '1px solid var(--border-strong)',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--surface-sunken)'
+                  }}
+                />
+              }
+            >
+              <RichEditor
+                value={body}
+                onChange={setBody}
+                placeholder="Anything worth remembering about it"
+                disabled={saving}
+                invalid={errorField === 'body'}
+                maxLength={5000}
+                minHeight={110}
+              />
+            </React.Suspense>
           </Field>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
@@ -443,16 +477,3 @@ function Field({ label, required, error, children }) {
 // Task bodies come back as markup (the CRM's editor is rich text), but this
 // form edits plain text — sending HTML the rep didn't write would compound
 // every time they saved.
-function stripHtml(html) {
-  const raw = String(html || '')
-  if (!raw) return ''
-  if (!/<[a-z][^>]*>/i.test(raw)) return raw
-  const doc = new DOMParser().parseFromString(raw, 'text/html')
-  doc.querySelectorAll('br').forEach((el) => el.replaceWith('\n'))
-  doc.querySelectorAll('p, div, li').forEach((el) => el.append('\n'))
-  return (doc.body.textContent || '')
-    .replace(/\u00a0/g, ' ')
-    .replace(/ *\n */g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-}

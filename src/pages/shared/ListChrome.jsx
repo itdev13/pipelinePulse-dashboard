@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
+import { sanitiseHtml } from '../../utils/sanitiseHtml'
 
 // Shared chrome for the list tabs (Notes / Tasks / Deals).
 //
@@ -671,6 +672,30 @@ export function RichBody({
   leading = 1.5
 }) {
   const [plain, setPlain] = useState(false)
+
+  // SANITISED HERE, at the single render site.
+  //
+  // This component is the ONLY place note/task HTML reaches
+  // dangerouslySetInnerHTML, and it is used by six callers (the notes tab, the
+  // tasks tab, the deal timeline, the task rail, the note rail). Nothing
+  // filtered the markup: not the server — notePatch validates type and length
+  // only — and not the client.
+  //
+  // A note body is attacker-influenceable. Anyone with access to the
+  // sub-account can write one through GoHighLevel, and inbound integrations
+  // write them too. So a <script> or an onerror= attribute in a note executed
+  // inside this dashboard, with the session's credentials.
+  //
+  // Sanitising in RichBody rather than at each caller means a new caller
+  // cannot forget. useMemo because this parses HTML, and a timeline of 200
+  // notes would otherwise re-parse every one on each render.
+  //
+  // Before the early return below: a hook cannot sit after a conditional
+  // return, and disabling the lint rule there would have hidden a real bug
+  // rather than a false positive — React tracks hooks by call order, so a
+  // render that bailed early would desynchronise every hook after it.
+  const safe = useMemo(() => sanitiseHtml(html), [html])
+
   if (!html) return null
 
   const text = plain ? toPlainText(html) : null
@@ -687,7 +712,7 @@ export function RichBody({
         <div
           className="pp-rich"
           style={{ ...base, overflowWrap: 'anywhere' }}
-          dangerouslySetInnerHTML={{ __html: html }}
+          dangerouslySetInnerHTML={{ __html: safe }}
         />
       )}
 

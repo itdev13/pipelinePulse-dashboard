@@ -1,8 +1,14 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useModal } from '../../hooks/useModal'
 import { Input } from 'antd'
 import { notesAPI } from '../../api/notes'
 import ContactPicker from './ContactPicker'
+// LAZY. TipTap and ProseMirror are ~180 KB gzipped and are only needed once a
+// note dialog opens — a rep reading the deals list should not download an
+// editor. Suspense falls back to a sized placeholder so the dialog does not
+// jump when it arrives.
+const RichEditor = React.lazy(() => import('./RichEditor'))
+import { sanitiseHtml } from '../../utils/sanitiseHtml'
 import RemotePicker from './RemotePicker'
 import {
   searchDeals, searchBusinesses, dealOption, businessOption
@@ -78,7 +84,17 @@ export default function NoteEditor({
   const modalRef = useModal()
 
   const [title, setTitle] = useState(note?.title || '')
-  const [body, setBody] = useState(() => stripHtml(note?.body || initialBody || ''))
+  // HTML, not stripped text. stripHtml() here was the data loss: a formatted
+  // note opened for editing became plain text, and saving wrote that back.
+  //
+  // initialBody comes from Co-Pilot's "Save as note" as plain text, so it is
+  // wrapped in a paragraph — otherwise ProseMirror treats a bare string as an
+  // empty document.
+  const [body, setBody] = useState(() => {
+    const raw = note?.body || ''
+    if (raw) return sanitiseHtml(raw)
+    return initialBody ? `<p>${escapeHtml(initialBody)}</p>` : ''
+  })
   const [colour, setColour] = useState(note?.color || null)
   const [pinned, setPinned] = useState(note?.pinned === true)
   // A note links to ONE deal — GHL's note→opportunity cap is 1, so attaching a
@@ -97,12 +113,9 @@ export default function NoteEditor({
   const [error, setError] = useState(null)
   const [errorField, setErrorField] = useState(null)
 
-  const bodyRef = useRef(null)
-  useEffect(() => {
-    // Focus the body — it's the only field a note actually needs.
-    const t = window.setTimeout(() => bodyRef.current?.focus(), 40)
-    return () => window.clearTimeout(t)
-  }, [])
+  // No focus effect: RichEditor takes autoFocus and focuses the ProseMirror
+  // surface itself. A ref-and-timeout here would have targeted a textarea
+  // that no longer exists.
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape' && !saving) onClose() }
@@ -121,7 +134,9 @@ export default function NoteEditor({
   const changes = useMemo(() => {
     if (!editing) return null
     const out = {}
-    if (body.trim() !== stripHtml(note.body || '')) out.body = body.trim()
+    // Both sides sanitised, so a note whose stored HTML differs only in what
+    // our sanitiser would strip is not reported as an edit.
+    if (body.trim() !== sanitiseHtml(note.body || '').trim()) out.body = body.trim()
     if (title.trim() !== (note.title || '')) out.title = title.trim()
     if ((colour || null) !== (note.color || null)) out.color = colour || null
     if (pinned !== (note.pinned === true)) out.pinned = pinned
@@ -261,15 +276,35 @@ export default function NoteEditor({
           style={{ display: 'grid', gap: 'var(--space-3)', padding: 'var(--space-4)' }}
         >
           <Field label="Note" required error={errorField === 'body' ? error : null}>
-            <Input.TextArea
-              ref={bodyRef}
+            {/* Rich text, not a textarea.
+                GHL stores a note body as HTML, and this used to strip it on
+                read and send plain text on write — so formatting written in
+                GHL was destroyed the moment a rep edited the note here.
+                Paste is sanitised on the way in, so pasting from Word, Gmail
+                or GHL cannot carry markup we would not store. */}
+            <React.Suspense
+              fallback={
+                <div
+                  style={{
+                    minHeight: 150,
+                    border: '1px solid var(--border-strong)',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--surface-sunken)'
+                  }}
+                />
+              }
+            >
+            <RichEditor
               value={body}
-              onChange={(e) => setBody(e.target.value)}
+              onChange={setBody}
               placeholder="What's worth recording?"
-              rows={6}
+              disabled={saving}
+              invalid={errorField === 'body'}
               maxLength={65000}
-              status={errorField === 'body' ? 'error' : undefined}
+              minHeight={150}
+              autoFocus={!editing}
             />
+            </React.Suspense>
           </Field>
 
           {/* Optional, and worth saying so: before this existed the UI derived
@@ -527,6 +562,16 @@ function Swatch({ colour, label, active, onClick }) {
   )
 }
 
+// Co-Pilot's "Save as note" passes PLAIN text, which is inserted into a
+// paragraph. Escaping it first: an agent answer quoting a customer's
+// "<3 the design" would otherwise be parsed as markup and vanish.
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
 function Field({ label, required, hint, error, children }) {
   return (
     <div style={{ minWidth: 0 }}>
@@ -562,16 +607,3 @@ function Field({ label, required, hint, error, children }) {
 // Note bodies come back as markup (GHL's editor is rich text) but this form
 // edits plain text — sending HTML the rep didn't write would compound on every
 // save.
-function stripHtml(html) {
-  const raw = String(html || '')
-  if (!raw) return ''
-  if (!/<[a-z][^>]*>/i.test(raw)) return raw
-  const doc = new DOMParser().parseFromString(raw, 'text/html')
-  doc.querySelectorAll('br').forEach((el) => el.replaceWith('\n'))
-  doc.querySelectorAll('p, div, li').forEach((el) => el.append('\n'))
-  return (doc.body.textContent || '')
-    .replace(/\u00a0/g, ' ')
-    .replace(/ *\n */g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-}
