@@ -48,6 +48,16 @@ export const dealsAPI = {
   create: (fields) => apiClient.post('/api/deals', fields),
   remove: (id) => apiClient.delete(`/api/deals/${encodeURIComponent(id)}`),
 
+  // People on the deal. `relationId`, not contactId, on remove: an
+  // opportunity↔contact relation is a real row with its own id, which is why
+  // opportunity_contacts is keyed on it.
+  addContact: (id, contactId) =>
+    apiClient.post(`/api/deals/${encodeURIComponent(id)}/contacts`, { contactId }),
+  removeContact: (id, relationId) =>
+    apiClient.delete(
+      `/api/deals/${encodeURIComponent(id)}/contacts/${encodeURIComponent(relationId)}`
+    ),
+
   // Additive both ways, like contact tags.
   addFollowers: (id, followers) =>
     apiClient.post(`/api/deals/${encodeURIComponent(id)}/followers`, { followers }),

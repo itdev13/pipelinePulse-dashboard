@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Select, Spin } from 'antd'
 import { contactsAPI } from '../../api/contacts'
+import { initialsFor } from './ListChrome'
 
 // Pick the contact a task or note belongs to.
 //
@@ -142,31 +143,56 @@ function Empty({ children }) {
 
 // Name on top, the distinguishing detail beneath — the shape GHL's own user
 // picker uses, and the only way a list of leads is tellable apart.
+// One row in the dropdown: avatar, name, and the detail that tells two people
+// with the same name apart.
+//
+// The avatar is what the row was missing. A list of names with no visual
+// anchor is slower to scan than the same list with initials — the eye lands on
+// colour before it reads text. `accent` is hashed from the contact id server
+// side, so the same person is the same colour on every surface (the deal
+// card's pills use the same rule).
 function ContactRow({ contact: c }) {
   if (!c) return null
   const detail = [c.email, c.phone, c.business].filter(Boolean)[0]
+  const accent = c.accent || 'sky'
   return (
-    <span style={{ display: 'block', minWidth: 0, padding: '2px 0' }}>
+    <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
       <span
+        aria-hidden="true"
         style={{
-          display: 'block',
-          fontSize: 'var(--text-md)', fontWeight: 500, color: 'var(--text-body)',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 30, height: 30, flex: 'none',
+          borderRadius: '50%',
+          background: `var(--tint-${accent})`,
+          color: `var(--accent-${accent}-text)`,
+          fontSize: 'var(--text-sm)', fontWeight: 600,
+          letterSpacing: '0.02em'
         }}
       >
-        {nameOf(c)}
+        {initialsFor(c.firstName, c.lastName, nameOf(c))}
       </span>
-      {detail && (
+      <span style={{ display: 'block', minWidth: 0, flex: 1 }}>
         <span
           style={{
-            display: 'block', marginTop: 1,
-            fontSize: 'var(--text-sm)', color: 'var(--text-muted)',
+            display: 'block',
+            fontSize: 'var(--text-md)', fontWeight: 500, color: 'var(--text-heading)',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
           }}
         >
-          {detail}
+          {nameOf(c)}
         </span>
-      )}
+        {detail && (
+          <span
+            style={{
+              display: 'block', marginTop: 1,
+              fontSize: 'var(--text-sm)', color: 'var(--text-muted)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+            }}
+          >
+            {detail}
+          </span>
+        )}
+      </span>
     </span>
   )
 }

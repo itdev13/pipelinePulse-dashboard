@@ -1,9 +1,14 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
-import { sanitiseHtml, htmlToText, isHtmlEmpty } from '../../utils/sanitiseHtml'
+// Both ship in @tiptap/extensions, which StarterKit already pulls in — no new
+// dependency. Placeholder was MISSING: the CSS targeted p.is-editor-empty,
+// a class only this extension adds, so the placeholder never rendered and the
+// editor just sat blank.
+import { Placeholder, CharacterCount } from '@tiptap/extensions'
+import { sanitiseHtml, isHtmlEmpty } from '../../utils/sanitiseHtml'
 
 // The note/task body editor.
 //
@@ -36,6 +41,9 @@ export default function RichEditor({
   invalid = false,
   autoFocus = false
 }) {
+  // Character count, mirrored into React state — see onUpdate below.
+  const [count, setCount] = useState(0)
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -54,6 +62,18 @@ export default function RichEditor({
         link: false
       }),
       Underline,
+      Placeholder.configure({ placeholder }),
+      // ProseMirror's own count, which counts the DOCUMENT's text — the same
+      // thing the server measures. My previous approach re-parsed getHTML()
+      // through htmlToText on every keystroke, which is both slower and a
+      // second implementation of "how long is this".
+      // limit STOPS typing at the cap rather than letting a rep write past it
+      // and discover the problem at save time. textSize counts textContent,
+      // which is what the server measures — counting the HTML would refuse
+      // notes the server would accept.
+      ...(maxLength
+        ? [CharacterCount.configure({ limit: maxLength, mode: 'textSize' })]
+        : []),
       Link.configure({
         openOnClick: false,          // clicking inside an editor should place the cursor
         autolink: true,              // typing a URL makes it a link
@@ -86,6 +106,16 @@ export default function RichEditor({
       // ProseMirror emits '<p></p>' for an empty document. Reporting that as
       // content would make a required-field check pass on an empty note.
       onChange?.(isHtmlEmpty(html) ? '' : html)
+      // Local state so THIS component re-renders.
+      //
+      // The counter reads editor.storage.characterCount, and ProseMirror
+      // storage is not React state — mutating it triggers nothing. Relying on
+      // the parent's onChange did not help either: the value it sends back is
+      // the one we just emitted, so the sync effect no-ops and no render
+      // happens. Verified in a browser: the counter never appeared.
+      if (maxLength) {
+        setCount(ed.storage.characterCount?.characters() ?? 0)
+      }
     }
   })
 
@@ -110,55 +140,74 @@ export default function RichEditor({
     if (editor) editor.setEditable(!disabled)
   }, [disabled, editor])
 
+  // Seed the count once the editor exists, and again whenever content is set
+  // programmatically (opening a note that already has a body). onUpdate does
+  // not fire for setContent with emitUpdate:false, so without this an existing
+  // note showed no counter until the first keystroke.
+  useEffect(() => {
+    if (!editor || !maxLength) return
+    setCount(editor.storage.characterCount?.characters() ?? 0)
+  }, [editor, maxLength, value])
+
   if (!editor) return null
 
-  const count = maxLength ? htmlToText(editor.getHTML()).length : 0
+  // With `limit` set, typing cannot exceed the cap, so this is only reachable
+  // when pre-existing content (a note written in GHL) is already over.
   const over = maxLength ? count > maxLength : false
 
+  // One element, not a wrapper around it. The outer div existed only to stack
+  // the character counter beneath the box; the counter now lives inside it.
   return (
-    <div>
-      <div
-        className="pp-editor"
-        style={{
-          border: `1px solid ${invalid || over ? 'var(--status-stuck)' : 'var(--border-strong)'}`,
-          borderRadius: 'var(--radius-md)',
-          background: disabled ? 'var(--surface-sunken)' : 'var(--surface-card)',
-          overflow: 'hidden'
-        }}
-      >
-        <Toolbar editor={editor} disabled={disabled} />
-        {/* minHeight goes on the EDITABLE surface via a CSS variable, not on
-            this wrapper.
-            EditorContent renders a wrapper div and ProseMirror renders the
-            contentEditable inside it. A minHeight here sized the wrapper while
-            the editable child stayed as tall as its text — so the click target
-            ended where the text ended, and the leftover wrapper height showed
-            below it as a second empty box with a line between. That line was
-            the bottom of the editable area, not a border.
-            Setting it on .pp-editor-content instead means the whole box is
-            editable and clicking the empty space places the cursor. */}
-        <EditorContent
-          editor={editor}
-          style={{ ['--pp-editor-min']: `${minHeight}px` }}
-          // The placeholder is CSS-driven (see the is-editor-empty rule)
-          // because ProseMirror always has a paragraph node, so an empty
-          // document is not an empty element.
-          data-placeholder={placeholder}
-        />
-      </div>
+    <div
+      className="pp-editor"
+      style={{
+        border: `1px solid ${invalid || over ? 'var(--status-stuck)' : 'var(--border-strong)'}`,
+        borderRadius: 'var(--radius-md)',
+        background: disabled ? 'var(--surface-sunken)' : 'var(--surface-card)',
+        overflow: 'hidden'
+      }}
+    >
+      <Toolbar editor={editor} disabled={disabled} />
 
-      {maxLength && (
+      {/* minHeight goes on the EDITABLE surface via a CSS variable, not on
+          this wrapper.
+          EditorContent renders a wrapper div and ProseMirror renders the
+          contentEditable inside it. A minHeight here sized the wrapper while
+          the editable child stayed as tall as its text — so the click target
+          ended where the text ended, and the leftover wrapper height showed
+          below it as a second empty box with a line between. That line was
+          the bottom of the editable area, not a border.
+          Setting it on .pp-editor-content instead means the whole box is
+          editable and clicking the empty space places the cursor. */}
+      <EditorContent
+        editor={editor}
+        style={{ ['--pp-editor-min']: `${minHeight}px` }}
+      />
+
+      {/* INSIDE the box, not floating under it.
+          It was a right-aligned line below the border, which read as an
+          unrelated caption — and on the task editor it collided with the
+          footer's status text. As a bottom bar it belongs to the field, and
+          it only appears once there is something to count: "0 / 2,000" on an
+          empty note is noise. */}
+      {maxLength && count > 0 && (
         <div
           style={{
-            marginTop: 4, textAlign: 'right',
+            display: 'flex', justifyContent: 'flex-end',
+            padding: '4px 10px 5px',
+            borderTop: '1px solid var(--border-default)',
             fontSize: 'var(--text-sm)',
-            color: over ? 'var(--status-stuck-text)' : 'var(--text-faint)'
+            fontVariantNumeric: 'tabular-nums',
+            color: over
+              ? 'var(--status-stuck-text)'
+              : count > maxLength * 0.9 ? 'var(--text-muted)' : 'var(--text-faint)'
           }}
         >
-          {/* Counts TEXT, not markup. A body of 300 visible characters can be
-              3000 of HTML, and GHL's limit is on what it stores — so counting
-              the HTML would refuse notes the server would accept. */}
-          {count.toLocaleString()} / {maxLength.toLocaleString()}
+          {/* Only shows the ceiling as it gets close — the limit is not
+              interesting at 40 characters of 2,000. */}
+          {count > maxLength * 0.75
+            ? `${count.toLocaleString()} / ${maxLength.toLocaleString()}`
+            : count.toLocaleString()}
         </div>
       )}
     </div>

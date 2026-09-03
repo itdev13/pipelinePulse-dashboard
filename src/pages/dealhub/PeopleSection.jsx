@@ -1,4 +1,6 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
+import { dealsAPI } from '../../api/deals'
+import ContactPicker from '../shared/ContactPicker'
 
 // Deal Hub — People section (opp-associated contacts).
 //
@@ -20,7 +22,12 @@ import React, { useState } from 'react'
 export default function PeopleSection({
   people = [],
   peopleFilter = [],
-  onPeopleFilterChange
+  onPeopleFilterChange,
+  // Needed to add someone — the link is made against the opportunity.
+  dealId,
+  // Called after a successful add so the parent refetches; the RelationCreate
+  // webhook is what actually writes the row.
+  onPeopleChanged
 }) {
   if (!people || people.length === 0) return null
 
@@ -79,7 +86,7 @@ export default function PeopleSection({
       </div>
 
       {/* Add-contact search (mockup-parity — write flow deferred) */}
-      <AddContactFooter />
+      <AddContactFooter dealId={dealId} people={people} onAdded={onPeopleChanged} />
     </section>
   )
 }
@@ -316,8 +323,53 @@ function GhostBtn({ icon, children, onClick, active, danger, title }) {
   )
 }
 
-function AddContactFooter() {
-  const [q, setQ] = useState('')
+// Add a person to the deal.
+//
+// This was a bare <input> that typed into local state and printed
+// "Add-contact search wires up next" — it searched nothing and saved nothing.
+//
+// ContactPicker is the app's existing searchable contact control: it queries
+// GET /api/contacts?q= under RLS, matches name, email, phone AND business in
+// one query, debounces, and guards against out-of-order responses. Rebuilding
+// a search box here would have been a third copy of that.
+//
+// COLLAPSED until clicked, like the tag and field editors: a rail listing who
+// is on a deal should not carry a permanently open search field.
+function AddContactFooter({ dealId, people = [], onAdded }) {
+  const [open, setOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+
+  // Everyone already on the deal, so the picker cannot offer a duplicate —
+  // GHL would accept the second link and the rail would show the person twice.
+  const alreadyOn = useMemo(
+    () => new Set((people || []).map((p) => p.id).filter(Boolean)),
+    [people]
+  )
+
+  const add = async (contactId) => {
+    if (!contactId || saving) return
+    if (alreadyOn.has(contactId)) {
+      setError('That person is already on this deal')
+      window.setTimeout(() => setError(null), 4000)
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      await dealsAPI.addContact(dealId, contactId)
+      setOpen(false)
+      // The RelationCreate webhook writes opportunity_contacts, so the rail
+      // refreshes from the server rather than us inventing a row — the same
+      // reason nothing is written locally on the server side.
+      onAdded && onAdded()
+    } catch (err) {
+      setError(err.message || 'Could not add that person — try again')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div
       style={{
@@ -326,23 +378,65 @@ function AddContactFooter() {
         borderTop: '1px solid var(--border-default)'
       }}
     >
-      <span className="ms" style={{ fontSize: 17, color: 'var(--text-muted)' }}>person_add</span>
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Add someone to this deal — search contacts"
-        style={{
-          width: 320, height: 32, boxSizing: 'border-box',
-          padding: '0 10px',
-          border: '1px solid var(--border-strong)',
-          borderRadius: 'var(--radius-md)',
-          background: '#fff',
-          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', color: 'var(--text-body)'
-        }}
-      />
-      {q && (
+      {!open ? (
+        <button
+          onClick={() => setOpen(true)}
+          disabled={!dealId}
+          title={dealId ? 'Add someone to this deal' : 'No deal in scope'}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            height: 30, padding: '0 12px 0 10px',
+            border: '1px dashed var(--border-strong)',
+            borderRadius: 'var(--radius-pill)',
+            background: 'var(--surface-card)', color: 'var(--text-body)',
+            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 500,
+            cursor: dealId ? 'pointer' : 'not-allowed'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 16 }}>person_add</span>
+          Add someone
+        </button>
+      ) : (
+        <>
+          <span className="ms" style={{ fontSize: 17, color: 'var(--text-muted)' }}>
+            person_add
+          </span>
+          <span style={{ minWidth: 280, flex: '0 1 340px' }}>
+            <ContactPicker
+              value={null}
+              onChange={add}
+              // Seeded with nobody: the people already on the deal are the ones
+              // NOT to offer, so seeding with them would surface exactly the
+              // wrong candidates first.
+              seed={[]}
+              invalid={!!error}
+            />
+          </span>
+          <button
+            onClick={() => { setOpen(false); setError(null) }}
+            disabled={saving}
+            style={{
+              height: 30, padding: '0 11px',
+              border: '1px solid var(--border-strong)',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--surface-card)', color: 'var(--text-body)',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
+              cursor: saving ? 'default' : 'pointer'
+            }}
+          >
+            Cancel
+          </button>
+        </>
+      )}
+
+      {saving && (
         <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
-          Add-contact search wires up next
+          Adding…
+        </span>
+      )}
+      {error && (
+        <span style={{ fontSize: 'var(--text-base)', color: 'var(--status-stuck-text)' }}>
+          {error}
         </span>
       )}
     </div>

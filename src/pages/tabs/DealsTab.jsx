@@ -23,7 +23,7 @@ import {
 // opens in place via DealEditPanel. That removed the half-working controls and
 // made the rest actually saveable.
 
-export default function DealsTab({ onOpenDeal }) {
+export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
   const [q, setQ] = useTabState('deals', 'q', '')
   // Server-side: filtering only the loaded page would hide matches further
   // down the list.
@@ -31,7 +31,11 @@ export default function DealsTab({ onOpenDeal }) {
 
   // Which row is expanded for editing. One at a time: two open editors mean two
   // sets of unsaved changes and no way to tell which Update belongs to which.
-  const [editingId, setEditingId] = useState(null)
+  // Seeded from initialEditDealId so the Deal Hub can send a rep straight to
+  // this deal's editor — "edit the full record" on the deal card. Held as
+  // state, not read directly, so closing the row does not reopen it on the
+  // next render.
+  const [editingId, setEditingId] = useState(initialEditDealId)
 
   // The create form, above the list. Mutually exclusive with an open editor —
   // two draft forms on screen is two things to lose.

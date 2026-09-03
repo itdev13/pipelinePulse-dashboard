@@ -74,6 +74,10 @@ export default function DealHubShell() {
   }, [])
 
   const [openBusinessId, setOpenBusinessId] = useState(null)
+  // Which deal the Deals tab should open EXPANDED for editing. Set by the Deal
+  // Hub's "Edit full record" action; cleared on the next navigation so
+  // returning to the tab later does not silently reopen an editor.
+  const [editDealId, setEditDealId] = useState(null)
   const [openContactId, setOpenContactId] = useState(null)
 
   // Where we've been. A stack, not the browser's history: the app is one route
@@ -101,6 +105,10 @@ export default function DealHubShell() {
     setSelectedDealId(to.dealId)
     setOpenContactId(to.contactId)
     setOpenBusinessId(to.businessId)
+    // One-shot: only the navigation that requested it carries editDealId.
+    // Without this, going to Deals for any other reason later would reopen the
+    // editor on a deal the rep had finished with.
+    if (to.tab !== 'deals') setEditDealId(null)
   }
 
   // A tab telling us it moved internally (opened or closed a record). The tab
@@ -289,9 +297,15 @@ export default function DealHubShell() {
             // the rail had no way to reach the shell's navigate() — this is
             // that way. Back still works: navigate() pushes history.
             onOpenTab={(tab) => navigate({ tab })}
+            // "Edit full record" on the deal card: open the Deals tab with
+            // THIS deal's editor already expanded, rather than making the rep
+            // find the row again.
+            onEditDealRecord={(id) => { setEditDealId(id); navigate({ tab: 'deals' }) }}
           />
         )}
-        {activeTab === 'deals' && <DealsTab onOpenDeal={openDeal} />}
+        {activeTab === 'deals' && (
+          <DealsTab onOpenDeal={openDeal} initialEditDealId={editDealId} />
+        )}
         {/* Deal links on a contact record jump into the Deal hub. */}
         {/* Deal + contact links on a business roll-up reuse the same
             cross-tab navigation as tasks and notes. */}

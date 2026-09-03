@@ -1146,11 +1146,15 @@
 [data-dealhub] .pp-toolbar {
   display: flex;
   align-items: center;
-  gap: 1px;
-  padding: 5px 6px;
+  gap: 2px;
+  /* Roomier than the old 5px/6px: the buttons were 30x28 in a 5px band, so the
+     toolbar read as a dense strip of glyphs rather than a set of controls. */
+  padding: 6px 7px;
   border-bottom: 1px solid var(--border-default);
-  background: var(--surface-sunken);
-  /* A long toolbar in a 460px dialog must not force the panel wider. */
+  /* WHITE, not --surface-sunken. A grey band above a white writing area drew a
+     hard horizontal line across the field and made the editor look like two
+     stacked boxes. The border alone separates them. */
+  background: var(--surface-card);
   flex-wrap: wrap;
 }
 
@@ -1158,8 +1162,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Square and larger. 30x28 was neither — an off-square button makes an icon
+     row look misaligned even when it is not. 30px also clears the 24px
+     minimum for a comfortable pointer target in a dense dialog. */
   width: 30px;
-  height: 28px;
+  height: 30px;
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -1171,8 +1178,16 @@
   color: var(--text-heading);
 }
 [data-dealhub] .pp-tb-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: default;
+}
+/* Keyboard users get the same affordance as the mouse. The global focus ring
+   is suppressed inside the toolbar because a 30px square with an outer ring
+   overlaps its neighbours. */
+[data-dealhub] .pp-tb-btn:focus-visible {
+  outline: none;
+  background: var(--tint-pine);
+  box-shadow: inset 0 0 0 2px var(--brand-primary);
 }
 
 /* An active mark reads as pressed. Brand tint rather than a border, so the
@@ -1188,30 +1203,36 @@
 
 [data-dealhub] .pp-tb-sep {
   width: 1px;
-  height: 18px;
-  margin: 0 4px;
+  height: 16px;
+  margin: 0 5px;
   background: var(--border-default);
 }
 
 /* The editable surface. */
 [data-dealhub] .pp-editor-content {
   /* Set by RichEditor as an inline custom property on the wrapper, so the
-     EDITABLE element carries the height rather than its container — see the
-     comment there. Without this the box below the text was not clickable. */
+     EDITABLE element carries the height rather than its container — without
+     this the area below the text was not clickable. */
   min-height: var(--pp-editor-min, 120px);
   box-sizing: border-box;
-  padding: 10px 12px;
+  /* 14px sides to line the text up with the first toolbar icon's glyph rather
+     than with the button's edge — 12px left the text looking inset. */
+  padding: 12px 14px;
   font-family: var(--font-sans);
   font-size: var(--text-lg);
   line-height: var(--leading-normal);
   color: var(--text-body);
   outline: none;
   overflow-y: auto;
-  max-height: 320px;
+  /* Grows to 45vh rather than a fixed 320px. In a dialog already capped at the
+     viewport, a fixed pixel max meant a short screen scrolled the editor
+     inside a scrolling body — two scrollbars for one field. */
+  max-height: 45vh;
 }
 
-/* ProseMirror always holds at least one paragraph, so :empty never matches —
-   it marks the empty document with its own class instead. */
+/* The placeholder. Needs the Placeholder extension to add this class — the CSS
+   was here before the extension was installed, so nothing ever matched it and
+   the editor rendered blank instead of prompting. */
 [data-dealhub] .pp-editor-content p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
@@ -1226,20 +1247,101 @@
 [data-dealhub] .pp-editor-content > p:last-child { margin-bottom: 0; }
 [data-dealhub] .pp-editor-content ul,
 [data-dealhub] .pp-editor-content ol { margin: 0 0 var(--space-2); padding-left: 22px; }
+[data-dealhub] .pp-editor-content li { margin: 0 0 2px; }
 [data-dealhub] .pp-editor-content li > p { margin: 0; }
 [data-dealhub] .pp-editor-content blockquote {
   margin: 0 0 var(--space-2);
-  padding-left: 10px;
-  border-left: 3px solid var(--border-strong);
+  padding-left: 12px;
+  border-left: 3px solid var(--tint-pine);
   color: var(--text-muted);
 }
 [data-dealhub] .pp-editor-content a {
   color: var(--text-link);
   text-decoration: underline;
+  text-underline-offset: 2px;
 }
+[data-dealhub] .pp-editor-content strong { font-weight: var(--weight-semibold); }
 
 /* Focus ring on the WRAPPER, since the editable child has outline:none. */
+[data-dealhub] .pp-editor {
+  transition: border-color 140ms ease-out, box-shadow 140ms ease-out;
+}
 [data-dealhub] .pp-editor:focus-within {
   border-color: var(--brand-primary);
   box-shadow: 0 0 0 3px rgba(31, 122, 92, 0.12);
+}
+
+/* ── Click-to-edit text ───────────────────────────────────────────────────
+ *
+ * The deal name, its value and the owner row. Each was static text despite
+ * being writable, so the only way to rename or reprice a deal was the Deals
+ * tab or the CRM.
+ *
+ * The pencil is HIDDEN until hover or focus. A permanent pencil beside a 34px
+ * heading competes with it for attention, and these are read far more often
+ * than they are edited — but a control with no affordance at all is worse, so
+ * it appears the moment the pointer or keyboard arrives.
+ */
+[data-dealhub] .pp-inline-pencil {
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+[data-dealhub] .pp-inline-edit:hover .pp-inline-pencil,
+[data-dealhub] .pp-inline-edit:focus-visible .pp-inline-pencil {
+  opacity: 1;
+}
+
+/* A faint wash on hover, so the whole label reads as one target rather than
+   just the pencil being clickable. */
+[data-dealhub] .pp-inline-edit:hover {
+  background: var(--gray-50) !important;
+}
+[data-dealhub] .pp-inline-edit:focus-visible {
+  background: var(--gray-50) !important;
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 1px;
+}
+
+/* Keyboard users need the pencil visible without a pointer — :focus-visible
+   above covers tabbing to it; this covers a screen reader announcing it. */
+[data-dealhub] .pp-inline-edit[disabled] .pp-inline-pencil {
+  opacity: 1;
+}
+
+/* ── Contact rows in a dropdown ───────────────────────────────────────────
+ *
+ * ContactPicker renders an avatar plus two lines of text per option. antd's
+ * defaults fight that in two ways:
+ *
+ *   • .ant-select-item-option-content is `overflow: hidden` with
+ *     `text-overflow: ellipsis` — meant for a single line of label text. On a
+ *     two-line row it clips the second line and can truncate the first.
+ *
+ *   • The row's min-height was sized for one line (38px), so a 30px avatar
+ *     plus a detail line either overflowed or sat cramped against the edges.
+ *
+ * The whole .ant-select-item is antd's click target, so making the content
+ * fill it is what makes the entire row clickable rather than just the text.
+ */
+.pp-menu .ant-select-item-option-content {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  /* Fills the row, so a click anywhere on it selects — including the gap to
+     the right of a short name. */
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Taller rows, because they now hold an avatar and two lines. */
+.pp-menu .ant-select-item-option {
+  min-height: 46px;
+  padding: 6px 10px;
+}
+
+/* The selected row keeps the brand tint from .pp-menu above, but a check mark
+   makes the state readable without relying on colour alone — which matters for
+   the one in eight men with a colour vision deficiency. */
+.pp-menu .ant-select-item-option-selected .ant-select-item-option-state {
+  color: var(--accent-pine-text);
 }

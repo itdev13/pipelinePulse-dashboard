@@ -32,6 +32,14 @@ export default function DealSection({
   saving = null,
   saved = null,
   saveError = null,
+  // CRM users for the Owner picker, fetched lazily by the parent. null means
+  // "not requested yet" — onNeedUsers triggers the fetch on first open.
+  users = null,
+  onNeedUsers,
+  // Opens this deal's full editor on the Deals tab. The card edits the fields
+  // a rep touches often; pipeline, status, followers and the contact's own
+  // details live in that editor.
+  onEditRecord,
   // { client_type: { id, label, options[], multiple }, ... } from
   // GET /api/deals/custom-field-options.
   fieldOptions = {}
@@ -85,6 +93,30 @@ export default function DealSection({
         {deal.status && deal.status !== 'open' && (
           <StatusPill status={deal.status} />
         )}
+        {/* The way to everything the card cannot edit inline — pipeline,
+            status, followers, and the primary contact's own fields. Opens the
+            Deals tab with THIS deal's editor already expanded, rather than
+            leaving the rep to find the row.
+            In the header, not beside a field: it is about the whole record. */}
+        {onEditRecord && (
+          <button
+            onClick={onEditRecord}
+            title="Open the full editor for this deal"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              flex: 'none',
+              height: 28, padding: '0 11px 0 9px',
+              border: '1px solid var(--border-strong)',
+              borderRadius: 'var(--radius-pill)',
+              background: 'var(--surface-card)', color: 'var(--text-body)',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)',
+              fontWeight: 600, cursor: 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 15 }}>edit_note</span>
+            Edit record
+          </button>
+        )}
       </header>
 
       <div
@@ -100,16 +132,17 @@ export default function DealSection({
             so the label described the wrong thing and the deal name had nowhere
             of its own. */}
         <Column label="Deal">
-          <div
-            style={{
-              fontSize: 'var(--text-3xl)', fontWeight: 600,
-              color: 'var(--text-heading)',
-              lineHeight: 1.15, letterSpacing: '-0.015em',
-              overflowWrap: 'anywhere'
-            }}
-          >
-            {dealName || 'Unnamed deal'}
-          </div>
+          {/* Editable. It was plain text, so renaming a deal meant opening its
+              row on the Deals tab or going to the CRM — even though `name` has
+              been in the PATCH path since the deal writes landed. */}
+          <InlineText
+            label="Deal name"
+            value={dealName}
+            placeholder="Unnamed deal"
+            fontSize="var(--text-3xl)"
+            saving={saving === 'name'}
+            onSave={(v) => onSaveField && onSaveField('name', v)}
+          />
 
           <div style={{ marginTop: 'var(--space-3)' }}>
             <span className="pp-label" style={{ marginBottom: 3 }}>Customer</span>
@@ -144,6 +177,8 @@ export default function DealSection({
           stages={stages}
           onSaveField={onSaveField}
           saving={saving}
+          users={users}
+          onNeedUsers={onNeedUsers}
         />
 
       </div>
@@ -305,16 +340,10 @@ function ValueColumn({ deal, onSaveField, saving, onOpenBusiness }) {
           // hardest thing to notice. The amber pill carries the meaning.
           return (
             <div>
-              <div
-                className="pp-num"
-                style={{
-                  fontSize: 'var(--text-display)', fontWeight: 600,
-                  letterSpacing: '-0.03em', lineHeight: 1.05,
-                  color: 'var(--text-faint)'
-                }}
-              >
-                {deal.value || '—'}
-              </div>
+              {/* Editable in BOTH branches — an unpriced deal is exactly the
+                  one you want to price, so making only the priced state
+                  editable would have been backwards. */}
+              <ValueEditor deal={deal} onSaveField={onSaveField} saving={saving} muted />
               <span
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -330,18 +359,7 @@ function ValueColumn({ deal, onSaveField, saving, onOpenBusiness }) {
             </div>
           )
         }
-        return (
-          <div
-            className="pp-num"
-            style={{
-              fontSize: 'var(--text-display)', fontWeight: 600,
-              letterSpacing: '-0.03em', lineHeight: 1.05,
-              color: 'var(--text-heading)'
-            }}
-          >
-            {deal.value}
-          </div>
-        )
+        return <ValueEditor deal={deal} onSaveField={onSaveField} saving={saving} />
       })()}
 
       {/* Quote revision — GHL has no revision field yet, so this only
@@ -385,7 +403,7 @@ function ValueColumn({ deal, onSaveField, saving, onOpenBusiness }) {
   )
 }
 
-function StageColumn({ deal, stages, onSaveField, saving }) {
+function StageColumn({ deal, stages, onSaveField, saving, users, onNeedUsers }) {
   // Days in stage comes from the stage the deal currently sits on. The
   // stages endpoint carries enteredAt on the current entry when available;
   // otherwise fall back to the deal's own updated_at, which moves on every
@@ -457,19 +475,18 @@ function StageColumn({ deal, stages, onSaveField, saving }) {
       />
 
       <dl style={{ margin: '12px 0 0', display: 'grid', gap: 7 }}>
-        <Row
-          label="Owner"
-          // GHL stores whatever the user typed — this came through as
-          // "jaladanki srinivas". Title-cased for display only.
-          value={titleCase(deal.owner)}
-          // A deal still belongs to its owner after they leave the account
-          // — flag it rather than hiding it, so it's visibly reassignable.
-          suffix={deal.ownerActive === false ? 'left account' : null}
-          title={
-            deal.ownerActive === false
-              ? 'This user is no longer active on the sub-account'
-              : undefined
-          }
+        {/* Owner is EDITABLE — `assignedTo` has been in the deal patch path all
+            along, but this row rendered static text, so reassigning meant
+            going to the Deals tab or the CRM.
+            The other rows below stay read-only because they are not fields:
+            Days in stage is computed from stage_history, Last customer contact
+            is derived from messages, and GHL has no writable `source`. */}
+        <OwnerRow
+          deal={deal}
+          users={users}
+          onNeedUsers={onNeedUsers}
+          saving={saving === 'assignedTo'}
+          onSave={(v) => onSaveField && onSaveField('assignedTo', v)}
         />
         <Row
           label="Days in stage"
@@ -885,6 +902,223 @@ function FieldPicker({ label, value, spec, saving, onChange }) {
         className="pp-field-select"
         popupClassName="pp-menu"
         getPopupContainer={undefined}
+      />
+    </span>
+  )
+}
+
+// Click-to-edit text, for the fields that were read-only despite being
+// writable: the deal NAME and its VALUE.
+//
+// Both go through PATCH /api/deals/:id (name, value) — the write path has
+// existed since the deal-write work, but the card rendered them as plain text,
+// so the only way to rename a deal was to open its row on the Deals tab or go
+// to GHL.
+//
+// Same interaction as FieldPicker above: display until clicked, then an input.
+// Commits on Enter or blur, abandons on Escape — a rename is destructive
+// enough that a mis-click should not save it.
+// The Owner row, as a picker rather than static text.
+//
+// Renders as a plain value until clicked — a definition list of five facts
+// should not have one row wearing a dropdown. `onNeedUsers` fires on first
+// open so the parent fetches the list only when someone actually reassigns.
+function OwnerRow({ deal, users, onNeedUsers, saving, onSave }) {
+  const [open, setOpen] = useState(false)
+  const loading = open && users === null
+
+  const begin = () => {
+    onNeedUsers && onNeedUsers()
+    setOpen(true)
+  }
+
+  if (!open) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-3)' }}>
+        <FieldLabel>Owner</FieldLabel>
+        <button
+          onClick={begin}
+          disabled={saving}
+          title="Reassign this deal"
+          className="pp-inline-edit"
+          style={{
+            display: 'inline-flex', alignItems: 'baseline', gap: 6,
+            marginLeft: 'auto',
+            padding: '1px 5px', margin: '-1px -5px -1px auto',
+            border: 'none', borderRadius: 'var(--radius-sm)',
+            background: 'none',
+            fontFamily: 'var(--font-sans)',
+            fontSize: 'var(--text-md)', fontWeight: 600,
+            color: deal.owner ? 'var(--text-heading)' : 'var(--text-faint)',
+            cursor: saving ? 'progress' : 'pointer'
+          }}
+        >
+          {/* GHL stores whatever the user typed — this came through as
+              "jaladanki srinivas". Title-cased for display only. */}
+          <span>{titleCase(deal.owner) || 'Unassigned'}</span>
+          {/* A deal still belongs to its owner after they leave the account —
+              flag it rather than hiding it, so it reads as reassignable. */}
+          {deal.ownerActive === false && (
+            <span
+              title="This user is no longer active on the sub-account"
+              style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-faint)' }}
+            >
+              left account
+            </span>
+          )}
+          <span
+            className="ms pp-inline-pencil"
+            style={{ fontSize: 14, color: 'var(--text-faint)', flex: 'none' }}
+          >
+            {saving ? 'progress_activity' : 'edit'}
+          </span>
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+      <FieldLabel>Owner</FieldLabel>
+      <Select
+        autoFocus
+        defaultOpen
+        value={deal.assignedTo || undefined}
+        onChange={(v) => { setOpen(false); onSave(v || null) }}
+        onOpenChange={(o) => { if (!o) setOpen(false) }}
+        loading={loading}
+        allowClear
+        showSearch
+        optionFilterProp="label"
+        placeholder={loading ? 'Loading…' : 'Unassigned'}
+        options={(users || []).map((u) => ({ value: u.id, label: u.name }))}
+        notFoundContent={loading ? 'Loading…' : 'No users in this sub-account'}
+        popupClassName="pp-menu"
+        popupMatchSelectWidth={false}
+        styles={{ popup: { root: { minWidth: 240 } } }}
+        style={{ marginLeft: 'auto', minWidth: 190 }}
+      />
+    </div>
+  )
+}
+
+// The monetary value, editable.
+//
+// Binds to deal.monetaryValue (the RAW number), never deal.value — that is
+// display-formatted ("£26,000"), and editing it would send the formatted
+// string back. The same trap the Deals tab hit.
+function ValueEditor({ deal, onSaveField, saving, muted = false }) {
+  return (
+    <span className="pp-num" style={{ display: 'inline-flex' }}>
+      <InlineText
+        label="Value"
+        value={deal.monetaryValue != null ? String(deal.monetaryValue) : ''}
+        placeholder="—"
+        fontSize="var(--text-display)"
+        prefix="£"
+        mono
+        muted={muted}
+        saving={saving === 'value'}
+        // Strip everything but digits and a decimal point: a rep pasting
+        // "£1,250.00" should not be rejected for the symbol and comma.
+        parse={(v) => v.replace(/[^0-9.]/g, '')}
+        onSave={(v) => onSaveField && onSaveField('value', v)}
+      />
+    </span>
+  )
+}
+
+function InlineText({
+  value, onSave, saving, label,
+  // The deal name renders at --text-3xl; the value at --text-display. The
+  // input has to match or the swap resizes the card.
+  fontSize = 'var(--text-lg)', fontWeight = 600, placeholder,
+  // Numeric fields get a prefix and a mono face.
+  prefix = null, mono = false,
+  // An unpriced deal keeps the faint colour it had before it was editable.
+  muted = false,
+  // Parses the input before it is sent. Value needs the currency symbol and
+  // separators stripped; a name is sent as typed.
+  parse = (v) => v.trim()
+}) {
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState('')
+
+  const begin = () => {
+    setDraft(value == null ? '' : String(value))
+    setOpen(true)
+  }
+
+  const commit = () => {
+    setOpen(false)
+    const next = parse(draft)
+    // No change, or cleared to nothing on a field that cannot be empty.
+    if (next === '' || next === parse(String(value ?? ''))) return
+    onSave(next)
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={begin}
+        disabled={saving}
+        title={`Edit ${label.toLowerCase()}`}
+        className="pp-inline-edit"
+        style={{
+          display: 'inline-flex', alignItems: 'baseline', gap: 8,
+          maxWidth: '100%',
+          padding: '2px 6px', margin: '-2px -6px',
+          border: 'none', borderRadius: 'var(--radius-sm)',
+          background: 'none', textAlign: 'left',
+          fontFamily: mono ? 'var(--font-mono)' : 'var(--font-sans)',
+          fontSize, fontWeight,
+          color: (value && !muted) ? 'var(--text-heading)' : 'var(--text-faint)',
+          lineHeight: 1.15, letterSpacing: '-0.015em',
+          overflowWrap: 'anywhere',
+          cursor: saving ? 'progress' : 'text'
+        }}
+      >
+        <span>{value || placeholder}</span>
+        {/* Appears on hover — see .pp-inline-edit in the stylesheet. A pencil
+            permanently beside a 34px heading competes with it. */}
+        <span
+          className="ms pp-inline-pencil"
+          style={{ fontSize: 15, color: 'var(--text-faint)', flex: 'none' }}
+        >
+          {saving ? 'progress_activity' : 'edit'}
+        </span>
+      </button>
+    )
+  }
+
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: '100%' }}>
+      {prefix && (
+        <span style={{ fontSize, fontWeight, color: 'var(--text-faint)' }}>{prefix}</span>
+      )}
+      <input
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); commit() }
+          // Escape abandons. Without it the only way out of a mistyped rename
+          // was to retype the original.
+          if (e.key === 'Escape') { e.preventDefault(); setOpen(false) }
+        }}
+        style={{
+          minWidth: 0, flex: 1,
+          padding: '2px 6px', margin: '-2px 0',
+          border: '1px solid var(--brand-primary)',
+          borderRadius: 'var(--radius-sm)',
+          background: 'var(--surface-card)',
+          fontFamily: mono ? 'var(--font-mono)' : 'var(--font-sans)',
+          fontSize, fontWeight,
+          color: 'var(--text-heading)',
+          lineHeight: 1.15, letterSpacing: '-0.015em',
+          outline: 'none'
+        }}
       />
     </span>
   )

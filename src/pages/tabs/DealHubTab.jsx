@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react'
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import Timeline from '../dealhub/Timeline'
 import StageStepper from '../dealhub/StageStepper'
 import PeopleSection from '../dealhub/PeopleSection'
@@ -71,7 +71,7 @@ function chipsFor(counts) {
 }
 
 export default function DealHubTab({
-  dealId, onSwitchDeal, onOpenBusiness, onOpenTab,
+  dealId, onSwitchDeal, onOpenBusiness, onOpenTab, onEditDealRecord,
   // Landing on the first deal because none was selected is not a move the rep
   // made, so it must not become a step the Back button walks through. Setting
   // the deal without recording history is what this is for; every other switch
@@ -219,6 +219,21 @@ export default function DealHubTab({
   // Names the field just written, so the card can confirm it. Without this a
   // save was completely silent on success — only failures said anything.
   const [savedField, setSavedField] = useState(null)
+
+  // CRM users for the Owner picker on the deal card.
+  //
+  // Lazy and once: the list is location-wide, changes rarely, and a rep who
+  // never reassigns an owner should not pay for it. Same shape as the Deals
+  // tab's reference fetch.
+  const [users, setUsers] = useState(null)
+  const loadUsers = useCallback(() => {
+    if (users !== null) return
+    dealsAPI.users()
+      .then((r) => setUsers(r?.users || []))
+      // An empty list renders the picker disabled with a reason, rather than
+      // an empty dropdown.
+      .catch(() => setUsers([]))
+  }, [users])
 
   const saveDealField = async (field, value) => {
     if (savingField) return
@@ -803,6 +818,17 @@ export default function DealHubTab({
               people={deal.people || []}
               peopleFilter={peopleFilter}
               onPeopleFilterChange={setPeopleFilter}
+              dealId={dealId}
+              // Delayed refetch, not an optimistic insert. The link is made in
+              // GHL and our opportunity_contacts row is written by the
+              // RelationCreate webhook, so an immediate GET returns the old
+              // list — the same race that made the deal chips read "Not set"
+              // after a successful save.
+              onPeopleChanged={() => {
+                window.setTimeout(() => {
+                  dealsAPI.get(dealId).then(setDeal).catch(() => {})
+                }, 2500)
+              }}
             />
           )}
 
@@ -821,6 +847,11 @@ export default function DealHubTab({
               saved={savedField}
               saveError={saveError}
               fieldOptions={fieldOptions}
+              users={users}
+              onNeedUsers={loadUsers}
+              // Opens this deal's full editor on the Deals tab — every field
+              // the card cannot edit inline (pipeline, status, followers).
+              onEditRecord={onEditDealRecord ? () => onEditDealRecord(dealId) : undefined}
             />
           )}
 
