@@ -24,7 +24,7 @@ import ConfirmDialog from '../shared/ConfirmDialog'
 // from here needs a person picked from the deal — which is why `people` is
 // passed in.
 
-export function DealTasksSection({ dealId, people = [] }) {
+export function DealTasksSection({ dealId, people = [], onOpenAll }) {
   const { items, loading, error, patchItem, reload } = useDealList(
     dealId,
     (id) => tasksAPI.list({ dealId: id, status: 'all', limit: 50 }),
@@ -140,6 +140,7 @@ export function DealTasksSection({ dealId, people = [] }) {
           <RailFooter
             newLabel="New task"
             allLabel="All tasks"
+            onAll={onOpenAll}
             onNew={() => setEditor({ task: null })}
             newDisabledReason={
               people.length === 0
@@ -302,12 +303,15 @@ export function DealTasksSection({ dealId, people = [] }) {
             || people[0]?.id
             || null
           }
-          // Created from a deal, so it is linked to that deal — the whole
-          // point of opening the editor from here. showLinks={false} hides the
-          // pickers: a rail on a deal is not where a rep refiles a task onto a
-          // different one. The Tasks page, which has no deal in scope, is
-          // where the pickers belong.
-          showLinks={false}
+          // The DEAL picker is hidden — this rail belongs to one deal, the
+          // task is linked to it, and offering a picker here would invite
+          // refiling onto a different deal by accident.
+          //
+          // The COMPANY picker stays. Which company a task concerns is
+          // unrelated to which deal's rail it was opened from, and hiding it
+          // (as a single showLinks flag used to) meant the association could
+          // only be set from the standalone Tasks tab.
+          showDealLink={false}
           defaultOpportunityId={dealId}
           onClose={() => setEditor(null)}
           onSaved={(saved) => {
@@ -329,7 +333,7 @@ export function DealTasksSection({ dealId, people = [] }) {
   )
 }
 
-export function DealNotesSection({ dealId, people = [] }) {
+export function DealNotesSection({ dealId, people = [], onOpenAll }) {
   const { items, loading, error, patchItem, reload } = useDealList(
     dealId,
     (id) => notesAPI.list({ dealId: id, limit: 50 }),
@@ -411,6 +415,7 @@ export function DealNotesSection({ dealId, people = [] }) {
           <RailFooter
             newLabel="New note"
             allLabel="All notes"
+            onAll={onOpenAll}
             onNew={() => setEditor({ note: null })}
             newDisabledReason={
               people.length === 0
@@ -536,12 +541,10 @@ export function DealNotesSection({ dealId, people = [] }) {
           note={editor.note}
           contacts={people}
           defaultContactId={targetContactId}
-          // Linked to this deal on create. showLinks={false} hides the deal
-          // and company pickers: the deal is already known here, and the
-          // pickers now search the whole sub-account, so leaving them visible
-          // would invite refiling a note onto a different deal from a rail
-          // that belongs to this one.
-          showLinks={false}
+          // Deal picker hidden, company picker kept — see the note on
+          // TaskEditor above. The deal is already known here; the company is
+          // not, and it has to be settable somewhere other than the Notes tab.
+          showDealLink={false}
           defaultOpportunityId={dealId}
           // How many notes are already pinned on the target contact, so the pin
           // toggle can say when there's no room rather than failing on save.
@@ -819,13 +822,21 @@ function SortControl({ label, options, value, onChange }) {
   )
 }
 
-// "New task" + "All tasks →". Both disabled: creating needs GHL write-back, and
-// the "all" link needs cross-tab navigation the rail isn't wired for yet.
-// onNew live => the create button works. Notes pass nothing and stay disabled.
-// `newDisabledReason` lets a live feature still refuse for a reason worth
-// stating — a deal with no contacts can't take a task, since tasks hang off the
-// contact.
-function RailFooter({ newLabel, allLabel, onNew, newDisabledReason }) {
+// "New task" + "All tasks →".
+//
+// Both are live now — the comment here used to say neither was. Creating writes
+// to GHL (onNew), and the "all" link navigates to the full tab (onAll, threaded
+// down from the shell).
+//
+// Each still degrades on its own: a footer given no handler renders that button
+// disabled rather than throwing, and `newDisabledReason` lets a live feature
+// refuse for a reason worth stating — a deal with no contacts cannot take a
+// task, since tasks hang off the contact.
+function RailFooter({ newLabel, allLabel, onNew, onAll, newDisabledReason }) {
+  // The "all" link is live when the shell hands down a navigator. It was
+  // hardcoded disabled with a "Coming next" title because the rail had no way
+  // to reach the shell's navigate() — DealHubTab now threads one through.
+  const allLive = typeof onAll === 'function'
   const live = typeof onNew === 'function' && !newDisabledReason
   return (
     <div
@@ -858,14 +869,17 @@ function RailFooter({ newLabel, allLabel, onNew, newDisabledReason }) {
         {newLabel}
       </button>
       <button
-        disabled
-        title="Coming next"
+        onClick={allLive ? onAll : undefined}
+        disabled={!allLive}
+        title={allLive ? `Open the ${allLabel.replace(/^All /, '')} tab` : 'Coming next'}
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 5,
-          cursor: 'not-allowed',
+          cursor: allLive ? 'pointer' : 'not-allowed',
           border: 'none', background: 'none', padding: 0,
           fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
-          color: 'var(--text-faint)', opacity: 0.75
+          color: allLive ? 'var(--text-link)' : 'var(--text-faint)',
+          fontWeight: allLive ? 600 : 400,
+          opacity: allLive ? 1 : 0.75
         }}
       >
         {allLabel}
@@ -875,8 +889,10 @@ function RailFooter({ newLabel, allLabel, onNew, newDisabledReason }) {
   )
 }
 
-// Live when given an onClick, disabled without one — notes have no write path
-// yet, so theirs stays inert and looks it.
+// Live when given an onClick, disabled without one. Both the task and note
+// rails pass handlers now — an earlier version of this comment said notes had
+// no write path, which stopped being true when the note write endpoints
+// landed.
 function EditButton({ title, onClick }) {
   const live = typeof onClick === 'function'
   return (

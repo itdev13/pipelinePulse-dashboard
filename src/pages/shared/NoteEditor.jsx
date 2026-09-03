@@ -65,15 +65,20 @@ export default function NoteEditor({
   // The deal and company this note is about — GHL associations, not note
   // fields. `deals` and `businesses` are the pickable lists; omitting a list
   // hides its picker rather than showing an empty dropdown.
-  // Seed lists for the deal/company pickers. EMPTY IS NOT "HIDE": the pickers
-  // search the server, so an empty seed just means nothing is preloaded.
-  //
-  // To hide them — as the Deal Hub rails do, where the deal is already known
-  // and a picker would invite refiling onto another one — pass
-  // showLinks={false}.
+  // Seed lists only — the pickers search the server, so empty means "nothing
+  // preloaded", not "hide".
   deals = [],
   businesses = [],
-  showLinks = true,
+  // TWO FLAGS, not one.
+  //
+  // These were a single `showLinks`, which the Deal Hub rails set to false so a
+  // rep could not refile onto a different deal from a rail belonging to this
+  // one. That reasoning holds for the DEAL picker and not at all for the
+  // COMPANY picker — which company a note concerns has nothing to do with
+  // which deal's rail it was opened from, and hiding it meant the association
+  // could not be set anywhere except the standalone tab.
+  showDealLink = true,
+  showCompanyLink = true,
   // Preselected when the editor is opened from a deal, which already knows.
   defaultOpportunityId = null,
   onClose,
@@ -386,7 +391,7 @@ export default function NoteEditor({
                 No `deals.length > 0` guard any more either — an empty seed no
                 longer means "nothing to pick", it just means nothing is
                 preloaded. */}
-            {showLinks && (
+            {showDealLink && (
               <Field
                 label="Deal"
                 error={errorField === 'opportunityId' ? error : null}
@@ -406,7 +411,7 @@ export default function NoteEditor({
               </Field>
             )}
 
-            {showLinks && (
+            {showCompanyLink && (
               <Field label="Company" error={errorField === 'businessId' ? error : null}>
                 <RemotePicker
                   value={businessId}

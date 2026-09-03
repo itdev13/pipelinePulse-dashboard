@@ -71,7 +71,7 @@ function chipsFor(counts) {
 }
 
 export default function DealHubTab({
-  dealId, onSwitchDeal, onOpenBusiness,
+  dealId, onSwitchDeal, onOpenBusiness, onOpenTab,
   // Landing on the first deal because none was selected is not a move the rep
   // made, so it must not become a step the Back button walks through. Setting
   // the deal without recording history is what this is for; every other switch
@@ -1065,8 +1065,17 @@ export default function DealHubTab({
               <div style={{ display: 'grid', gap: 14, minWidth: 0 }}>
                 {/* people: a task is stored against a contact, so creating
                     one from the rail needs someone to attach it to. */}
-                <DealTasksSection dealId={dealId} people={deal?.people || []} />
-                <DealNotesSection dealId={dealId} people={deal?.people || []} />
+                <DealTasksSection
+                  dealId={dealId}
+                  people={deal?.people || []}
+                  // "All tasks →" jumps to the Tasks tab. Was a dead button.
+                  onOpenAll={onOpenTab ? () => onOpenTab('tasks') : undefined}
+                />
+                <DealNotesSection
+                  dealId={dealId}
+                  people={deal?.people || []}
+                  onOpenAll={onOpenTab ? () => onOpenTab('notes') : undefined}
+                />
                 <QualificationSection qualification={deal?.qualification || []} />
               </div>
             </div>

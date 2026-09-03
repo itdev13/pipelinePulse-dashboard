@@ -44,11 +44,19 @@ export default function TaskEditor({
   // fields. An empty list hides its picker rather than showing an empty
   // dropdown.
   // Seed lists only — the pickers search the server, so empty means "nothing
-  // preloaded", not "hide". Pass showLinks={false} to hide them, as the Deal
-  // Hub rails do.
+  // preloaded", not "hide".
   deals = [],
   businesses = [],
-  showLinks = true,
+  // TWO FLAGS, not one.
+  //
+  // These were a single `showLinks`, which the Deal Hub rails set to false so a
+  // rep could not refile onto a different deal from a rail belonging to this
+  // one. That reasoning holds for the DEAL picker and not at all for the
+  // COMPANY picker — which company a note concerns has nothing to do with
+  // which deal's rail it was opened from, and hiding it meant the association
+  // could not be set anywhere except the standalone tab.
+  showDealLink = true,
+  showCompanyLink = true,
   defaultOpportunityId = null,
   onClose,
   // Called with the CRM's echoed task after a successful save.
@@ -339,7 +347,7 @@ export default function TaskEditor({
             {/* Server-searched, like the note editor's — the seed list was
                 capped at 200, so anything beyond that was unreachable through
                 a client-side filter. */}
-            {showLinks && (
+            {showDealLink && (
               <Field label="Deal" error={errorField === 'opportunityId' ? error : null}>
                 <RemotePicker
                   value={opportunityId}
@@ -355,7 +363,7 @@ export default function TaskEditor({
               </Field>
             )}
 
-            {showLinks && (
+            {showCompanyLink && (
               <Field label="Company" error={errorField === 'businessId' ? error : null}>
                 <RemotePicker
                   value={businessId}

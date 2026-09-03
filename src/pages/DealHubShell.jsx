@@ -284,6 +284,11 @@ export default function DealHubShell() {
             onSwitchDeal={(id) => navigate({ tab: 'hub', dealId: id })}
             onAutoSelectDeal={setSelectedDealId}
             onOpenBusiness={openBusiness}
+            // Cross-tab jumps from the rails' "All tasks" / "All notes" links.
+            // They were hardcoded disabled with a "coming next" title because
+            // the rail had no way to reach the shell's navigate() — this is
+            // that way. Back still works: navigate() pushes history.
+            onOpenTab={(tab) => navigate({ tab })}
           />
         )}
         {activeTab === 'deals' && <DealsTab onOpenDeal={openDeal} />}
