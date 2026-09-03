@@ -1040,3 +1040,99 @@
 @media (prefers-reduced-motion: reduce) {
   .pp-sk { animation: none; }
 }
+
+/* ── Modal typography and chrome ──────────────────────────────────────────
+ *
+ * The dialogs were legible but undifferentiated: the title, the field labels
+ * and the values all sat within a few pixels of each other, so nothing led the
+ * eye. Three specific problems, each fixed below.
+ *
+ * 1. NO TITLE SIZE. Headers used --text-xl (17px), one step above a field
+ *    label. --text-2xl (22px) already exists in the scale for exactly this and
+ *    was simply never applied here.
+ *
+ * 2. LABELS COMPETED WITH VALUES. Uppercase at 10px with 0.07em tracking is
+ *    loud — it draws as much attention as the value it names. A label is
+ *    scaffolding: it should be findable and then recede.
+ *
+ * 3. COLOUR CARRIED NO MEANING. Each modal picked its own tinted header —
+ *    gold for notes, rose for tasks, sky for businesses — and rose is also
+ *    what ConfirmDialog uses for destructive actions. So an ordinary task edit
+ *    looked like a warning. Colour now means one thing: rose is danger.
+ */
+
+/* A calm header. The accent survives as a small coloured icon rather than a
+   full tinted band, so the identity is still there without shouting. */
+.pp-modal-head {
+  padding: 15px var(--space-4) 13px;
+  background: var(--surface-card);
+}
+
+.pp-modal-title {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  /* Optical: at 22px the default tracking reads loose. */
+  letter-spacing: -0.011em;
+  color: var(--text-heading);
+}
+
+/* Only ConfirmDialog keeps a tinted header, because there the colour is the
+   message — this is destructive. */
+.pp-modal-head-danger {
+  background: var(--tint-rose);
+  border-bottom-color: var(--status-stuck);
+}
+
+/* Field labels: 11px rather than 10px so the tracking is not doing all the
+   work, and --text-faint rather than --text-muted so they sit clearly BEHIND
+   the value. */
+.pp-label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* The required marker. Its own rule so it cannot drift between dialogs, and
+   colour is not the only signal — the asterisk carries it. */
+.pp-req {
+  margin-left: 3px;
+  color: var(--status-stuck);
+  font-weight: var(--weight-semibold);
+}
+
+/* Values inside a dialog read at 14px, one step up from the 13px used in dense
+   list rows. A form is read deliberately, not scanned. */
+.pp-modal-body .ant-input,
+.pp-modal-body .ant-input-affix-wrapper,
+.pp-modal-body .ant-select-selection-item,
+.pp-modal-body .ant-select-selection-search-input,
+.pp-modal-body .ant-picker-input > input {
+  font-size: var(--text-lg);
+}
+
+.pp-modal-body .ant-input::placeholder,
+.pp-modal-body .ant-select-selection-placeholder,
+.pp-modal-body .ant-picker-input > input::placeholder {
+  color: var(--text-faint);
+}
+
+/* A quieter footer. It was --surface-sunken, which put a grey band under every
+   dialog; a hairline rule separates it just as well without the weight. */
+.pp-modal-foot {
+  padding: 13px var(--space-4);
+  background: var(--surface-card);
+}
+
+/* The status line ("No changes yet", "3 unsaved changes"). Deliberately faint:
+   it is a confirmation, not an instruction. */
+.pp-modal-status {
+  flex: 1;
+  font-size: var(--text-base);
+  color: var(--text-faint);
+}

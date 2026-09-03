@@ -82,23 +82,28 @@ export default function ConfirmDialog({
         style={{ width: 'min(460px, 100%)' }}
       >
         <header
-          className="pp-modal-head"
+          // KEEPS ITS TINT, unlike the other dialogs.
+          //
+          // The editors dropped their coloured bands because the colour was
+          // decorative — a rose task editor looked like a warning. Here the
+          // colour IS the message: this action is destructive, and the tint
+          // varies by `tone` to say so before the text is read.
+          className={danger ? 'pp-modal-head pp-modal-head-danger' : 'pp-modal-head'}
           style={{
-            display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-            padding: '13px var(--space-4)',
+            display: 'flex', alignItems: 'center', gap: 10,
             borderBottom: '1px solid var(--border-default)',
             background: tint
           }}
         >
-          <span className="ms" style={{ fontSize: 20, color: accent }}>
+          <span className="ms" style={{ fontSize: 22, color: accent, flex: 'none' }}>
             {danger ? 'warning' : 'help'}
           </span>
           <h2
-            style={{
-              flex: 1, margin: 0,
-              fontSize: 'var(--text-xl)', fontWeight: 600,
-              color: accentText
-            }}
+            className="pp-modal-title"
+            // Only flex and colour inline — size, weight and tracking come
+            // from .pp-modal-title. Leaving fontSize here would have silently
+            // overridden the class and kept the old 17px.
+            style={{ flex: 1, color: accentText }}
           >
             {title}
           </h2>

@@ -217,22 +217,25 @@ export default function NoteEditor({
         <header
           className="pp-modal-head"
           style={{
-            display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-            padding: '13px var(--space-4)',
-            borderBottom: '1px solid var(--border-default)',
-            background: 'var(--tint-gold)'
+            display: 'flex', alignItems: 'center', gap: 10,
+            borderBottom: '1px solid var(--border-default)'
           }}
         >
-          <span className="ms" style={{ fontSize: 20, color: 'var(--accent-gold)' }}>
-            sticky_note_2
-          </span>
-          <h2
+          {/* Badged icon, not a tinted band — colour now means only
+              one thing in a dialog header, and that is danger. */}
+          <span
             style={{
-              flex: 1, margin: 0,
-              fontSize: 'var(--text-xl)', fontWeight: 600,
-              color: 'var(--accent-gold-text)'
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 30, height: 30, flex: 'none',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--tint-gold)'
             }}
           >
+            <span className="ms" style={{ fontSize: 18, color: 'var(--accent-gold-text)' }}>
+              sticky_note_2
+            </span>
+          </span>
+          <h2 className="pp-modal-title" style={{ flex: 1 }}>
             {editing ? 'Edit note' : 'New note'}
           </h2>
           <button
@@ -242,8 +245,9 @@ export default function NoteEditor({
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 26, height: 26,
-              border: 'none', borderRadius: 'var(--radius-sm)',
-              background: 'rgba(255,255,255,0.7)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border-default)',
+              background: 'var(--surface-card)',
               cursor: saving ? 'default' : 'pointer',
               color: 'var(--text-muted)'
             }}
@@ -446,12 +450,10 @@ export default function NoteEditor({
           className="pp-modal-foot"
           style={{
             display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-            padding: '11px var(--space-4)',
-            borderTop: '1px solid var(--border-default)',
-            background: 'var(--gray-25)'
+            borderTop: '1px solid var(--border-default)'
           }}
         >
-          <span style={{ flex: 1, fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
+          <span className="pp-modal-status">
             {saving ? 'Saving to your CRM…' : editing && !dirty ? 'No changes yet' : '⌘↵ to save'}
           </span>
           <button
@@ -528,16 +530,9 @@ function Swatch({ colour, label, active, onClick }) {
 function Field({ label, required, hint, error, children }) {
   return (
     <div style={{ minWidth: 0 }}>
-      <span
-        style={{
-          display: 'block', marginBottom: 5,
-          fontSize: 'var(--text-xs)', fontWeight: 600,
-          letterSpacing: 'var(--tracking-label)',
-          textTransform: 'uppercase', color: 'var(--text-muted)'
-        }}
-      >
+      <span className="pp-label">
         {label}
-        {required && <span style={{ color: 'var(--status-stuck)' }}> *</span>}
+        {required && <span className="pp-req">*</span>}
       </span>
       {children}
       {hint && !error && (

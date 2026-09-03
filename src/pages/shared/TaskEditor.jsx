@@ -193,22 +193,27 @@ export default function TaskEditor({
         <header
           className="pp-modal-head"
           style={{
-            display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-            padding: '13px var(--space-4)',
-            borderBottom: '1px solid var(--border-default)',
-            background: 'var(--tint-rose)'
+            display: 'flex', alignItems: 'center', gap: 10,
+            borderBottom: '1px solid var(--border-default)'
           }}
         >
-          <span className="ms" style={{ fontSize: 20, color: 'var(--accent-rose)' }}>
-            task_alt
-          </span>
-          <h2
+          {/* The accent survives as a small badged icon rather than a full
+              tinted band. A rose header made an ordinary task edit look like
+              the delete confirmation, which uses the same colour to MEAN
+              danger. */}
+          <span
             style={{
-              flex: 1, margin: 0,
-              fontSize: 'var(--text-xl)', fontWeight: 600,
-              color: 'var(--accent-rose-text)'
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 30, height: 30, flex: 'none',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--tint-rose)'
             }}
           >
+            <span className="ms" style={{ fontSize: 18, color: 'var(--accent-rose-text)' }}>
+              task_alt
+            </span>
+          </span>
+          <h2 className="pp-modal-title" style={{ flex: 1 }}>
             {editing ? 'Edit task' : 'New task'}
           </h2>
           <button
@@ -217,9 +222,13 @@ export default function TaskEditor({
             title="Close"
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 26, height: 26,
-              border: 'none', borderRadius: 'var(--radius-sm)',
-              background: 'rgba(255,255,255,0.7)',
+              width: 28, height: 28,
+              borderRadius: 'var(--radius-md)',
+              // A real border now the header is white — the translucent white
+              // fill was designed to sit on the tinted band and is invisible
+              // against --surface-card.
+              border: '1px solid var(--border-default)',
+              background: 'var(--surface-card)',
               cursor: saving ? 'default' : 'pointer',
               color: 'var(--text-muted)'
             }}
@@ -361,12 +370,10 @@ export default function TaskEditor({
           className="pp-modal-foot"
           style={{
             display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-            padding: '11px var(--space-4)',
-            borderTop: '1px solid var(--border-default)',
-            background: 'var(--gray-25)'
+            borderTop: '1px solid var(--border-default)'
           }}
         >
-          <span style={{ flex: 1, fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
+          <span className="pp-modal-status">
             {saving ? 'Saving to your CRM…' : editing && !dirty ? 'No changes yet' : '⌘↵ to save'}
           </span>
           <button
@@ -411,16 +418,12 @@ export default function TaskEditor({
 function Field({ label, required, error, children }) {
   return (
     <div style={{ minWidth: 0 }}>
-      <span
-        style={{
-          display: 'block', marginBottom: 5,
-          fontSize: 'var(--text-xs)', fontWeight: 600,
-          letterSpacing: 'var(--tracking-label)',
-          textTransform: 'uppercase', color: 'var(--text-muted)'
-        }}
-      >
+      {/* .pp-label: 11px with lighter tracking and --text-faint, so the label
+          is findable and then recedes. At 10px with 0.07em tracking and
+          --text-muted it drew as much attention as the value it names. */}
+      <span className="pp-label">
         {label}
-        {required && <span style={{ color: 'var(--status-stuck)' }}> *</span>}
+        {required && <span className="pp-req">*</span>}
       </span>
       {children}
       {error && (

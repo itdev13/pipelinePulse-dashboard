@@ -166,21 +166,25 @@ export default function BusinessEditor({
         <header
           className="pp-modal-head"
           style={{
-            display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-            flex: 'none',
-            padding: '13px var(--space-4)',
-            borderBottom: '1px solid var(--border-default)',
-            background: 'var(--tint-sky)'
+            display: 'flex', alignItems: 'center', gap: 10,
+            borderBottom: '1px solid var(--border-default)'
           }}
         >
-          <span className="ms" style={{ fontSize: 20, color: 'var(--accent-sky)' }}>domain</span>
-          <h2
+          {/* Badged icon, not a tinted band — colour now means only
+              one thing in a dialog header, and that is danger. */}
+          <span
             style={{
-              flex: 1, margin: 0,
-              fontSize: 'var(--text-xl)', fontWeight: 600,
-              color: 'var(--accent-sky-text)'
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 30, height: 30, flex: 'none',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--tint-sky)'
             }}
           >
+            <span className="ms" style={{ fontSize: 18, color: 'var(--accent-sky-text)' }}>
+              domain
+            </span>
+          </span>
+          <h2 className="pp-modal-title" style={{ flex: 1 }}>
             {editing ? 'Edit business' : 'New business'}
           </h2>
           <button
@@ -190,8 +194,9 @@ export default function BusinessEditor({
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 26, height: 26,
-              border: 'none', borderRadius: 'var(--radius-sm)',
-              background: 'rgba(255,255,255,0.7)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border-default)',
+              background: 'var(--surface-card)',
               cursor: saving ? 'default' : 'pointer',
               color: 'var(--text-muted)'
             }}
@@ -224,11 +229,15 @@ export default function BusinessEditor({
                     marginTop: 'var(--space-1)'
                   }}
                 >
+                  {/* Same sizing as .pp-label so the group heading and the
+                      field labels below it read as one system. Not the class
+                      itself — that is display:block with a margin, and this
+                      needs flex:none to sit beside its rule. */}
                   <span
                     style={{
                       flex: 'none',
-                      fontSize: 'var(--text-xs)', fontWeight: 600,
-                      letterSpacing: 'var(--tracking-label)',
+                      fontSize: 'var(--text-sm)', fontWeight: 600,
+                      letterSpacing: '0.05em',
                       textTransform: 'uppercase', color: 'var(--text-faint)'
                     }}
                   >
@@ -238,16 +247,9 @@ export default function BusinessEditor({
                 </div>
               )}
               <div style={{ minWidth: 0, gridColumn: wide ? '1 / -1' : undefined }}>
-                <span
-                  style={{
-                    display: 'block', marginBottom: 5,
-                    fontSize: 'var(--text-xs)', fontWeight: 600,
-                    letterSpacing: 'var(--tracking-label)',
-                    textTransform: 'uppercase', color: 'var(--text-muted)'
-                  }}
-                >
+                <span className="pp-label">
                   {f.label}
-                  {f.required && <span style={{ color: 'var(--status-stuck)' }}> *</span>}
+                  {f.required && <span className="pp-req">*</span>}
                 </span>
 
                 {f.type === 'multiline' ? (
@@ -350,12 +352,10 @@ export default function BusinessEditor({
           style={{
             display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
             flex: 'none',
-            padding: '11px var(--space-4)',
-            borderTop: '1px solid var(--border-default)',
-            background: 'var(--gray-25)'
+            borderTop: '1px solid var(--border-default)'
           }}
         >
-          <span style={{ flex: 1, fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
+          <span className="pp-modal-status">
             {saving ? 'Saving to your CRM…' : editing && !dirty ? 'No changes yet' : '⌘↵ to save'}
           </span>
           <button
