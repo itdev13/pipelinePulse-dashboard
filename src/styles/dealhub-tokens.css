@@ -1277,13 +1277,13 @@
  * being writable, so the only way to rename or reprice a deal was the Deals
  * tab or the CRM.
  *
- * The pencil is HIDDEN until hover or focus. A permanent pencil beside a 34px
- * heading competes with it for attention, and these are read far more often
- * than they are edited — but a control with no affordance at all is worse, so
- * it appears the moment the pointer or keyboard arrives.
+ * The pencil is always visible: a control with no affordance at all reads as
+ * static text, and these fields are only discoverable as editable if the
+ * pencil is there to notice. Hover/focus still get a slightly stronger
+ * opacity so the affordance sharpens as the target is approached.
  */
 [data-dealhub] .pp-inline-pencil {
-  opacity: 0;
+  opacity: 0.55;
   transition: opacity 120ms ease-out;
 }
 [data-dealhub] .pp-inline-edit:hover .pp-inline-pencil,

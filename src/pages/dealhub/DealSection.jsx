@@ -1074,7 +1074,13 @@ function InlineText({
           fontSize, fontWeight,
           color: (value && !muted) ? 'var(--text-heading)' : 'var(--text-faint)',
           lineHeight: 1.15, letterSpacing: '-0.015em',
-          overflowWrap: 'anywhere',
+          // Text (the deal name) wraps anywhere so a long name doesn't
+          // overflow the card. A number must never split mid-digit — "123"
+          // breaking into "12" / "3" reads as two separate values — so mono
+          // fields (currently only the money figure) get nowrap instead and
+          // are left to the container's own overflow handling.
+          whiteSpace: mono ? 'nowrap' : 'normal',
+          overflowWrap: mono ? 'normal' : 'anywhere',
           cursor: saving ? 'progress' : 'text'
         }}
       >
