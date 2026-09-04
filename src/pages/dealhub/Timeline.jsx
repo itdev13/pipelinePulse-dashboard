@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { RichBody, StateMessage, AttachmentCount } from '../shared/ListChrome'
 import { htmlToText } from '../../utils/sanitiseHtml'
+import EmailThreadModal from './EmailThreadModal'
 
 // One deal's merged message timeline.
 //
@@ -52,7 +53,33 @@ function attachmentIcon(name) {
 // DISPLAY ONLY, per the request. No reply, no forward: sending mail writes to
 // GHL through a conversation-provider path this app does not have, and a
 // button opening a composer we cannot send from is worse than no button.
-function EmailBody({ m }) {
+// Group the timeline's emails by thread.
+//
+// Built once per message list and handed down, rather than each row scanning
+// its siblings: a 200-row timeline would otherwise do 200 passes over 200
+// rows on every render.
+//
+// Only threads with MORE THAN ONE message are returned. A thread of one is
+// just an email — offering "1 in thread" on it would be a control that opens
+// a dialog showing what the row already shows.
+//
+// Keyed by thread_id, which messageWriter reads from event.threadId. Emails
+// without one (older syncs, or a channel that does not thread) simply never
+// appear here and render as plain rows.
+function buildThreads(list) {
+  const byThread = new Map()
+  for (const m of list) {
+    if (m.channel !== 'EMAIL' || !m.threadId) continue
+    const arr = byThread.get(m.threadId)
+    if (arr) arr.push(m); else byThread.set(m.threadId, [m])
+  }
+  for (const [id, arr] of byThread) {
+    if (arr.length < 2) byThread.delete(id)
+  }
+  return byThread
+}
+
+function EmailBody({ m, thread, onOpenThread }) {
   const [open, setOpen] = useState(false)
 
   // THE BODY IS HTML, not text.
@@ -102,6 +129,24 @@ function EmailBody({ m }) {
           {open ? 'expand_less' : 'expand_more'}
         </span>
       </button>
+
+      {/* THE THREAD AFFORDANCE.
+          Outside the header button, because it is a SECOND action on the same
+          row and nesting a button inside a button is invalid HTML — the inner
+          click would also toggle the expander. Only rendered when the thread
+          has more than one message; see buildThreads. */}
+      {thread && thread.length > 1 && (
+        <button
+          type="button"
+          className="pp-email-thread"
+          onClick={() => onOpenThread(m)}
+          title={`Show all ${thread.length} messages in this thread`}
+        >
+          <span className="ms" style={{ fontSize: 15 }}>forum</span>
+          {thread.length} in thread
+          <span className="ms" style={{ fontSize: 15 }}>chevron_right</span>
+        </button>
+      )}
 
       {open && (
         <div className="pp-email-full">
@@ -325,7 +370,7 @@ function channelLabelOf(m) {
   return CH_LABEL[m.channel] || m.channel
 }
 
-function MessageRow({ m, highlighted, onJumpAttachment, selected, onToggleSelect }) {
+function MessageRow({ m, highlighted, onJumpAttachment, selected, onToggleSelect, thread, onOpenThread }) {
   const channelCol = accentVar(m.channelAccent)
   const senderCol = accentVar(m.senderAccent)
   const inbound = m.direction === 'inbound'
@@ -415,7 +460,7 @@ function MessageRow({ m, highlighted, onJumpAttachment, selected, onToggleSelect
             else off screen.
             Collapsed to subject + one preview line, expanding on click. */}
         {m.channel === 'EMAIL' && m.body ? (
-          <EmailBody m={m} />
+          <EmailBody m={m} thread={thread} onOpenThread={onOpenThread} />
         ) : m.body ? (
           <div
             style={{
@@ -579,6 +624,18 @@ export default function Timeline({
     messages.map((m) => m.senderId).filter(Boolean)
   ).size
 
+  // Email threads, indexed once for the whole list — see buildThreads.
+  const threads = useMemo(() => buildThreads(messages), [messages])
+
+  // The email whose thread is open in the dialog, or null. Holding the MESSAGE
+  // rather than the thread id keeps track of which row was clicked, so the
+  // dialog can open that message expanded as well as the newest.
+  const [threadOf, setThreadOf] = useState(null)
+
+  // The dialog reads from `threads`, so a re-sync that drops the clicked
+  // message would otherwise leave a dialog with nothing in it.
+  const openThread = threadOf ? threads.get(threadOf.threadId) : null
+
   // Everything the agent can read: messages, notes and tasks. Events are
   // excluded — a "stage changed" row has no content to cite.
   const selectable = messages.filter((m) => !m.event)
@@ -737,6 +794,10 @@ export default function Timeline({
                   m={m}
                   highlighted={highlightedId === m.id}
                   onJumpAttachment={onJumpAttachment}
+                  // undefined for anything that isn't a multi-message email
+                  // thread, which is what suppresses the affordance.
+                  thread={m.threadId ? threads.get(m.threadId) : undefined}
+                  onOpenThread={setThreadOf}
                   // Absence of a flag means selected: a newly-synced message
                   // defaults IN, matching message_ai_exclusions (migration 051),
                   // which stores exclusions rather than inclusions.
@@ -748,6 +809,15 @@ export default function Timeline({
           )
         })}
       </div>
+      )}
+
+      {openThread && openThread.length > 1 && (
+        <EmailThreadModal
+          messages={openThread}
+          initialId={threadOf.id}
+          subject={threadOf.subject}
+          onClose={() => setThreadOf(null)}
+        />
       )}
     </section>
   )

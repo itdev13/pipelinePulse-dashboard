@@ -1464,3 +1464,183 @@
   font-weight: 600;
   color: var(--text-faint);
 }
+
+/* ── Email threads ────────────────────────────────────────────────────────
+ *
+ * The "3 in thread" affordance on a timeline row, and the message list inside
+ * the thread dialog. */
+
+/* A second action on an email row, below the header button rather than inside
+ * it — a button nested in a button is invalid, and its click would also fire
+ * the expander. Full-width with a top rule so it reads as a footer to the
+ * card, not as a stray chip floating inside it. */
+[data-dealhub] .pp-email-thread {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  padding: 6px 11px;
+  border: none;
+  border-top: 1px solid var(--border-default);
+  background: var(--gray-25);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-link);
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+[data-dealhub] .pp-email-thread:hover {
+  background: var(--surface-hover);
+}
+
+[data-dealhub] .pp-email-thread:focus-visible {
+  outline: 2px solid var(--border-prominent);
+  outline-offset: -2px;
+}
+
+/* The chevron sits at the far right, so the row reads "N in thread ———›". */
+[data-dealhub] .pp-email-thread .ms:last-child {
+  margin-left: auto;
+}
+
+/* ── Inside the thread dialog ──────────────────────────────────────────── */
+
+[data-dealhub] .pp-thread-msg-div {
+  border-bottom: 1px solid var(--border-default);
+}
+
+[data-dealhub] .pp-thread-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  width: 100%;
+  padding: 11px var(--space-4);
+  border: none;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+[data-dealhub] .pp-thread-head:hover {
+  background: var(--gray-25);
+}
+
+[data-dealhub] .pp-thread-head:focus-visible {
+  outline: 2px solid var(--border-prominent);
+  outline-offset: -2px;
+}
+
+[data-dealhub] .pp-thread-dir {
+  flex: none;
+  margin-top: 2px;
+  font-size: 17px;
+}
+
+[data-dealhub] .pp-thread-lines {
+  flex: 1;
+  /* Same reason as .pp-email-lines: a flex child defaults to min-width auto
+     and refuses to shrink below its text, so the preview would overflow
+     instead of truncating. */
+  min-width: 0;
+}
+
+[data-dealhub] .pp-thread-who {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+[data-dealhub] .pp-thread-name {
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--text-heading);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+[data-dealhub] .pp-thread-time {
+  flex: none;
+  /* Pushed right, so times form a column down the thread and the gap between
+     name and time doesn't jitter per row. */
+  margin-left: auto;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+}
+
+[data-dealhub] .pp-thread-prev {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--text-md);
+  color: var(--text-muted);
+}
+
+[data-dealhub] .pp-thread-chev {
+  flex: none;
+  margin-top: 1px;
+  font-size: 18px;
+  color: var(--text-faint);
+}
+
+/* Indented to the text column above it, so an open body lines up with the
+   sender name rather than with the direction icon. */
+[data-dealhub] .pp-thread-full {
+  padding: 0 var(--space-4) 14px 50px;
+}
+
+[data-dealhub] .pp-thread-nobody {
+  margin: 0;
+  font-size: var(--text-md);
+  font-style: italic;
+  color: var(--text-faint);
+}
+
+/* Header controls on the dialog. */
+[data-dealhub] .pp-thread-allbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: #fff;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-body);
+  cursor: pointer;
+}
+
+[data-dealhub] .pp-thread-allbtn:hover {
+  background: var(--gray-25);
+}
+
+[data-dealhub] .pp-thread-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+[data-dealhub] .pp-thread-x:hover {
+  background: var(--gray-100, var(--surface-hover));
+  color: var(--text-heading);
+}
