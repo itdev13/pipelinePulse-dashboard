@@ -1345,3 +1345,122 @@
 .pp-menu .ant-select-item-option-selected .ant-select-item-option-state {
   color: var(--accent-pine-text);
 }
+
+/* ── Email in the timeline ────────────────────────────────────────────────
+ *
+ * An email row is a collapsed document, not a chat bubble: subject, one line
+ * of preview, and the full body on click. Styled here rather than inline
+ * because the header is a <button> that has to shed every default a browser
+ * gives it (background, border, its own font) while staying a real button for
+ * focus and keyboard use.
+ *
+ * Scoped under [data-dealhub] to match the rest of this file — an unscoped
+ * .pp-email would apply inside the GHL iframe's own chrome. */
+
+[data-dealhub] .pp-email {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  /* Clips the header's hover tint to the rounded corners — without it the
+     tint squares off the top two. */
+  overflow: hidden;
+}
+
+[data-dealhub] .pp-email-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 11px;
+  /* A button inherits none of these. */
+  font-family: inherit;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+[data-dealhub] .pp-email-head:hover {
+  background: var(--surface-hover);
+}
+
+/* Keyboard focus stays visible. `-2px` keeps the ring inside the clipping
+   parent, which would otherwise crop it. */
+[data-dealhub] .pp-email-head:focus-visible {
+  outline: 2px solid var(--border-prominent);
+  outline-offset: -2px;
+}
+
+[data-dealhub] .pp-email-icon {
+  flex: none;
+  margin-top: 1px;
+  font-size: 16px;
+  color: var(--text-faint);
+}
+
+[data-dealhub] .pp-email-lines {
+  /* min-width:0 is what actually lets the ellipsis work: a flex child's
+     default min-width is auto, so it refuses to shrink below its text and the
+     subject overflows the card instead of truncating. */
+  flex: 1;
+  min-width: 0;
+}
+
+[data-dealhub] .pp-email-subject,
+[data-dealhub] .pp-email-preview {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--text-md);
+}
+
+[data-dealhub] .pp-email-subject {
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+[data-dealhub] .pp-email-preview {
+  margin-top: 2px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+[data-dealhub] .pp-email-chev {
+  flex: none;
+  font-size: 18px;
+  color: var(--text-faint);
+}
+
+[data-dealhub] .pp-email-full {
+  padding: 10px 11px;
+  border-top: 1px solid var(--border-default);
+}
+
+/* From / To. A two-column grid so the addresses line up under each other
+   instead of ragging off the label widths. */
+[data-dealhub] .pp-email-addr {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 0;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-default);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+[data-dealhub] .pp-email-addr > span {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: 44px 1fr;
+  /* An address has no spaces to break on, so a long one would push the card
+     wide without this. */
+  overflow-wrap: anywhere;
+}
+
+[data-dealhub] .pp-email-addr-k {
+  font-weight: 600;
+  color: var(--text-faint);
+}

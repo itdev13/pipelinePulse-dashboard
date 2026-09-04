@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { useMemo, useState } from 'react'
 import { RichBody, StateMessage, AttachmentCount } from '../shared/ListChrome'
+import { htmlToText } from '../../utils/sanitiseHtml'
 
 // One deal's merged message timeline.
 //
@@ -36,6 +37,95 @@ function attachmentIcon(name) {
   if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image'
   if (ext === 'dwg') return 'architecture'
   return 'description'
+}
+
+// An email in the timeline: subject, one preview line, expand for the rest.
+//
+// WHY IT NEEDS ITS OWN COMPONENT. Everything else here is a short message — an
+// SMS, a WhatsApp line, a call summary — and a chat bubble suits all of them.
+// An email is a document: GHL's payload for a three-paragraph update is 2KB of
+// nested markup. Rendered as a bubble it pushed every surrounding row off
+// screen, and the subject — the one thing a reader scans a mail list for — was
+// not shown at all, because `subject` has been stored since migration 031 and
+// the timeline query never selected it.
+//
+// DISPLAY ONLY, per the request. No reply, no forward: sending mail writes to
+// GHL through a conversation-provider path this app does not have, and a
+// button opening a composer we cannot send from is worse than no button.
+function EmailBody({ m }) {
+  const [open, setOpen] = useState(false)
+
+  // THE BODY IS HTML, not text.
+  //
+  // cleanMessageBody on the server runs cleanEmail for this channel, which
+  // strips the <head>, the <style> block and the inline font stacks — but it
+  // KEEPS the tags: a three-paragraph email arrives as
+  // `<div><p>…</p><p>…</p></div>`. Verified against the real webhook payload.
+  // So it renders through RichBody (which sanitises, the single audited
+  // innerHTML site) — as text it would show literal <p> tags to the rep.
+  //
+  // And the preview needs htmlToText, not textContent: textContent fuses
+  // block boundaries, turning `<p>Hi</p><p>Thanks</p>` into "HiThanks". That
+  // exact bug has bitten this codebase twice.
+  const preview = useMemo(() => htmlToText(m.body || ''), [m.body])
+
+  // Worth showing once expanded: on a deal with three contacts, "which of
+  // these people did we actually email" is the question, and the row's sender
+  // name does not answer it. Absent on older rows — the addresses come from
+  // raw_message, which early syncs did not always store.
+  const hasAddresses = m.emailFrom || m.emailTo
+
+  return (
+    <div className="pp-email" style={{ marginTop: 4 }}>
+      {/* The whole header is the toggle, not just a chevron: this is the most
+          clicked thing in an email row and a 16px icon is a poor target. */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        title={open ? 'Collapse this email' : 'Show the full email'}
+        className="pp-email-head"
+      >
+        <span className="ms pp-email-icon">mail</span>
+        <span className="pp-email-lines">
+          <span className="pp-email-subject">
+            {m.subject || '(no subject)'}
+          </span>
+          {/* One preview line while collapsed, so the row says what the mail
+              is about without opening it. Hidden when open — repeating the
+              first line directly above the full body reads as a bug. */}
+          {!open && preview && (
+            <span className="pp-email-preview">{preview}</span>
+          )}
+        </span>
+        <span className="ms pp-email-chev">
+          {open ? 'expand_less' : 'expand_more'}
+        </span>
+      </button>
+
+      {open && (
+        <div className="pp-email-full">
+          {hasAddresses && (
+            <div className="pp-email-addr">
+              {m.emailFrom && (
+                <span><span className="pp-email-addr-k">From</span>{m.emailFrom}</span>
+              )}
+              {m.emailTo && (
+                <span><span className="pp-email-addr-k">To</span>{m.emailTo}</span>
+              )}
+            </div>
+          )}
+          <RichBody
+            html={m.body}
+            color="var(--text-body)"
+            size="var(--text-md)"
+            leading="var(--leading-normal)"
+            maxWidth={680}
+          />
+        </div>
+      )}
+    </div>
+  )
 }
 
 function AttachmentChip({ att, channelAccent, onClick }) {
@@ -318,7 +408,15 @@ function MessageRow({ m, highlighted, onJumpAttachment, selected, onToggleSelect
           </span>
         )}
 
-        {m.body && (
+        {/* EMAIL gets its own treatment. An email is not a chat message:
+            it has a subject, addressed recipients, and a body that runs to
+            paragraphs. Rendered as a plain message it swamped the SMS and
+            call rows around it — a 400-word project update pushed everything
+            else off screen.
+            Collapsed to subject + one preview line, expanding on click. */}
+        {m.channel === 'EMAIL' && m.body ? (
+          <EmailBody m={m} />
+        ) : m.body ? (
           <div
             style={{
               fontSize: 'var(--text-md)', lineHeight: 'var(--leading-snug)',
@@ -328,7 +426,7 @@ function MessageRow({ m, highlighted, onJumpAttachment, selected, onToggleSelect
           >
             {m.body}
           </div>
-        )}
+        ) : null}
 
         {m.attachments?.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 5 }}>
