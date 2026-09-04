@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { RichBody, StateMessage, AttachmentCount } from '../shared/ListChrome'
 import { htmlToText } from '../../utils/sanitiseHtml'
 import AttachmentChip, { accentVar } from './AttachmentChip'
+import AttachmentViewer from './AttachmentViewer'
 import EmailThreadModal from './EmailThreadModal'
 import { noteColourStyle } from '../../utils/noteColour'
 
@@ -61,7 +62,7 @@ function buildThreads(list) {
   return byThread
 }
 
-function EmailBody({ m, thread, onOpenThread, onJumpAttachment }) {
+function EmailBody({ m, thread, onOpenThread, onOpenAttachment }) {
   const [open, setOpen] = useState(false)
 
   // THE BODY IS HTML, not text.
@@ -215,7 +216,9 @@ function EmailBody({ m, thread, onOpenThread, onJumpAttachment }) {
                     key={`${att.name}-${i}`}
                     att={att}
                     channelAccent={m.channelAccent}
-                    onClick={() => onJumpAttachment && onJumpAttachment(att)}
+                    // The whole list plus this index, so the viewer's arrows
+                    // can page through the email's other files.
+                    onClick={() => onOpenAttachment(atts, i)}
                   />
                 ))}
               </div>
@@ -408,7 +411,7 @@ function channelLabelOf(m) {
   return CH_LABEL[m.channel] || m.channel
 }
 
-function MessageRow({ m, highlighted, onJumpAttachment, selected, onToggleSelect, thread, onOpenThread }) {
+function MessageRow({ m, highlighted, onOpenAttachment, selected, onToggleSelect, thread, onOpenThread }) {
   const channelCol = accentVar(m.channelAccent)
   const senderCol = accentVar(m.senderAccent)
   const inbound = m.direction === 'inbound'
@@ -502,7 +505,7 @@ function MessageRow({ m, highlighted, onJumpAttachment, selected, onToggleSelect
             m={m}
             thread={thread}
             onOpenThread={onOpenThread}
-            onJumpAttachment={onJumpAttachment}
+            onOpenAttachment={onOpenAttachment}
           />
         ) : m.body ? (
           <div
@@ -527,7 +530,7 @@ function MessageRow({ m, highlighted, onJumpAttachment, selected, onToggleSelect
                 key={`${att.name}-${i}`}
                 att={att}
                 channelAccent={m.channelAccent}
-                onClick={() => onJumpAttachment && onJumpAttachment(att)}
+                onClick={() => onOpenAttachment(m.attachments, i)}
               />
             ))}
           </div>
@@ -669,7 +672,11 @@ function Badge({ children, tone, icon }) {
 export default function Timeline({
   messages,
   highlightedId = null,
-  onJumpAttachment,
+  // OPTIONAL. Nothing ever passed this — DealHubTab renders <Timeline> without
+  // it — so every attachment chip in the timeline was a dead click. The
+  // built-in viewer below is now the default, and a caller can still override
+  // to do something else.
+  onJumpAttachment = null,
   onToggleSelect,
   onSelectAll,
   // Empty-state wording depends on WHY the list is empty, and only the caller
@@ -691,6 +698,26 @@ export default function Timeline({
 
   // Email threads, indexed once for the whole list — see buildThreads.
   const threads = useMemo(() => buildThreads(messages), [messages])
+
+  // The attachment being previewed: { attachments, index } or null.
+  //
+  // Held here rather than per-row so only one viewer exists, and so an
+  // attachment opened from the thread dialog and one opened from a row use
+  // the same component and the same stacking.
+  const [viewing, setViewing] = useState(null)
+
+  // One place that decides what a chip click does. `onJumpAttachment` wins if
+  // a caller supplied it; otherwise the built-in viewer opens.
+  const openAttachment = (list, idx) => {
+    const arr = Array.isArray(list) ? list.filter((a) => a && a.url) : []
+    if (arr.length === 0) return
+    if (onJumpAttachment) { onJumpAttachment(arr[idx] || arr[0]); return }
+    // The index must point into the FILTERED array, or dropping a urlless
+    // entry would open the wrong file.
+    const target = list[idx]
+    const at = Math.max(0, arr.indexOf(target))
+    setViewing({ attachments: arr, index: at })
+  }
 
   // The email whose thread is open in the dialog, or null. Holding the MESSAGE
   // rather than the thread id keeps track of which row was clicked, so the
@@ -858,7 +885,7 @@ export default function Timeline({
                 <MessageRow
                   m={m}
                   highlighted={highlightedId === m.id}
-                  onJumpAttachment={onJumpAttachment}
+                  onOpenAttachment={openAttachment}
                   // undefined for anything that isn't a multi-message email
                   // thread, which is what suppresses the affordance.
                   thread={m.threadId ? threads.get(m.threadId) : undefined}
@@ -874,6 +901,14 @@ export default function Timeline({
           )
         })}
       </div>
+      )}
+
+      {viewing && (
+        <AttachmentViewer
+          attachments={viewing.attachments}
+          index={viewing.index}
+          onClose={() => setViewing(null)}
+        />
       )}
 
       {openThread && openThread.length > 1 && (

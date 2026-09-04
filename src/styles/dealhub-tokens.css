@@ -1573,20 +1573,36 @@
 }
 
 /* The expand hit area: covers the card head so clicking the subject or the
- * preview toggles the email, but sits BELOW the chip and chevron in z-order
- * so those keep their own clicks. Purely a target — no visual of its own. */
+ * preview toggles the email, while the chip and chevron keep their own clicks.
+ *
+ * IT MUST NEVER PAINT.
+ *
+ * This overlay is `position: absolute` with `z-index: 0`, and the subject,
+ * icon and preview beside it are all `position: static` at `z-index: auto`.
+ * A positioned element paints ABOVE static content regardless of a zero
+ * z-index — so when this had a `:hover { background: var(--surface-hover) }`,
+ * and that token is fully opaque rgb(245,246,248), hovering the card filled
+ * it with flat grey and the email vanished: no icon, no subject, no preview.
+ *
+ * The hover feedback belongs on the CARD, which is behind everything (see
+ * .pp-email:hover below). This element stays a pure hit target: no
+ * background, in any state.
+ *
+ * `z-index: 0` rather than -1: at -1 it would drop behind .pp-email's own
+ * background and stop receiving clicks entirely. */
 [data-dealhub] .pp-email-hit {
   position: absolute;
   inset: 0;
   z-index: 0;
   padding: 0;
   border: none;
-  border-radius: var(--radius-md);
   background: none;
   cursor: pointer;
 }
 
-[data-dealhub] .pp-email-hit:hover {
+/* The hover state, moved here from the overlay. On the card it sits behind
+ * the text rather than over it, which is the whole point. */
+[data-dealhub] .pp-email:hover {
   background: var(--surface-hover);
 }
 
@@ -1656,6 +1672,138 @@
   /* A long filename truncates inside its own chip (see AttachmentChip), so
      the list itself never needs to scroll sideways. */
   min-width: 0;
+}
+
+/* ── Attachment viewer ────────────────────────────────────────────────────
+ *
+ * One attachment, previewed in a dialog. Images and PDFs render inline;
+ * everything else (and any preview that fails to load) falls back to a card
+ * with an "Open in a new tab" link. */
+
+/* The preview area. A dark ground rather than white: an image with a light
+ * background needs an edge to read against, and it matches what every other
+ * image viewer does. Fixed height so paging between a tall PDF and a small
+ * image does not resize the dialog under the cursor. */
+[data-dealhub] .pp-att-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: min(70vh, 620px);
+  padding: 0;
+  overflow: auto;
+  /* gray-800 is the darkest token in the scale — there is no gray-900. */
+  background: var(--gray-800);
+}
+
+[data-dealhub] .pp-att-img {
+  /* Fits without cropping, and never upscales past its own size — a 200px
+     logo blown up to 600px is worse than a small sharp one. */
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+[data-dealhub] .pp-att-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  /* The browser's PDF viewer draws its own light ground; without this the
+     dark stage shows through around the edges while it loads. */
+  background: #fff;
+}
+
+/* The fallback card: an unpreviewable type, or a preview that failed. */
+[data-dealhub] .pp-att-none {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 24px;
+  text-align: center;
+  color: var(--gray-100);
+}
+
+[data-dealhub] .pp-att-none-icon {
+  font-size: 56px;
+  /* Dimmer than the text: it is decoration, and at 56px full-strength it
+     out-shouted the filename. */
+  color: var(--gray-500);
+}
+
+[data-dealhub] .pp-att-none-name {
+  max-width: 420px;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  /* A long filename has no spaces to break on. */
+  overflow-wrap: anywhere;
+}
+
+[data-dealhub] .pp-att-none-msg {
+  max-width: 360px;
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  color: var(--gray-400);
+}
+
+/* Open in a new tab. Present on the fallback card AND in the footer when a
+ * preview worked — the browser's own PDF viewer has print and download, and
+ * an image is easier to inspect at full size. */
+[data-dealhub] .pp-att-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 7px 14px;
+  border-radius: var(--radius-md);
+  background: var(--brand-primary);
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: #fff;
+  text-decoration: none;
+}
+
+[data-dealhub] .pp-att-open:hover {
+  filter: brightness(1.08);
+}
+
+/* The footer variant sits on a light ground, so it is a quiet link rather
+ * than a filled button competing with the file itself. */
+[data-dealhub] .pp-att-open-sm {
+  margin-top: 0;
+  padding: 5px 10px;
+  border: 1px solid var(--border-strong);
+  background: #fff;
+  font-size: var(--text-sm);
+  color: var(--text-body);
+}
+
+[data-dealhub] .pp-att-open-sm:hover {
+  filter: none;
+  background: var(--gray-25);
+}
+
+[data-dealhub] .pp-att-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--text-body);
+  cursor: pointer;
+}
+
+[data-dealhub] .pp-att-nav:hover {
+  background: var(--gray-25);
+}
+
+[data-dealhub] .pp-att-nav:focus-visible {
+  outline: 2px solid var(--border-prominent);
+  outline-offset: 1px;
 }
 
 /* ── Inside the thread dialog ──────────────────────────────────────────── */

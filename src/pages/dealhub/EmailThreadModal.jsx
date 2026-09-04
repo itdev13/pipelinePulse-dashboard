@@ -3,6 +3,7 @@ import { useModal } from '../../hooks/useModal'
 import { RichBody } from '../shared/ListChrome'
 import { htmlToText } from '../../utils/sanitiseHtml'
 import AttachmentChip from './AttachmentChip'
+import AttachmentViewer from './AttachmentViewer'
 
 // The full email thread, as a dialog.
 //
@@ -61,6 +62,11 @@ export default function EmailThreadModal({ messages, initialId, subject, onClose
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  // The attachment being previewed, or null. Held on the dialog rather than
+  // per-message so only one viewer is ever mounted; it renders at z-index 65,
+  // above this dialog's 60, because it opens from here.
+  const [viewing, setViewing] = useState(null)
 
   const allOpen = openIds.size === ordered.length
 
@@ -145,6 +151,12 @@ export default function EmailThreadModal({ messages, initialId, subject, onClose
               total={ordered.length}
               open={openIds.has(m.id)}
               onToggle={() => toggle(m.id)}
+              onOpenAttachment={(list, idx) => {
+                const arr = list.filter((a) => a && a.url)
+                if (arr.length === 0) return
+                const at = Math.max(0, arr.indexOf(list[idx]))
+                setViewing({ attachments: arr, index: at })
+              }}
             />
           ))}
         </div>
@@ -168,13 +180,21 @@ export default function EmailThreadModal({ messages, initialId, subject, onClose
           </span>
         </footer>
       </div>
+
+      {viewing && (
+        <AttachmentViewer
+          attachments={viewing.attachments}
+          index={viewing.index}
+          onClose={() => setViewing(null)}
+        />
+      )}
     </div>
   )
 }
 
 // One message in the thread. Collapsed: sender, time, one line of body.
 // Expanded: the addresses and the full body.
-function ThreadMessage({ m, index, total, open, onToggle }) {
+function ThreadMessage({ m, index, total, open, onToggle, onOpenAttachment }) {
   // htmlToText, not textContent — the latter fuses block boundaries and turns
   // `<p>Hi</p><p>Thanks</p>` into "HiThanks".
   const preview = useMemo(() => htmlToText(m.body || ''), [m.body])
@@ -266,7 +286,10 @@ function ThreadMessage({ m, index, total, open, onToggle }) {
                     key={`${att.name}-${i}`}
                     att={att}
                     channelAccent="sky"
-                    onClick={() => { if (att.url) window.open(att.url, '_blank', 'noopener,noreferrer') }}
+                    // Previewed in a dialog rather than a new tab: a rep
+                    // checking which quote went out should not lose the
+                    // thread they are reading.
+                    onClick={() => onOpenAttachment(atts, i)}
                   />
                 ))}
               </div>
