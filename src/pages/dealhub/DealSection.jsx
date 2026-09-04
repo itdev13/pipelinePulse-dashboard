@@ -1009,7 +1009,13 @@ function OwnerRow({ deal, users, onNeedUsers, saving, onSave }) {
 // string back. The same trap the Deals tab hit.
 function ValueEditor({ deal, onSaveField, saving, muted = false }) {
   return (
-    <span className="pp-num" style={{ display: 'inline-flex' }}>
+    // display:block with width:100%, NOT inline-flex.
+    //
+    // inline-flex sizes to its content, so the `maxWidth: '100%'` on the
+    // editor inside it resolved against the CONTENT width rather than the
+    // column — and at --text-display (34px) the input grew past the column
+    // border into the next one.
+    <span className="pp-num" style={{ display: 'block', width: '100%', minWidth: 0 }}>
       <InlineText
         label="Value"
         value={deal.monetaryValue != null ? String(deal.monetaryValue) : ''}
@@ -1062,7 +1068,9 @@ function InlineText({
       <button
         onClick={begin}
         disabled={saving}
-        title={`Edit ${label.toLowerCase()}`}
+        // Includes the VALUE, not just the action: a figure truncated by the
+        // ellipsis above has to be readable somewhere.
+        title={value ? `${label}: ${value} — click to edit` : `Edit ${label.toLowerCase()}`}
         className="pp-inline-edit"
         style={{
           display: 'inline-flex', alignItems: 'baseline', gap: 8,
@@ -1077,10 +1085,17 @@ function InlineText({
           // Text (the deal name) wraps anywhere so a long name doesn't
           // overflow the card. A number must never split mid-digit — "123"
           // breaking into "12" / "3" reads as two separate values — so mono
-          // fields (currently only the money figure) get nowrap instead and
-          // are left to the container's own overflow handling.
+          // fields (currently only the money figure) get nowrap.
+          //
+          // But nowrap needs somewhere for the overflow to GO. The comment
+          // here used to defer to "the container's own overflow handling",
+          // and the container had none — so a large figure ran past the
+          // column border into the next column. ellipsis keeps it inside;
+          // the full value is in the title attribute either way.
           whiteSpace: mono ? 'nowrap' : 'normal',
           overflowWrap: mono ? 'normal' : 'anywhere',
+          overflow: 'hidden',
+          textOverflow: mono ? 'ellipsis' : 'clip',
           cursor: saving ? 'progress' : 'text'
         }}
       >
@@ -1098,7 +1113,16 @@ function InlineText({
   }
 
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: '100%' }}>
+    // flex, not inline-flex, so this row fills the width available rather than
+    // hugging its content. width:100% + minWidth:0 is the pair that lets the
+    // input shrink instead of forcing the row wider — minWidth:0 alone is not
+    // enough on a flex container whose child has intrinsic width.
+    <span
+      style={{
+        display: 'flex', alignItems: 'center', gap: 6,
+        width: '100%', minWidth: 0, maxWidth: '100%'
+      }}
+    >
       {prefix && (
         <span style={{ fontSize, fontWeight, color: 'var(--text-faint)' }}>{prefix}</span>
       )}
@@ -1282,6 +1306,14 @@ function Column({ label, children, last }) {
     <div
       style={{
         minWidth: 0,
+        // CONTAINS its children. minWidth:0 lets the column shrink in the
+        // grid, but on its own it does nothing to stop an over-wide child
+        // painting outside the box — which is what the value editor did at
+        // 34px, spilling across the border into the next column.
+        //
+        // The columns are separated by a 1px border, so anything crossing it
+        // reads as a rendering fault rather than as long content.
+        overflow: 'hidden',
         // More room than before. The card carries the page's most important
         // facts and was the tightest thing on it — 14px of padding around
         // 34px display type reads as cramped.
