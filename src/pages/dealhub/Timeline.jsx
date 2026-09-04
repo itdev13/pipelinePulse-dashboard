@@ -103,51 +103,75 @@ function EmailBody({ m, thread, onOpenThread }) {
   // raw_message, which early syncs did not always store.
   const hasAddresses = m.emailFrom || m.emailTo
 
+  const threaded = thread && thread.length > 1
+
   return (
     <div className="pp-email" style={{ marginTop: 4 }}>
-      {/* The whole header is the toggle, not just a chevron: this is the most
-          clicked thing in an email row and a 16px icon is a poor target. */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        title={open ? 'Collapse this email' : 'Show the full email'}
-        className="pp-email-head"
-      >
-        <span className="ms pp-email-icon">mail</span>
-        <span className="pp-email-lines">
-          <span className="pp-email-subject">
-            {m.subject || '(no subject)'}
-          </span>
-          {/* One preview line while collapsed, so the row says what the mail
-              is about without opening it. Hidden when open — repeating the
-              first line directly above the full body reads as a bug. */}
-          {!open && preview && (
-            <span className="pp-email-preview">{preview}</span>
-          )}
-        </span>
-        <span className="ms pp-email-chev">
-          {open ? 'expand_less' : 'expand_more'}
-        </span>
-      </button>
-
-      {/* THE THREAD AFFORDANCE.
-          Outside the header button, because it is a SECOND action on the same
-          row and nesting a button inside a button is invalid HTML — the inner
-          click would also toggle the expander. Only rendered when the thread
-          has more than one message; see buildThreads. */}
-      {thread && thread.length > 1 && (
+      {/* TWO CONTROLS ON ONE LINE, as siblings.
+          The expander cannot CONTAIN the thread button — a button inside a
+          button is invalid HTML, and the inner click would also toggle the
+          expander. So the header is a flex row holding both: the expander
+          takes the remaining width, the thread chip sits at the top right. */}
+      <div className="pp-email-bar">
+        {/* The whole left portion is the toggle, not just a chevron: this is
+            the most clicked thing in an email row and a 16px icon is a poor
+            target. */}
         <button
           type="button"
-          className="pp-email-thread"
-          onClick={() => onOpenThread(m)}
-          title={`Show all ${thread.length} messages in this thread`}
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          title={open ? 'Collapse this email' : 'Show the full email'}
+          className="pp-email-head"
         >
-          <span className="ms" style={{ fontSize: 15 }}>forum</span>
-          {thread.length} in thread
-          <span className="ms" style={{ fontSize: 15 }}>chevron_right</span>
+          <span className="ms pp-email-icon">mail</span>
+          <span className="pp-email-lines">
+            <span className="pp-email-subject">
+              {m.subject || '(no subject)'}
+            </span>
+            {/* One preview line while collapsed, so the row says what the mail
+                is about without opening it. Hidden when open — repeating the
+                first line directly above the full body reads as a bug. */}
+            {!open && preview && (
+              <span className="pp-email-preview">{preview}</span>
+            )}
+          </span>
         </button>
-      )}
+
+        {/* THE THREAD AFFORDANCE, top right.
+            Aligned to the top rather than centred: the card grows taller when
+            the preview line is present, and a vertically-centred chip would
+            drift down away from the subject it belongs to. Only rendered when
+            the thread has more than one message; see buildThreads. */}
+        {threaded && (
+          <button
+            type="button"
+            className="pp-email-thread"
+            onClick={() => onOpenThread(m)}
+            title={`Show all ${thread.length} messages in this thread`}
+          >
+            <span className="ms" style={{ fontSize: 14 }}>forum</span>
+            {thread.length} in thread
+            <span className="ms" style={{ fontSize: 14 }}>chevron_right</span>
+          </button>
+        )}
+
+        {/* Stays last so the chevron remains the card's right-most element —
+            it belongs to the expander, and putting the thread chip outside it
+            would read as the chevron opening the thread. Outside the button
+            for the nesting reason above, so it needs its own click handler. */}
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-label={open ? 'Collapse this email' : 'Show the full email'}
+          title={open ? 'Collapse this email' : 'Show the full email'}
+          className="pp-email-chevbtn"
+        >
+          <span className="ms pp-email-chev">
+            {open ? 'expand_less' : 'expand_more'}
+          </span>
+        </button>
+      </div>
 
       {open && (
         <div className="pp-email-full">

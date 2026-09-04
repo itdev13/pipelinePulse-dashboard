@@ -1370,8 +1370,11 @@
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  width: 100%;
-  padding: 9px 11px;
+  /* Takes the width the chip and chevron leave. min-width:0 is what lets the
+     subject truncate rather than pushing them off the card. */
+  flex: 1;
+  min-width: 0;
+  padding: 9px 0 9px 11px;
   /* A button inherits none of these. */
   font-family: inherit;
   text-align: left;
@@ -1470,39 +1473,81 @@
  * The "3 in thread" affordance on a timeline row, and the message list inside
  * the thread dialog. */
 
-/* A second action on an email row, below the header button rather than inside
- * it — a button nested in a button is invalid, and its click would also fire
- * the expander. Full-width with a top rule so it reads as a footer to the
- * card, not as a stray chip floating inside it. */
-[data-dealhub] .pp-email-thread {
+/* The header is a flex ROW holding two buttons: the expander (which takes the
+ * remaining width) and the thread chip at the top right. They cannot nest —
+ * a button inside a button is invalid, and the inner click would also fire
+ * the expander. */
+[data-dealhub] .pp-email-bar {
   display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding-right: 8px;
+}
+
+/* A second action on the row, as a chip at the top right.
+ *
+ * WHY A CHIP AND NOT A FULL-WIDTH FOOTER. It was a footer strip along the
+ * bottom, which put it furthest from the subject it describes and gave a
+ * two-line card a third band. At the top right it sits on the subject's own
+ * line, where a message count belongs.
+ *
+ * margin-top aligns its text to the subject's baseline rather than the card's
+ * top edge — the chip is shorter than the two-line block beside it, and
+ * top-aligning the boxes leaves the text visibly high. */
+[data-dealhub] .pp-email-thread {
+  display: inline-flex;
   align-items: center;
-  gap: 5px;
-  width: 100%;
-  padding: 6px 11px;
-  border: none;
-  border-top: 1px solid var(--border-default);
-  background: var(--gray-25);
+  gap: 4px;
+  flex: none;
+  margin-top: 7px;
+  padding: 2px 7px 2px 6px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-pill);
+  background: var(--surface-card);
   font-family: inherit;
   font-size: var(--text-sm);
   font-weight: 600;
+  /* Whitespace would let "2 in thread" wrap to two lines in a narrow rail. */
+  white-space: nowrap;
   color: var(--text-link);
   cursor: pointer;
-  transition: background 120ms ease;
+  transition: background 120ms ease, border-color 120ms ease;
 }
 
 [data-dealhub] .pp-email-thread:hover {
+  border-color: var(--border-prominent);
   background: var(--surface-hover);
 }
 
 [data-dealhub] .pp-email-thread:focus-visible {
   outline: 2px solid var(--border-prominent);
-  outline-offset: -2px;
+  outline-offset: 1px;
 }
 
-/* The chevron sits at the far right, so the row reads "N in thread ———›". */
-[data-dealhub] .pp-email-thread .ms:last-child {
-  margin-left: auto;
+/* The chevron is its own button now, since it sits outside the expander it
+ * belongs to. Sized to stay a real target rather than a bare 18px glyph. */
+[data-dealhub] .pp-email-chevbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  margin-top: 6px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  cursor: pointer;
+}
+
+[data-dealhub] .pp-email-chevbtn:hover {
+  background: var(--surface-hover);
+}
+
+[data-dealhub] .pp-email-chevbtn:focus-visible {
+  outline: 2px solid var(--border-prominent);
+  outline-offset: -1px;
 }
 
 /* ── Inside the thread dialog ──────────────────────────────────────────── */
