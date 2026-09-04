@@ -171,12 +171,15 @@ export default function DealHubShell() {
           boxShadow: '0 1px 2px rgba(23, 33, 46, 0.06)'
         }}
       >
-        {/* The sub-account name, set apart from the navigation.
-            marginRight on top of the header's gap: 14 spaced the name from
-            Back exactly as far as the chips are spaced from each other, so the
-            name read as the first item in the nav rather than as the label for
-            what follows. The extra room is what separates "whose account this
-            is" from "where to go in it".
+        {/* The sub-account name, separated from the navigation by space AND a
+            rule.
+            The header's own gap is 14px — the same as between the chips — so
+            with nothing added the name read as the first item in the nav
+            rather than as the label for what follows. 24px was tried and was
+            still not enough to separate two different kinds of thing.
+            A divider does the work whitespace alone could not: 32px of space
+            either side plus a hairline, so "whose account this is" and "where
+            to go in it" read as two zones rather than one row of controls.
             flex: 'none' so a long sub-account name is truncated by the header
             rather than squeezing the chips. */}
         <span
@@ -185,12 +188,28 @@ export default function DealHubShell() {
             flex: 'none',
             maxWidth: 260,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            marginRight: 'var(--space-5)',
             fontWeight: 600, fontSize: 'var(--text-lg)', color: 'var(--text-heading)'
           }}
         >
           {locationName}
         </span>
+
+        {/* The rule. aria-hidden because it is decoration — a screen reader
+            announcing a separator between a heading and a nav adds nothing.
+            The header wraps on a narrow iframe, and a vertical rule that ends
+            up last on a line points at nothing. CSS cannot detect that, so the
+            rule is simply narrow enough (1px + 32px of margin) that a stranded
+            one reads as trailing space rather than as a mark. Hiding it would
+            need a resize observer for a cosmetic case. */}
+        <span
+          aria-hidden="true"
+          style={{
+            flex: 'none',
+            width: 1, height: 22,
+            margin: '0 var(--space-4)',
+            background: 'var(--border-default)'
+          }}
+        />
 
         {/* Back. Disabled rather than hidden on the first screen: a control
             that appears and disappears makes the whole header jump sideways
