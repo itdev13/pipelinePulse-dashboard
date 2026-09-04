@@ -5,6 +5,7 @@ import { formatDue, relativeTime, RichBody, AttachmentCount } from '../shared/Li
 import TaskEditor from '../shared/TaskEditor'
 import NoteEditor from '../shared/NoteEditor'
 import ConfirmDialog from '../shared/ConfirmDialog'
+import { noteColourStyle } from '../../utils/noteColour'
 
 // Tasks and Notes for the open deal, in the Deal Hub's right rail.
 //
@@ -432,14 +433,26 @@ export function DealNotesSection({ dealId, people = [], onOpenAll }) {
     >
       {shown.map((n, i) => {
         const { heading, rest } = splitNote(n.body)
+        // The colour a rep set on the note, in GHL or here. The server has
+        // always sent it on /api/notes; nothing rendered it until now.
+        const col = noteColourStyle(n.color)
         return (
-          <Row key={n.id} last={i === shown.length - 1}>
+          <Row key={n.id} last={i === shown.length - 1} stripe={col.stripe}>
             <span
+              title={col.name ? `${col.name} note` : undefined}
               style={{
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 width: 28, height: 28, flex: 'none',
                 borderRadius: 'var(--radius-sm)',
-                background: 'var(--tint-gold)', color: 'var(--accent-gold-text)'
+                // The note's own colour when it has one, so the square and the
+                // stripe read as one object. Falls back to the rail's gold —
+                // NOT to grey, which would make every uncoloured note look
+                // like a deliberately grey one.
+                background: col.tint || 'var(--tint-gold)',
+                // The glyph stays dark either way: these are pastels, and the
+                // gold-on-pastel accent colour was the only thing that made
+                // the icon legible at 15px.
+                color: col.hex ? 'var(--text-heading)' : 'var(--accent-gold-text)'
               }}
             >
               <span className="ms" style={{ fontSize: 15 }}>sticky_note_2</span>
@@ -722,12 +735,24 @@ function Rail({
   )
 }
 
-function Row({ children, last, dim }) {
+function Row({ children, last, dim, stripe = null }) {
   return (
     <div
       style={{
         display: 'flex', alignItems: 'flex-start', gap: 10,
-        padding: '11px 14px',
+        // The stripe replaces the left padding rather than adding to it, so a
+        // coloured row and an uncoloured one keep their text on the same
+        // vertical line — otherwise a mixed list looks ragged.
+        padding: stripe ? '11px 14px 11px 11px' : '11px 14px',
+        // THE NOTE'S COLOUR, as a 3px left edge.
+        //
+        // borderLeft, not a positioned child: it participates in layout, so it
+        // cannot overlap the icon square, and it stretches to the row's full
+        // height however tall the note's text runs.
+        //
+        // Only ever a normalised hex — see normaliseNoteColour. A raw value
+        // from GHL interpolated here would be a CSS injection.
+        borderLeft: stripe ? `3px solid ${stripe}` : 'none',
         borderBottom: last ? 'none' : '1px solid var(--border-default)',
         // A completed task stays visible but recedes — useful history, not
         // something needing attention.

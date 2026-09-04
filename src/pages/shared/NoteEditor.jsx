@@ -11,9 +11,9 @@ const RichEditor = React.lazy(() => import('./RichEditor'))
 import { sanitiseHtml, htmlToText } from '../../utils/sanitiseHtml'
 import RemotePicker from './RemotePicker'
 import {
-import { NOTE_COLOURS } from '../../utils/noteColour'
   searchDeals, searchBusinesses, dealOption, businessOption
 } from '../../hooks/useLinkTargets'
+import { NOTE_COLOURS } from '../../utils/noteColour'
 
 // Create or edit one note. Shared by the Notes page and the Deal Hub's note
 // rail so the two can't drift apart in what they accept.

@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { RichBody, StateMessage, AttachmentCount } from '../shared/ListChrome'
 import { htmlToText } from '../../utils/sanitiseHtml'
 import EmailThreadModal from './EmailThreadModal'
+import { noteColourStyle } from '../../utils/noteColour'
 
 // One deal's merged message timeline.
 //
@@ -288,7 +289,7 @@ function Row({ id, children, highlighted, tone, dim }) {
 
 // The channel/kind icon. Colour carries the channel; there is no stripe, box or
 // tint behind it, so six SMS rows no longer read as a wall of orange.
-function RowIcon({ icon, colour, title }) {
+function RowIcon({ icon, colour, title, tint = null }) {
   return (
     <span
       title={title}
@@ -296,7 +297,14 @@ function RowIcon({ icon, colour, title }) {
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         width: 26, height: 26, marginTop: 1,
         borderRadius: 'var(--radius-sm)',
-        background: 'var(--gray-50)', color: colour
+        // `tint` is ONLY passed for a note whose author actually set a colour
+        // — see the note on EntryRow. The neutral gray-50 default is what
+        // keeps six SMS rows from reading as a wall of orange, so this stays
+        // an exception rather than becoming the rule.
+        background: tint || 'var(--gray-50)',
+        // On a pastel tint the channel accent loses contrast, so the glyph
+        // goes dark. Only a normalised hex ever reaches here.
+        color: tint ? 'var(--text-heading)' : colour
       }}
     >
       <span className="ms" style={{ fontSize: 16 }}>{icon}</span>
@@ -497,6 +505,15 @@ function MessageRow({ m, highlighted, onJumpAttachment, selected, onToggleSelect
 function EntryRow({ m, highlighted, selected, onToggleSelect }) {
   const col = accentVar(m.channelAccent)
   const isNote = m.kind === 'note'
+  // A note's own colour, when its author set one.
+  //
+  // ON THE ICON SQUARE ONLY, deliberately. The rail gives a coloured note a
+  // left edge stripe, but the rail is a short list of notes; this timeline
+  // interleaves them with messages, tasks and events on one grid, and its
+  // rows carry no stripes precisely so a long thread does not read as a wall
+  // of colour (see the comment above ROW_GRID). Tinting the 26px square that
+  // is already there says the same thing without breaking that.
+  const noteCol = isNote ? noteColourStyle(m.color) : { tint: null, name: null }
 
   return (
     <Row id={`tl-${m.id}`} highlighted={highlighted} tone="internal" dim={m.imported}>
@@ -512,7 +529,16 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
             : `Not selected — the agent skips this ${isNote ? 'note' : 'task'}`
         }
       />
-      <RowIcon icon={m.channelIcon} colour={col} title={isNote ? 'Note' : 'Task'} />
+      <RowIcon
+        icon={m.channelIcon}
+        colour={col}
+        tint={noteCol.tint}
+        title={
+          noteCol.name
+            ? `${noteCol.name} note`
+            : (isNote ? 'Note' : 'Task')
+        }
+      />
 
       <div style={{ minWidth: 0 }}>
         <div

@@ -4,6 +4,7 @@ import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import NoteEditor from '../shared/NoteEditor'
 import { useLinkTargets } from '../../hooks/useLinkTargets'
 import ConfirmDialog from '../shared/ConfirmDialog'
+import { noteColourStyle } from '../../utils/noteColour'
 import {
   Shell, PageHeader, Panel, ContactChip, DealChip, Chip, RowAction,
   PrimaryAction, NoteChip, StateMessage, LoadMore, RichBody, relativeTime,
@@ -148,30 +149,50 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
           const rest = n.title ? n.body : derived.rest
           const byAI = isAIAuthored(n)
           const hasChips = n.noteChips?.length > 0
+          // The author's own colour, via the shared normaliser.
+          //
+          // This list already showed the colour, but read `n.color` straight
+          // into a style attribute. A note's colour is attacker-influenceable
+          // — anyone with sub-account access can set one, and integrations
+          // write notes too — so a value like
+          // `red; background-image: url(//evil/x)` escaped the declaration.
+          // normaliseNoteColour is an allow-list of the two forms GHL itself
+          // accepts on write.
+          const col = noteColourStyle(n.color)
           return (
             <div key={n.id}>
               <div
                 style={{
                   display: 'flex', alignItems: 'flex-start', gap: 10,
-                  padding: 'var(--space-3) var(--space-4)',
+                  // The stripe eats the left padding rather than adding to it,
+                  // so coloured and uncoloured rows keep their text on one
+                  // vertical line.
+                  padding: col.stripe
+                    ? 'var(--space-3) var(--space-4) var(--space-3) calc(var(--space-4) - 3px)'
+                    : 'var(--space-3) var(--space-4)',
+                  // Matches the deal rail's treatment, so the same note looks
+                  // the same in both places.
+                  borderLeft: col.stripe ? `3px solid ${col.stripe}` : 'none',
                   borderBottom: hasChips ? 'none' : '1px solid var(--border-default)'
                 }}
               >
                 <span
+                  title={col.name ? `${col.name} note` : undefined}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     width: 28, height: 28, flex: 'none', marginTop: 1,
                     borderRadius: 'var(--radius-sm)',
-                    // The author's own colour when they picked one. It's a
-                    // label they chose, so it should show.
-                    background: n.color || 'var(--tint-gold)'
+                    background: col.tint || 'var(--tint-gold)'
                   }}
                 >
                   <span
                     className="ms"
                     style={{
                       fontSize: 16,
-                      color: n.color ? '#fff' : 'var(--accent-gold)'
+                      // WAS '#fff' ON A PASTEL, which is close to unreadable:
+                      // white on #FFF2B2 is about 1.2:1. These are pale fills,
+                      // so the glyph has to go dark.
+                      color: col.hex ? 'var(--text-heading)' : 'var(--accent-gold)'
                     }}
                   >
                     sticky_note_2
