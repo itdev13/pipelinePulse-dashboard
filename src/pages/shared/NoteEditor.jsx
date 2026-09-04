@@ -11,6 +11,7 @@ const RichEditor = React.lazy(() => import('./RichEditor'))
 import { sanitiseHtml, htmlToText } from '../../utils/sanitiseHtml'
 import RemotePicker from './RemotePicker'
 import {
+import { NOTE_COLOURS } from '../../utils/noteColour'
   searchDeals, searchBusinesses, dealOption, businessOption
 } from '../../hooks/useLinkTargets'
 
@@ -30,25 +31,11 @@ import {
 //   • COLOUR IS A HEX STRING (#FFF or #FFAA00). A named colour or rgb() is
 //     rejected, so this offers a fixed palette rather than a free text box.
 
-// GHL's own note palette.
-//
-// These were previously the app's saturated accent hues, which meant the same
-// note showed one colour in GHL and a different one here — and a rep picking
-// "yellow" in GHL saw our amber, or nothing at all if the hex didn't match one
-// of ours. Note colours are pastel FILLS behind text, not accents, so the
-// values are theirs rather than ours.
-//
-// If GHL adds a colour, add it here: an unrecognised hex still renders (see
-// the swatch row below), it just isn't offered as a choice.
-const COLOURS = [
-  ['#FFF2B2', 'Yellow'],
-  ['#FFD9B2', 'Orange'],
-  ['#FFC2C2', 'Red'],
-  ['#E5C2FF', 'Purple'],
-  ['#C2D9FF', 'Blue'],
-  ['#C2F0E0', 'Green'],
-  ['#E0E4EA', 'Grey']
-]
+// The palette now lives in utils/noteColour.js: the deal rail, the timeline
+// and the notes tab all RENDER the colour, and four private copies of seven
+// hex values is how one note ends up yellow in one list and grey in another.
+// NOTE_COLOURS is that same list, and normaliseNoteColour is the allow-list
+// those renderers use before putting the value in a style attribute.
 
 export default function NoteEditor({
   note = null,
@@ -349,7 +336,7 @@ export default function NoteEditor({
                   active={!colour}
                   onClick={() => setColour(null)}
                 />
-                {COLOURS.map(([hex, name]) => (
+                {NOTE_COLOURS.map(([hex, name]) => (
                   <Swatch
                     key={hex}
                     colour={hex}
@@ -362,7 +349,7 @@ export default function NoteEditor({
                     added, or an older note. Shown as a selected swatch rather
                     than silently reading as "None", which would make the next
                     save clear a colour the rep never touched. */}
-                {colour && !COLOURS.some(([hex]) => hex === colour) && (
+                {colour && !NOTE_COLOURS.some(([hex]) => hex === colour) && (
                   <Swatch colour={colour} label={`${colour} (from your CRM)`} active onClick={() => {}} />
                 )}
               </div>
