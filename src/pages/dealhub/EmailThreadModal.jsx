@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useModal } from '../../hooks/useModal'
 import { RichBody } from '../shared/ListChrome'
 import { htmlToText } from '../../utils/sanitiseHtml'
+import AttachmentChip from './AttachmentChip'
 
 // The full email thread, as a dialog.
 //
@@ -179,6 +180,14 @@ function ThreadMessage({ m, index, total, open, onToggle }) {
   const preview = useMemo(() => htmlToText(m.body || ''), [m.body])
   const inbound = m.direction === 'inbound'
 
+  // Fetched at ingest by messageWriter — an email webhook never carries them.
+  // Empty for anything synced before that changed, so this must degrade to
+  // "no attachment section" rather than to an empty labelled box.
+  const atts = Array.isArray(m.attachments) ? m.attachments : []
+  const attTitle = atts.length
+    ? `${atts.length} ${atts.length === 1 ? 'file' : 'files'}: ${atts.map((a) => a.name).join(', ')}`
+    : undefined
+
   return (
     <article className={index < total - 1 ? 'pp-thread-msg pp-thread-msg-div' : 'pp-thread-msg'}>
       <button
@@ -207,6 +216,14 @@ function ThreadMessage({ m, index, total, open, onToggle }) {
           {!open && preview && <span className="pp-thread-prev">{preview}</span>}
         </span>
 
+        {/* A count on the collapsed header, so a rep scanning a long thread
+            can see which message carried the files without opening each. */}
+        {atts.length > 0 && (
+          <span className="pp-thread-clip" title={attTitle}>
+            <span className="ms" style={{ fontSize: 13 }}>attach_file</span>
+            {atts.length}
+          </span>
+        )}
         <span className="ms pp-thread-chev">{open ? 'expand_less' : 'expand_more'}</span>
       </button>
 
@@ -235,6 +252,25 @@ function ThreadMessage({ m, index, total, open, onToggle }) {
             />
           ) : (
             <p className="pp-thread-nobody">This email has no body text.</p>
+          )}
+
+          {atts.length > 0 && (
+            <div className="pp-email-atts">
+              <span className="pp-email-atts-h">
+                <span className="ms" style={{ fontSize: 14 }}>attach_file</span>
+                {atts.length} {atts.length === 1 ? 'attachment' : 'attachments'}
+              </span>
+              <div className="pp-email-atts-list">
+                {atts.map((att, i) => (
+                  <AttachmentChip
+                    key={`${att.name}-${i}`}
+                    att={att}
+                    channelAccent="sky"
+                    onClick={() => { if (att.url) window.open(att.url, '_blank', 'noopener,noreferrer') }}
+                  />
+                ))}
+              </div>
+            </div>
           )}
         </div>
       )}

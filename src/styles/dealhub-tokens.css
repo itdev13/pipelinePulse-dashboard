@@ -1366,48 +1366,13 @@
   overflow: hidden;
 }
 
-[data-dealhub] .pp-email-head {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  /* Takes the width the chip and chevron leave. min-width:0 is what lets the
-     subject truncate rather than pushing them off the card. */
-  flex: 1;
-  min-width: 0;
-  padding: 9px 0 9px 11px;
-  /* A button inherits none of these. */
-  font-family: inherit;
-  text-align: left;
-  background: none;
-  border: none;
-  cursor: pointer;
-  transition: background 120ms ease;
-}
-
-[data-dealhub] .pp-email-head:hover {
-  background: var(--surface-hover);
-}
-
 /* Keyboard focus stays visible. `-2px` keeps the ring inside the clipping
    parent, which would otherwise crop it. */
-[data-dealhub] .pp-email-head:focus-visible {
-  outline: 2px solid var(--border-prominent);
-  outline-offset: -2px;
-}
-
 [data-dealhub] .pp-email-icon {
   flex: none;
   margin-top: 1px;
   font-size: 16px;
   color: var(--text-faint);
-}
-
-[data-dealhub] .pp-email-lines {
-  /* min-width:0 is what actually lets the ellipsis work: a flex child's
-     default min-width is auto, so it refuses to shrink below its text and the
-     subject overflows the card instead of truncating. */
-  flex: 1;
-  min-width: 0;
 }
 
 [data-dealhub] .pp-email-subject,
@@ -1478,36 +1443,90 @@
  * a button inside a button is invalid, and the inner click would also fire
  * the expander. */
 [data-dealhub] .pp-email-bar {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  padding-right: 8px;
+  /* icon | text | chip | chevron
+   *
+   * The text column is the only flexible one, so a long subject truncates
+   * instead of pushing the chip off the card. `position: relative` anchors
+   * the .pp-email-hit overlay. */
+  position: relative;
+  display: grid;
+  /* icon | subject | clip | thread | chevron
+   *
+   * FIVE columns, and the count is why. With four, adding the attachment
+   * pill pushed the chevron onto row 2, where it rendered underneath the
+   * icon — the grid places auto items in order and wraps when the row is
+   * full. The explicit grid-row/grid-column on .pp-email-preview then put
+   * the preview in the same cell.
+   *
+   * Only the subject track flexes, so a long subject truncates rather than
+   * displacing anything. An absent pill leaves a zero-width `auto` track,
+   * which costs nothing. */
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  align-items: start;
+  column-gap: 8px;
+  padding: 9px 8px 9px 11px;
 }
 
-/* A second action on the row, as a chip at the top right.
+[data-dealhub] .pp-email-icon {
+  /* Row 1, column 1. */
+  margin-top: 1px;
+  font-size: 16px;
+  color: var(--text-faint);
+}
+
+[data-dealhub] .pp-email-subject {
+  /* Row 1, column 2. */
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+/* Row 2, spanning the text column THROUGH the chip and chevron columns —
+ * this is the whole point of the grid. Confined to the text column it made
+ * the card read as a narrow column with a chip beside it; spanning to the
+ * right edge, the preview is plainly the subject's second line and the chip
+ * belongs to the subject line alone. */
+[data-dealhub] .pp-email-preview {
+  grid-row: 2;
+  grid-column: 2 / -1;
+  margin-top: 2px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--text-md);
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* The thread count, on the subject's line at the right. Two earlier
+ * placements were wrong: a full-width band under the card (far from the
+ * subject it describes, and a third row on a two-line card), then a flex
+ * sibling of the whole text block (its own column beside a stack).
  *
- * WHY A CHIP AND NOT A FULL-WIDTH FOOTER. It was a footer strip along the
- * bottom, which put it furthest from the subject it describes and gave a
- * two-line card a third band. At the top right it sits on the subject's own
- * line, where a message count belongs.
- *
- * margin-top aligns its text to the subject's baseline rather than the card's
- * top edge — the chip is shorter than the two-line block beside it, and
- * top-aligning the boxes leaves the text visibly high. */
+ * z-index lifts it above .pp-email-hit so it receives its own clicks. */
 [data-dealhub] .pp-email-thread {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  flex: none;
-  margin-top: 7px;
-  padding: 2px 7px 2px 6px;
+  /* Negative vertical margin so the pill's 20px box does not set row 1's
+     height — the subject's text is 15px, and letting the chip drive the row
+     added 9px to every threaded card. The pill still draws at full size; it
+     just stops dictating the layout. */
+  margin: -2px 0;
+  padding: 1px 8px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-pill);
   background: var(--surface-card);
   font-family: inherit;
   font-size: var(--text-sm);
   font-weight: 600;
-  /* Whitespace would let "2 in thread" wrap to two lines in a narrow rail. */
+  /* Or "2 in thread" wraps to two lines in a narrow rail. */
   white-space: nowrap;
   color: var(--text-link);
   cursor: pointer;
@@ -1524,16 +1543,14 @@
   outline-offset: 1px;
 }
 
-/* The chevron is its own button now, since it sits outside the expander it
- * belongs to. Sized to stay a real target rather than a bare 18px glyph. */
 [data-dealhub] .pp-email-chevbtn {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: none;
-  width: 26px;
-  height: 26px;
-  margin-top: 6px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: none;
   border-radius: var(--radius-sm);
@@ -1550,8 +1567,102 @@
   outline-offset: -1px;
 }
 
+[data-dealhub] .pp-email-chev {
+  font-size: 18px;
+  color: var(--text-faint);
+}
+
+/* The expand hit area: covers the card head so clicking the subject or the
+ * preview toggles the email, but sits BELOW the chip and chevron in z-order
+ * so those keep their own clicks. Purely a target — no visual of its own. */
+[data-dealhub] .pp-email-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  cursor: pointer;
+}
+
+[data-dealhub] .pp-email-hit:hover {
+  background: var(--surface-hover);
+}
+
+[data-dealhub] .pp-email-hit:focus-visible {
+  outline: 2px solid var(--border-prominent);
+  outline-offset: -2px;
+}
+
+/* ── Email attachments ────────────────────────────────────────────────────
+ *
+ * Collapsed: a count. Expanded: the files themselves, named and sized.
+ *
+ * The count is deliberately not the full list. An email's files are why a rep
+ * opens it, so the closed row has to say there ARE some — but three filenames
+ * on the subject line would push the subject itself out of view, and the
+ * subject is what the row is scanned for. */
+
+/* The paperclip count. Reads as a label, not a button: clicking it does
+ * nothing special, expanding the email is what shows the files. */
+[data-dealhub] .pp-email-clip,
+[data-dealhub] .pp-thread-clip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  /* Cancels the pill's box height so it cannot drive the subject row taller —
+     the same fix the thread chip needed. */
+  margin: -2px 0;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+[data-dealhub] .pp-thread-clip {
+  flex: none;
+  margin-left: 6px;
+}
+
+/* The expanded list. A rule above it so a long body does not run straight
+ * into the files. */
+[data-dealhub] .pp-email-atts {
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid var(--border-default);
+}
+
+[data-dealhub] .pp-email-atts-h {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+[data-dealhub] .pp-email-atts-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  /* A long filename truncates inside its own chip (see AttachmentChip), so
+     the list itself never needs to scroll sideways. */
+  min-width: 0;
+}
+
 /* ── Inside the thread dialog ──────────────────────────────────────────── */
 
+/* .pp-thread-msg carries no rule of its own by design: it marks each message
+ * for scripts and tests to select, and only the non-last one needs a divider.
+ * Not dead code — do not remove it from the JSX. */
 [data-dealhub] .pp-thread-msg-div {
   border-bottom: 1px solid var(--border-default);
 }
@@ -1587,7 +1698,7 @@
 
 [data-dealhub] .pp-thread-lines {
   flex: 1;
-  /* Same reason as .pp-email-lines: a flex child defaults to min-width auto
+  /* Same reason as .pp-email-subject: a flex child defaults to min-width auto
      and refuses to shrink below its text, so the preview would overflow
      instead of truncating. */
   min-width: 0;

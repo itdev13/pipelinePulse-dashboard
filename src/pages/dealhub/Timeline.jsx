@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { RichBody, StateMessage, AttachmentCount } from '../shared/ListChrome'
 import { htmlToText } from '../../utils/sanitiseHtml'
+import AttachmentChip, { accentVar } from './AttachmentChip'
 import EmailThreadModal from './EmailThreadModal'
 import { noteColourStyle } from '../../utils/noteColour'
 
@@ -19,26 +20,6 @@ import { noteColourStyle } from '../../utils/noteColour'
 const CH_LABEL = {
   EMAIL: 'Email', SMS: 'SMS', WHATSAPP: 'WhatsApp', IMESSAGE: 'iMessage',
   CALL: 'Call', NOTE: 'Note', ANALYSIS: 'Analysis', TASK: 'Task', SYSTEM: 'System',
-}
-
-function accentVar(accent) {
-  // 'gray' isn't in the token palette — map to the neutral border.
-  return accent === 'gray' ? 'var(--gray-400)' : `var(--accent-${accent})`
-}
-
-
-function formatBytes(n) {
-  if (!n) return ''
-  if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`
-  return `${Math.round(n / 1024)} KB`
-}
-
-function attachmentIcon(name) {
-  const ext = (name.split('.').pop() || '').toLowerCase()
-  if (ext === 'pdf') return 'picture_as_pdf'
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'image'
-  if (ext === 'dwg') return 'architecture'
-  return 'description'
 }
 
 // An email in the timeline: subject, one preview line, expand for the rest.
@@ -80,7 +61,7 @@ function buildThreads(list) {
   return byThread
 }
 
-function EmailBody({ m, thread, onOpenThread }) {
+function EmailBody({ m, thread, onOpenThread, onJumpAttachment }) {
   const [open, setOpen] = useState(false)
 
   // THE BODY IS HTML, not text.
@@ -105,43 +86,52 @@ function EmailBody({ m, thread, onOpenThread }) {
 
   const threaded = thread && thread.length > 1
 
+  // Email attachments. Empty for every email synced before the server started
+  // fetching them, so every use below has to tolerate none.
+  const atts = Array.isArray(m.attachments) ? m.attachments : []
+  const attTitle = atts.length
+    ? `${atts.length} ${atts.length === 1 ? 'file' : 'files'}: ${atts.map((a) => a.name).join(', ')}`
+    : undefined
+
   return (
     <div className="pp-email" style={{ marginTop: 4 }}>
-      {/* TWO CONTROLS ON ONE LINE, as siblings.
-          The expander cannot CONTAIN the thread button — a button inside a
-          button is invalid HTML, and the inner click would also toggle the
-          expander. So the header is a flex row holding both: the expander
-          takes the remaining width, the thread chip sits at the top right. */}
+      {/* A 3-COLUMN, 2-ROW GRID over the whole card head.
+          Row 1: icon | subject | chip + chevron
+          Row 2: (icon gutter) | preview spanning to the card's right edge
+          Why not simply nest the chip next to the subject: it has to stay
+          outside the expander <button> (a button inside a button is invalid
+          HTML, and the inner click would also fire the expander). And why the
+          preview is a grid child rather than living inside the expander with
+          the subject: as a sibling of the subject inside one column, it was
+          confined to that column's width, so the card read as a narrow text
+          column with a chip beside it. On its own row it runs the full width
+          and the chip belongs to the subject line alone.
+          The expander is a transparent overlay across rows 1-2 of the text
+          columns, so clicking anywhere on the text still toggles the email
+          while the chip stays independently clickable. */}
       <div className="pp-email-bar">
-        {/* The whole left portion is the toggle, not just a chevron: this is
-            the most clicked thing in an email row and a 16px icon is a poor
-            target. */}
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          title={open ? 'Collapse this email' : 'Show the full email'}
-          className="pp-email-head"
-        >
-          <span className="ms pp-email-icon">mail</span>
-          <span className="pp-email-lines">
-            <span className="pp-email-subject">
-              {m.subject || '(no subject)'}
-            </span>
-            {/* One preview line while collapsed, so the row says what the mail
-                is about without opening it. Hidden when open — repeating the
-                first line directly above the full body reads as a bug. */}
-            {!open && preview && (
-              <span className="pp-email-preview">{preview}</span>
-            )}
-          </span>
-        </button>
+        <span className="ms pp-email-icon">mail</span>
 
-        {/* THE THREAD AFFORDANCE, top right.
-            Aligned to the top rather than centred: the card grows taller when
-            the preview line is present, and a vertically-centred chip would
-            drift down away from the subject it belongs to. Only rendered when
-            the thread has more than one message; see buildThreads. */}
+        <span className="pp-email-subject">
+          {m.subject || '(no subject)'}
+        </span>
+
+        {/* ATTACHMENT COUNT, collapsed view.
+            An email's files are the reason a rep opens it — "did the quote
+            actually go out" — so the count belongs on the closed row. It is
+            only a count here: names and sizes need the width of the expanded
+            body, and three filenames on the subject line would push the
+            subject itself out of view.
+            These arrive because the server FETCHES them: an outbound email
+            webhook always sends attachments: null, so messageWriter calls
+            GET /conversations/messages/:id at ingest. */}
+        {atts.length > 0 && (
+          <span className="pp-email-clip" title={attTitle}>
+            <span className="ms" style={{ fontSize: 13 }}>attach_file</span>
+            {atts.length}
+          </span>
+        )}
+
         {threaded && (
           <button
             type="button"
@@ -151,14 +141,9 @@ function EmailBody({ m, thread, onOpenThread }) {
           >
             <span className="ms" style={{ fontSize: 14 }}>forum</span>
             {thread.length} in thread
-            <span className="ms" style={{ fontSize: 14 }}>chevron_right</span>
           </button>
         )}
 
-        {/* Stays last so the chevron remains the card's right-most element —
-            it belongs to the expander, and putting the thread chip outside it
-            would read as the chevron opening the thread. Outside the button
-            for the nesting reason above, so it needs its own click handler. */}
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -171,6 +156,25 @@ function EmailBody({ m, thread, onOpenThread }) {
             {open ? 'expand_less' : 'expand_more'}
           </span>
         </button>
+
+        {/* One preview line while collapsed, so the row says what the mail is
+            about without opening it. Hidden when open — repeating the first
+            line directly above the full body reads as a bug. */}
+        {!open && preview && (
+          <span className="pp-email-preview">{preview}</span>
+        )}
+
+        {/* The click target for expanding: covers the text, sits UNDER the
+            chip in z-order so the chip wins its own clicks. Empty and
+            transparent — it is a hit area, not a visual element. */}
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-label={open ? 'Collapse this email' : 'Show the full email'}
+          title={open ? 'Collapse this email' : 'Show the full email'}
+          className="pp-email-hit"
+        />
       </div>
 
       {open && (
@@ -192,32 +196,34 @@ function EmailBody({ m, thread, onOpenThread }) {
             leading="var(--leading-normal)"
             maxWidth={680}
           />
+
+          {/* THE FILES THEMSELVES, once expanded.
+              Named and sized here rather than counted: at this width a rep can
+              see that "quote-v3.pdf" went out and not "quote-v2.pdf", which is
+              the actual question. Below the body because that is the reading
+              order of an email, and separated by a rule so a long body does
+              not run straight into them. */}
+          {atts.length > 0 && (
+            <div className="pp-email-atts">
+              <span className="pp-email-atts-h">
+                <span className="ms" style={{ fontSize: 14 }}>attach_file</span>
+                {atts.length} {atts.length === 1 ? 'attachment' : 'attachments'}
+              </span>
+              <div className="pp-email-atts-list">
+                {atts.map((att, i) => (
+                  <AttachmentChip
+                    key={`${att.name}-${i}`}
+                    att={att}
+                    channelAccent={m.channelAccent}
+                    onClick={() => onJumpAttachment && onJumpAttachment(att)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
-  )
-}
-
-function AttachmentChip({ att, channelAccent, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 7,
-        padding: '5px 10px 5px 7px',
-        border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)',
-        background: 'var(--gray-50)', cursor: 'pointer',
-        fontFamily: 'var(--font-sans)', textAlign: 'left',
-      }}
-    >
-      <span className="ms" style={{ fontSize: 16, color: accentVar(channelAccent) }}>
-        {attachmentIcon(att.name)}
-      </span>
-      <span style={{ fontSize: 'var(--text-base)', fontWeight: 500, color: 'var(--text-heading)' }}>{att.name}</span>
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
-        {formatBytes(att.sizeBytes)}
-      </span>
-    </button>
   )
 }
 
@@ -492,7 +498,12 @@ function MessageRow({ m, highlighted, onJumpAttachment, selected, onToggleSelect
             else off screen.
             Collapsed to subject + one preview line, expanding on click. */}
         {m.channel === 'EMAIL' && m.body ? (
-          <EmailBody m={m} thread={thread} onOpenThread={onOpenThread} />
+          <EmailBody
+            m={m}
+            thread={thread}
+            onOpenThread={onOpenThread}
+            onJumpAttachment={onJumpAttachment}
+          />
         ) : m.body ? (
           <div
             style={{
@@ -505,7 +516,11 @@ function MessageRow({ m, highlighted, onJumpAttachment, selected, onToggleSelect
           </div>
         ) : null}
 
-        {m.attachments?.length > 0 && (
+        {/* NOT for email: EmailBody renders those inside the card, as a count
+            when collapsed and as chips when expanded. Rendering them here too
+            would show every file twice, and outside the card they would read
+            as belonging to the row rather than to the email. */}
+        {m.channel !== 'EMAIL' && m.attachments?.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 5 }}>
             {m.attachments.map((att, i) => (
               <AttachmentChip
