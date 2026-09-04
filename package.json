@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "npm run lint && npm test && vite build",
-    "test": "node src/pages/dealhub/__tests__/emailThreads.test.mjs && node src/utils/__tests__/noteColour.test.mjs"
+    "test": "node src/pages/dealhub/__tests__/emailThreads.test.mjs && node src/utils/__tests__/noteColour.test.mjs && node src/utils/__tests__/money.test.mjs"
   },
   "dependencies": {
     "@ant-design/icons": "^5.3.0",

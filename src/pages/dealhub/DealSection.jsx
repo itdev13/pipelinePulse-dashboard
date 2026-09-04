@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { DatePicker, Select } from 'antd'
 import dayjs from 'dayjs'
 import TagSelect from '../shared/TagSelect'
+import { currencySymbol } from '../../utils/money'
 
 // Deal Hub — Deal section (the deal's own facts).
 //
@@ -1008,6 +1009,25 @@ function OwnerRow({ deal, users, onNeedUsers, saving, onSave }) {
 // display-formatted ("£26,000"), and editing it would send the formatted
 // string back. The same trap the Deals tab hit.
 function ValueEditor({ deal, onSaveField, saving, muted = false }) {
+  // THE CURRENCY, AND WHY DISPLAY AND EDIT DIFFER.
+  //
+  // Reading the figure and typing it want different strings:
+  //
+  //   display — "£1,250". The symbol is part of what the number MEANS; a bare
+  //     "123" beside a label reading VALUE could be pounds, dollars, or a
+  //     count of something. The server already sends this, formatted through
+  //     Intl with the deal's own currency (routes/deals.js), and this
+  //     component was ignoring it and rendering monetaryValue raw.
+  //
+  //   edit — "1250". Separators and a symbol in an input are things a rep has
+  //     to delete before typing, and the field is parsed back to digits on
+  //     save anyway.
+  //
+  // NOT a hardcoded '£'. `currency` is a real column, defaulted to GBP but
+  // set per opportunity, so a USD deal would have read "£1,250" — a wrong
+  // number, not just a cosmetic slip.
+  const symbol = currencySymbol(deal.currency)
+
   return (
     // display:block with width:100%, NOT inline-flex.
     //
@@ -1018,10 +1038,20 @@ function ValueEditor({ deal, onSaveField, saving, muted = false }) {
     <span className="pp-num" style={{ display: 'block', width: '100%', minWidth: 0 }}>
       <InlineText
         label="Value"
+        // What the rep TYPES: the plain number.
         value={deal.monetaryValue != null ? String(deal.monetaryValue) : ''}
+        // What the rep READS. Falls back to the raw number if the server sent
+        // no formatted string, so a value never disappears on account of a
+        // missing display field.
+        display={
+          deal.monetaryValue != null
+            ? (deal.value || `${symbol}${deal.monetaryValue}`)
+            : null
+        }
         placeholder="—"
         fontSize="var(--text-display)"
-        prefix="£"
+        // Shown while EDITING, where the formatted string is not in the input.
+        prefix={symbol}
         mono
         muted={muted}
         saving={saving === 'value'}
@@ -1036,6 +1066,10 @@ function ValueEditor({ deal, onSaveField, saving, muted = false }) {
 
 function InlineText({
   value, onSave, saving, label,
+  // What to SHOW when not editing, when that differs from what to type.
+  // The money field reads "£1,250" and edits "1250"; every other caller
+  // omits this and shows `value` itself.
+  display = undefined,
   // The deal name renders at --text-3xl; the value at --text-display. The
   // input has to match or the swap resizes the card.
   fontSize = 'var(--text-lg)', fontWeight = 600, placeholder,
@@ -1063,6 +1097,10 @@ function InlineText({
     onSave(next)
   }
 
+  // What the closed state shows. `display` is opt-in, so callers that never
+  // pass it behave exactly as before.
+  const shown = display !== undefined ? display : value
+
   if (!open) {
     return (
       <button
@@ -1070,7 +1108,10 @@ function InlineText({
         disabled={saving}
         // Includes the VALUE, not just the action: a figure truncated by the
         // ellipsis above has to be readable somewhere.
-        title={value ? `${label}: ${value} — click to edit` : `Edit ${label.toLowerCase()}`}
+        // The tooltip carries the DISPLAY form: it exists so a figure cut off
+        // by the ellipsis is readable somewhere, and "£1,250" is what the rep
+        // is looking at.
+        title={shown ? `${label}: ${shown} — click to edit` : `Edit ${label.toLowerCase()}`}
         className="pp-inline-edit"
         style={{
           display: 'inline-flex', alignItems: 'baseline', gap: 8,
@@ -1080,7 +1121,7 @@ function InlineText({
           background: 'none', textAlign: 'left',
           fontFamily: mono ? 'var(--font-mono)' : 'var(--font-sans)',
           fontSize, fontWeight,
-          color: (value && !muted) ? 'var(--text-heading)' : 'var(--text-faint)',
+          color: (shown && !muted) ? 'var(--text-heading)' : 'var(--text-faint)',
           lineHeight: 1.15, letterSpacing: '-0.015em',
           // Text (the deal name) wraps anywhere so a long name doesn't
           // overflow the card. A number must never split mid-digit — "123"
@@ -1099,7 +1140,7 @@ function InlineText({
           cursor: saving ? 'progress' : 'text'
         }}
       >
-        <span>{value || placeholder}</span>
+        <span>{shown || placeholder}</span>
         {/* Appears on hover — see .pp-inline-edit in the stylesheet. A pencil
             permanently beside a 34px heading competes with it. */}
         <span

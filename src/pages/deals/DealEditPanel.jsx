@@ -5,6 +5,7 @@ import { dealsAPI } from '../../api/deals'
 import { contactsAPI } from '../../api/contacts'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import { nameFor } from '../shared/ListChrome'
+import { currencySymbol } from '../../utils/money'
 
 // The inline deal editor — everything GHL's own edit modal offers, in the row.
 //
@@ -357,7 +358,7 @@ export default function DealEditPanel({
               onChange={(e) => setValue(e.target.value)}
               disabled={saving}
               status={errorField === 'value' ? 'error' : undefined}
-              prefix={<span style={{ color: 'var(--text-faint)' }}>£</span>}
+              prefix={<span style={{ color: 'var(--text-faint)' }}>{currencySymbol(deal?.currency)}</span>}
               placeholder="Not priced"
               style={{ fontFamily: 'var(--font-mono)' }}
             />

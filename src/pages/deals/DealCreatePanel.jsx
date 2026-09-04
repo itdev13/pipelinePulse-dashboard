@@ -3,6 +3,7 @@ import { DatePicker, Select, Input } from 'antd'
 import dayjs from 'dayjs'
 import { dealsAPI } from '../../api/deals'
 import ContactPicker from '../shared/ContactPicker'
+import { currencySymbol } from '../../utils/money'
 
 // Create a deal.
 //
@@ -210,7 +211,11 @@ export default function DealCreatePanel({
               onChange={(e) => setValue(e.target.value)}
               disabled={saving}
               status={errorField === 'value' ? 'error' : undefined}
-              prefix={<span style={{ color: 'var(--text-faint)' }}>£</span>}
+              // No deal yet, so no currency to read: a new opportunity inherits the
+              // location's default, which the server applies on write. Called with
+              // no argument so the fallback lives in one place rather than being a
+              // second hardcoded '£' here.
+              prefix={<span style={{ color: 'var(--text-faint)' }}>{currencySymbol()}</span>}
               placeholder="Not priced yet"
               style={{ fontFamily: 'var(--font-mono)' }}
             />
