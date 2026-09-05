@@ -655,14 +655,42 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
           </div>
         )}
 
-        <div style={{ marginTop: 3, fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
-          {[
-            isNote
-              ? (m.senderName ? `by ${m.senderName}` : null)
-              : (m.assignee ? `assigned to ${m.assignee}` : 'unassigned'),
-            !isNote && m.duePhrase ? `due ${m.duePhrase}` : null,
-            m.manual ? 'added manually' : null
-          ].filter(Boolean).join(' · ')}
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap',
+            marginTop: 3, fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
+          }}
+        >
+          <span>
+            {[
+              isNote
+                ? (m.senderName ? `by ${m.senderName}` : null)
+                : (m.assignee ? `assigned to ${m.assignee}` : 'unassigned'),
+              !isNote && m.duePhrase ? `due ${m.duePhrase}` : null,
+              m.manual ? 'added manually' : null
+            ].filter(Boolean).join(' · ')}
+          </span>
+          {/* WHO IT IS FILED AGAINST. Both notes and tasks are stored against
+              a contact in GHL, and this line named only the author or the
+              assignee — neither of which answers "who is this about" on a
+              deal with several people. */}
+          {m.contact?.name && (
+            <span
+              title={`Filed against ${m.contact.name}`}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                maxWidth: '100%',
+                padding: '1px 8px',
+                borderRadius: 'var(--radius-pill)',
+                background: 'var(--surface-sunken)',
+                fontWeight: 500, color: 'var(--text-muted)',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+              }}
+            >
+              <span className="ms" style={{ fontSize: 13, flex: 'none' }}>person</span>
+              {m.contact.name}
+            </span>
+          )}
         </div>
       </div>
 

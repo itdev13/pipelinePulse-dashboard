@@ -232,6 +232,12 @@ export function DealTasksSection({ dealId, people = [], onOpenAll }) {
                 t.owner
               ].filter(Boolean).join(' · ')}
               {t.overdue && t.status === 'open' && <OverduePill />}
+              {/* WHO THE TASK IS ABOUT, as a chip rather than more grey text.
+                  A task is filed against a contact in GHL and this rail showed
+                  only the assignee — so "call back" gave no indication of who
+                  to call on a deal with several people. Distinct from
+                  `t.owner`, which is the internal user it is allocated to. */}
+              {t.contact?.name && <PersonChip name={t.contact.name} />}
             </span>
           </div>
 
@@ -490,6 +496,10 @@ export function DealNotesSection({ dealId, people = [], onOpenAll }) {
                 <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
                   {[n.author, relativeTime(n.createdAt)].filter(Boolean).join(' · ')}
                 </span>
+                {/* The contact the note is filed against — the author is who
+                    WROTE it, which is a different question and was the only
+                    person named here. */}
+                {n.contact?.name && <PersonChip name={n.contact.name} />}
                 <AttachmentCount count={n.attachmentCount} />
               </div>
             </div>
@@ -732,6 +742,39 @@ function Rail({
       {children}
       {footer}
     </section>
+  )
+}
+
+// Who a task or note is filed against.
+//
+// A chip rather than another segment in the grey meta line: the meta line is
+// dates and roles ("due 6 Feb · added 3d · James Stevens"), and a person's
+// name buried in that reads as one more attribute. It is the answer to "who is
+// this about", which is usually why a rep is looking at the row.
+//
+// Not clickable here. The rail has no contact-drawer route — TasksTab and
+// NotesTab pass onOpenContact, this section does not — and a chip that looks
+// interactive but does nothing is worse than a plain one.
+function PersonChip({ name }) {
+  return (
+    <span
+      title={`Filed against ${name}`}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        maxWidth: '100%',
+        padding: '1px 8px',
+        borderRadius: 'var(--radius-pill)',
+        background: 'var(--surface-sunken)',
+        fontSize: 'var(--text-sm)', fontWeight: 500,
+        color: 'var(--text-muted)',
+        // A contact with no name falls back to an email address, which has no
+        // spaces to wrap on.
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+      }}
+    >
+      <span className="ms" style={{ fontSize: 13, flex: 'none' }}>person</span>
+      {name}
+    </span>
   )
 }
 
