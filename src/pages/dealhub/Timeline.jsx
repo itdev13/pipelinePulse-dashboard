@@ -190,13 +190,25 @@ function EmailBody({ m, thread, onOpenThread, onOpenAttachment }) {
               )}
             </div>
           )}
-          <RichBody
-            html={m.body}
-            color="var(--text-body)"
-            size="var(--text-md)"
-            leading="var(--leading-normal)"
-            maxWidth={680}
-          />
+          {/* An email sent with only an attachment has an EMPTY body — GHL
+              sends `<div></div>`, which is truthy, so RichBody's own
+              `if (!html) return null` does not catch it and it rendered an
+              empty block above the attachment rule. `preview` is the body run
+              through htmlToText, so it is the honest test of "is there any
+              text here". */}
+          {preview ? (
+            <RichBody
+              html={m.body}
+              color="var(--text-body)"
+              size="var(--text-md)"
+              leading="var(--leading-normal)"
+              maxWidth={680}
+            />
+          ) : atts.length === 0 ? (
+            // No text AND no files: say so rather than showing a blank card,
+            // which reads as a loading failure.
+            <p className="pp-email-nobody">This email has no message text.</p>
+          ) : null}
 
           {/* THE FILES THEMSELVES, once expanded.
               Named and sized here rather than counted: at this width a rep can
@@ -205,7 +217,7 @@ function EmailBody({ m, thread, onOpenThread, onOpenAttachment }) {
               order of an email, and separated by a rule so a long body does
               not run straight into them. */}
           {atts.length > 0 && (
-            <div className="pp-email-atts">
+            <div className={preview ? 'pp-email-atts' : 'pp-email-atts pp-email-atts-first'}>
               <span className="pp-email-atts-h">
                 <span className="ms" style={{ fontSize: 14 }}>attach_file</span>
                 {atts.length} {atts.length === 1 ? 'attachment' : 'attachments'}
@@ -500,7 +512,16 @@ function MessageRow({ m, highlighted, onOpenAttachment, selected, onToggleSelect
             call rows around it — a 400-word project update pushed everything
             else off screen.
             Collapsed to subject + one preview line, expanding on click. */}
-        {m.channel === 'EMAIL' && m.body ? (
+        {/* AN EMAIL ALWAYS GETS THE CARD, body or not.
+            This was `m.channel === 'EMAIL' && m.body`, so an email with an
+            empty body — GHL sends `<div></div>` when someone sends only an
+            attachment — fell through to the plain branch, which also requires
+            a body, and rendered NOTHING. The row showed a bare
+            "Us · Out · Email" header with no subject, no attachment and no
+            thread chip, while GHL displayed the image fine.
+            The subject, the addresses, the attachments and the thread link
+            are all worth showing on their own; the body is just one of them. */}
+        {m.channel === 'EMAIL' ? (
           <EmailBody
             m={m}
             thread={thread}

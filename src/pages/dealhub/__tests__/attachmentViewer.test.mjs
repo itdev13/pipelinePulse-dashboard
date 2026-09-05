@@ -118,4 +118,41 @@ t('a failed preview falls back rather than showing a blank frame', () => {
   assert.match(src, /const kind = failed \? 'file' : kindOf\(att\)/);
 });
 
+// ── An email with no body must still render ────────────────────────────
+//
+// GHL sends `<div></div>` as the body when someone sends only an attachment.
+// The timeline gated the whole email card on `m.channel === 'EMAIL' && m.body`
+// — and `<div></div>` is truthy, so it passed that check but then produced an
+// empty RichBody; worse, an email whose body was genuinely absent fell through
+// to the plain branch (which also requires a body) and rendered NOTHING: a
+// bare "Us · Out · Email" header with no subject, no attachment, no thread
+// chip, while GHL displayed the image perfectly.
+console.log('\nan email with no body');
+
+t('the card is gated on the CHANNEL, not the body', () => {
+  assert.match(timeline, /\{m\.channel === 'EMAIL' \? \(/,
+    'the email card must render for every email — subject, addresses, '
+    + 'attachments and the thread link are each worth showing without a body');
+  assert.ok(!/m\.channel === 'EMAIL' && m\.body \? \(/.test(timeline),
+    'the body gate is back — an attachment-only email renders nothing');
+});
+
+t('an empty body does not render an empty block', () => {
+  // `preview` is the body run through htmlToText, so it is the honest test of
+  // "is there any text": RichBody's own `if (!html)` does not catch
+  // "<div></div>", which is truthy.
+  assert.match(timeline, /\{preview \? \(\s*<RichBody/,
+    'RichBody must be gated on preview, not on m.body');
+});
+
+t('no body and no files says so, rather than showing a blank card', () => {
+  assert.match(timeline, /pp-email-nobody/);
+});
+
+t('the attachment block drops its rule when there is no body', () => {
+  // Without this the From/To block's rule and the attachment block's rule sit
+  // one under the other, reading as an empty row where the body should be.
+  assert.match(timeline, /pp-email-atts pp-email-atts-first/);
+});
+
 console.log(`\n${n} passed`);

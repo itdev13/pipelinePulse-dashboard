@@ -1653,6 +1653,22 @@
   border-top: 1px solid var(--border-default);
 }
 
+/* When the email has NO body text — an attachment-only send — the files sit
+ * directly under the From/To block, which already draws a rule. A second one
+ * immediately below it read as an empty row where the body should be. */
+[data-dealhub] .pp-email-atts-first {
+  margin-top: 2px;
+  padding-top: 0;
+  border-top: none;
+}
+
+[data-dealhub] .pp-email-nobody {
+  margin: 0;
+  font-size: var(--text-md);
+  font-style: italic;
+  color: var(--text-faint);
+}
+
 [data-dealhub] .pp-email-atts-h {
   display: inline-flex;
   align-items: center;
