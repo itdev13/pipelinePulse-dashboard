@@ -267,7 +267,19 @@ const FIELDS = [
   ['phone', 'Primary phone', 'tel']
 ]
 
-const CONTACT_TYPES = ['Homeowner', 'Architect', 'Builder', 'Trade account', 'Developer']
+// GHL's own two values, and there are only two — its contact panel offers
+// Lead and Customer and nothing else.
+//
+// This list previously read ['Homeowner', 'Architect', 'Builder', 'Trade
+// account', 'Developer'], which is not a GHL concept at all: those are this
+// client's CLIENT TYPE custom field. The control was disabled, so the wrong
+// list never surfaced.
+//
+// Stored lowercase, shown capitalised.
+const CONTACT_TYPES = [
+  { value: 'lead', label: 'Lead' },
+  { value: 'customer', label: 'Customer' }
+]
 
 function Details({ contact, onSaved }) {
   const [draft, setDraft] = useState(() =>
@@ -449,34 +461,35 @@ function Details({ contact, onSaved }) {
           >
             Contact type
           </span>
-          {/* Read-only: contactType is a GHL CUSTOM FIELD, not a property of
-              the contact object, so PUT /contacts/{id} silently ignores it.
-              Editing it needs the custom-field write path — offering it here
-              would be a control that does nothing. */}
+          {/* EDITABLE. It was disabled on the belief that contactType is a
+              custom field; it is not. GHL calls it `type` on the contact
+              object — @HideApiProperty on PUT, so absent from the docs, but
+              applied. Same pattern as the opportunity's contactId. */}
           <Select
-            disabled
-            notFoundContent="No contact type set"
-            title="Contact type is a custom field — edit it in your CRM"
-            value={type || undefined}
+            title="Lead or Customer, as in your CRM"
+            // Lower-cased so a stored "Lead" still matches the 'lead' option
+            // and renders as the label rather than as an unknown value.
+            value={type ? String(type).toLowerCase() : undefined}
             onChange={(v) => {
-              // allowClear passes undefined; normalise to '' so clearing sends
-              // an empty string rather than dropping the field from the patch.
-              // allowClear passes undefined; normalise so clearing sends an
-              // empty string rather than dropping the field from the patch.
               // No immediate commit — it joins the same Save as the text
               // fields, so one edit session is one request.
+              //
+              // No allowClear: GHL has no "no type" state, and offering a
+              // clear that the server then refuses would be a control that
+              // fails on use.
               setType(v ?? '')
             }}
-            placeholder="—"
-            allowClear
+            placeholder="Not set"
             style={{ width: '100%' }}
+            popupClassName="pp-menu"
             options={[
-              // Keep an unrecognised value selectable rather than silently
-              // rewriting what GHL sent.
-              ...(type && !CONTACT_TYPES.includes(type)
+              // A value GHL sent that is not one of the two stays selectable
+              // rather than being silently rewritten — but it cannot be
+              // chosen, and saving one is refused by contactPatch.
+              ...(type && !CONTACT_TYPES.some((o) => o.value === String(type).toLowerCase())
                 ? [{ value: type, label: type }]
                 : []),
-              ...CONTACT_TYPES.map((t) => ({ value: t, label: t }))
+              ...CONTACT_TYPES
             ]}
           />
         </label>

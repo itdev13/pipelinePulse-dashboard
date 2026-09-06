@@ -150,4 +150,53 @@ t('the counts are singular or plural correctly', () => {
   assert.match(panel, /deal\.noteCount === 1 \? '' : 's'/);
 });
 
+// ── Follow-up on the CARD, not behind Edit ──────────────────────────────
+console.log('\nfollow-up chips on the cards');
+
+const chips = readFileSync(
+  join(here, '..', '..', 'shared', 'ListChrome.jsx'), 'utf8');
+const dealsTab = readFileSync(
+  join(here, '..', '..', 'tabs', 'DealsTab.jsx'), 'utf8');
+const contactsTab = readFileSync(
+  join(here, '..', '..', 'tabs', 'ContactsTab.jsx'), 'utf8');
+const contactsRoute = readFileSync(
+  join(here, '..', '..', '..', '..', '..', 'pipelinePulse', 'server',
+    'src', 'routes', 'contacts.js'), 'utf8');
+
+t('nothing renders at zero', () => {
+  // "0 tasks" on every untouched record is noise, and a non-empty chip is
+  // only worth noticing if an empty one is absent.
+  assert.match(chips, /if \(!tasks && !notes\) return null/);
+});
+
+t('one component, used by BOTH cards', () => {
+  // Two copies would drift on wording and threshold.
+  assert.match(chips, /export function FollowUpChips/);
+  assert.match(dealsTab, /FollowUpChips/);
+  assert.match(contactsTab, /FollowUpChips/);
+  assert.ok(!/from '\.\/DealsTab'/.test(contactsTab),
+    'importing a component from a sibling tab is fragile — it belongs in shared');
+});
+
+t('the contacts route sends its counts', () => {
+  // These did not exist: a contact with three open tasks looked identical
+  // to one with none.
+  assert.match(contactsRoute, /AS open_task_count/);
+  assert.match(contactsRoute, /AS note_count/);
+  assert.match(contactsRoute, /openTaskCount: Number\(c\.open_task_count \|\| 0\)/);
+});
+
+t('completed and soft-deleted tasks are excluded on contacts too', () => {
+  // Verified against a real Postgres: 5 task rows in, 2 counted.
+  assert.match(contactsRoute, /t\.status <> 'completed'/);
+  assert.match(contactsRoute, /t\.deleted_at IS NULL/);
+  assert.match(contactsRoute, /n\.status = 'active'/);
+});
+
+t('the counts are scoped to the contact, not the location', () => {
+  // Without the contact_id predicate every row would show the location total.
+  assert.match(contactsRoute, /t\.contact_id  = c\.contact_id/);
+  assert.match(contactsRoute, /n\.contact_id  = c\.contact_id/);
+});
+
 console.log(`\n${n} passed`);
