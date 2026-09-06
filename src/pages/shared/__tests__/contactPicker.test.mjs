@@ -1,0 +1,173 @@
+// Which contacts the picker offers.
+//
+// Three rules, all of which were wrong or missing on the deal's "add person"
+// flow:
+//
+//   1. SHOW SOMETHING BEFORE TYPING. The dropdown opened on "Start typing to
+//      find a contact", a dead end for a rep who does not already know who is
+//      in the CRM.
+//   2. EXCLUDE PEOPLE ALREADY ON THE DEAL. A duplicate was offered, clicked,
+//      and only then rejected with an error — making the reader do the
+//      remembering.
+//   3. CAP AT 11 (a primary plus ten). A product rule, tighter than GHL's own
+//      25-contact association cap.
+//
+// Source-parsed: these components import antd and the API client, and the
+// question is about the option-list rules, not the rendering.
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const picker = readFileSync(join(here, '..', 'ContactPicker.jsx'), 'utf8');
+const people = readFileSync(join(here, '..', '..', 'dealhub', 'PeopleSection.jsx'), 'utf8');
+
+let n = 0;
+const t = (name, fn) => { fn(); n++; console.log('  ok  ' + name); };
+
+// The option-building rule, mirrored from ContactPicker.
+const buildOptions = ({ chosen, seed = [], results = [], exclude = [], value }) => {
+  const seen = new Set();
+  const blocked = new Set(exclude.filter(Boolean));
+  const rows = [];
+  for (const c of [chosen, ...seed, ...results].filter(Boolean)) {
+    if (!c.id || seen.has(c.id)) continue;
+    if (blocked.has(c.id) && c.id !== value) continue;
+    seen.add(c.id);
+    rows.push(c.id);
+  }
+  return rows;
+};
+
+console.log('which contacts are offered');
+
+t('people already on the deal are excluded', () => {
+  const out = buildOptions({
+    results: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+    exclude: ['b']
+  });
+  assert.deepEqual(out, ['a', 'c'], 'b is already on the deal and must not be offered');
+});
+
+t('excluding everyone yields an empty list, not a crash', () => {
+  assert.deepEqual(buildOptions({ results: [{ id: 'a' }], exclude: ['a'] }), []);
+});
+
+t('THE CURRENT VALUE survives exclusion', () => {
+  // In an editor the contact already on the task is in `exclude` by
+  // definition. Dropping it would blank the field on the next list refresh.
+  const out = buildOptions({
+    chosen: { id: 'b' }, results: [{ id: 'a' }, { id: 'b' }],
+    exclude: ['b'], value: 'b'
+  });
+  assert.ok(out.includes('b'), 'the chosen contact must stay in the list');
+});
+
+t('duplicates across seed and results collapse', () => {
+  assert.deepEqual(buildOptions({ seed: [{ id: 'a' }], results: [{ id: 'a' }, { id: 'b' }] }), ['a', 'b']);
+});
+
+t('contacts with no id are dropped rather than rendering a blank row', () => {
+  assert.deepEqual(buildOptions({ results: [{ id: null }, {}, { id: 'a' }] }), ['a']);
+});
+
+t('an empty exclude list changes nothing', () => {
+  assert.deepEqual(buildOptions({ results: [{ id: 'a' }, { id: 'b' }], exclude: [] }), ['a', 'b']);
+});
+
+console.log('\nthe wiring');
+
+t('the picker fetches before anything is typed', () => {
+  assert.match(picker, /showInitial = false/);
+  assert.match(picker, /if \(!q && !showInitial\)/,
+    'an empty query must still fetch when showInitial is set');
+  // …and the request omits q entirely rather than sending q=''.
+  assert.match(picker, /\.\.\.\(q \? \{ q \} : \{\}\)/);
+});
+
+t('the deal flow asks for the initial list and excludes its people', () => {
+  assert.match(people, /showInitial/, 'the add-person picker still opens on a dead end');
+  assert.match(people, /exclude=\{\[\.\.\.alreadyOn\]\}/,
+    'people already on the deal are not excluded from the list');
+});
+
+t('the 11-person cap exists and gates the button', () => {
+  assert.match(people, /const MAX_PEOPLE = 11/);
+  assert.match(people, /const full = \(people\?\.length \|\| 0\) >= MAX_PEOPLE/);
+  assert.match(people, /disabled=\{!dealId \|\| full\}/,
+    'the add button must be disabled at the cap');
+});
+
+t('the cap is enforced in the handler too, not only the button', () => {
+  // A stale render could still reach add().
+  assert.match(people, /if \(full\) \{/);
+  assert.match(people, /A deal can hold \$\{MAX_PEOPLE\} people/);
+});
+
+t('the disabled button says WHY', () => {
+  // A greyed "Add someone" with no explanation reads as broken.
+  assert.match(people, /limit reached/);
+});
+
+t('11 is at or under GHL own association cap', () => {
+  // OPPORTUNITIES_CONTACTS_ASSOCIATION caps at 25 on the server. A tighter
+  // product rule can never produce a call GHL would reject; a looser one
+  // would fail at the API.
+  const MAX = Number(/const MAX_PEOPLE = (\d+)/.exec(people)[1]);
+  assert.ok(MAX <= 25, `MAX_PEOPLE ${MAX} exceeds GHL cap of 25`);
+  assert.equal(MAX, 11, 'the product rule is 1 primary + 10 additional');
+});
+
+// ── Removing a contact from a deal ──────────────────────────────────────
+//
+// The Remove button sat inert as "coming next" in the deal hub. The endpoint
+// (DELETE /api/deals/:id/contacts/:relationId) had always existed; what was
+// missing was relationId in the detail route's people payload, so the client
+// had nothing to call it with.
+console.log('\nremoving a contact');
+
+t('the deal hub Remove button is wired to a handler', () => {
+  assert.match(people, /onRemove=\{\(\) => removePerson\(p\)\}/,
+    'the Remove button is still inert');
+  assert.match(people, /await dealsAPI\.removeContact\(dealId, p\.relationId\)/,
+    'removal must use the LINK id, not the contact id');
+  assert.ok(!/Remove from deal — coming next/.test(people),
+    'the placeholder title is still there');
+});
+
+t('Remove is hidden without a relationId', () => {
+  // A synthesised primary row (a deal whose contact has no
+  // opportunity_contacts entry) has no link to delete — calling with
+  // undefined would 404.
+  assert.match(people, /allowRemove && p\.relationId/);
+});
+
+t('the last contact cannot be removed', () => {
+  // GHL files notes and tasks against a contact, so a deal with none can
+  // hold neither.
+  assert.match(people, /allowRemove=\{people\.length > 1\}/);
+});
+
+t('a failed removal is reported, not swallowed', () => {
+  assert.match(people, /setRemoveError/);
+  assert.match(people, /\{removeError && \(/, 'the error state is never rendered');
+});
+
+t('NO "Make primary" control anywhere', () => {
+  // Checked against GHL's docs rather than assumed:
+  //   • PUT /opportunities/:id does not accept contactId
+  //   • POST /associations/relations has no `primary` field and relations
+  //     have no update endpoint
+  // is_primary reaches us only via `event.primary` on RelationCreate. A
+  // control here could not work, and one labelled "coming next" would promise
+  // something the API does not permit.
+  // Matches a rendered CONTROL, not the prose explaining why there isn't
+  // one — the first version of this test failed on its own comment.
+  assert.ok(!/>\s*Make primary\s*</.test(people),
+    'a "Make primary" control exists — the API offers no way to set it');
+  assert.ok(!/title="Set as primary/.test(people),
+    'a "set as primary" affordance is back');
+});
+
+console.log(`\n${n} passed`);

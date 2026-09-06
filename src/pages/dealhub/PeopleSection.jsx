@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { dealsAPI } from '../../api/deals'
 import ContactPicker from '../shared/ContactPicker'
+import { nameFor } from '../shared/ListChrome'
 
 // Deal Hub — People section (opp-associated contacts).
 //
@@ -13,11 +14,19 @@ import ContactPicker from '../shared/ContactPicker'
 // Actions on each card:
 //   Show in thread     → filters the timeline to this person's messages
 //   View contact       → opens the contact record (TODO — future)
-//   Make primary       → shown on non-primary cards only; sets is_primary
-//                        for this contact on this opp (TODO — needs write)
-//   Remove             → shown on all cards; unlinks this contact from
-//                        this opp — the deal must retain at least one
-//                        contact (TODO — needs write)
+//   Remove             → unlinks this contact from this opp. Hidden on the
+//                        last remaining contact (GHL files notes and tasks
+//                        against a contact, so a deal with none can hold
+//                        neither) and on a synthesised primary, which has no
+//                        relation row to delete.
+//
+// There is deliberately NO "Make primary". Checked against GHL's docs:
+//   • PUT /opportunities/:id does not accept contactId, so the opportunity's
+//     own contact cannot be reassigned
+//   • POST /associations/relations takes no `primary` field, and relations
+//     have no update endpoint at all
+// is_primary reaches us only through `event.primary` on the RelationCreate
+// webhook — GHL reports the flag but offers no way to set it.
 
 export default function PeopleSection({
   people = [],
@@ -25,10 +34,30 @@ export default function PeopleSection({
   onPeopleFilterChange,
   // Needed to add someone — the link is made against the opportunity.
   dealId,
-  // Called after a successful add so the parent refetches; the RelationCreate
-  // webhook is what actually writes the row.
+  // Called after a successful add or remove so the parent refetches; the
+  // Relation webhooks are what actually write and delete the row.
   onPeopleChanged
 }) {
+  // Which contact is mid-unlink, and any failure to report.
+  const [removingId, setRemovingId] = useState(null)
+  const [removeError, setRemoveError] = useState(null)
+
+  const removePerson = async (p) => {
+    // The LINK id, not the contact id.
+    if (!p?.relationId || removingId) return
+    setRemovingId(p.id)
+    setRemoveError(null)
+    try {
+      await dealsAPI.removeContact(dealId, p.relationId)
+      onPeopleChanged && onPeopleChanged()
+    } catch (err) {
+      setRemoveError(err.message || 'Could not remove that person — try again')
+      window.setTimeout(() => setRemoveError(null), 4000)
+    } finally {
+      setRemovingId(null)
+    }
+  }
+
   if (!people || people.length === 0) return null
 
   return (
@@ -80,12 +109,34 @@ export default function PeopleSection({
             onShowInThread={() =>
               onPeopleFilterChange && onPeopleFilterChange([p.id])
             }
+            // The deal must keep at least one contact: GHL files notes and
+            // tasks against a contact, so a deal with none can hold neither.
             allowRemove={people.length > 1}
+            onRemove={() => removePerson(p)}
+            removing={removingId === p.id}
           />
         ))}
       </div>
 
-      {/* Add-contact search (mockup-parity — write flow deferred) */}
+      {/* A failed unlink, reported where the cards are rather than as a
+          toast — the row it refers to is right here. */}
+      {removeError && (
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', gap: 7,
+            margin: '0 var(--space-4) 10px',
+            padding: '8px 11px',
+            border: '1px solid var(--status-stuck)',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--tint-rose)',
+            fontSize: 'var(--text-md)', color: 'var(--status-stuck-text)'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 16, flex: 'none' }}>error</span>
+          {removeError}
+        </div>
+      )}
+
       <AddContactFooter dealId={dealId} people={people} onAdded={onPeopleChanged} />
     </section>
   )
@@ -148,7 +199,7 @@ function initialsFromWords(value) {
   return (words[0] || '').slice(0, 2).toUpperCase() || null
 }
 
-function PersonCard({ p, filterActive, onShowInThread, allowRemove }) {
+function PersonCard({ p, filterActive, onShowInThread, allowRemove, onRemove, removing }) {
   const { name: fullName, initials, usedField } = displayFor(p)
   // Two variants, two jobs. The vivid fill is right for a 3px border; as TEXT
   // on its own tint it's 4.13:1, below AA — so the avatar initials use the
@@ -274,16 +325,30 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove }) {
         <GhostBtn icon="person" title="Contact record — coming next">
           View contact
         </GhostBtn>
-        {!p.primary && (
-          <GhostBtn title="Set as primary — coming next">Make primary</GhostBtn>
-        )}
-        {allowRemove && (
+        {/* NO "Make primary".
+            Verified against GHL's own docs rather than assumed:
+              • PUT /opportunities/:id does not accept contactId — the
+                opportunity's primary contact cannot be changed on an update
+              • POST /associations/relations takes no `primary` field, and
+                there is NO update endpoint for a relation at all
+            Our is_primary comes from `event.primary` on the RelationCreate
+            webhook — GHL reports the flag but exposes no way to set it. A
+            button here could not do anything, and one labelled "coming next"
+            promises work that the API does not currently permit. */}
+
+        {/* REMOVE, now wired. It sat inert as "coming next" because the deal
+            detail route never sent relationId — the endpoint has always
+            existed. `p.relationId` is null for a synthesised primary (a deal
+            whose contact has no opportunity_contacts row), where there is no
+            link to delete. */}
+        {allowRemove && p.relationId && (
           <GhostBtn
-            icon="person_remove"
+            icon={removing ? 'progress_activity' : 'person_remove'}
             danger
-            title="Remove from deal — coming next"
+            onClick={onRemove}
+            title={`Remove ${nameFor(p)} from this deal`}
           >
-            Remove
+            {removing ? 'Removing' : 'Remove'}
           </GhostBtn>
         )}
       </div>
@@ -335,6 +400,15 @@ function GhostBtn({ icon, children, onClick, active, danger, title }) {
 //
 // COLLAPSED until clicked, like the tag and field editors: a rail listing who
 // is on a deal should not carry a permanently open search field.
+// The most people one deal may carry: a primary contact plus ten more.
+//
+// A PRODUCT RULE, not GHL's limit. GHL's OPPORTUNITIES_CONTACTS_ASSOCIATION
+// caps at 25 (see associationConstants.js on the server) — 11 is the tighter
+// rule this client asked for, and being tighter it can never produce a call
+// GHL would reject. If the two ever need to agree, the server constant is the
+// one that describes the API; this one describes the product.
+const MAX_PEOPLE = 11
+
 function AddContactFooter({ dealId, people = [], onAdded }) {
   const [open, setOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -347,8 +421,17 @@ function AddContactFooter({ dealId, people = [], onAdded }) {
     [people]
   )
 
+  const full = (people?.length || 0) >= MAX_PEOPLE
+
   const add = async (contactId) => {
     if (!contactId || saving) return
+    // Belt and braces: the button is disabled at the cap and the picker
+    // excludes existing people, but a stale render could still get here.
+    if (full) {
+      setError(`A deal can hold ${MAX_PEOPLE} people — remove someone first`)
+      window.setTimeout(() => setError(null), 4000)
+      return
+    }
     if (alreadyOn.has(contactId)) {
       setError('That person is already on this deal')
       window.setTimeout(() => setError(null), 4000)
@@ -381,20 +464,27 @@ function AddContactFooter({ dealId, people = [], onAdded }) {
       {!open ? (
         <button
           onClick={() => setOpen(true)}
-          disabled={!dealId}
-          title={dealId ? 'Add someone to this deal' : 'No deal in scope'}
+          disabled={!dealId || full}
+          title={
+            !dealId ? 'No deal in scope'
+              : full ? `This deal already has ${MAX_PEOPLE} people, the maximum`
+                : 'Add someone to this deal'
+          }
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
             height: 30, padding: '0 12px 0 10px',
             border: '1px dashed var(--border-strong)',
             borderRadius: 'var(--radius-pill)',
-            background: 'var(--surface-card)', color: 'var(--text-body)',
+            background: 'var(--surface-card)',
+            color: full ? 'var(--text-faint)' : 'var(--text-body)',
             fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 500,
-            cursor: dealId ? 'pointer' : 'not-allowed'
+            cursor: (dealId && !full) ? 'pointer' : 'not-allowed'
           }}
         >
           <span className="ms" style={{ fontSize: 16 }}>person_add</span>
-          Add someone
+          {/* Says WHY it is disabled. A greyed "Add someone" with no
+              explanation reads as broken. */}
+          {full ? `${MAX_PEOPLE} people — limit reached` : 'Add someone'}
         </button>
       ) : (
         <>
@@ -409,6 +499,14 @@ function AddContactFooter({ dealId, people = [], onAdded }) {
               // NOT to offer, so seeding with them would surface exactly the
               // wrong candidates first.
               seed={[]}
+              // …and they are excluded outright, so a duplicate cannot be
+              // clicked at all. Previously it was only caught afterwards, as
+              // an error, which made the rep remember who was already there.
+              exclude={[...alreadyOn]}
+              // Show a first page immediately. "Start typing to find a
+              // contact" is a dead end for anyone who does not already know
+              // who is in the CRM.
+              showInitial
               invalid={!!error}
             />
           </span>

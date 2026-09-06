@@ -28,6 +28,16 @@ export default function ContactPicker({
   // Contacts the caller already holds — a deal's people. Shown before any
   // search, so picking from a deal stays a single click.
   seed = [],
+  // Contact ids to REMOVE from every list. The deal's existing people, so the
+  // picker cannot offer someone who is already on it — previously a duplicate
+  // was only caught after the click, as an error message, which made the user
+  // do the work of remembering who was already there.
+  exclude = [],
+  // Load a first page before anything is typed. Without it the dropdown opened
+  // on "Start typing to find a contact", which is a dead end for a rep who
+  // does not know who is in the CRM — most sub-accounts have few enough
+  // contacts that the first page IS the answer.
+  showInitial = false,
   disabled,
   invalid,
   autoFocus
@@ -45,7 +55,10 @@ export default function ContactPicker({
 
   useEffect(() => {
     const q = query.trim()
-    if (!q) {
+    // An empty query still fetches when showInitial is set: the server treats
+    // a missing `q` as "first page, ordered by name", which is what a rep
+    // opening the box with no one in mind actually wants.
+    if (!q && !showInitial) {
       setResults([])
       setLoading(false)
       return
@@ -54,7 +67,7 @@ export default function ContactPicker({
     setError(false)
     const id = ++reqId.current
     const t = window.setTimeout(() => {
-      contactsAPI.list({ q, limit: PAGE })
+      contactsAPI.list({ ...(q ? { q } : {}), limit: PAGE })
         .then((res) => {
           // Ignore a response that arrived after a newer one — typing fast
           // otherwise leaves an earlier query's results on screen.
@@ -65,14 +78,23 @@ export default function ContactPicker({
         .finally(() => { if (id === reqId.current) setLoading(false) })
     }, DEBOUNCE_MS)
     return () => window.clearTimeout(t)
-  }, [query])
+  }, [query, showInitial])
 
   const options = useMemo(() => {
     const seen = new Set()
+    // Anyone already linked. Filtered OUT of the list rather than rejected
+    // after the click: offering someone who cannot be picked makes the reader
+    // do the remembering.
+    const blocked = new Set(exclude.filter(Boolean))
+
     const rows = []
     // Chosen first so it is always present, then the seed, then results.
     for (const c of [chosen, ...seed, ...results].filter(Boolean)) {
       if (!c.id || seen.has(c.id)) continue
+      // The CURRENT value is never excluded — in an editor the contact already
+      // on the task is in `exclude` by definition, and dropping it would blank
+      // the field the moment the list refreshed.
+      if (blocked.has(c.id) && c.id !== value) continue
       seen.add(c.id)
       rows.push({ value: c.id, label: labelFor(c), contact: c })
     }
@@ -84,7 +106,7 @@ export default function ContactPicker({
       title: label,
       renderLabel: contact
     }))
-  }, [chosen, seed, results])
+  }, [chosen, seed, results, exclude, value])
 
   return (
     <Select
@@ -119,6 +141,9 @@ export default function ContactPicker({
           <Empty>Could not search contacts — try again</Empty>
         ) : query.trim() ? (
           <Empty>No contact matches “{query.trim()}”</Empty>
+        ) : showInitial ? (
+          // Reached when every contact returned is already on the deal.
+          <Empty>Everyone in this account is already on this deal</Empty>
         ) : (
           <Empty>Start typing to find a contact</Empty>
         )

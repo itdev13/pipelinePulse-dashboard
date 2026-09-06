@@ -53,6 +53,12 @@ export const dealsAPI = {
   // opportunity_contacts is keyed on it.
   addContact: (id, contactId) =>
     apiClient.post(`/api/deals/${encodeURIComponent(id)}/contacts`, { contactId }),
+  // Change which contact the deal belongs to. A dedicated endpoint because
+  // contactId is undocumented on GHL's opportunity PUT — see the route.
+  setPrimaryContact: (id, contactId) =>
+    apiClient.put(
+      `/api/deals/${encodeURIComponent(id)}/primary-contact`, { contactId }
+    ),
   removeContact: (id, relationId) =>
     apiClient.delete(
       `/api/deals/${encodeURIComponent(id)}/contacts/${encodeURIComponent(relationId)}`

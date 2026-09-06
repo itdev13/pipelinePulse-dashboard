@@ -5,6 +5,7 @@ import { dealsAPI } from '../../api/deals'
 import { contactsAPI } from '../../api/contacts'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import { nameFor } from '../shared/ListChrome'
+import ContactPicker from '../shared/ContactPicker'
 import { currencySymbol } from '../../utils/money'
 
 // The inline deal editor — everything GHL's own edit modal offers, in the row.
@@ -79,7 +80,12 @@ const sameSet = (a = [], b = []) => {
 // each one. `refError` likewise comes from the parent, which knows whether the
 // single shared fetch failed.
 export default function DealEditPanel({
-  deal, pipelines, users, refError, onSaved, onDeleted, onClose
+  deal, pipelines, users, refError, onSaved, onDeleted, onClose,
+  // Called after a contact is linked or unlinked, so the caller refetches the
+  // deal. Separate from onSaved: those writes go straight to GHL rather than
+  // through this form's Update, so the panel stays open and only the people
+  // list changes.
+  onPeopleChanged
 }) {
   const [lostReasons, setLostReasons] = useState(null)
 
@@ -471,6 +477,18 @@ export default function DealEditPanel({
         </Row>
       </Group>
 
+      {/* WHO IS ON THE DEAL, above the primary's own fields.
+          The panel edited the primary contact's email and phone but never
+          showed who the deal's people were — so a rep had no indication that
+          two others were linked, and no way to add or remove one without
+          leaving for the deal hub. */}
+      <PeopleEditor
+        dealId={deal.id}
+        people={deal.people || []}
+        onChanged={onPeopleChanged}
+        disabled={saving}
+      />
+
       {/* Contact details. These write to the CONTACT record, not the
           opportunity — GHL's modal renders them together, but they are
           different objects and different endpoints. Hidden entirely when the
@@ -659,6 +677,231 @@ export default function DealEditPanel({
 // A labelled band with a rule, matching GHL's "Opportunity details" /
 // "Contact details" split so a rep moving between the two apps reads the same
 // grouping.
+// The people on this deal: who is primary, who else is linked, and a picker
+// to add someone.
+//
+// WHY IT LIVES IN THE EDIT PANEL. The panel already edited the primary
+// contact's email, phone and business — but gave no way to see WHO the deal's
+// contacts are, let alone change them. A rep editing "Contact details —
+// prasad" had no indication that two other people were on the deal, and no
+// route to add or remove one without opening the deal hub.
+//
+// WRITES GO STRAIGHT TO GHL, not into the panel's dirty-state. Adding or
+// removing a contact is an association change — a different object and a
+// different endpoint from the opportunity patch this form builds — and
+// batching it behind Update would mean a half-saved deal if the patch failed
+// after the link succeeded. So each action fires immediately and the parent
+// refetches, which is also how the deal hub's rail behaves.
+//
+// The cap is the same 11 the deal hub enforces: a primary plus ten others.
+const MAX_PEOPLE = 11
+
+function PeopleEditor({ dealId, people = [], onChanged, disabled }) {
+  const [busy, setBusy] = useState(null)
+  const [error, setError] = useState(null)
+  const [adding, setAdding] = useState(false)
+
+  const alreadyOn = useMemo(
+    () => (people || []).map((p) => p.id).filter(Boolean),
+    [people]
+  )
+  const full = people.length >= MAX_PEOPLE
+
+  const flash = (msg) => {
+    setError(msg)
+    window.setTimeout(() => setError(null), 4000)
+  }
+
+  const add = async (contactId) => {
+    if (!contactId || busy) return
+    if (full) { flash(`A deal can hold ${MAX_PEOPLE} people — remove someone first`); return }
+    setBusy('add')
+    try {
+      await dealsAPI.addContact(dealId, contactId)
+      setAdding(false)
+      onChanged && onChanged()
+    } catch (err) {
+      flash(err.message || 'Could not add that person')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const remove = async (p) => {
+    // The link id, not the contact id. A synthesised primary row has none —
+    // its link does not exist in opportunity_contacts, so there is nothing to
+    // delete and the button is hidden for it.
+    if (!p.relationId || busy) return
+    setBusy(p.id)
+    try {
+      await dealsAPI.removeContact(dealId, p.relationId)
+      onChanged && onChanged()
+    } catch (err) {
+      flash(err.message || 'Could not remove that person')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <Group title={`People — ${people.length} of ${MAX_PEOPLE}`}>
+      <div style={{ display: 'grid', gap: 6 }}>
+        {people.map((p) => (
+          <div
+            key={p.id}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '7px 10px',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-md)',
+              background: p.primary ? 'var(--tint-pine)' : 'var(--surface-card)'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 16, color: 'var(--text-faint)', flex: 'none' }}>
+              person
+            </span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span
+                style={{
+                  display: 'block',
+                  fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                }}
+              >
+                {nameFor(p)}
+              </span>
+              {(p.email || p.phone) && (
+                <span
+                  style={{
+                    display: 'block',
+                    fontSize: 'var(--text-sm)', color: 'var(--text-muted)',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                  }}
+                >
+                  {p.email || p.phone}
+                </span>
+              )}
+            </span>
+
+            {/* PRIMARY is a label, not a control — verified in GHL's docs,
+                not assumed:
+                  • PUT /opportunities/:id does not accept contactId, so the
+                    opportunity's own contact cannot be reassigned
+                  • POST /associations/relations takes no `primary` field, and
+                    relations have no update endpoint at all
+                Our is_primary comes from `event.primary` on the
+                RelationCreate webhook: GHL reports the flag but offers no way
+                to set it. */}
+            {p.primary && (
+              <span
+                title="Set in your CRM — the API offers no way to change it here"
+                style={{
+                  flex: 'none',
+                  padding: '1px 8px',
+                  borderRadius: 'var(--radius-pill)',
+                  background: 'var(--surface-card)',
+                  border: '1px solid var(--border-default)',
+                  fontSize: 'var(--text-sm)', fontWeight: 600,
+                  color: 'var(--accent-pine-text)'
+                }}
+              >
+                Primary
+              </span>
+            )}
+
+            {/* Removing the LAST contact would leave a deal GHL cannot file
+                notes or tasks against, so one must always remain. */}
+            {p.relationId && people.length > 1 && (
+              <button
+                type="button"
+                onClick={() => remove(p)}
+                disabled={disabled || !!busy}
+                title={`Remove ${nameFor(p)} from this deal`}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  flex: 'none', width: 26, height: 26, padding: 0,
+                  border: '1px solid var(--border-strong)',
+                  borderRadius: 'var(--radius-sm)',
+                  background: '#fff',
+                  color: 'var(--status-stuck-text)',
+                  cursor: busy ? 'progress' : 'pointer'
+                }}
+              >
+                <span className="ms" style={{ fontSize: 15 }}>
+                  {busy === p.id ? 'progress_activity' : 'person_remove'}
+                </span>
+              </button>
+            )}
+          </div>
+        ))}
+
+        {adding ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ flex: 1 }}>
+              <ContactPicker
+                value={null}
+                onChange={add}
+                seed={[]}
+                // Nobody already on the deal, so a duplicate cannot be picked.
+                exclude={alreadyOn}
+                // A first page before typing — see ContactPicker.
+                showInitial
+                disabled={disabled || !!busy}
+                autoFocus
+              />
+            </span>
+            <button
+              type="button"
+              onClick={() => setAdding(false)}
+              disabled={!!busy}
+              style={{
+                height: 30, padding: '0 11px',
+                border: '1px solid var(--border-strong)',
+                borderRadius: 'var(--radius-md)',
+                background: '#fff',
+                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+                color: 'var(--text-body)', cursor: 'pointer'
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            disabled={disabled || full || !dealId}
+            title={
+              full ? `This deal already has ${MAX_PEOPLE} people, the maximum`
+                : 'Add someone to this deal'
+            }
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              alignSelf: 'start',
+              height: 30, padding: '0 12px 0 10px',
+              border: '1px dashed var(--border-strong)',
+              borderRadius: 'var(--radius-pill)',
+              background: 'var(--surface-card)',
+              color: full ? 'var(--text-faint)' : 'var(--text-body)',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 500,
+              cursor: (full || disabled) ? 'not-allowed' : 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 16 }}>person_add</span>
+            {full ? `${MAX_PEOPLE} people — limit reached` : 'Add someone'}
+          </button>
+        )}
+
+        {error && (
+          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--status-stuck-text)' }}>
+            {error}
+          </span>
+        )}
+      </div>
+    </Group>
+  )
+}
+
 function Group({ title, children }) {
   return (
     <section style={{ marginBottom: 'var(--space-4)' }}>

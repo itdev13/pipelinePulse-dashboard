@@ -370,6 +370,10 @@ function DealCard({
           users={users}
           refError={refError}
           onSaved={onSaved}
+          // Same refetch as a save. A link change is written to GHL
+          // immediately, so the panel stays open and only the people list
+          // needs to catch up.
+          onPeopleChanged={onSaved}
           onDeleted={onDeleted}
           // Cancel closes the panel when there is nothing to discard, so it
           // needs the same toggle the Edit button uses.
