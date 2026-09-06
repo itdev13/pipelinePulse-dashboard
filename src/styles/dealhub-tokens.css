@@ -2158,3 +2158,36 @@
   font-weight: 600;
   color: var(--text-heading);
 }
+
+/* ── Follow-up chips ──────────────────────────────────────────────────────
+ *
+ * Open tasks and notes, on the deal and contact cards. Previously visible
+ * only after clicking Edit, so scanning a list for records with outstanding
+ * work meant opening every one.
+ *
+ * A chip rather than another clause in the grey meta line: a count is a state
+ * worth spotting, not one more attribute among "4 days in stage · last
+ * contact 9 Aug". */
+
+[data-dealhub] .pp-followup {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  /* Counts line up when several cards stack. */
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+/* An open TASK is something owed; a note is only a record. Tinting the task
+ * chip separates "someone must act" from "there is history here" without
+ * shouting — rose would read as an error on a perfectly healthy deal. */
+[data-dealhub] .pp-followup-task {
+  background: var(--tint-gold);
+  color: var(--accent-gold-text);
+}

@@ -886,3 +886,35 @@ export function NoteChip({ label, onClick }) {
     </span>
   )
 }
+
+// Open tasks and notes as small chips. Shared by the deal card and the
+// contact card, so the two cannot drift on wording or threshold.
+//
+// Renders NOTHING at zero. "0 tasks" on every untouched record is noise, and
+// the whole point is that a non-empty chip is worth noticing.
+export function FollowUpChips({ tasks = 0, notes = 0 }) {
+  if (!tasks && !notes) return null
+  return (
+    <span style={{ display: 'inline-flex', gap: 6, flex: 'none' }}>
+      {tasks > 0 && (
+        <span
+          className="pp-followup pp-followup-task"
+          title={`${tasks} open task${tasks === 1 ? '' : 's'}`}
+        >
+          <span className="ms" style={{ fontSize: 13 }}>task_alt</span>
+          {tasks}
+        </span>
+      )}
+      {notes > 0 && (
+        <span
+          className="pp-followup"
+          title={`${notes} note${notes === 1 ? '' : 's'}`}
+        >
+          <span className="ms" style={{ fontSize: 13 }}>sticky_note_2</span>
+          {notes}
+        </span>
+      )}
+    </span>
+  )
+}
+

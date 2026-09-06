@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { FollowUpChips } from '../shared/ListChrome'
 import { contactsAPI } from '../../api/contacts'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
 import { CardGridSkeleton, LoadMore } from '../shared/ListChrome'
 import ContactDetail from '../contacts/ContactDetail'
+
 
 // Contacts tab — every contact in this location.
 // Grid of cards with editable-in-future fields; today they're read-only.
@@ -272,9 +274,18 @@ function ContactCard({ c, onOpen, onOpenDeal, onSaved }) {
           >
             {c.name || '—'}
           </div>
-          {c.contactType && (
-            <div style={{ marginTop: 1, fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
-              {c.contactType}
+          {/* Type and follow-up on one line. The counts were not shown at all
+              — a contact with three open tasks looked identical to one with
+              none, so finding outstanding work meant opening each record. */}
+          {(c.contactType || c.openTaskCount > 0 || c.noteCount > 0) && (
+            <div
+              style={{
+                display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap',
+                marginTop: 2, fontSize: 'var(--text-base)', color: 'var(--text-muted)'
+              }}
+            >
+              {c.contactType && <span>{c.contactType}</span>}
+              <FollowUpChips tasks={c.openTaskCount} notes={c.noteCount} />
             </div>
           )}
         </div>

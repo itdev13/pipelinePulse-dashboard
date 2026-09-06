@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { FollowUpChips } from '../shared/ListChrome'
 import { dealsAPI } from '../../api/deals'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
@@ -327,18 +328,36 @@ function DealCard({
         <Stat label="Owner" value={deal.owner} />
       </div>
 
-      {facts.length > 0 && (
-        <p
+      {(facts.length > 0 || deal.openTaskCount > 0 || deal.noteCount > 0) && (
+        <div
           style={{
-            margin: 0, padding: '10px var(--space-4) 0',
-            fontSize: 'var(--text-base)', color: 'var(--text-muted)', lineHeight: 1.5
+            display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+            padding: '10px var(--space-4) 0'
           }}
         >
-          {facts.join(' · ')}
-          {deal.lastCustomerContactAt && (
-            <> · last contact {formatDate(deal.lastCustomerContactAt)}</>
+          {facts.length > 0 && (
+            <p
+              style={{
+                margin: 0, flex: '1 1 auto', minWidth: 0,
+                fontSize: 'var(--text-base)', color: 'var(--text-muted)', lineHeight: 1.5
+              }}
+            >
+              {facts.join(' · ')}
+              {deal.lastCustomerContactAt && (
+                <> · last contact {formatDate(deal.lastCustomerContactAt)}</>
+              )}
+            </p>
           )}
-        </p>
+          {/* FOLLOW-UP, ON THE CARD.
+              These were only visible after clicking Edit, so scanning a list
+              for deals with outstanding work meant opening every one. Chips
+              rather than another clause in the grey line: a count is a state
+              worth spotting, not one more attribute. */}
+          <FollowUpChips
+            tasks={deal.openTaskCount}
+            notes={deal.noteCount}
+          />
+        </div>
       )}
 
       {people.length > 0 && (
