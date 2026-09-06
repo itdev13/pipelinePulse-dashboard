@@ -2275,3 +2275,128 @@
   font-size: var(--text-sm);
   color: var(--status-stuck-text);
 }
+
+/* ── Contact cards ────────────────────────────────────────────────────────
+ *
+ * The card rendered six permanently-open inputs, so a page of twenty
+ * contacts was eighty boxes and read as a form rather than a list of people.
+ * Each field is now a readable line that becomes an input on click. */
+
+[data-dealhub] .pp-cc-fields {
+  display: grid;
+  gap: 1px;
+  /* A hairline between rows, drawn by the gap over a tinted ground: cheaper
+     than a border per row, and it cannot double up at the ends. */
+  background: var(--border-default);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+[data-dealhub] .pp-cc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  background: var(--surface-card);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+[data-dealhub] .pp-cc-row:hover {
+  background: var(--gray-25);
+}
+
+[data-dealhub] .pp-cc-row:focus-visible {
+  outline: 2px solid var(--border-prominent);
+  outline-offset: -2px;
+}
+
+/* An edited row, so it is obvious what Save will send. */
+[data-dealhub] .pp-cc-row-dirty {
+  background: var(--tint-pine);
+}
+
+[data-dealhub] .pp-cc-row-open {
+  background: var(--surface-card);
+  cursor: text;
+}
+
+[data-dealhub] .pp-cc-icon {
+  flex: none;
+  font-size: 15px;
+  color: var(--text-faint);
+}
+
+/* Small and quiet. The icon carries the field's identity, so the label does
+ * not need to shout — it was the loudest thing in every row before. */
+[data-dealhub] .pp-cc-label {
+  flex: none;
+  width: 62px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+[data-dealhub] .pp-cc-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--text-md);
+  color: var(--text-body);
+}
+
+/* An unset field reads as a prompt, not as data. */
+[data-dealhub] .pp-cc-value-empty {
+  font-style: italic;
+  color: var(--text-faint);
+}
+
+/* Hidden until the row is hovered or focused — six pencils per card, times
+ * twenty cards, is 120 pencils on one screen. */
+[data-dealhub] .pp-cc-pencil {
+  flex: none;
+  font-size: 14px;
+  color: var(--text-faint);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+[data-dealhub] .pp-cc-row:hover .pp-cc-pencil,
+[data-dealhub] .pp-cc-row:focus-visible .pp-cc-pencil {
+  opacity: 1;
+}
+
+[data-dealhub] .pp-cc-input {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--brand-primary);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  font-family: inherit;
+  font-size: var(--text-md);
+  color: var(--text-heading);
+}
+
+[data-dealhub] .pp-cc-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--tint-pine);
+}
+
+[data-dealhub] .pp-cc-input-bad {
+  border-color: var(--status-stuck);
+}
+
+[data-dealhub] .pp-cc-input-bad:focus {
+  box-shadow: 0 0 0 2px var(--tint-rose);
+}

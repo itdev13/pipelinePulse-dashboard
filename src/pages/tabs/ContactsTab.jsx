@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FollowUpChips } from '../shared/ListChrome'
 import { contactsAPI } from '../../api/contacts'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
@@ -349,48 +349,62 @@ function ContactCard({ c, onOpen, onOpenDeal, onSaved }) {
             color: 'var(--text-body)'
           }}
         >
-          Record
+          Open
           <span className="ms" style={{ fontSize: 16 }}>arrow_forward</span>
         </button>
       </div>
 
-      {/* Fields, two per row, matching the record's own layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        {[
-          ['firstName', 'First name'],
-          ['lastName',  'Last name'],
-          ['email',     'Primary email'],
-          ['phone',     'Primary phone'],
-          ['business',  'Business']
-        ].map(([name, label]) => (
-          <Field
-            key={name}
-            label={label}
-            value={valueOf(name)}
-            onChange={(v) => setField(name, v)}
-            disabled={saving}
-            invalid={errorField === name}
-            dirty={name in changes}
-          />
-        ))}
-        {/* Read-only: contactType is a GHL custom field, not a contact
-            property, so the update endpoint rejects it. An editable box here
-            would be a control whose every save failed. */}
-        <Field
-          label="Contact type"
-          value={c.contactType}
-          readOnly
-          title="Contact type is a custom field — edit it in your CRM"
+      {/* THE FIELDS, as READABLE LINES that become inputs on click.
+          Six permanently-open boxes per card turned a list of twenty people
+          into eighty inputs — the page read as a form, and finding someone
+          meant scanning label text rather than names. An InlineEdit shows the
+          value plainly and becomes a control only when the reader means to
+          change it. */}
+      <div className="pp-cc-fields">
+        <InlineEdit
+          label="Name" icon="person"
+          value={[valueOf('firstName'), valueOf('lastName')].filter(Boolean).join(' ')}
+          placeholder="Add a name"
+          disabled={saving}
+          dirty={'firstName' in changes || 'lastName' in changes}
+          invalid={errorField === 'firstName' || errorField === 'lastName'}
+          // One line for what a person calls themselves, split back on save.
+          // Two boxes for one name is a data-entry idea, not a reading one.
+          onChange={(v) => {
+            const parts = String(v).trim().split(/\s+/).filter(Boolean)
+            setField('firstName', parts.shift() || '')
+            setField('lastName', parts.join(' '))
+          }}
+        />
+        <InlineEdit
+          label="Email" icon="mail"
+          value={valueOf('email')} placeholder="Add an email"
+          disabled={saving} dirty={'email' in changes}
+          invalid={errorField === 'email'}
+          onChange={(v) => setField('email', v)}
+        />
+        <InlineEdit
+          label="Phone" icon="call"
+          value={valueOf('phone')} placeholder="Add a phone"
+          disabled={saving} dirty={'phone' in changes}
+          invalid={errorField === 'phone'}
+          onChange={(v) => setField('phone', v)}
+        />
+        <InlineEdit
+          label="Business" icon="business"
+          value={valueOf('business')} placeholder="Add a business"
+          disabled={saving} dirty={'business' in changes}
+          invalid={errorField === 'business'}
+          onChange={(v) => setField('business', v)}
+        />
+        <InlineEdit
+          label="Address" icon="location_on"
+          value={valueOf('address')} placeholder="Add an address"
+          disabled={saving} dirty={'address' in changes}
+          invalid={errorField === 'address'}
+          onChange={(v) => setField('address', v)}
         />
       </div>
-      <Field
-        label="Address"
-        value={valueOf('address')}
-        onChange={(v) => setField('address', v)}
-        disabled={saving}
-        invalid={errorField === 'address'}
-        dirty={'address' in changes}
-      />
 
       {error && (
         <div
@@ -473,43 +487,6 @@ function ContactCard({ c, onOpen, onOpenDeal, onSaved }) {
 // record, but disabled — see ContactCard's note on write-back.
 // One field on a contact card.
 //
-// A real input now. It used to be a `disabled` input showing "Not set" as its
-// VALUE — which looked like a form, refused to be typed into, and put the words
-// "Not set" where a value belongs. Now the placeholder says that and the box
-// works.
-function Field({ label, value, onChange, disabled, invalid, dirty, readOnly, title }) {
-  const editable = typeof onChange === 'function' && !readOnly
-  return (
-    <div style={{ minWidth: 0 }}>
-      <FieldLabel>{label}</FieldLabel>
-      <input
-        value={value ?? ''}
-        onChange={editable ? (e) => onChange(e.target.value) : undefined}
-        readOnly={!editable}
-        disabled={disabled}
-        placeholder="Not set"
-        title={title || (editable ? undefined : `${label} — edit in your CRM`)}
-        style={{
-          width: '100%', boxSizing: 'border-box',
-          height: 34, padding: '0 10px',
-          border: `1px solid ${
-            invalid ? 'var(--status-stuck)'
-              : dirty ? 'var(--brand-primary)'
-                : 'var(--border-default)'
-          }`,
-          borderRadius: 'var(--radius-sm)',
-          // Read-only fields stay grey so they read as unavailable rather than
-          // as an empty box someone forgot to fill.
-          background: editable ? '#fff' : 'var(--gray-50)',
-          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
-          color: 'var(--text-body)',
-          cursor: editable ? 'text' : 'not-allowed',
-          outline: 'none'
-        }}
-      />
-    </div>
-  )
-}
 
 function FieldLabel({ children }) {
   return (
@@ -554,4 +531,73 @@ function labelFor(k) {
   if (k === 'sms') return 'SMS'
   if (k === 'whatsapp') return 'WhatsApp'
   return k.charAt(0).toUpperCase() + k.slice(1)
+}
+
+// One field as a READABLE LINE that becomes an input on click.
+//
+// The card rendered six permanently-open boxes, so twenty contacts were
+// eighty inputs and the page read as a form rather than a list of people.
+// The VALUE matters far more often than the control: a rep scans this list to
+// find someone and edits occasionally.
+//
+// Click or Enter opens it; Enter or blur closes it; Escape abandons the edit.
+// Nothing saves here — the change joins the card's own Save, so one editing
+// session is one request.
+function InlineEdit({
+  label, value, placeholder, icon, onChange, disabled, dirty, invalid
+}) {
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState('')
+  const ref = useRef(null)
+
+  useEffect(() => { if (open) ref.current?.focus() }, [open])
+
+  const commit = () => {
+    setOpen(false)
+    if (draft !== (value || '')) onChange(draft)
+  }
+
+  if (open) {
+    return (
+      <label className="pp-cc-row pp-cc-row-open">
+        {icon && <span className="ms pp-cc-icon">{icon}</span>}
+        <span className="pp-cc-label">{label}</span>
+        <input
+          ref={ref}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); commit() }
+            // Escape abandons rather than commits — the reflex when you
+            // realise you opened the wrong field.
+            if (e.key === 'Escape') { e.preventDefault(); setOpen(false) }
+          }}
+          className={invalid ? 'pp-cc-input pp-cc-input-bad' : 'pp-cc-input'}
+          placeholder={placeholder}
+        />
+      </label>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => { if (!disabled) { setDraft(value || ''); setOpen(true) } }}
+      disabled={disabled}
+      className={dirty ? 'pp-cc-row pp-cc-row-dirty' : 'pp-cc-row'}
+      title={`${label} — click to edit`}
+    >
+      {/* The icon carries the field's identity, so the label can stay small
+          and quiet rather than being the loudest thing in the row. */}
+      {icon && <span className="ms pp-cc-icon">{icon}</span>}
+      <span className="pp-cc-label">{label}</span>
+      <span className={value ? 'pp-cc-value' : 'pp-cc-value pp-cc-value-empty'}>
+        {value || placeholder}
+      </span>
+      {/* On hover only — a pencil on every row of every card is six pencils
+          per person. */}
+      <span className="ms pp-cc-pencil">edit</span>
+    </button>
+  )
 }
