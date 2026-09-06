@@ -183,4 +183,81 @@ t('the edit panel offers it too', () => {
   assert.match(panel, /\{p\.primary \? \(/);
 });
 
+// ── The three fixes from the People cards ───────────────────────────────
+console.log('\nPeople card actions');
+
+t('"View contact" is wired, not disabled', () => {
+  // It sat greyed with a "coming next" title purely because nothing passed
+  // onOpenContact down — the shell has had openContact all along, and the
+  // Tasks and Notes tabs already used it.
+  assert.match(people, /onClick=\{onViewContact\}/);
+  assert.ok(!/Contact record — coming next/.test(people),
+    'the placeholder title is still there');
+  const shell = readFileSync(join(here, '..', '..', 'DealHubShell.jsx'), 'utf8');
+  assert.match(shell, /onOpenContact=\{openContact\}/,
+    'the shell must pass openContact to the deal hub');
+  const hub = readFileSync(join(here, '..', '..', 'tabs', 'DealHubTab.jsx'), 'utf8');
+  assert.match(hub, /onOpenContact=\{onOpenContact\}/,
+    'the deal hub must pass it to PeopleSection');
+});
+
+t('"Show in thread" TOGGLES rather than only filtering on', () => {
+  // It always sent [p.id], so once a person was filtered the only way back
+  // was the "Everyone" chip, and a second press did nothing while the button
+  // stayed lit.
+  assert.match(people, /peopleFilter\.includes\(p\.id\)\s*\?\s*peopleFilter\.filter/,
+    'a second press must clear the filter');
+  // And it says which way it goes.
+  assert.match(people, /filterActive \? 'Showing in thread' : 'Show in thread'/);
+});
+
+t('Remove asks before unlinking, in BOTH places', () => {
+  const panel = readFileSync(
+    join(here, '..', '..', 'deals', 'DealEditPanel.jsx'), 'utf8');
+  for (const [src, file] of [[people, 'PeopleSection'], [panel, 'DealEditPanel']]) {
+    assert.match(src, /<ConfirmDialog/, `${file} unlinks with no confirmation`);
+    assert.match(src, /confirmLabel="Remove"/, `${file} confirm is not labelled`);
+    // The dialog names who is going, so the reader can check the right card
+    // was clicked.
+    assert.match(src, /preview=\{\[nameFor\(confirming\)/, `${file} does not show who`);
+  }
+});
+
+t('the confirm explains what is NOT deleted', () => {
+  // Unlinking a contact from a deal is not deleting the contact, and a
+  // dialog that does not say so invites the reader to assume the worst.
+  assert.match(people, /contact record and its history are not deleted/i);
+});
+
+// ── The search spinner ──────────────────────────────────────────────────
+console.log('\nthe search spinner');
+
+t('the spinner is on the control, not only in notFoundContent', () => {
+  // antd renders notFoundContent ONLY when the option list is empty. Typing
+  // forward narrows a query while the previous results are still on screen,
+  // so there was always something to render and no spinner appeared —
+  // backspacing often widens to a query with no cached match, the list
+  // empties, and it did. Hence "the loader only shows on backspace".
+  assert.match(picker, /loading=\{loading\}/,
+    'Select needs the loading prop, which renders in the suffix regardless '
+    + 'of whether options are showing');
+});
+
+t('notFoundContent still covers the genuinely-empty cases', () => {
+  // Belt and braces: it is right for "no match" and the first-load spinner.
+  assert.match(picker, /notFoundContent=\{/);
+  assert.match(picker, /<Spin size="small" \/>/);
+});
+
+// ── The add button in the edit panel ────────────────────────────────────
+t('"Add someone" hugs its content instead of spanning the panel', () => {
+  const panel = readFileSync(
+    join(here, '..', '..', 'deals', 'DealEditPanel.jsx'), 'utf8');
+  // The parent is a single-column grid, so alignSelf governs the VERTICAL
+  // axis only — justifySelf is what stops the horizontal stretch. Measured:
+  // 682px before, 112px after.
+  assert.match(panel, /justifySelf: 'start'/,
+    'without justifySelf the button stretches the full panel width');
+});
+
 console.log(`\n${n} passed`);

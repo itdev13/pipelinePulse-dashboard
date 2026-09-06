@@ -125,6 +125,18 @@ export default function ContactPicker({
       optionRender={(opt) => <ContactRow contact={opt.data.renderLabel} />}
       labelRender={(opt) => opt.label}
       showSearch
+      // THE SPINNER GOES IN THE SUFFIX, not only in notFoundContent.
+      //
+      // notFoundContent is rendered by antd ONLY when the option list is
+      // empty. Typing forward narrows a query while the previous results are
+      // still on screen, so there was always something to render and the
+      // spinner never appeared — but backspacing often widens to a query with
+      // no cached match, the list empties, and it did. Hence "the loader only
+      // shows on backspace".
+      //
+      // `loading` puts it in the control itself, where it is visible whether
+      // or not options are showing.
+      loading={loading}
       allowClear
       disabled={disabled}
       autoFocus={autoFocus}

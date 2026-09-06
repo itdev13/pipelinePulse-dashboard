@@ -918,19 +918,27 @@ function PeopleEditor({ dealId, people = [], onChanged, disabled }) {
                 : 'Add someone to this deal'
             }
             style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              // justifySelf, not alignSelf. The parent is a single-column
+              // grid, so alignSelf governs the VERTICAL axis only — the
+              // button still stretched the full width of the panel, which at
+              // dashed-pill weight read as a drop zone rather than a button.
+              justifySelf: 'start',
               alignSelf: 'start',
-              height: 30, padding: '0 12px 0 10px',
-              border: '1px dashed var(--border-strong)',
-              borderRadius: 'var(--radius-pill)',
+              // Smaller than the deal hub's: there the rail is the whole
+              // section, here it sits inside a form between other fields and
+              // should not outweigh them.
+              height: 26, padding: '0 10px 0 8px',
+              border: '1px solid var(--border-strong)',
+              borderRadius: 'var(--radius-md)',
               background: 'var(--surface-card)',
               color: full ? 'var(--text-faint)' : 'var(--text-body)',
-              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 500,
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', fontWeight: 600,
               cursor: (full || disabled) ? 'not-allowed' : 'pointer'
             }}
           >
-            <span className="ms" style={{ fontSize: 16 }}>person_add</span>
-            {full ? `${MAX_PEOPLE} people — limit reached` : 'Add someone'}
+            <span className="ms" style={{ fontSize: 15 }}>person_add</span>
+            {full ? `${MAX_PEOPLE} — limit reached` : 'Add someone'}
           </button>
         )}
 
