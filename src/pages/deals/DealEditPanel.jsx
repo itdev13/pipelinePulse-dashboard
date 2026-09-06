@@ -727,6 +727,19 @@ function PeopleEditor({ dealId, people = [], onChanged, disabled }) {
     }
   }
 
+  const makePrimary = async (p) => {
+    if (!p?.id || p.primary || busy) return
+    setBusy(p.id)
+    try {
+      await dealsAPI.setPrimaryContact(dealId, p.id)
+      onChanged && onChanged()
+    } catch (err) {
+      flash(err.message || 'Could not change the primary contact')
+    } finally {
+      setBusy(null)
+    }
+  }
+
   const remove = async (p) => {
     // The link id, not the contact id. A synthesised primary row has none —
     // its link does not exist in opportunity_contacts, so there is nothing to
@@ -783,18 +796,16 @@ function PeopleEditor({ dealId, people = [], onChanged, disabled }) {
               )}
             </span>
 
-            {/* PRIMARY is a label, not a control — verified in GHL's docs,
-                not assumed:
-                  • PUT /opportunities/:id does not accept contactId, so the
-                    opportunity's own contact cannot be reassigned
-                  • POST /associations/relations takes no `primary` field, and
-                    relations have no update endpoint at all
-                Our is_primary comes from `event.primary` on the
-                RelationCreate webhook: GHL reports the flag but offers no way
-                to set it. */}
-            {p.primary && (
+            {/* PRIMARY: a badge on the one that is, a button on the others.
+                contactId is @HideApiProperty on GHL's PUT /opportunities/:id
+                — undocumented, but the service applies it and validates the
+                contact first. It goes through its own endpoint rather than
+                this form's Update: it is an immediate write, and batching it
+                behind a patch that might fail would leave the deal pointing
+                at a contact the rep did not confirm. */}
+            {p.primary ? (
               <span
-                title="Set in your CRM — the API offers no way to change it here"
+                title="The deal is filed against this contact"
                 style={{
                   flex: 'none',
                   padding: '1px 8px',
@@ -807,6 +818,30 @@ function PeopleEditor({ dealId, people = [], onChanged, disabled }) {
               >
                 Primary
               </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => makePrimary(p)}
+                disabled={disabled || !!busy}
+                title={`Make ${nameFor(p)} the primary contact`}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  flex: 'none',
+                  height: 24, padding: '0 8px',
+                  border: '1px solid var(--border-strong)',
+                  borderRadius: 'var(--radius-pill)',
+                  background: '#fff',
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 'var(--text-sm)', fontWeight: 600,
+                  color: 'var(--text-body)',
+                  cursor: busy ? 'progress' : 'pointer'
+                }}
+              >
+                <span className="ms" style={{ fontSize: 13 }}>
+                  {busy === p.id ? 'progress_activity' : 'star'}
+                </span>
+                Make primary
+              </button>
             )}
 
             {/* Removing the LAST contact would leave a deal GHL cannot file

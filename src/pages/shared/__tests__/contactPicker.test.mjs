@@ -154,20 +154,24 @@ t('a failed removal is reported, not swallowed', () => {
   assert.match(people, /\{removeError && \(/, 'the error state is never rendered');
 });
 
-t('NO "Make primary" control anywhere', () => {
-  // Checked against GHL's docs rather than assumed:
-  //   • PUT /opportunities/:id does not accept contactId
-  //   • POST /associations/relations has no `primary` field and relations
-  //     have no update endpoint
-  // is_primary reaches us only via `event.primary` on RelationCreate. A
-  // control here could not work, and one labelled "coming next" would promise
-  // something the API does not permit.
-  // Matches a rendered CONTROL, not the prose explaining why there isn't
-  // one — the first version of this test failed on its own comment.
-  assert.ok(!/>\s*Make primary\s*</.test(people),
-    'a "Make primary" control exists — the API offers no way to set it');
-  assert.ok(!/title="Set as primary/.test(people),
-    'a "set as primary" affordance is back');
+t('MAKE PRIMARY is wired, not a placeholder', () => {
+  // contactId is @HideApiProperty on PUT /opportunities/:id — absent from the
+  // marketplace docs, which is why this sat as "coming next", but the service
+  // applies it:  if (body.contactId) opportunity.contactId = body.contactId
+  assert.match(people, /await dealsAPI\.setPrimaryContact\(dealId, p\.id\)/,
+    'Make primary must call the dedicated endpoint');
+  assert.ok(!/Set as primary — coming next/.test(people),
+    'the placeholder is still there');
+  // Hidden on the contact that already is primary.
+  assert.match(people, /\{!p\.primary && \(/);
+});
+
+t('the edit panel offers it too', () => {
+  const panel = readFileSync(
+    join(here, '..', '..', 'deals', 'DealEditPanel.jsx'), 'utf8');
+  assert.match(panel, /await dealsAPI\.setPrimaryContact\(dealId, p\.id\)/);
+  // A badge on the primary, a button on everyone else.
+  assert.match(panel, /\{p\.primary \? \(/);
 });
 
 console.log(`\n${n} passed`);

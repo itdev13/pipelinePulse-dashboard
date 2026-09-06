@@ -19,14 +19,15 @@ import { nameFor } from '../shared/ListChrome'
 //                        against a contact, so a deal with none can hold
 //                        neither) and on a synthesised primary, which has no
 //                        relation row to delete.
+//   Make primary       → reassigns the deal's own contactId. Hidden on the
+//                        contact that is already primary.
 //
-// There is deliberately NO "Make primary". Checked against GHL's docs:
-//   • PUT /opportunities/:id does not accept contactId, so the opportunity's
-//     own contact cannot be reassigned
-//   • POST /associations/relations takes no `primary` field, and relations
-//     have no update endpoint at all
-// is_primary reaches us only through `event.primary` on the RelationCreate
-// webhook — GHL reports the flag but offers no way to set it.
+// A note on "primary": it is the OPPORTUNITY's contactId, not a flag on the
+// relation. POST /associations/relations takes no `primary` field and
+// relations have no update endpoint — our opportunity_contacts.is_primary is
+// only ever reported to us, via `event.primary` on RelationCreate. Changing
+// it means changing the opportunity, which PUT /opportunities/:id does accept
+// (undocumented; see PersonCard).
 
 export default function PeopleSection({
   people = [],
@@ -41,6 +42,23 @@ export default function PeopleSection({
   // Which contact is mid-unlink, and any failure to report.
   const [removingId, setRemovingId] = useState(null)
   const [removeError, setRemoveError] = useState(null)
+
+  const [primaryId, setPrimaryId] = useState(null)
+
+  const makePrimary = async (p) => {
+    if (!p?.id || p.primary || primaryId) return
+    setPrimaryId(p.id)
+    setRemoveError(null)
+    try {
+      await dealsAPI.setPrimaryContact(dealId, p.id)
+      onPeopleChanged && onPeopleChanged()
+    } catch (err) {
+      setRemoveError(err.message || 'Could not change the primary contact')
+      window.setTimeout(() => setRemoveError(null), 4000)
+    } finally {
+      setPrimaryId(null)
+    }
+  }
 
   const removePerson = async (p) => {
     // The LINK id, not the contact id.
@@ -114,6 +132,8 @@ export default function PeopleSection({
             allowRemove={people.length > 1}
             onRemove={() => removePerson(p)}
             removing={removingId === p.id}
+            onMakePrimary={() => makePrimary(p)}
+            settingPrimary={primaryId === p.id}
           />
         ))}
       </div>
@@ -199,7 +219,7 @@ function initialsFromWords(value) {
   return (words[0] || '').slice(0, 2).toUpperCase() || null
 }
 
-function PersonCard({ p, filterActive, onShowInThread, allowRemove, onRemove, removing }) {
+function PersonCard({ p, filterActive, onShowInThread, allowRemove, onRemove, removing, onMakePrimary, settingPrimary }) {
   const { name: fullName, initials, usedField } = displayFor(p)
   // Two variants, two jobs. The vivid fill is right for a 3px border; as TEXT
   // on its own tint it's 4.13:1, below AA — so the avatar initials use the
@@ -325,16 +345,27 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove, onRemove, re
         <GhostBtn icon="person" title="Contact record — coming next">
           View contact
         </GhostBtn>
-        {/* NO "Make primary".
-            Verified against GHL's own docs rather than assumed:
-              • PUT /opportunities/:id does not accept contactId — the
-                opportunity's primary contact cannot be changed on an update
-              • POST /associations/relations takes no `primary` field, and
-                there is NO update endpoint for a relation at all
-            Our is_primary comes from `event.primary` on the RelationCreate
-            webhook — GHL reports the flag but exposes no way to set it. A
-            button here could not do anything, and one labelled "coming next"
-            promises work that the API does not currently permit. */}
+        {/* MAKE PRIMARY.
+            contactId is @HideApiProperty on GHL's PUT /opportunities/:id — it
+            is absent from the marketplace docs, which is why this button read
+            "coming next" for so long — but the service still applies it:
+
+                if (body.contactId) opportunity.contactId = body.contactId
+
+            It validates the contact exists and is not deleted, then updates.
+            Routed through PUT /api/deals/:id/primary-contact rather than the
+            ordinary deal patch: the field is undocumented on this verb, so
+            isolating it means a withdrawal breaks reassignment alone rather
+            than every deal edit. */}
+        {!p.primary && (
+          <GhostBtn
+            icon={settingPrimary ? 'progress_activity' : 'star'}
+            onClick={onMakePrimary}
+            title={`Make ${nameFor(p)} the primary contact on this deal`}
+          >
+            {settingPrimary ? 'Setting' : 'Make primary'}
+          </GhostBtn>
+        )}
 
         {/* REMOVE, now wired. It sat inert as "coming next" because the deal
             detail route never sent relationId — the endpoint has always
