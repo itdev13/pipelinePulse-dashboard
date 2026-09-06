@@ -158,7 +158,10 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
         title="Task queue"
         accent="rose"
         meta={loading ? null : `${openCount}${hasMore ? '+' : ''} ${countNoun}`}
-        toolbar={
+        // `action`, not `toolbar`: a lone button in the toolbar band drew a
+        // full-width grey strip under the title that read as its own section.
+        // In the header it sits beside the count, where it belongs.
+        action={
           <PrimaryAction onClick={() => setEditor({ task: null })} icon="add">
             Add task
           </PrimaryAction>

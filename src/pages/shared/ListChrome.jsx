@@ -34,6 +34,13 @@ export function PageHeader({ title, subtitle, action }) {
 
 export function Panel({
   icon, title, accent, meta, children, toolbar,
+  // A single primary action, rendered IN the header beside `meta`.
+  //
+  // Distinct from `toolbar`, which draws its own band below the header —
+  // right for a row of filter chips or a segmented control, wrong for one
+  // button: "Add task" sat alone in a full-width grey strip under the title,
+  // which read as a section of its own rather than an action on the panel.
+  action,
   // How to read `meta`. Default 'muted' — a count or a status, said quietly.
   // 'error' when it is a failure the reader has to act on: at --text-muted a
   // rejected save sat in the same grey as "Editable", which is how "That
@@ -83,6 +90,11 @@ export function Panel({
             )}
             {meta}
           </span>
+        )}
+        {/* After the count, so the header reads "Task queue … 9 open [+ Add
+            task]" — the state first, then what you can do about it. */}
+        {action && (
+          <span style={{ flex: 'none', display: 'inline-flex' }}>{action}</span>
         )}
       </header>
 
