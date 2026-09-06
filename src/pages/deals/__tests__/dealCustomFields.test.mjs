@@ -105,8 +105,12 @@ t('the deal carries its raw custom field values', () => {
   assert.match(route, /customFields: \(d\.custom_fields && typeof d\.custom_fields === 'object'\)/);
 });
 
-t('FILE_UPLOAD is flagged read-only by the server', () => {
-  assert.match(route, /readOnly: \/FILE_UPLOAD\/i\.test/);
+t('FILE_UPLOAD is flagged UPLOADABLE, not read-only', () => {
+  // The server said readOnly on the claim that GHL has no upload API for
+  // custom fields. It does — that claim was about EMAIL attachments.
+  assert.match(route, /upload: \/FILE_UPLOAD\/i\.test/);
+  assert.ok(!/readOnly: \/FILE_UPLOAD\/i\.test/.test(route),
+    'the wrong read-only flag is back');
 });
 
 // ── Follow-up counts ────────────────────────────────────────────────────
