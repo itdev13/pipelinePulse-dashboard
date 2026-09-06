@@ -527,12 +527,20 @@ const inputStyle = {
 
 // ── Do not disturb ────────────────────────────────────────────────────
 
+// Two hints per row: what is true now, not one description that only makes
+// sense in the muted state. "No outbound email" beside a switch reading ON
+// described a state the contact was not in.
 const DND_ROWS = [
-  ['all', 'All channels', 'block', 'Master switch — mutes everything below'],
-  ['email', 'Email', 'mail', 'No outbound email'],
-  ['sms', 'Text messages', 'sms', 'No SMS, WhatsApp or iMessage'],
-  ['call', 'Calls and voicemail', 'call', 'No outbound dials or voicemail drops'],
-  ['inbound', 'Inbound calls and SMS', 'call_received', 'Their inbound calls and texts are silenced']
+  ['all', 'All channels', 'block',
+    'Reachable on every channel', 'Muted everywhere — master switch'],
+  ['email', 'Email', 'mail',
+    'We can email them', 'No outbound email'],
+  ['sms', 'Text messages', 'sms',
+    'We can text them', 'No SMS, WhatsApp or iMessage'],
+  ['call', 'Calls and voicemail', 'call',
+    'We can call them', 'No outbound dials or voicemail drops'],
+  ['inbound', 'Inbound calls and SMS', 'call_received',
+    'Their calls and texts reach us', 'Their inbound calls and texts are silenced']
 ]
 
 function DoNotDisturb({ contact, onChange }) {
@@ -561,14 +569,25 @@ function DoNotDisturb({ contact, onChange }) {
   }
 
   const blockedCount = dnd.blockedCount || 0
+  // Says what is BLOCKED, not what is on. Under a heading reading "Do not
+  // disturb", "All channels on" was read as "DND is on for everything" —
+  // the exact opposite of what it meant.
   const meta = dnd.all
-    ? 'All channels off'
+    ? 'Everything muted'
     : blockedCount > 0
-    ? `${blockedCount} channel${blockedCount === 1 ? '' : 's'} off`
-    : 'All channels on'
+    ? `${blockedCount} channel${blockedCount === 1 ? '' : 's'} muted`
+    : 'Nothing muted'
 
   return (
-    <Panel icon="do_not_disturb_on" title="Do not disturb" accent="rose" meta={meta}>
+    <Panel
+      icon="do_not_disturb_on"
+      title="Do not disturb"
+      // Rose only when something IS muted. A permanently red panel over a
+      // contact who is fully reachable reads as a warning about nothing —
+      // and reinforced the misreading that DND was switched on.
+      accent={(dnd.all || blockedCount > 0 || dnd.inbound) ? 'rose' : 'gray'}
+      meta={meta}
+    >
       <p
         style={{
           margin: 0, padding: '10px var(--space-4)',
@@ -578,11 +597,15 @@ function DoNotDisturb({ contact, onChange }) {
           fontSize: 'var(--text-base)', lineHeight: 1.5, color: 'var(--text-body)'
         }}
       >
-        Turn a channel off and it goes quiet everywhere this contact appears —
-        deal cards flag it, and the AI will not draft a message on that channel.
+        {/* Says which direction the switch runs, because the panel's own
+            title works the other way round. */}
+        A switch reading <strong>OK</strong> means we can still reach them
+        there. Mute a channel and it goes quiet everywhere this contact
+        appears — deal cards flag it, and the AI will not draft a message on
+        that channel.
       </p>
 
-      {DND_ROWS.map(([key, label, icon, hint], i) => {
+      {DND_ROWS.map(([key, label, icon, okHint, mutedHint], i) => {
         const blocked = isBlocked(key)
         // A per-channel row is not independently toggleable while the master
         // switch is on — it's already muted, so offering the control would
@@ -615,7 +638,9 @@ function DoNotDisturb({ contact, onChange }) {
               >
                 {label}
               </span>
-              <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>{hint}</span>
+              <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
+                {blocked ? mutedHint : okHint}
+              </span>
             </span>
             <Switch
               on={!blocked}
@@ -643,7 +668,11 @@ function Switch({ on, disabled, busy, onToggle, label }) {
           color: on ? 'var(--green-600)' : 'var(--status-stuck)'
         }}
       >
-        {busy ? '···' : on ? 'ON' : 'OFF'}
+        {/* NOT "ON"/"OFF". The switch means "this channel is reachable", but
+            it sits under a heading that says "Do not disturb" — so ON read as
+            "DND is on" when it meant the opposite. These say what is true of
+            the CONTACT, which cannot be read backwards. */}
+        {busy ? '···' : on ? 'OK' : 'MUTED'}
       </span>
       <button
         role="switch"
