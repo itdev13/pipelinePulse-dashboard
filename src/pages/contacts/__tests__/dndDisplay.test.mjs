@@ -16,7 +16,9 @@ const metaFor = (dnd) => {
 };
 const accentFor = (dnd) =>
   (dnd.all || (dnd.blockedCount || 0) > 0 || dnd.inbound) ? 'rose' : 'gray';
-const switchLabel = (blocked) => (blocked ? 'MUTED' : 'OK');
+// The switch now tracks DND ITSELF, matching GHL's checkbox: ON = muted.
+const switchOn = (blocked) => blocked;
+const switchLabel = (on) => (on ? 'MUTED' : 'OK');
 
 import assert from 'node:assert/strict';
 let n = 0;
@@ -33,9 +35,12 @@ t('no channel reads as blocked', () => {
   }
 });
 
-t('every switch says OK, not ON', () => {
-  // "ON" under a "Do not disturb" heading was read as "DND is on".
-  assert.equal(switchLabel(false), 'OK');
+t('the switch is OFF when nothing is muted', () => {
+  // MATCHES GHL. Their panel ticks a box to turn DND on; ours read ON for a
+  // reachable contact, so the same channel showed opposite states in the two
+  // systems.
+  assert.equal(switchOn(false), false);
+  assert.equal(switchLabel(switchOn(false)), 'OK');
 });
 
 t('the header says "Nothing muted", not "All channels on"', () => {
@@ -55,7 +60,10 @@ t('the muted channel reads as blocked', () => {
   assert.equal(isBlocked(muted, 'email'), true);
   assert.equal(isBlocked(muted, 'sms'), false);
 });
-t('its switch says MUTED', () => assert.equal(switchLabel(true), 'MUTED'));
+t('a muted channel switches ON and says MUTED', () => {
+  assert.equal(switchOn(true), true, 'ON must mean muted, as in GHL');
+  assert.equal(switchLabel(switchOn(true)), 'MUTED');
+});
 t('the header counts it', () => assert.equal(metaFor(muted), '1 channel muted'));
 t('the panel turns rose', () => assert.equal(accentFor(muted), 'rose'));
 
@@ -80,8 +88,26 @@ const src = readFileSync(join(here, '..', 'ContactDetail.jsx'), 'utf8');
 
 console.log('\nthe component');
 
-t('the switch does not say ON/OFF', () => {
-  assert.match(src, /on \? 'OK' : 'MUTED'/);
+t('the switch tracks DND, not reachability', () => {
+  // `on={blocked}` — the flip that aligns us with GHL.
+  assert.match(src, /on=\{blocked\}/,
+    'on={!blocked} is back — the switch would read opposite to the CRM');
+  assert.match(src, /on \? 'MUTED' : 'OK'/);
+});
+
+t('a muted channel is rose, not green', () => {
+  // Keying the colour to `on` without flipping it would paint a blocked
+  // channel green.
+  assert.match(src, /background: on \? 'var\(--status-stuck\)' : 'var\(--gray-300\)'/);
+  assert.match(src, /color: on \? 'var\(--status-stuck\)' : 'var\(--green-600\)'/);
+});
+
+t('the screen-reader label says muted, not "on"', () => {
+  assert.match(src, /\$\{on \? 'muted' : 'reachable'\}/);
+});
+
+t('the intro explains which way the switch runs', () => {
+  assert.match(src, /Turn a channel <strong>on<\/strong> to stop contacting them/);
 });
 
 t('the header describes what is muted', () => {

@@ -773,10 +773,12 @@ function DoNotDisturb({ contact, onChange }) {
       >
         {/* Says which direction the switch runs, because the panel's own
             title works the other way round. */}
-        A switch reading <strong>OK</strong> means we can still reach them
-        there. Mute a channel and it goes quiet everywhere this contact
-        appears — deal cards flag it, and the AI will not draft a message on
-        that channel.
+        {/* Says which way the switch runs, in the same sense as GHL's own
+            checkboxes: turn it ON to stop contacting them there. */}
+        Turn a channel <strong>on</strong> to stop contacting them there —
+        the same as ticking its box in your CRM. A muted channel goes quiet
+        everywhere this contact appears: deal cards flag it, and the AI will
+        not draft a message on it.
       </p>
 
       {DND_ROWS.map(([key, label, icon, okHint, mutedHint], i) => {
@@ -859,14 +861,18 @@ function Switch({ on, disabled, busy, onToggle, label }) {
       <button
         role="switch"
         aria-checked={on}
-        aria-label={`${label} — ${on ? 'on' : 'off'}`}
+        // "Email — muted", not "Email — on". A screen-reader user gets no
+        // colour and no chance to infer which way the control runs.
+        aria-label={`${label} — ${on ? 'muted' : 'reachable'}`}
         disabled={disabled}
         onClick={onToggle}
         style={{
           position: 'relative',
           width: 42, height: 24, flex: 'none',
           border: 'none', borderRadius: 'var(--radius-pill)',
-          background: on ? 'var(--green-300)' : 'var(--gray-300)',
+          // Rose when muted. Green for a muted channel would be the same
+          // inversion in colour that the labels just lost.
+          background: on ? 'var(--status-stuck)' : 'var(--gray-300)',
           cursor: disabled ? 'not-allowed' : 'pointer',
           transition: 'background 0.15s ease-out'
         }}
