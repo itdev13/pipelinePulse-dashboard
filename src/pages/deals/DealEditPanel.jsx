@@ -6,6 +6,7 @@ import { contactsAPI } from '../../api/contacts'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import { nameFor } from '../shared/ListChrome'
 import ContactPicker from '../shared/ContactPicker'
+import CustomFieldSections from '../shared/CustomFieldSections'
 import { currencySymbol } from '../../utils/money'
 
 // The inline deal editor — everything GHL's own edit modal offers, in the row.
@@ -88,6 +89,24 @@ export default function DealEditPanel({
   onPeopleChanged
 }) {
   const [lostReasons, setLostReasons] = useState(null)
+
+  // The location's opportunity custom fields, grouped into GHL's folders.
+  // Location-wide and rarely changing, so fetched once when the panel opens
+  // rather than per keystroke.
+  const [fieldGroups, setFieldGroups] = useState([])
+  useEffect(() => {
+    let alive = true
+    dealsAPI.customFieldOptions()
+      .then((r) => { if (alive) setFieldGroups(r.fieldGroups || []) })
+      // A failure costs the custom-field sections, not the panel — the
+      // standard fields still save.
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
+
+  // Edited custom field values, keyed by field id. Separate from the
+  // opportunity draft because they go to a different part of GHL's body.
+  const [cfDraft, setCfDraft] = useState({})
 
   // ── Opportunity draft ───────────────────────────────────────────────────
   const [name, setName] = useState(deal.opportunityName || deal.dealTag || '')
@@ -198,7 +217,8 @@ export default function DealEditPanel({
     Object.keys(dealPatch).length +
     (statusChanged ? 1 : 0) +
     (followerChanges ? 1 : 0) +
-    Object.keys(contactPatch).length
+    Object.keys(contactPatch).length +
+    Object.keys(cfDraft).length
 
   const dirty = changeCount > 0
 
@@ -216,6 +236,7 @@ export default function DealEditPanel({
     setEmail(primary?.email || '')
     setPhone(primary?.phone || '')
     setBusiness(primary?.business || '')
+    setCfDraft({})
     setError(null)
     setErrorField(null)
   }
@@ -245,6 +266,28 @@ export default function DealEditPanel({
       }
       if (followerChanges?.add?.length) {
         await dealsAPI.addFollowers(deal.id, followerChanges.add)
+      }
+      // Custom fields, folded into the opportunity update.
+      //
+      // Sent as fieldValue — CAMEL case. Contacts use field_value (snake) for
+      // the same concept; GHL accepts the wrong spelling on the request and
+      // then silently ignores it, so the rep would see a successful save and
+      // an unchanged field. The server normalises either spelling, but the
+      // right one at the call site keeps the wire format visible.
+      //
+      // A separate call from dealPatch above rather than merged into it: the
+      // two are independent, and merging would mean a rejected custom field
+      // also loses a perfectly good name change.
+      if (Object.keys(cfDraft).length > 0) {
+        await dealsAPI.update(deal.id, {
+          customFields: Object.entries(cfDraft).map(([id, v]) => ({
+            id,
+            // An array is a multi-select; GHL stores those joined. An empty
+            // value is '' rather than a dropped key, which would leave the
+            // old value in place.
+            fieldValue: Array.isArray(v) ? v.join(',') : (v ?? '')
+          }))
+        })
       }
       if (Object.keys(contactPatch).length > 0 && primary?.id) {
         await contactsAPI.update(primary.id, contactPatch)
@@ -476,6 +519,62 @@ export default function DealEditPanel({
           </Field>
         </Row>
       </Group>
+
+      {/* FOLLOW-UP ON THIS DEAL.
+          Counts rather than a list: the panel is for editing the deal, and a
+          rep who wants to read the tasks opens the deal hub. What they need
+          here is whether any exist — a deal with three open tasks is a
+          different thing to close than one with none.
+          Read-only by design: attaching an existing task or note to a deal
+          goes through GHL's relations endpoint from the task/note itself,
+          which is where the deal is chosen. */}
+      {(deal.openTaskCount > 0 || deal.noteCount > 0) && (
+        <div className="pp-deal-followup">
+          <span className="ms" style={{ fontSize: 16, color: 'var(--text-faint)' }}>
+            checklist
+          </span>
+          <span>
+            {deal.openTaskCount > 0 && (
+              <strong>{deal.openTaskCount} open task{deal.openTaskCount === 1 ? '' : 's'}</strong>
+            )}
+            {deal.openTaskCount > 0 && deal.noteCount > 0 && ' · '}
+            {deal.noteCount > 0 && (
+              <strong>{deal.noteCount} note{deal.noteCount === 1 ? '' : 's'}</strong>
+            )}
+            {' on this deal'}
+          </span>
+        </div>
+      )}
+
+      {/* CUSTOM FIELDS, in GHL's own folders — Client Type, Product System,
+          Product Type and the rest. The deal HUB has shown these as chips for
+          a while; the editor showed none of them, so changing one meant
+          leaving the panel.
+          Values come off the deal itself (customFields, keyed by field id),
+          definitions and folders from /custom-field-options. */}
+      {fieldGroups.length > 0 && (
+        <Group title="Custom fields">
+          <div style={{ gridColumn: '1 / -1' }}>
+            <CustomFieldSections
+              groups={fieldGroups.map((g) => ({
+                ...g,
+                fields: g.fields.map((f) => ({
+                  ...f,
+                  // The stored value, by id or by the short key the deal
+                  // response uses — customFields blobs have used both.
+                  value: deal.customFields?.[f.id]
+                    ?? deal.customFields?.[f.key]
+                    ?? deal.customFields?.[f.shortKey]
+                    ?? null
+                }))
+              }))}
+              draft={cfDraft}
+              onChange={(id, v) => setCfDraft((d) => ({ ...d, [id]: v }))}
+              disabled={saving}
+            />
+          </div>
+        </Group>
+      )}
 
       {/* WHO IS ON THE DEAL, above the primary's own fields.
           The panel edited the primary contact's email and phone but never

@@ -1,6 +1,7 @@
 import { Select } from 'antd'
 import React, { useEffect, useRef, useState } from 'react'
 import { contactsAPI } from '../../api/contacts'
+import CustomFieldSections from '../shared/CustomFieldSections'
 import {
   Panel, StateMessage, SkeletonStyles, Bar, formatDate, initialsFor, nameFor
 } from '../shared/ListChrome'
@@ -100,6 +101,12 @@ export default function ContactDetail({ contactId, onBack, onOpenDeal }) {
       <Details
         contact={contact}
         onSaved={(patch) => setContact((c) => ({ ...c, ...patch }))}
+      />
+      {/* Custom fields, in GHL's own folders. Above DND because they are
+          content a rep reads and edits, where DND is a setting. */}
+      <CustomFields
+        contact={contact}
+        onSaved={(groups) => setContact((c) => ({ ...c, customFieldGroups: groups }))}
       />
       <DoNotDisturb
         contact={contact}
@@ -567,6 +574,129 @@ const inputStyle = {
   borderRadius: 'var(--radius-md)',
   background: '#fff',
   fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', color: 'var(--text-heading)'
+}
+
+// ── Custom fields ─────────────────────────────────────────────────────
+//
+// One collapsible section per GHL folder. The server sends them already
+// grouped, typed and valued (customFieldGroups in routes/contacts.js), so
+// this is a form over that shape rather than a second place that decides what
+// a custom field is.
+//
+// SAVES SEPARATELY from the Details panel. Custom fields go to GHL as
+// `customFields: [{ id, field_value }]` — a different part of the body from
+// firstName/email, and forty of them behind one Save would make an
+// unrelated failure look like a failed name change.
+function CustomFields({ contact, onSaved }) {
+  const groups = contact.customFieldGroups || []
+  const [draft, setDraft] = useState({})
+  const [state, setState] = useState('idle')
+  const [error, setError] = useState(null)
+
+  const dirtyIds = Object.keys(draft)
+
+  const setField = (id, value) => {
+    setDraft((d) => ({ ...d, [id]: value }))
+    if (state === 'error') { setState('idle'); setError(null) }
+  }
+
+  const save = async () => {
+    if (!dirtyIds.length) return
+    setState('saving')
+    setError(null)
+    try {
+      // Only what changed. field_value (snake case) is what GHL wants — the
+      // server accepts either spelling and normalises, but sending the right
+      // one keeps the wire format obvious at the call site.
+      const customFields = dirtyIds.map((id) => ({
+        id,
+        field_value: normaliseOut(draft[id])
+      }))
+      const res = await contactsAPI.update(contact.id, { customFields })
+      // Prefer the server's echo: it re-reads the definitions and returns the
+      // groups with stored values, so a value GHL normalised shows correctly
+      // rather than as we typed it.
+      if (res?.customFieldGroups) onSaved(res.customFieldGroups)
+      setDraft({})
+      setState('saved')
+      window.setTimeout(() => setState('idle'), 2000)
+    } catch (err) {
+      setError(err.message || 'Could not save those fields')
+      setState('error')
+    }
+  }
+
+  const revert = () => { setDraft({}); setState('idle'); setError(null) }
+
+  if (!groups.length) {
+    // Not an error, and not worth a panel: a location with no custom fields
+    // for contacts is an ordinary setup.
+    return null
+  }
+
+  return (
+    <Panel
+      icon="tune"
+      title="Custom fields"
+      accent="sky"
+      meta={
+        state === 'saving' ? 'Saving…'
+          : state === 'saved' ? 'Saved'
+          : state === 'error' ? error
+          : dirtyIds.length
+            ? `${dirtyIds.length} unsaved change${dirtyIds.length === 1 ? '' : 's'}`
+            : `${groups.length} ${groups.length === 1 ? 'folder' : 'folders'}`
+      }
+      metaTone={state === 'error' ? 'error' : 'muted'}
+    >
+      <div style={{ padding: '12px var(--space-4)' }}>
+        <CustomFieldSections
+          groups={groups}
+          draft={draft}
+          onChange={setField}
+          disabled={state === 'saving'}
+        />
+      </div>
+
+      {/* Only once something has changed. A permanent Save bar on a panel
+          that is usually just read is noise. */}
+      {dirtyIds.length > 0 && (
+        <div className="pp-cf-foot">
+          <span className="pp-cf-foot-note">
+            {dirtyIds.length} field{dirtyIds.length === 1 ? '' : 's'} changed
+          </span>
+          <button
+            type="button"
+            onClick={revert}
+            disabled={state === 'saving'}
+            className="pp-cf-btn"
+          >
+            Discard
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={state === 'saving'}
+            className="pp-cf-btn pp-cf-btn-go"
+          >
+            {state === 'saving' ? 'Saving…' : 'Save fields'}
+          </button>
+        </div>
+      )}
+    </Panel>
+  )
+}
+
+// What goes on the wire for one field.
+//
+// A multi-select holds an array; GHL stores those as a comma-joined string on
+// the contact, and sending an array where it wants a scalar is one of the
+// shapes it accepts and then ignores. An empty value is '' rather than a
+// dropped key — omitting it leaves the old value in place.
+function normaliseOut(v) {
+  if (v == null) return ''
+  if (Array.isArray(v)) return v.join(',')
+  return v
 }
 
 // ── Do not disturb ────────────────────────────────────────────────────
