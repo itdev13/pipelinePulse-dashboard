@@ -32,7 +32,14 @@ export function PageHeader({ title, subtitle, action }) {
   )
 }
 
-export function Panel({ icon, title, accent, meta, children, toolbar }) {
+export function Panel({
+  icon, title, accent, meta, children, toolbar,
+  // How to read `meta`. Default 'muted' — a count or a status, said quietly.
+  // 'error' when it is a failure the reader has to act on: at --text-muted a
+  // rejected save sat in the same grey as "Editable", which is how "That
+  // email address is not valid" went unnoticed in the corner of the header.
+  metaTone = 'muted'
+}) {
   const color = `var(--accent-${accent}-text)`
   const tint = `var(--tint-${accent})`
   return (
@@ -58,7 +65,24 @@ export function Panel({ icon, title, accent, meta, children, toolbar }) {
           {title}
         </h2>
         {meta != null && (
-          <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>{meta}</span>
+          <span
+            // An error is announced, not just displayed: a screen reader user
+            // gets no colour, and this text is the only report of the failure.
+            role={metaTone === 'error' ? 'alert' : undefined}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              fontSize: 'var(--text-md)',
+              fontWeight: metaTone === 'error' ? 600 : 400,
+              color: metaTone === 'error'
+                ? 'var(--status-stuck-text)'
+                : 'var(--text-muted)'
+            }}
+          >
+            {metaTone === 'error' && (
+              <span className="ms" style={{ fontSize: 16 }}>error</span>
+            )}
+            {meta}
+          </span>
         )}
       </header>
 

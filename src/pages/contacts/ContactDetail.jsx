@@ -321,6 +321,27 @@ function Details({ contact, onSaved }) {
   // five of each and the last webhook would win in an unpredictable order.
   const saveAll = () => {
     if (!dirtyKeys.length) return
+
+    // CHECKED BEFORE SENDING.
+    //
+    // The server rejects a malformed address (contactPatch.js) and the panel
+    // reports it — but only after a round trip, and the reader has usually
+    // moved on by then. The same rule applied here turns that into instant
+    // feedback on the field they are still looking at.
+    //
+    // Deliberately the SERVER'S regex, character for character. A stricter
+    // one here would refuse addresses the API accepts; a looser one would let
+    // the round trip happen anyway and change nothing.
+    if (dirtyKeys.includes('email')) {
+      const email = (draft.email || '').trim()
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        setError('That email address is not valid')
+        setErrorField('email')
+        setState('error')
+        return
+      }
+    }
+
     const patch = {}
     for (const k of dirtyKeys) {
       patch[k] = k === 'contactType' ? type : draft[k]
@@ -351,6 +372,8 @@ function Details({ contact, onSaved }) {
             ? (errorField ? `${labelFor(errorField)}: ${error}` : error)
           : 'Editable'
       }
+      // Red and announced, not the same grey as "Editable" — see Panel.
+      metaTone={state === 'error' ? 'error' : 'muted'}
     >
       <div
         style={{
@@ -372,18 +395,39 @@ function Details({ contact, onSaved }) {
             <input
               type={type_}
               value={draft[key]}
-              onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
+              onChange={(e) => {
+                setDraft((d) => ({ ...d, [key]: e.target.value }))
+                // Typing in the field that was rejected clears the complaint.
+                // Leaving it up while the reader fixes the value makes a
+                // corrected field look broken, and the red highlight would
+                // stay on a now-valid address.
+                if (errorField === key) {
+                  setError(null); setErrorField(null); setState('idle')
+                }
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') { e.preventDefault(); saveAll() }
                 if (e.key === 'Escape') { e.preventDefault(); revert() }
               }}
               placeholder={`Add ${label.toLowerCase()}`}
+              // Announced with the header's message, and marked for a screen
+              // reader as the field that failed.
+              aria-invalid={errorField === key || undefined}
               style={{
                 ...inputStyle,
-                // Mark the fields that differ from what's saved, so it's clear
-                // what pressing Save will send.
-                borderColor: isDirty(key) ? 'var(--brand-primary)' : undefined,
-                background: isDirty(key) ? 'var(--tint-pine)' : undefined
+                // THE REJECTED FIELD WINS OVER "DIRTY".
+                //
+                // Dirty is pine — green — which is right for "this will be
+                // sent". It is wrong the moment the save came back rejecting
+                // that field: an invalid email sat highlighted GREEN, reading
+                // as success, while the only sign of failure was grey text in
+                // the far corner of the header.
+                borderColor: errorField === key
+                  ? 'var(--status-stuck)'
+                  : isDirty(key) ? 'var(--brand-primary)' : undefined,
+                background: errorField === key
+                  ? 'var(--tint-rose)'
+                  : isDirty(key) ? 'var(--tint-pine)' : undefined
               }}
             />
           </label>
