@@ -700,6 +700,9 @@ function PeopleEditor({ dealId, people = [], onChanged, disabled }) {
   const [busy, setBusy] = useState(null)
   const [error, setError] = useState(null)
   const [adding, setAdding] = useState(false)
+  // Unlinking is not reversible from here — re-adding creates a fresh GHL
+  // relation — and Remove sits next to "Make primary", so a misfire is easy.
+  const [confirming, setConfirming] = useState(null)
 
   const alreadyOn = useMemo(
     () => (people || []).map((p) => p.id).filter(Boolean),
@@ -746,11 +749,15 @@ function PeopleEditor({ dealId, people = [], onChanged, disabled }) {
     // delete and the button is hidden for it.
     if (!p.relationId || busy) return
     setBusy(p.id)
+    setError(null)
     try {
       await dealsAPI.removeContact(dealId, p.relationId)
+      setConfirming(null)
       onChanged && onChanged()
     } catch (err) {
-      flash(err.message || 'Could not remove that person')
+      // Rendered inside the dialog, which stays open so the reason is
+      // readable and the action retryable.
+      setError(err.message || 'Could not remove that person')
     } finally {
       setBusy(null)
     }
@@ -849,7 +856,7 @@ function PeopleEditor({ dealId, people = [], onChanged, disabled }) {
             {p.relationId && people.length > 1 && (
               <button
                 type="button"
-                onClick={() => remove(p)}
+                onClick={() => { setError(null); setConfirming(p) }}
                 disabled={disabled || !!busy}
                 title={`Remove ${nameFor(p)} from this deal`}
                 style={{
@@ -927,12 +934,31 @@ function PeopleEditor({ dealId, people = [], onChanged, disabled }) {
           </button>
         )}
 
-        {error && (
+        {/* Only when no dialog is open — a removal failure shows inside the
+            confirm, and both at once reads as two separate errors. */}
+        {error && !confirming && (
           <span style={{ fontSize: 'var(--text-sm)', color: 'var(--status-stuck-text)' }}>
             {error}
           </span>
         )}
       </div>
+
+      {confirming && (
+        <ConfirmDialog
+          title="Remove from this deal?"
+          message={
+            `${nameFor(confirming)} will no longer be linked to this deal. `
+            + 'Their contact record and its history are not deleted.'
+          }
+          preview={[nameFor(confirming), confirming.email || confirming.phone]
+            .filter(Boolean).join(' · ')}
+          confirmLabel="Remove"
+          busy={busy === confirming.id}
+          error={error}
+          onConfirm={() => remove(confirming)}
+          onCancel={() => { setConfirming(null); setError(null) }}
+        />
+      )}
     </Group>
   )
 }

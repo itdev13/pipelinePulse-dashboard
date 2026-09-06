@@ -128,8 +128,12 @@ t('11 is at or under GHL own association cap', () => {
 console.log('\nremoving a contact');
 
 t('the deal hub Remove button is wired to a handler', () => {
-  assert.match(people, /onRemove=\{\(\) => removePerson\(p\)\}/,
-    'the Remove button is still inert');
+  // Remove now ASKS first — it opens a confirm rather than unlinking on the
+  // click. The actual call happens from the dialog's onConfirm.
+  assert.match(people, /onRemove=\{\(\) => \{ setRemoveError\(null\); setConfirming\(p\) \}\}/,
+    'Remove must open a confirm, not unlink immediately');
+  assert.match(people, /onConfirm=\{\(\) => removePerson\(confirming\)\}/,
+    'the confirm must be what performs the removal');
   assert.match(people, /await dealsAPI\.removeContact\(dealId, p\.relationId\)/,
     'removal must use the LINK id, not the contact id');
   assert.ok(!/Remove from deal — coming next/.test(people),
@@ -151,7 +155,12 @@ t('the last contact cannot be removed', () => {
 
 t('a failed removal is reported, not swallowed', () => {
   assert.match(people, /setRemoveError/);
-  assert.match(people, /\{removeError && \(/, 'the error state is never rendered');
+  // Rendered inline for actions with no dialog (Make primary), and inside the
+  // confirm for a removal — guarded so the two never show at once.
+  assert.match(people, /\{removeError && !confirming && \(/,
+    'the inline error must not double up with the dialog\'s own');
+  assert.match(people, /error=\{removeError\}/,
+    'the confirm dialog must surface the failure');
 });
 
 t('MAKE PRIMARY is wired, not a placeholder', () => {

@@ -71,7 +71,7 @@ function chipsFor(counts) {
 }
 
 export default function DealHubTab({
-  dealId, onSwitchDeal, onOpenBusiness, onOpenTab, onEditDealRecord,
+  dealId, onSwitchDeal, onOpenBusiness, onOpenContact, onOpenTab, onEditDealRecord,
   // Landing on the first deal because none was selected is not a move the rep
   // made, so it must not become a step the Back button walks through. Setting
   // the deal without recording history is what this is for; every other switch
@@ -818,6 +818,7 @@ export default function DealHubTab({
               people={deal.people || []}
               peopleFilter={peopleFilter}
               onPeopleFilterChange={setPeopleFilter}
+              onOpenContact={onOpenContact}
               dealId={dealId}
               // Delayed refetch, not an optimistic insert. The link is made in
               // GHL and our opportunity_contacts row is written by the

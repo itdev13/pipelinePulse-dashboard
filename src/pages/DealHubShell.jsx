@@ -311,6 +311,9 @@ export default function DealHubShell() {
             onSwitchDeal={(id) => navigate({ tab: 'hub', dealId: id })}
             onAutoSelectDeal={setSelectedDealId}
             onOpenBusiness={openBusiness}
+            // Same for the People cards' "View contact", which was disabled
+            // with a "coming next" title purely because this was not passed.
+            onOpenContact={openContact}
             // Cross-tab jumps from the rails' "All tasks" / "All notes" links.
             // They were hardcoded disabled with a "coming next" title because
             // the rail had no way to reach the shell's navigate() — this is

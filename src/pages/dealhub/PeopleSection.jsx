@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { dealsAPI } from '../../api/deals'
 import ContactPicker from '../shared/ContactPicker'
 import { nameFor } from '../shared/ListChrome'
+import ConfirmDialog from '../shared/ConfirmDialog'
 
 // Deal Hub — People section (opp-associated contacts).
 //
@@ -13,7 +14,7 @@ import { nameFor } from '../shared/ListChrome'
 //
 // Actions on each card:
 //   Show in thread     → filters the timeline to this person's messages
-//   View contact       → opens the contact record (TODO — future)
+//   View contact       → opens the contact record on the Contacts tab
 //   Remove             → unlinks this contact from this opp. Hidden on the
 //                        last remaining contact (GHL files notes and tasks
 //                        against a contact, so a deal with none can hold
@@ -33,6 +34,10 @@ export default function PeopleSection({
   people = [],
   peopleFilter = [],
   onPeopleFilterChange,
+  // Opens the contact's record on the Contacts tab. "View contact" was
+  // hardcoded disabled with a "coming next" title only because nothing passed
+  // this down — the shell has had openContact all along.
+  onOpenContact,
   // Needed to add someone — the link is made against the opportunity.
   dealId,
   // Called after a successful add or remove so the parent refetches; the
@@ -44,6 +49,10 @@ export default function PeopleSection({
   const [removeError, setRemoveError] = useState(null)
 
   const [primaryId, setPrimaryId] = useState(null)
+  // The person a Remove click is asking about. Unlinking is not reversible
+  // from here — re-adding is a fresh GHL relation — and the button sits
+  // beside "Make primary", so a misfire is easy.
+  const [confirming, setConfirming] = useState(null)
 
   const makePrimary = async (p) => {
     if (!p?.id || p.primary || primaryId) return
@@ -67,10 +76,12 @@ export default function PeopleSection({
     setRemoveError(null)
     try {
       await dealsAPI.removeContact(dealId, p.relationId)
+      setConfirming(null)
       onPeopleChanged && onPeopleChanged()
     } catch (err) {
+      // Reported INSIDE the dialog, which stays open — the reader can read
+      // the reason and retry without hunting for the row again.
       setRemoveError(err.message || 'Could not remove that person — try again')
-      window.setTimeout(() => setRemoveError(null), 4000)
     } finally {
       setRemovingId(null)
     }
@@ -124,23 +135,35 @@ export default function PeopleSection({
             key={p.id}
             p={p}
             filterActive={peopleFilter.includes(p.id)}
-            onShowInThread={() =>
-              onPeopleFilterChange && onPeopleFilterChange([p.id])
-            }
+            // A TOGGLE, not a one-way set. It always sent [p.id], so once a
+            // person was filtered the only way back to the whole thread was
+            // the "Everyone" chip below — and the button stayed lit while
+            // doing nothing on a second press.
+            onShowInThread={() => {
+              if (!onPeopleFilterChange) return
+              onPeopleFilterChange(
+                peopleFilter.includes(p.id)
+                  ? peopleFilter.filter((id) => id !== p.id)
+                  : [...peopleFilter, p.id]
+              )
+            }}
             // The deal must keep at least one contact: GHL files notes and
             // tasks against a contact, so a deal with none can hold neither.
             allowRemove={people.length > 1}
-            onRemove={() => removePerson(p)}
+            onRemove={() => { setRemoveError(null); setConfirming(p) }}
             removing={removingId === p.id}
             onMakePrimary={() => makePrimary(p)}
             settingPrimary={primaryId === p.id}
+            onViewContact={onOpenContact ? () => onOpenContact(p.id) : undefined}
           />
         ))}
       </div>
 
-      {/* A failed unlink, reported where the cards are rather than as a
-          toast — the row it refers to is right here. */}
-      {removeError && (
+      {/* A failed action, reported where the cards are rather than as a toast.
+          Only when NO dialog is open: a removal failure renders inside the
+          confirm, and showing it in both places at once reads as two errors.
+          "Make primary" has no dialog, so this is still its only channel. */}
+      {removeError && !confirming && (
         <div
           style={{
             display: 'flex', alignItems: 'center', gap: 7,
@@ -158,6 +181,25 @@ export default function PeopleSection({
       )}
 
       <AddContactFooter dealId={dealId} people={people} onAdded={onPeopleChanged} />
+
+      {confirming && (
+        <ConfirmDialog
+          title="Remove from this deal?"
+          message={
+            `${nameFor(confirming)} will no longer be linked to this deal. `
+            + 'Their contact record and its history are not deleted.'
+          }
+          // What is about to go, so the reader can check they clicked the
+          // right card before confirming.
+          preview={[nameFor(confirming), confirming.email || confirming.phone]
+            .filter(Boolean).join(' · ')}
+          confirmLabel="Remove"
+          busy={removingId === confirming.id}
+          error={removeError}
+          onConfirm={() => removePerson(confirming)}
+          onCancel={() => { setConfirming(null); setRemoveError(null) }}
+        />
+      )}
     </section>
   )
 }
@@ -219,7 +261,7 @@ function initialsFromWords(value) {
   return (words[0] || '').slice(0, 2).toUpperCase() || null
 }
 
-function PersonCard({ p, filterActive, onShowInThread, allowRemove, onRemove, removing, onMakePrimary, settingPrimary }) {
+function PersonCard({ p, filterActive, onShowInThread, allowRemove, onRemove, removing, onMakePrimary, settingPrimary, onViewContact }) {
   const { name: fullName, initials, usedField } = displayFor(p)
   // Two variants, two jobs. The vivid fill is right for a 3px border; as TEXT
   // on its own tint it's 4.13:1, below AA — so the avatar initials use the
@@ -336,13 +378,24 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove, onRemove, re
         }}
       >
         <GhostBtn
-          icon="filter_alt"
+          icon={filterActive ? 'filter_alt_off' : 'filter_alt'}
           onClick={onShowInThread}
           active={filterActive}
+          // The label says what the next press DOES, so a lit button is not
+          // just a state but a way out of it.
+          title={
+            filterActive
+              ? `Stop filtering the timeline to ${nameFor(p)}`
+              : `Show only ${nameFor(p)}'s messages in the timeline`
+          }
         >
-          Show in thread
+          {filterActive ? 'Showing in thread' : 'Show in thread'}
         </GhostBtn>
-        <GhostBtn icon="person" title="Contact record — coming next">
+        <GhostBtn
+          icon="person"
+          onClick={onViewContact}
+          title={onViewContact ? `Open ${nameFor(p)}'s record` : 'Contact record unavailable here'}
+        >
           View contact
         </GhostBtn>
         {/* MAKE PRIMARY.
