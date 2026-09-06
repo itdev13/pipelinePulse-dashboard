@@ -817,7 +817,12 @@ function DoNotDisturb({ contact, onChange }) {
               </span>
             </span>
             <Switch
-              on={!blocked}
+              // MATCHES GHL. Their panel has a checkbox per channel that you
+              // TICK to turn DND on. Ours was the inverse — on = reachable —
+              // which was internally consistent but meant the same channel
+              // read ON here and unchecked there. Two systems, opposite
+              // states, same word.
+              on={blocked}
               disabled={forced || pending === key}
               busy={pending === key}
               onToggle={() => toggle(key)}
@@ -839,14 +844,17 @@ function Switch({ on, disabled, busy, onToggle, label }) {
       <span
         style={{
           fontSize: 'var(--text-xs)', fontWeight: 700, letterSpacing: 'var(--tracking-label)',
-          color: on ? 'var(--green-600)' : 'var(--status-stuck)'
+          // Rose when muted, green when reachable. The switch reads ON for
+          // muted now, so keying the colour to `on` would paint a blocked
+          // channel green.
+          color: on ? 'var(--status-stuck)' : 'var(--green-600)'
         }}
       >
-        {/* NOT "ON"/"OFF". The switch means "this channel is reachable", but
-            it sits under a heading that says "Do not disturb" — so ON read as
-            "DND is on" when it meant the opposite. These say what is true of
-            the CONTACT, which cannot be read backwards. */}
-        {busy ? '···' : on ? 'OK' : 'MUTED'}
+        {/* The switch is now DND itself, so ON means muted — the same sense
+            as GHL's checkbox. The words still say what is true of the
+            CONTACT rather than relying on the reader to know which way the
+            control runs. */}
+        {busy ? '···' : on ? 'MUTED' : 'OK'}
       </span>
       <button
         role="switch"
