@@ -3,6 +3,20 @@ import apiClient from './client'
 // Endpoints backing the Deal Hub view.
 // Contract mirrors the shapes returned by pipelinePulse/server/src/routes/deals.js.
 export const dealsAPI = {
+
+  // Upload files to a FILE_UPLOAD custom field.
+  //
+  // multipart, so no JSON Content-Type — axios sets the boundary itself when
+  // handed a FormData, and setting it manually omits that boundary and the
+  // request is unparseable at the other end.
+  uploadCustomFieldFiles: (id, fieldKey, files) => {
+    const form = new FormData()
+    for (const f of files) form.append('files', f)
+    return apiClient.post(
+      `/api/deals/${encodeURIComponent(id)}/custom-fields/${encodeURIComponent(fieldKey)}/files`,
+      form
+    )
+  },
   list: (params = {}) => apiClient.get('/api/deals', { params }),
   get: (id) => apiClient.get(`/api/deals/${encodeURIComponent(id)}`),
   timeline: (id) => apiClient.get(`/api/deals/${encodeURIComponent(id)}/timeline`),

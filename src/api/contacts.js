@@ -1,6 +1,20 @@
 import apiClient from './client'
 
 export const contactsAPI = {
+
+  // Upload files to a FILE_UPLOAD custom field.
+  //
+  // multipart, so no JSON Content-Type — axios sets the boundary itself when
+  // handed a FormData, and setting it manually omits that boundary and the
+  // request is unparseable at the other end.
+  uploadCustomFieldFiles: (id, fieldKey, files) => {
+    const form = new FormData()
+    for (const f of files) form.append('files', f)
+    return apiClient.post(
+      `/api/contacts/${encodeURIComponent(id)}/custom-fields/${encodeURIComponent(fieldKey)}/files`,
+      form
+    )
+  },
   list: (params = {}) => apiClient.get('/api/contacts', { params }),
   get: (id) => apiClient.get(`/api/contacts/${encodeURIComponent(id)}`),
   update: (id, patch) =>
