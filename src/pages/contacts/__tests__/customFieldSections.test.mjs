@@ -81,10 +81,43 @@ t('the first folder is open, the rest closed', () => {
   assert.match(sections, /new Set\(groups\.length \? \[groups\[0\]\.id \?\? '__ungrouped__'\] : \[\]\)/);
 });
 
-t('FILE_UPLOAD is rendered but not editable', () => {
-  // No OAuth documents API — a control that could never save would be a lie.
-  assert.match(sections, /if \(field\.readOnly\)/);
-  assert.match(sections, /Upload files in your CRM/);
+t('FILE_UPLOAD renders a real picker', () => {
+  // These were read-only on the claim that GHL has no upload API for them.
+  // It does — POST /locations/:id/customFields/upload — so "Upload files in
+  // your CRM" was telling a rep to go elsewhere for no reason.
+  assert.match(sections, /if \(field\.upload\)/);
+  assert.match(sections, /<FileField/);
+  assert.ok(!/Upload files in your CRM/.test(sections),
+    'the read-only message is back');
+});
+
+t('a file field with no upload handler still shows what is stored', () => {
+  // The handler is optional; without it the field degrades to a list of
+  // links rather than vanishing.
+  assert.match(sections, /existing\.length === 0 && <span className="pp-cf-empty">No file<\/span>/);
+});
+
+t('uploads fire immediately, not on Save', () => {
+  // A file is not a draft value — it goes to GHL storage and comes back as a
+  // URL. Batching would also discard a successful upload when a text field
+  // in the same Save is rejected.
+  assert.match(sections, /const uploaded = await onUpload\(field\.key \|\| field\.id, files\)/);
+});
+
+t('a second file APPENDS rather than replacing', () => {
+  // A multi-file field accumulates; replacing would silently drop whatever
+  // was already attached.
+  assert.match(sections, /\[\.\.\.existing\.map\(\(f\) => f\.url\), \.\.\.uploaded\.map\(\(f\) => f\.url\)\]/);
+});
+
+t('the field maxFiles is respected', () => {
+  assert.match(sections, /const full = max \? existing\.length >= max : false/);
+});
+
+t('picking the same file twice still fires', () => {
+  // Without clearing the input, a re-pick of the same filename is not a
+  // change event and nothing happens.
+  assert.match(sections, /e\.target\.value = ''/);
 });
 
 t('an unknown field type still renders as text', () => {

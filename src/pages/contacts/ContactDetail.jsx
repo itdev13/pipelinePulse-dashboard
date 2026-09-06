@@ -667,6 +667,15 @@ function CustomFields({ contact, onSaved }) {
           groups={groups}
           draft={draft}
           onChange={setField}
+          // Uploads go straight to GHL rather than waiting for Save — a file
+          // is not a draft value, and batching would risk discarding an
+          // upload that already succeeded because a text field was rejected.
+          onUpload={async (fieldKey, files) => {
+            const res = await contactsAPI.uploadCustomFieldFiles(
+              contact.id, fieldKey, files
+            )
+            return res.files || []
+          }}
           disabled={state === 'saving'}
         />
       </div>

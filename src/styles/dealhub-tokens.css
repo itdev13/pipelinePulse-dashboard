@@ -2191,3 +2191,87 @@
   background: var(--tint-gold);
   color: var(--accent-gold-text);
 }
+
+/* ── File upload custom fields ────────────────────────────────────────────
+ *
+ * These rendered as a dashed read-only box saying "Upload files in your CRM",
+ * on the belief that GHL had no upload API for them. It does — POST
+ * /locations/:id/customFields/upload — so they are now a real picker. */
+
+[data-dealhub] .pp-cf-files {
+  display: grid;
+  gap: 6px;
+  /* justify-items so the button hugs its text instead of stretching to the
+     grid column, which is what made the deal panel's "Add someone" read as a
+     drop zone. */
+  justify-items: start;
+}
+
+[data-dealhub] .pp-cf-filelist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  /* The chips must be able to shrink, or one long filename widens the whole
+     two-column field grid. */
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* An uploaded file. A LINK, not text: the reason to look at this field is to
+ * open the file, and a signed URL as body text is unreadable. */
+[data-dealhub] .pp-cf-filechip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 3px 9px 3px 7px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-pill);
+  background: var(--gray-50);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-body);
+  text-decoration: none;
+}
+
+[data-dealhub] .pp-cf-filechip:hover {
+  border-color: var(--border-prominent);
+  background: var(--surface-hover);
+}
+
+[data-dealhub] .pp-cf-filename {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+[data-dealhub] .pp-cf-upload {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 11px 0 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: #fff;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-body);
+  cursor: pointer;
+}
+
+[data-dealhub] .pp-cf-upload:hover:not(:disabled) {
+  background: var(--gray-25);
+}
+
+[data-dealhub] .pp-cf-upload:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+[data-dealhub] .pp-cf-error {
+  font-size: var(--text-sm);
+  color: var(--status-stuck-text);
+}

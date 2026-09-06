@@ -570,6 +570,12 @@ export default function DealEditPanel({
               }))}
               draft={cfDraft}
               onChange={(id, v) => setCfDraft((d) => ({ ...d, [id]: v }))}
+              onUpload={async (fieldKey, files) => {
+                const res = await dealsAPI.uploadCustomFieldFiles(
+                  deal.id, fieldKey, files
+                )
+                return res.files || []
+              }}
               disabled={saving}
             />
           </div>
