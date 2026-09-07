@@ -710,16 +710,39 @@ export default function DealHubTab({
                         onSwitchDeal(d.id)
                         setSwitcherOpen(false)
                       }}
+                      // A TINT AND A RAIL, not a solid fill.
+                      //
+                      // The selected row was `background: brand-primary` with
+                      // `color: #fff` — but the three inner spans each set
+                      // their own colour (--text-heading, --text-body,
+                      // --text-muted), so the row-level white never applied.
+                      // Dark text sat on dark green: the stage line measured
+                      // 1.20:1, effectively invisible, and the value 1.20:1.
+                      //
+                      // Fixing the white would mean overriding three nested
+                      // colours on one state. A tint keeps every text colour
+                      // working as designed and still reads as selected — the
+                      // left rail carries that, which is the convention the
+                      // rest of this app already uses.
                       style={{
                         display: 'grid',
                         gridTemplateColumns: '1fr auto',
                         gap: 'var(--space-2)', alignItems: 'center', width: '100%',
                         cursor: 'pointer',
-                        padding: 'var(--space-2) 10px', textAlign: 'left',
+                        padding: 'var(--space-2) 10px',
+                        // The rail replaces 3px of the left padding, so a
+                        // selected row's text stays on the same vertical line
+                        // as every other row's.
+                        paddingLeft: active ? 7 : 10,
+                        borderLeft: active ? '3px solid var(--brand-primary)' : 'none',
+                        textAlign: 'left',
                         border: 'none',
+                        borderLeftWidth: active ? 3 : 0,
+                        borderLeftStyle: active ? 'solid' : 'none',
+                        borderLeftColor: active ? 'var(--brand-primary)' : 'transparent',
                         borderRadius: 'var(--radius-sm)',
-                        background: active ? 'var(--brand-primary)' : '#fff',
-                        color: active ? '#fff' : 'var(--text-body)',
+                        background: active ? 'var(--tint-pine)' : '#fff',
+                        color: 'var(--text-body)',
                         fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
                         fontWeight: active ? 600 : 400,
                         marginBottom: 2
