@@ -726,9 +726,39 @@ export default function DealHubTab({
                       }}
                     >
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {d.dealTag}
+                        {/* THE DEAL'S OWN NAME, first and unmuted. GHL names
+                            an opportunity after its contact by default, so
+                            many read as a person — but the ones that do not
+                            ("jsmillie", "Website Lead Form") are exactly the
+                            ones a rep is hunting for, and they were shown
+                            with no way to tell them apart. */}
+                        <div
+                          style={{
+                            fontWeight: 600, color: 'var(--text-heading)',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {d.dealTag || 'Untitled deal'}
                         </div>
+                        {/* WHO IT IS FOR. The search matches on the contact's
+                            email and phone as well as the deal name, so a
+                            result could appear for a reason nothing on the
+                            row explained — "why is this here?" with no
+                            answer. */}
+                        {contactLine(d) && (
+                          <div
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 4,
+                              fontSize: 'var(--text-sm)', color: 'var(--text-body)',
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                            }}
+                          >
+                            <span className="ms" style={{ fontSize: 13, color: 'var(--text-faint)' }}>
+                              person
+                            </span>
+                            {contactLine(d)}
+                          </div>
+                        )}
                         <div
                           style={{
                             fontSize: 'var(--text-sm)', color: 'var(--text-muted)',
@@ -1177,4 +1207,25 @@ function chipNameFor(p) {
   if (p.phone) return p.phone
   if (p.business) return p.business
   return 'Contact'
+}
+
+// The contact a deal is for, as one line.
+//
+// Falls through every identifier we hold, because the switcher's search
+// matches on all of them: a result found by email must be able to SHOW that
+// email, or the row appears for a reason the reader cannot see.
+//
+// Returns null when the line would only repeat the deal's own name — GHL
+// default-names an opportunity after its contact, so printing both would show
+// the same string twice on most rows.
+function contactLine(d) {
+  const c = d.contact || {}
+  const name = [c.firstName, c.lastName].filter(Boolean).join(' ').trim()
+  const label = name || c.business || c.email || c.phone || null
+  if (!label) return null
+  if (label.trim().toLowerCase() === String(d.dealTag || '').trim().toLowerCase()) return null
+  // A named contact still shows its email, since that is often what was
+  // typed. Business and phone stand alone — they are the fallback already.
+  if (name && c.email) return `${name} · ${c.email}`
+  return label
 }
