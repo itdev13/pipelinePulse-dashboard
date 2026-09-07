@@ -119,6 +119,17 @@ export default function DealHubTab({
   // Picklist choices for the five opportunity custom fields, so those chips can
   // be dropdowns rather than read-only text. Location-wide and rarely changing,
   // so fetched once rather than per deal.
+  // Deals matching what is typed into the switcher, from the SERVER.
+  //
+  // It used to filter the cached `deals` array client-side. That array is one
+  // page — the client asks for 200 and the server caps at 100 — so on a
+  // location with 356 open deals the switcher could only ever find the first
+  // 100, and reported "0 of 100 match" for anything outside them. Searching
+  // by contact email failed even within those, because the server matched
+  // o.name alone.
+  const [switcherHits, setSwitcherHits] = useState(null)
+  const [switcherBusy, setSwitcherBusy] = useState(false)
+
   const [fieldOptions, setFieldOptions] = useState({})
   useEffect(() => {
     let alive = true
@@ -129,6 +140,27 @@ export default function DealHubTab({
       .catch(() => {})
     return () => { alive = false }
   }, [])
+
+
+  // Ask the SERVER as the rep types. Debounced, and the response is discarded
+  // if a newer query has been started — typing fast otherwise leaves an
+  // earlier query's results on screen.
+  useEffect(() => {
+    const q = switcherQ.trim()
+    if (!q) { setSwitcherHits(null); setSwitcherBusy(false); return }
+    setSwitcherBusy(true)
+    let alive = true
+    const t = window.setTimeout(() => {
+      // status 'all', not 'open': a rep searching by name is often looking
+      // for a deal they have already won or lost, and the switcher's default
+      // list being open-only should not narrow an explicit search.
+      dealsAPI.list({ q, status: 'all', limit: 50 })
+        .then((res) => { if (alive) setSwitcherHits(res.deals || []) })
+        .catch(() => { if (alive) setSwitcherHits([]) })
+        .finally(() => { if (alive) setSwitcherBusy(false) })
+    }, 250)
+    return () => { alive = false; window.clearTimeout(t) }
+  }, [switcherQ])
 
   // Load the deal list once — used by the switcher and the auto-select.
   useEffect(() => {
@@ -586,13 +618,9 @@ export default function DealHubTab({
             </button>
 
             {switcherOpen && (() => {
-              const q = switcherQ.trim().toLowerCase()
-              const visible = q
-                ? deals.filter((d) =>
-                    [d.dealTag, d.contact?.firstName, d.contact?.lastName, d.contact?.business, d.stage, d.owner]
-                      .filter(Boolean).join(' ').toLowerCase().includes(q)
-                  )
-                : deals
+              // Server results while searching, the cached page otherwise.
+              const q = switcherQ.trim()
+              const visible = q ? (switcherHits || []) : deals
               return (
               <div
                 style={{
@@ -655,13 +683,21 @@ export default function DealHubTab({
                     textTransform: 'uppercase', color: 'var(--text-muted)'
                   }}
                 >
+                  {/* "0 of 100 match" was the tell: it described the CACHED
+                      page, not the location. A rep with 356 deals read it as
+                      "none of your deals match" when it meant "none of the
+                      hundred I happen to be holding". The search is
+                      server-side now, so the count is a real result count. */}
                   {q
-                    ? `${visible.length} of ${deals.length} match`
+                    ? (switcherBusy
+                        ? 'Searching…'
+                        : `${visible.length} ${visible.length === 1 ? 'deal' : 'deals'} found`)
                     : `Open deals (${deals.length})`}
                 </div>
-                {visible.length === 0 && q && (
+                {visible.length === 0 && q && !switcherBusy && (
                   <div style={{ padding: '10px var(--space-2)', fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
-                    No deals match "{switcherQ}"
+                    No deals match "{switcherQ}" — searched every deal in this
+                    location, open or closed.
                   </div>
                 )}
                 {visible.map((d) => {
