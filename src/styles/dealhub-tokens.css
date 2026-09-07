@@ -2400,3 +2400,30 @@
 [data-dealhub] .pp-cc-input-bad:focus {
   box-shadow: 0 0 0 2px var(--tint-rose);
 }
+
+/* The "find this in the timeline" affordance on a media tile.
+ *
+ * A span with role=button, not a real one: the tile itself is a button now
+ * that it opens a preview, and a button inside a button is invalid HTML —
+ * the inner click would also fire the outer. */
+[data-dealhub] .pp-media-jump {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  color: var(--text-faint);
+  cursor: pointer;
+}
+
+[data-dealhub] .pp-media-jump:hover {
+  background: var(--surface-hover);
+  color: var(--text-body);
+}
+
+[data-dealhub] .pp-media-jump:focus-visible {
+  outline: 2px solid var(--border-prominent);
+  outline-offset: 1px;
+}

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react'
+import AttachmentViewer from './AttachmentViewer'
 
 // Media — every file attached to a message on this deal.
 //
@@ -15,6 +16,10 @@ const IMAGE_EXT = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg']
 
 export default function MediaSection({ messages = [], onJumpToMessage }) {
   const [kind, setKind] = useState('all')
+  // The file being previewed, or null. AttachmentViewer is the same one the
+  // timeline and the email thread use — one preview surface, so an image
+  // opened from here behaves exactly as it does there.
+  const [viewing, setViewing] = useState(null)
 
   // Flattened from the messages already in memory, newest first, keeping the
   // message each file came from so a click can jump back to its context.
@@ -41,6 +46,11 @@ export default function MediaSection({ messages = [], onJumpToMessage }) {
     : files.filter((f) => (kind === 'images' ? f.isImage : !f.isImage))
 
   const imageCount = files.filter((f) => f.isImage).length
+
+  // Only files with a URL can be previewed. SMS media always has one; an
+  // email attachment synced before the fetch existed may not, and handing
+  // the viewer a urlless entry would open a blank frame.
+  const withUrls = useMemo(() => shown.filter((f) => f.url), [shown])
 
   return (
     <section
@@ -145,22 +155,39 @@ export default function MediaSection({ messages = [], onJumpToMessage }) {
               <FileCard
                 key={`${f.messageId}-${f.name}-${i}`}
                 file={f}
+                // The whole SHOWN list, so the viewer's arrows page through
+                // what the reader is currently looking at — paging into files
+                // a filter has hidden would be a surprise.
+                onOpen={() => setViewing({ attachments: withUrls, index: withUrls.indexOf(f) })}
                 onJump={() => onJumpToMessage && onJumpToMessage(f.messageId)}
               />
             ))}
           </div>
         </>
       )}
+      {viewing && viewing.attachments.length > 0 && (
+        <AttachmentViewer
+          attachments={viewing.attachments}
+          index={Math.max(0, viewing.index)}
+          onClose={() => setViewing(null)}
+        />
+      )}
     </section>
   )
 }
 
-function FileCard({ file, onJump }) {
+function FileCard({ file, onOpen, onJump }) {
   const accent = `var(--accent-${file.channelAccent || 'gray'})`
+  // An image that failed to load falls back to its icon. GHL's attachment
+  // URLs are signed and expire, so a broken thumbnail is a normal state, not
+  // an exception — and a broken-image glyph looks like our bug.
+  const [broken, setBroken] = useState(false)
+  const showThumb = file.isImage && file.url && !broken
+
   return (
     <button
-      onClick={onJump}
-      title={`${file.name || 'File'} — click to find it in the timeline`}
+      onClick={onOpen}
+      title={`${file.name || 'File'} — click to preview`}
       style={{
         display: 'grid', gap: 'var(--space-2)',
         textAlign: 'left', cursor: 'pointer',
@@ -174,12 +201,33 @@ function FileCard({ file, onJump }) {
       <span
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
+          position: 'relative',
           height: 76,
           borderRadius: 'var(--radius-sm)',
-          background: 'var(--gray-50)', color: accent
+          background: 'var(--gray-50)', color: accent,
+          overflow: 'hidden'
         }}
       >
-        <span className="ms" style={{ fontSize: 30 }}>{iconFor(file)}</span>
+        {/* A REAL THUMBNAIL for images. Every tile showed the same generic
+            glyph, so a grid of photos was indistinguishable — the one thing a
+            rep is scanning for is which picture it is.
+            cover, not contain: at 76px a letterboxed photo is mostly grey,
+            and recognising it needs the detail rather than the whole frame. */}
+        {showThumb ? (
+          <img
+            src={file.url}
+            alt={file.name || 'attachment'}
+            onError={() => setBroken(true)}
+            loading="lazy"
+            style={{
+              position: 'absolute', inset: 0,
+              width: '100%', height: '100%',
+              objectFit: 'cover'
+            }}
+          />
+        ) : (
+          <span className="ms" style={{ fontSize: 30 }}>{iconFor(file)}</span>
+        )}
       </span>
 
       <span style={{ display: 'grid', gap: 2, minWidth: 0 }}>
@@ -194,8 +242,33 @@ function FileCard({ file, onJump }) {
               label beats an empty line. */}
           {file.name || `${file.channel || 'File'} attachment`}
         </span>
-        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
-          {[file.sender, formatSize(file.sizeBytes)].filter(Boolean).join(' · ')}
+        <span
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
+          }}
+        >
+          <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {[file.sender, formatSize(file.sizeBytes)].filter(Boolean).join(' · ')}
+          </span>
+          {/* Finding the file's message is still useful — it is the context
+              the file arrived in — but it is the SECONDARY action now that
+              the tile itself previews. A nested button would be invalid
+              HTML, so this is a span with its own handler. */}
+          {onJump && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); onJump() }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); onJump() }
+              }}
+              title="Find this in the timeline"
+              className="pp-media-jump"
+            >
+              <span className="ms" style={{ fontSize: 14 }}>forum</span>
+            </span>
+          )}
         </span>
       </span>
     </button>
