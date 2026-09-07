@@ -734,12 +734,11 @@ export default function DealHubTab({
                         // selected row's text stays on the same vertical line
                         // as every other row's.
                         paddingLeft: active ? 7 : 10,
-                        borderLeft: active ? '3px solid var(--brand-primary)' : 'none',
                         textAlign: 'left',
+                        // `border: none` first, then the left edge — order
+                        // matters, the shorthand would otherwise clear it.
                         border: 'none',
-                        borderLeftWidth: active ? 3 : 0,
-                        borderLeftStyle: active ? 'solid' : 'none',
-                        borderLeftColor: active ? 'var(--brand-primary)' : 'transparent',
+                        borderLeft: active ? '3px solid var(--brand-primary)' : 'none',
                         borderRadius: 'var(--radius-sm)',
                         background: active ? 'var(--tint-pine)' : '#fff',
                         color: 'var(--text-body)',

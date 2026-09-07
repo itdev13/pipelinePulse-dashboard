@@ -90,4 +90,47 @@ t('stage and owner are still there, quieter', () => {
   assert.match(hub, /\[d\.stage, d\.owner\]\.filter\(Boolean\)\.join\(' · '\)/);
 });
 
+// ── The selected row ─────────────────────────────────────────────────────
+//
+// It was a solid brand-primary fill with `color: #fff` on the container. But
+// the three inner spans each set their OWN colour (--text-heading,
+// --text-body, --text-muted), so the row-level white never applied and dark
+// text sat on dark green. Measured: the stage line and the value were both
+// 1.30:1 — effectively invisible.
+console.log('\nthe selected row');
+
+t('a tint, not a solid fill', () => {
+  // Fixing the white would mean overriding three nested colours for one
+  // state. A tint lets every text colour keep working as designed.
+  assert.match(hub, /background: active \? 'var\(--tint-pine\)' : '#fff'/);
+  // Scoped to the SWITCHER ROW. Two pill buttons elsewhere in this file use
+  // the same solid fill and are fine — they hold a single text node, so the
+  // container's white actually applies. Only this row has nested spans that
+  // override it.
+  const rowBlock = /const active = d\.id === dealId[\s\S]{0,2600}?marginBottom: 2/.exec(hub);
+  assert.ok(rowBlock, 'the switcher row block moved — rescope this test');
+  assert.ok(!/background: active \? 'var\(--brand-primary\)'/.test(rowBlock[0]),
+    'the solid fill is back on the row — the stage line drops to 1.30:1');
+});
+
+t('the text colour is no longer overridden per state', () => {
+  // `color: active ? '#fff' : ...` was the lie: it never reached the spans.
+  const rowBlock2 = /const active = d\.id === dealId[\s\S]{0,2600}?marginBottom: 2/.exec(hub);
+  assert.match(rowBlock2[0], /color: 'var\(--text-body\)',/);
+  assert.ok(!/color: active \? '#fff'/.test(rowBlock2[0]),
+    'the per-state text colour is back — it never reached the spans anyway');
+});
+
+t('a left rail carries the selection', () => {
+  // The tint alone is subtle; the rail is what makes it unmistakable, and it
+  // is the convention the rest of the app already uses.
+  assert.match(hub, /borderLeft: active \? '3px solid var\(--brand-primary\)' : 'none'/);
+});
+
+t('the rail eats padding rather than shifting the text', () => {
+  // 10 - 3 = 7. Without this a selected row's text sits 3px right of every
+  // other row's, and the list visibly jitters as you arrow through it.
+  assert.match(hub, /paddingLeft: active \? 7 : 10/);
+});
+
 console.log(`\n${n} passed`);
