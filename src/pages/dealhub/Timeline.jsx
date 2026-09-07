@@ -455,10 +455,28 @@ function MessageRow({ m, highlighted, onOpenAttachment, selected, onToggleSelect
             flexWrap: 'wrap', marginBottom: 1
           }}
         >
+          {/* DIRECTION AS AN ARROW, on the left.
+              It was a coloured dot for the sender plus the word "In"/"Out"
+              wedged between the name and the channel — a two-letter
+              abbreviation in the middle of a sentence, easy to miss and easy
+              to misread ("Out" beside "Email" scans as a compound noun).
+              An arrow reads instantly at a glance and is the universal
+              convention for message direction; the sender's colour moves
+              onto it, so nothing is lost. */}
           <span
-            aria-hidden
-            style={{ width: 8, height: 8, flex: 'none', borderRadius: '50%', background: senderCol }}
-          />
+            className="ms"
+            title={inbound ? 'Received from the customer' : 'Sent by us'}
+            style={{
+              flex: 'none', fontSize: 15,
+              // INBOUND keeps the sender's own accent — that colour is how a
+              // rep tells three customers apart down a long thread, and
+              // dropping it to a generic green would lose that. Outbound is
+              // always us, so it needs no per-person hue.
+              color: inbound ? senderCol : 'var(--text-faint)'
+            }}
+          >
+            {inbound ? 'south_west' : 'north_east'}
+          </span>
           <span
             style={{
               fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)',
@@ -466,14 +484,6 @@ function MessageRow({ m, highlighted, onOpenAttachment, selected, onToggleSelect
             }}
           >
             {m.senderName}
-          </span>
-          <span
-            style={{
-              fontSize: 'var(--text-sm)', fontWeight: 600,
-              color: inbound ? 'var(--accent-pine-text)' : 'var(--text-faint)'
-            }}
-          >
-            {inbound ? 'In' : outbound ? 'Out' : ''}
           </span>
           <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
             {channelLabelOf(m)}
@@ -558,7 +568,30 @@ function MessageRow({ m, highlighted, onOpenAttachment, selected, onToggleSelect
         )}
       </div>
 
-      <RowTime ts={m.ts} />
+      {/* Direction spelled out, beside the time.
+          "Out" sat between the sender's name and the channel, where a
+          two-letter abbreviation is easy to skim past. On the right it lines
+          up down the column, so a rep can see at a glance which way a
+          conversation has been flowing. */}
+      <span
+        style={{
+          display: 'grid', justifyItems: 'end', gap: 1,
+          flex: 'none', textAlign: 'right'
+        }}
+      >
+        <RowTime ts={m.ts} />
+        {(inbound || outbound) && (
+          <span
+            style={{
+              fontSize: 'var(--text-xs)', fontWeight: 600,
+              letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase',
+              color: inbound ? 'var(--accent-pine-text)' : 'var(--text-faint)'
+            }}
+          >
+            {inbound ? 'Inbound' : 'Outbound'}
+          </span>
+        )}
+      </span>
     </Row>
   )
 }
