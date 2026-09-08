@@ -267,7 +267,15 @@ export default function NoteEditor({
           return
         }
       }
-      onSaved(res.note || null)
+      // Second argument: what we KNOW we applied.
+      //
+      // The caller patches its row from the CRM's echo, but GHL's note PUT is
+      // not confirmed to return `businessId` — and if it omits the field, a
+      // caller reading `saved.businessId ?? null` would blank a company the
+      // rep had just set. Passing the value we sent removes the guess.
+      onSaved(res.note || null, editing && NOTE_COMPANY_EDITING && 'businessId' in changes
+        ? { businessId: changes.businessId }
+        : null)
       onClose()
     } catch (err) {
       setError(err.message || 'Could not save that — try again')

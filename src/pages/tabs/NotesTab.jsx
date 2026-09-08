@@ -336,7 +336,7 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
           deals={linkTargets.deals}
           businesses={linkTargets.businesses}
           onClose={() => setEditor(null)}
-          onSaved={(saved) => {
+          onSaved={(saved, applied) => {
             if (editor.note && saved) {
               // Apply what the CRM echoed, not what we sent.
               patchItem((x) => x.id === editor.note.id, {
@@ -351,9 +351,14 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                 // the NoteUpdate webhook lands a second or two later, and the
                 // list still held the pre-save copy until then.
                 //
-                // `?? null` not `|| undefined`: detaching must survive, and
-                // an undefined would leave the stale value in place.
-                businessId: saved.businessId ?? null
+                // `applied` is what the editor actually sent, used in
+                // preference to the echo: GHL's note PUT is not confirmed to
+                // return businessId, and trusting an absent field would blank
+                // a company the rep just chose. Falls back to the echo, then
+                // to the row's existing value.
+                businessId: applied && 'businessId' in applied
+                  ? applied.businessId
+                  : (saved.businessId ?? editor.note.businessId ?? null)
               })
               say('Note saved')
             } else {
