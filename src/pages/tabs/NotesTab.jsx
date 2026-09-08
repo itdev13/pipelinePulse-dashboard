@@ -343,7 +343,17 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                 body: saved.body ?? editor.note.body,
                 title: saved.title ?? null,
                 color: saved.color ?? null,
-                pinned: saved.pinned === true
+                pinned: saved.pinned === true,
+                // The company, which the CRM echoes back on the note.
+                //
+                // Missing here, reopening the editor showed the OLD company
+                // however well the save went: our row only catches up when
+                // the NoteUpdate webhook lands a second or two later, and the
+                // list still held the pre-save copy until then.
+                //
+                // `?? null` not `|| undefined`: detaching must survive, and
+                // an undefined would leave the stale value in place.
+                businessId: saved.businessId ?? null
               })
               say('Note saved')
             } else {
