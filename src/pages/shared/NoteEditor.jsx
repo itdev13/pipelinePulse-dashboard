@@ -37,6 +37,31 @@ import { NOTE_COLOURS } from '../../utils/noteColour'
 // NOTE_COLOURS is that same list, and normaliseNoteColour is the allow-list
 // those renderers use before putting the value in a style attribute.
 
+// CHANGING a note's deal or company is switched off in the UI.
+//
+// GHL's note relations endpoint needs `notes.write`, which this app's OAuth
+// token does not carry — confirmed by probing the live token, not inferred:
+//
+//   PUT /notes/{id}/relations → 401 "The token is not authorized for this scope."
+//   GET /notes/{id}           → 401, needs notes.readonly
+//
+// So the pickers could be operated but never saved. Worse, the failing call
+// used to mark the install reauth_required, which halted every sync for the
+// location — that is fixed server-side (scopeOptional), but the write still
+// cannot succeed, so offering the control is offering a dead end.
+//
+// The BACKEND IS UNCHANGED and still handles these relations: routes, the
+// relation calls, and the dirty-state fix all remain. Only the two controls
+// are hidden. Flip this to true once `notes.readonly` + `notes.write` are
+// added to the marketplace app and each sub-account has re-consented.
+//
+// Note CREATION is deliberately unaffected: on the deal hub a new note is
+// filed against the deal in scope via defaultOpportunityId, the server
+// attaches it on create, and a failure there returns 201 with `relationError`
+// so the note itself survives. That path is worth keeping even while it may
+// fail — losing it would mean deal-hub notes stopped being filed at all.
+const NOTE_RELATION_EDITING = false
+
 export default function NoteEditor({
   note = null,
   contacts = [],
@@ -142,8 +167,15 @@ export default function NoteEditor({
   // correctly, while this check ignored them. The result was Save stuck
   // disabled on "No changes yet" for a deal or company edit, with no way to
   // save it at all.
-  const oppChanged = editing && (opportunityId || null) !== (note.opportunityId || null)
-  const bizChanged = editing && (businessId || null) !== (note.businessId || null)
+  //
+  // Gated on NOTE_RELATION_EDITING as well. With the pickers hidden these can
+  // still differ — defaultOpportunityId seeds opportunityId on the deal hub
+  // even in edit mode — and that would enable Save with nothing on screen to
+  // explain why, then fire a write that 401s.
+  const oppChanged = editing && NOTE_RELATION_EDITING
+    && (opportunityId || null) !== (note.opportunityId || null)
+  const bizChanged = editing && NOTE_RELATION_EDITING
+    && (businessId || null) !== (note.businessId || null)
   const relationsChanged = oppChanged || bizChanged
 
   const dirty = editing
@@ -409,7 +441,7 @@ export default function NoteEditor({
                 No `deals.length > 0` guard any more either — an empty seed no
                 longer means "nothing to pick", it just means nothing is
                 preloaded. */}
-            {showDealLink && (
+            {showDealLink && (!editing || NOTE_RELATION_EDITING) && (
               <Field
                 label="Deal"
                 error={errorField === 'opportunityId' ? error : null}
@@ -429,7 +461,7 @@ export default function NoteEditor({
               </Field>
             )}
 
-            {showCompanyLink && (
+            {showCompanyLink && (!editing || NOTE_RELATION_EDITING) && (
               <Field label="Company" error={errorField === 'businessId' ? error : null}>
                 <RemotePicker
                   value={businessId}
