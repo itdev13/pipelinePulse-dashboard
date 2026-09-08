@@ -135,7 +135,20 @@ export default function NoteEditor({
     return out
   }, [editing, note, body, title, colour, pinned])
 
-  const dirty = editing ? Object.keys(changes).length > 0 : body.trim().length > 0
+  // Relations are dirty state too, but they are NOT part of `changes`:
+  // `changes` is the note PATCH body and the server rejects unknown fields,
+  // so putting opportunityId in it would fail the whole save. They travel
+  // through their own endpoint in save() below — which already handled them
+  // correctly, while this check ignored them. The result was Save stuck
+  // disabled on "No changes yet" for a deal or company edit, with no way to
+  // save it at all.
+  const oppChanged = editing && (opportunityId || null) !== (note.opportunityId || null)
+  const bizChanged = editing && (businessId || null) !== (note.businessId || null)
+  const relationsChanged = oppChanged || bizChanged
+
+  const dirty = editing
+    ? Object.keys(changes).length > 0 || relationsChanged
+    : body.trim().length > 0
   // Over the limit blocks the save.
   //
   // The editor's counter turned red but Save stayed enabled, so the only way
@@ -156,13 +169,22 @@ export default function NoteEditor({
     try {
       let res
       if (editing) {
-        res = await notesAPI.update(note.id, changes)
+        // Only when there is something to patch: a note whose ONLY edit is
+        // its deal would otherwise send an empty PATCH, and the server treats
+        // a body with no known fields as an error.
+        //
+        // Falls back to the note we already hold rather than null. onSaved's
+        // contract is "the saved note", and NotesTab reads a null as "a new
+        // note was created" — it would announce "Note added" and then poll for
+        // an id that does not exist.
+        res = Object.keys(changes).length
+          ? await notesAPI.update(note.id, changes)
+          : { note }
         // Relations go separately — a different GHL endpoint, and the note
         // patch rejects unknown fields. Only when they actually changed, so
-        // editing the text alone stays one request.
-        const oppChanged = (opportunityId || null) !== (note.opportunityId || null)
-        const bizChanged = (businessId || null) !== (note.businessId || null)
-        if (oppChanged || bizChanged) {
+        // editing the text alone stays one request. oppChanged/bizChanged are
+        // computed once above, so the dirty check and the save agree.
+        if (relationsChanged) {
           // Detach first, then attach. Skipping the detach would leave the old
           // company attached (its cap is 1000, so it appends) — only the deal
           // link replaces itself.

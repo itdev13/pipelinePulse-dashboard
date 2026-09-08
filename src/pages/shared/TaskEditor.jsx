@@ -131,7 +131,18 @@ export default function TaskEditor({
     return out
   }, [editing, task, title, body, dueDate])
 
-  const dirty = editing ? Object.keys(changes).length > 0 : title.trim().length > 0
+  // Relations count as changes, but are NOT part of `changes`: that object is
+  // the task PATCH body and the server rejects unknown fields there. They go
+  // through their own endpoint in save() below — which handled them already,
+  // while this check ignored them, so Save sat disabled on "No changes yet"
+  // for a deal or company edit with no way to save it.
+  const oppChanged = editing && (opportunityId || null) !== (task.opportunityId || null)
+  const bizChanged = editing && (businessId || null) !== (task.businessId || null)
+  const relationsChanged = oppChanged || bizChanged
+
+  const dirty = editing
+    ? Object.keys(changes).length > 0 || relationsChanged
+    : title.trim().length > 0
   // Over the limit blocks the save.
   //
   // The editor's counter turned red but Save stayed enabled, so the only way
@@ -152,10 +163,15 @@ export default function TaskEditor({
     try {
       let res
       if (editing) {
-        res = await tasksAPI.update(task.id, changes)
-        const oppChanged = (opportunityId || null) !== (task.opportunityId || null)
-        const bizChanged = (businessId || null) !== (task.businessId || null)
-        if (oppChanged || bizChanged) {
+        // Skip the PATCH when only a relation changed — an empty body is an
+        // error server-side. Falls back to the task we hold so onSaved still
+        // receives one: its callers read the result to patch their row.
+        res = Object.keys(changes).length
+          ? await tasksAPI.update(task.id, changes)
+          : { task }
+        // oppChanged/bizChanged come from above, so the dirty check and the
+        // save cannot disagree about what changed.
+        if (relationsChanged) {
           // Detach the old link BEFORE attaching the new one. Task caps are 10,
           // so without this the task would end up linked to both deals — the
           // silent-replace behaviour that notes get does not apply here.
