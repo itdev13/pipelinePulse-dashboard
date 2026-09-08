@@ -62,6 +62,14 @@ import { NOTE_COLOURS } from '../../utils/noteColour'
 // fail — losing it would mean deal-hub notes stopped being filed at all.
 const NOTE_RELATION_EDITING = false
 
+// The COMPANY link is a separate case and stays available.
+//
+// `businessId` is a plain field on PUT /contacts/{contactId}/notes/{noteId} —
+// the endpoint every note edit already uses — so it saves with
+// `contacts.write` and never touches the relations endpoint that needs
+// `notes.write`. Only the DEAL link is stuck behind that scope.
+const NOTE_COMPANY_EDITING = true
+
 export default function NoteEditor({
   note = null,
   contacts = [],
@@ -157,8 +165,15 @@ export default function NoteEditor({
     if (title.trim() !== (note.title || '')) out.title = title.trim()
     if ((colour || null) !== (note.color || null)) out.color = colour || null
     if (pinned !== (note.pinned === true)) out.pinned = pinned
+    // A plain field on PUT /contacts/:contactId/notes/:noteId, so it belongs
+    // in the patch rather than the relations call. null detaches — the server
+    // maps null and '' to null, and an absent key means "unchanged", so a
+    // clear has to be explicit.
+    if (NOTE_COMPANY_EDITING && (businessId || null) !== (note.businessId || null)) {
+      out.businessId = businessId || null
+    }
     return out
-  }, [editing, note, body, title, colour, pinned])
+  }, [editing, note, body, title, colour, pinned, businessId])
 
   // Relations are dirty state too, but they are NOT part of `changes`:
   // `changes` is the note PATCH body and the server rejects unknown fields,
@@ -174,9 +189,12 @@ export default function NoteEditor({
   // explain why, then fire a write that 401s.
   const oppChanged = editing && NOTE_RELATION_EDITING
     && (opportunityId || null) !== (note.opportunityId || null)
-  const bizChanged = editing && NOTE_RELATION_EDITING
+  // The company does NOT go through the relations endpoint — it is a plain
+  // field on the note patch (see NOTE_COMPANY_EDITING), so it is folded into
+  // `changes` below and saves in the same request as the body and title.
+  const bizChanged = editing && NOTE_COMPANY_EDITING
     && (businessId || null) !== (note.businessId || null)
-  const relationsChanged = oppChanged || bizChanged
+  const relationsChanged = oppChanged
 
   const dirty = editing
     ? Object.keys(changes).length > 0 || relationsChanged
@@ -220,14 +238,15 @@ export default function NoteEditor({
           // Detach first, then attach. Skipping the detach would leave the old
           // company attached (its cap is 1000, so it appends) — only the deal
           // link replaces itself.
+          // Deal only. The company travels in `changes` above — sending it
+          // here as well would make a second call to the endpoint that needs
+          // notes.write, failing a save that had already succeeded.
           const gone = {}
           if (oppChanged && note.opportunityId) gone.opportunityId = note.opportunityId
-          if (bizChanged && note.businessId) gone.businessId = note.businessId
           if (Object.keys(gone).length) await notesAPI.removeRelations(note.id, gone)
 
           const added = {}
           if (oppChanged && opportunityId) added.opportunityId = opportunityId
-          if (bizChanged && businessId) added.businessId = businessId
           if (Object.keys(added).length) await notesAPI.setRelations(note.id, added)
         }
       } else {
@@ -461,7 +480,7 @@ export default function NoteEditor({
               </Field>
             )}
 
-            {showCompanyLink && (!editing || NOTE_RELATION_EDITING) && (
+            {showCompanyLink && (!editing || NOTE_COMPANY_EDITING) && (
               <Field label="Company" error={errorField === 'businessId' ? error : null}>
                 <RemotePicker
                   value={businessId}
