@@ -2427,3 +2427,91 @@
   outline: 2px solid var(--border-prominent);
   outline-offset: 1px;
 }
+
+/* ── Message context dialog ───────────────────────────────────────────────
+ *
+ * The message a media file arrived in. Opened from a tile's second control,
+ * which used to jump to the timeline — that works but closes the Media tab
+ * and loses your place in the grid. */
+
+[data-dealhub] .pp-mc-meta {
+  flex: none;
+  font-size: var(--text-sm);
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+/* An email's subject, above its body — the same order an email reads in. */
+[data-dealhub] .pp-mc-subject {
+  margin-bottom: 8px;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-heading);
+  overflow-wrap: anywhere;
+}
+
+/* SMS and WhatsApp bodies are plain text and carry their own line breaks. */
+[data-dealhub] .pp-mc-text {
+  margin: 0;
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  color: var(--text-body);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+[data-dealhub] .pp-mc-empty {
+  margin: 0;
+  font-size: var(--text-md);
+  font-style: italic;
+  color: var(--text-faint);
+}
+
+/* Which file brought the reader here. On a message with four attachments the
+ * dialog would otherwise give no clue which tile was clicked. */
+[data-dealhub] .pp-mc-file {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-default);
+}
+
+[data-dealhub] .pp-mc-filename {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--text-md);
+  font-weight: 500;
+  color: var(--text-body);
+}
+
+[data-dealhub] .pp-mc-size {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-faint);
+}
+
+[data-dealhub] .pp-mc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: #fff;
+  font-family: inherit;
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--text-body);
+  cursor: pointer;
+}
+
+[data-dealhub] .pp-mc-btn:hover {
+  background: var(--gray-25);
+}

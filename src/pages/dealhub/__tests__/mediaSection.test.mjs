@@ -114,4 +114,72 @@ t('the jump control is not a nested button', () => {
   assert.match(src, /onKeyDown=/, 'a role=button needs its own key handling');
 });
 
+// ── Reading the message a file came in ───────────────────────────────────
+//
+// The tile's second control JUMPED to the timeline. That works, but it closes
+// the Media tab and loses your place in the grid — and when the question is
+// "what was said around this file?", answering it in place is better than
+// navigating away and back.
+console.log('\nthe message context dialog');
+
+t('the icon opens a dialog rather than navigating', () => {
+  assert.match(src, /onJump=\{\(\) => setContext\(f\)\}/,
+    'the icon navigates away again');
+  assert.match(src, /<MessageContextDialog/);
+});
+
+t('the whole message is carried, not looked up by id', () => {
+  // It is already in memory; a lookup would go stale the moment the timeline
+  // refetched.
+  assert.match(src, /message: m$/m);
+});
+
+t('an EMAIL body renders through RichBody, which sanitises', () => {
+  // Email bodies are HTML — cleanEmail strips the head and inline styles but
+  // keeps the tags. As text they would show literal <p> tags.
+  assert.match(src, /isEmail \? \(\s*\n\s*<RichBody/);
+});
+
+t('SMS and WhatsApp keep their line breaks', () => {
+  assert.match(src, /className="pp-mc-text"/);
+});
+
+t('a message with no text says so', () => {
+  // An attachment-only send has an empty body; a blank dialog reads as a
+  // loading failure.
+  assert.match(src, /it was sent with the attachment only/);
+});
+
+t('the dialog names WHICH file brought you here', () => {
+  // On a message with four attachments there would otherwise be no clue
+  // which tile was clicked.
+  assert.match(src, /className="pp-mc-file"/);
+  assert.match(src, /className="pp-mc-filename"/);
+});
+
+t('jumping to the timeline survives, from inside', () => {
+  // The timeline is the full thread, with everything before and after — worth
+  // keeping, just no longer the only option.
+  assert.match(src, /Show in the timeline/);
+  assert.match(src, /onJumpToMessage\(context\.messageId\); setContext\(null\)/,
+    'jumping must also close the dialog it came from');
+});
+
+t('it sits BELOW the attachment viewer', () => {
+  // A file can be previewed from inside this dialog, so the viewer must be
+  // on top. Viewer is 65.
+  assert.match(src, /zIndex: 62/);
+});
+
+t('Escape closes it', () => {
+  assert.match(src, /if \(e\.key === 'Escape'\) onClose\(\)/);
+});
+
+t('it is read-only', () => {
+  // Replying belongs in the timeline; a composer here would be a second
+  // place to write from with none of that surface's context.
+  assert.ok(!/>\s*(Reply|Send|Forward)\s*</.test(src),
+    'a reply control appeared — this dialog is for reading');
+});
+
 console.log(`\n${n} passed`);
