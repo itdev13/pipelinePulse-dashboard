@@ -96,7 +96,12 @@ export default function RemotePicker({
       value={value || undefined}
       onChange={(v, opt) => {
         setChosen(opt || null)
-        onChange(v || null)
+        // The chosen OPTION is passed as a second argument, not just the
+        // value. A caller that needs the label — to render a chip before the
+        // server round-trip returns, say — otherwise has to re-look-up a row
+        // it was just handed. Existing callers take one argument and are
+        // unaffected.
+        onChange(v || null, opt || null)
       }}
       onSearch={setQuery}
       showSearch

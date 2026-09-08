@@ -90,19 +90,31 @@ export default function TaskDealsPopover({
     }
   }
 
-  const add = (opt) => {
+  // RemotePicker's onChange hands back the VALUE first and the option second
+  // — not an option object. Reading `opt.value` off the string silently did
+  // nothing on every selection: the dropdown closed and no link was made.
+  const add = (dealId, opt) => {
     setAdding(null)
-    if (!opt?.value) return
-    if (deals.some((d) => d.id === opt.value)) {
+    if (!dealId) return
+    if (deals.some((d) => d.id === dealId)) {
       setError('That deal is already linked')
       return
     }
+    // The label for the chip we render before the server answers. It comes
+    // from the option when antd supplies one; the fallback covers a value
+    // arriving without it, and the webhook corrects the name either way.
+    // dealOption is the one place that decides what a deal is called in a
+    // picker. Reading `dealTag` directly here would diverge from it the
+    // moment a deal has no tag — it falls through to opportunityName, then
+    // name, then the id.
+    const fromSeed = seed.find((d) => d.id === dealId)
+    const label = opt?.label || (fromSeed && dealOption(fromSeed).label) || 'Linked deal'
     run(
-      opt.value,
-      () => tasksAPI.setRelations(task.id, { opportunityId: opt.value }),
+      dealId,
+      () => tasksAPI.setRelations(task.id, { opportunityId: dealId }),
       // Appended, not prepended: the primary must not change when a second
       // deal is added, matching COALESCE(opportunity_id, $3) on the server.
-      [...deals, { id: opt.value, relationId: null, name: opt.label, stage: null }]
+      [...deals, { id: dealId, relationId: null, name: label, stage: null }]
     )
   }
 

@@ -373,11 +373,17 @@ function SelectBox({ selected, onToggle, title }) {
   )
 }
 
-function RowTime({ ts }) {
+// `inline` — when the time sits BESIDE something in a baseline-aligned flex
+// row, rather than as a direct child of the top-aligned Row.
+//
+// The 3px nudge drops the time to the first text line of a row whose body box
+// starts above its text. In a baseline-aligned row the browser already does
+// that, so the nudge is 3px of double-counting.
+function RowTime({ ts, inline = false }) {
   return (
     <span
       style={{
-        marginTop: 3, flex: 'none',
+        marginTop: inline ? 0 : 3, flex: 'none',
         fontSize: 'var(--text-sm)', color: 'var(--text-faint)',
         fontVariantNumeric: 'tabular-nums'
       }}
@@ -568,18 +574,22 @@ function MessageRow({ m, highlighted, onOpenAttachment, selected, onToggleSelect
         )}
       </div>
 
-      {/* Direction spelled out, beside the time.
-          "Out" sat between the sender's name and the channel, where a
-          two-letter abbreviation is easy to skim past. On the right it lines
-          up down the column, so a rep can see at a glance which way a
-          conversation has been flowing. */}
+      {/* Direction spelled out, then the time — ONE line, not two.
+          Stacked, the label sat under the time and gave every row a second
+          line of chrome, which on a dense timeline read as more prominent
+          than the message itself. Inline it stays scannable down the column
+          while costing the row no extra height.
+
+          The label comes FIRST so the times still align on the right edge:
+          "Outbound" and "Inbound" are different widths, and putting the
+          variable-width element on the outside would leave the timestamps
+          ragged. */}
       <span
         style={{
-          display: 'grid', justifyItems: 'end', gap: 1,
-          flex: 'none', textAlign: 'right'
+          display: 'flex', alignItems: 'baseline', gap: 6,
+          flex: 'none', whiteSpace: 'nowrap'
         }}
       >
-        <RowTime ts={m.ts} />
         {(inbound || outbound) && (
           <span
             style={{
@@ -591,6 +601,7 @@ function MessageRow({ m, highlighted, onOpenAttachment, selected, onToggleSelect
             {inbound ? 'Inbound' : 'Outbound'}
           </span>
         )}
+        <RowTime ts={m.ts} inline />
       </span>
     </Row>
   )
