@@ -3,6 +3,7 @@ import { tasksAPI } from '../../api/tasks'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
 import TaskEditor from '../shared/TaskEditor'
+import TaskDealsPopover from '../shared/TaskDealsPopover'
 import { useLinkTargets } from '../../hooks/useLinkTargets'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import {
@@ -67,9 +68,17 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
   const [saving, setSaving] = useState(() => new Set())
   // null = closed. { task } = editing that one; { task: null } = creating.
   const [editor, setEditor] = useState(null)
-  // Deals and companies for the editor's link pickers. Lazy: fetched when
-  // an editor first opens, so reading the list costs nothing extra.
-  const linkTargets = useLinkTargets(!!editor)
+  // Which task's deal popover is open, by id. One at a time — two open
+  // popovers in a scrolling list would overlap each other.
+  //
+  // Declared BEFORE linkTargets, which reads it: `const` is not hoisted, so
+  // the other order throws on first render.
+  const [dealsFor, setDealsFor] = useState(null)
+  // Deals and companies for the link pickers. Lazy: nothing is fetched until
+  // an editor or the deals popover opens, so reading the list costs nothing
+  // extra. The popover needs the same list — without it its picker opens with
+  // no options and the rep has to type to add a deal already on screen.
+  const linkTargets = useLinkTargets(!!editor || !!dealsFor)
   // The task queued for deletion, and any failure from trying.
   const [confirming, setConfirming] = useState(null)
   const [confirmError, setConfirmError] = useState(null)
@@ -188,9 +197,23 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
           // A completed task isn't overdue, whatever its due date says.
           const overdue = t.overdue && !done
           const dueToday = t.dueToday && !t.overdue && !done
+          // deals[] falls back to the scalar server-side, so this counts 1
+          // for an ordinary single-deal task and 0 for an unlinked one.
+          const dealCount = t.deals?.length || 0
           const hasChips = t.noteChips?.length > 0
           return (
-            <div key={t.id}>
+            <div key={t.id} style={{
+              // The popover's positioning context. It has to be the CARD, not
+              // the icon: the chips group is top-aligned in a row whose height
+              // comes from the title-and-description column, so any offset
+              // measured from the 30px button lands inside the row for a task
+              // with a description and below it for one without.
+              position: 'relative',
+              // Raised only while its own popover is open, so this card's
+              // popover paints over the cards below it without every card
+              // needing a stacking order of its own.
+              zIndex: dealsFor === t.id ? 30 : undefined
+            }}>
               <div
                 style={{
                   display: 'flex', alignItems: 'flex-start', gap: 10,
@@ -310,12 +333,49 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                     ))}
                   {/* "No deal" is shown, not hidden — v5 treats an unattached
                       task as a real state worth seeing. */}
+                  {/* The PRIMARY deal, still one chip. A task can hold ten,
+                      but ten chips on a list row is unreadable — the extra
+                      ones are counted here and edited in the popover. */}
                   <DealChip
                     name={t.deal?.name || 'No deal'}
                     onClick={
                       t.deal && onOpenDeal ? () => onOpenDeal(t.deal.id) : undefined
                     }
                   />
+                  {dealCount > 1 && (
+                    <span
+                      title={`Linked to ${dealCount} deals`}
+                      style={{
+                        fontSize: 11, fontWeight: 600,
+                        fontVariantNumeric: 'tabular-nums',
+                        color: 'var(--text-muted)'
+                      }}
+                    >
+                      +{dealCount - 1}
+                    </span>
+                  )}
+                  <span style={{ display: 'inline-flex' }}>
+                    <RowAction
+                      icon="sell"
+                      title={
+                        dealCount
+                          ? `Deals on this task (${dealCount})`
+                          : 'Link this task to a deal'
+                      }
+                      onClick={() =>
+                        setDealsFor(dealsFor === t.id ? null : t.id)}
+                    />
+                    {dealsFor === t.id && (
+                      <TaskDealsPopover
+                        task={t}
+                        limit={t.dealLimit || 10}
+                        seed={linkTargets.deals}
+                        onApply={(patch) =>
+                          patchItem((it) => it.id === t.id, patch)}
+                        onClose={() => setDealsFor(null)}
+                      />
+                    )}
+                  </span>
                   <RowAction
                     icon="edit"
                     title="Edit this task"
