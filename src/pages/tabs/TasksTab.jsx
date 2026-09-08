@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import { tasksAPI } from '../../api/tasks'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
@@ -74,6 +74,10 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
   // Declared BEFORE linkTargets, which reads it: `const` is not hoisted, so
   // the other order throws on first render.
   const [dealsFor, setDealsFor] = useState(null)
+  // One anchor element per row, keyed by task id. A single useRef holding a
+  // map rather than a hook per row — hooks cannot be called inside a map, and
+  // the popover is portalled so it needs a real element to position against.
+  const anchors = useRef({})
   // Deals and companies for the link pickers. Lazy: nothing is fetched until
   // an editor or the deals popover opens, so reading the list costs nothing
   // extra. The popover needs the same list — without it its picker opens with
@@ -202,18 +206,10 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
           const dealCount = t.deals?.length || 0
           const hasChips = t.noteChips?.length > 0
           return (
-            <div key={t.id} style={{
-              // The popover's positioning context. It has to be the CARD, not
-              // the icon: the chips group is top-aligned in a row whose height
-              // comes from the title-and-description column, so any offset
-              // measured from the 30px button lands inside the row for a task
-              // with a description and below it for one without.
-              position: 'relative',
-              // Raised only while its own popover is open, so this card's
-              // popover paints over the cards below it without every card
-              // needing a stacking order of its own.
-              zIndex: dealsFor === t.id ? 30 : undefined
-            }}>
+            // No position/zIndex here: the popover renders in a body
+            // portal, because this list's Panel sets `overflow: hidden` to
+            // clip its rounded corners and was CLIPPING the popover instead.
+            <div key={t.id}>
               <div
                 style={{
                   display: 'flex', alignItems: 'flex-start', gap: 10,
@@ -354,7 +350,13 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                       +{dealCount - 1}
                     </span>
                   )}
-                  <span style={{ display: 'inline-flex' }}>
+                  <span
+                    ref={(el) => {
+                      if (el) anchors.current[t.id] = el
+                      else delete anchors.current[t.id]
+                    }}
+                    style={{ display: 'inline-flex' }}
+                  >
                     <RowAction
                       icon="sell"
                       title={
@@ -370,6 +372,11 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                         task={t}
                         limit={t.dealLimit || 10}
                         seed={linkTargets.deals}
+                        // A getter, not the element: the ref callback
+                        // below populates the map during the same commit
+                        // that mounts this child, so reading it here would
+                        // hand over undefined.
+                        getAnchor={() => anchors.current[t.id]}
                         onApply={(patch) =>
                           patchItem((it) => it.id === t.id, patch)}
                         onClose={() => setDealsFor(null)}

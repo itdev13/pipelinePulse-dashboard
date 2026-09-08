@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import RemotePicker from './RemotePicker'
 import { searchDeals, dealOption } from '../../hooks/useLinkTargets'
 import { tasksAPI } from '../../api/tasks'
@@ -31,6 +32,22 @@ import { tasksAPI } from '../../api/tasks'
 // reconcile.
 export default function TaskDealsPopover({
   task, limit = 10, onApply, onClose,
+  // The ELEMENT to position against — the icon that opened this. Required:
+  // the popover renders in a PORTAL (see below), so it has no ancestor to
+  // anchor to and must be told where to sit.
+  //
+  // A GETTER returning the element, not the element itself.
+  //
+  // A caller with one row per task cannot call useRef per row, so it keeps a
+  // map keyed by id. That map is populated by ref callbacks during the SAME
+  // commit that mounts this child, so the element read during the parent's
+  // render — `map[id]` — is still undefined in the props we first receive.
+  // Passing it directly meant `pos` never resolved and the popover rendered
+  // nothing, with no later render to correct it.
+  //
+  // A getter defers the read to our layout effect, which runs after the
+  // commit, when the map is populated.
+  getAnchor,
   // The deals the page already has loaded, so opening this costs no request.
   // Typing still searches the server — the seed is a head start, not the
   // whole list.
@@ -40,6 +57,50 @@ export default function TaskDealsPopover({
   const [error, setError] = useState(null)
   const [adding, setAdding] = useState(null) // the picked-but-not-yet-saved deal
   const boxRef = useRef(null)
+  const [pos, setPos] = useState(null)
+
+  // PORTALLED TO THE BODY, not positioned inside the card.
+  //
+  // The list sits in a Panel with `overflow: hidden` — it needs that to clip
+  // its own rounded corners — so an absolutely-positioned child extending
+  // past the card was being CLIPPED, and landed nowhere near the icon that
+  // opened it. No amount of top/right fixes that: the popover has to leave
+  // the clipping ancestor entirely.
+  //
+  // Measured from the anchor's viewport rect, so it tracks the icon whatever
+  // the card's height or the page's scroll position.
+  useLayoutEffect(() => {
+    const place = () => {
+      const el = getAnchor?.()
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      const W = 320
+      const GAP = 6
+      // Right-aligned to the icon, then pulled back inside the window — near
+      // the right edge of a narrow viewport the natural position would run
+      // off-screen.
+      const left = Math.max(8, Math.min(r.right - W, window.innerWidth - W - 8))
+      // Flip above the icon when there is not room below: this list scrolls,
+      // and a task near the bottom would otherwise open a popover the rep
+      // cannot see.
+      const below = window.innerHeight - r.bottom
+      const flip = below < 260 && r.top > below
+      setPos({
+        left,
+        top: flip ? undefined : r.bottom + GAP,
+        bottom: flip ? window.innerHeight - r.top + GAP : undefined
+      })
+    }
+    place()
+    // Reposition rather than close: the rep may scroll the list slightly
+    // while reading it, and closing on any scroll would feel broken.
+    window.addEventListener('scroll', place, true)
+    window.addEventListener('resize', place)
+    return () => {
+      window.removeEventListener('scroll', place, true)
+      window.removeEventListener('resize', place)
+    }
+  }, [getAnchor])
 
   const deals = task.deals || []
   const full = deals.length >= limit
@@ -49,7 +110,15 @@ export default function TaskDealsPopover({
   // should not leave a popover floating over an unrelated row.
   useEffect(() => {
     const onDown = (e) => {
-      if (boxRef.current && !boxRef.current.contains(e.target)) onClose()
+      if (boxRef.current?.contains(e.target)) return
+      // The trigger toggles on its own click. Without this the popover would
+      // close here and reopen from the toggle in the same gesture.
+      if (getAnchor?.()?.contains(e.target)) return
+      // antd renders its dropdown in ANOTHER portal, outside our box —
+      // clicking an option would otherwise dismiss the popover before the
+      // selection was handled, which looks exactly like "nothing happened".
+      if (e.target.closest?.('.ant-select-dropdown')) return
+      onClose()
     }
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('mousedown', onDown)
@@ -58,7 +127,7 @@ export default function TaskDealsPopover({
       document.removeEventListener('mousedown', onDown)
       document.removeEventListener('keydown', onKey)
     }
-  }, [onClose])
+  }, [onClose, getAnchor])
 
   async function run(dealId, fn, nextDeals) {
     setBusy(dealId)
@@ -125,18 +194,21 @@ export default function TaskDealsPopover({
       deals.filter((d) => d.id !== dealId)
     )
 
-  return (
+  // Nothing until the anchor has been measured — one frame, in a layout
+  // effect, so there is no visible jump from an unpositioned first paint.
+  if (!pos) return null
+
+  return createPortal(
     <div
       ref={boxRef}
-      // Above the row's hover state and the sticky list header, below the
-      // dialogs (60+) so an editor opened from here still covers it.
       style={{
-        // Anchored to the CARD (the task row sets position: relative), so this
-        // clears the row whatever its height — a task with a long description
-        // makes the row taller, and an offset measured from the 30px trigger
-        // would then open on top of the row it belongs to.
-        position: 'absolute', top: 'calc(100% + 4px)', right: 'var(--space-4)',
-        zIndex: 40,
+        // `fixed`, in a body portal: viewport coordinates, no clipping
+        // ancestor, no dependence on the card's height.
+        position: 'fixed',
+        left: pos.left, top: pos.top, bottom: pos.bottom,
+        // Above the sticky list header and the row hover states, below the
+        // dialogs (60+) so an editor opened from here still covers it.
+        zIndex: 50,
         width: 320, padding: 'var(--space-3)',
         background: '#fff',
         border: '1px solid var(--border-strong)',
@@ -260,6 +332,7 @@ export default function TaskDealsPopover({
           {error}
         </p>
       )}
-    </div>
+    </div>,
+    document.body
   )
 }
