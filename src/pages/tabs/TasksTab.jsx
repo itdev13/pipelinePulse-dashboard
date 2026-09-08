@@ -37,6 +37,27 @@ const STATUS_FILTERS = [
   ['all', 'All']
 ]
 
+// Adding or removing a task's deals is switched off in the UI.
+//
+// GHL refuses the write outright — not a scope, a platform restriction:
+//
+//   POST /associations/relations
+//     → 400 {"message":"Relations cannot be modified via OAuth channel"}
+//
+// That is restrictOAuthChannel, the same block that stops marketplace apps
+// restoring a deleted note. There is no scope to add and no retry that
+// succeeds, so the control could be operated but never saved.
+//
+// READING is unaffected: the deals a task is linked to still come from the
+// task payload (taskWriter mirrors them into task_relations), so the chip and
+// the +N count stay accurate. Only changing them from here is gone — it has
+// to be done in the CRM.
+//
+// Everything behind this is intact: the popover component, the routes, the
+// association calls, and the webhook handlers. Flip to true if GHL opens the
+// endpoint to OAuth apps.
+const TASK_DEAL_EDITING = false
+
 export default function TasksTab({ onOpenDeal, onOpenContact }) {
   // Remembered across tab switches — see useTabState. Clicking a task through
   // to its deal and coming back used to reset this to 'all'.
@@ -350,6 +371,7 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                       +{dealCount - 1}
                     </span>
                   )}
+                  {TASK_DEAL_EDITING && (
                   <span
                     ref={(el) => {
                       if (el) anchors.current[t.id] = el
@@ -383,6 +405,7 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                       />
                     )}
                   </span>
+                  )}
                   <RowAction
                     icon="edit"
                     title="Edit this task"
