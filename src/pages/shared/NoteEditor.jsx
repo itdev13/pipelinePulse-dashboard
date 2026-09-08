@@ -512,10 +512,17 @@ export default function NoteEditor({
             </span>
           </label>
 
+          {/* The deal half of this promise depends on the note relations
+              endpoint, which needs `notes.write` — the scope the app does not
+              yet hold. Create calls setNoteRelations exactly as an edit does,
+              so today the link silently fails and the note appears only on the
+              contact. Reinstated automatically with NOTE_RELATION_EDITING. */}
           {!editing && (
             <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-              Notes are stored against the contact, so it appears on their record
-              and on any deal they're linked to.
+              {NOTE_RELATION_EDITING
+                ? 'Notes are stored against the contact, so it appears on their '
+                  + "record and on any deal they're linked to."
+                : 'Notes are stored against the contact, so it appears on their record.'}
             </p>
           )}
 

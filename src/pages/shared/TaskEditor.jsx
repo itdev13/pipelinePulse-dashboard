@@ -28,6 +28,38 @@ import {
 //   • A rejected field comes back named, so the error lands on the input that
 //     caused it instead of in a banner that doesn't say which box is wrong.
 
+// A task's deal and company links are switched off in the UI.
+//
+// GHL refuses these writes outright — a platform restriction, not a scope.
+// Confirmed in their tasks.service.ts:
+//
+//   const isOAuthChannel = request.channel === Channel.OAUTH
+//   if (isOAuthChannel && 'relations' in body) {
+//     throw new BadRequestException('Relations cannot be modified via OAuth channel')
+//   }
+//
+// The check lives in the task service, so every route in is closed: the
+// associations API (it calls tasksService.update internally), its bulk
+// variant, PUT /locations/:id/tasks/:id with relations, and create-with-
+// relations. No scope, version or retry changes it.
+//
+// Hidden on CREATE as well as edit, unlike the note editor's pickers. A new
+// task's links go through the same blocked call, so the picker would collect
+// a choice that is silently dropped — the task is still created and the
+// server returns `relationError`, but a control that never works is worse
+// than no control.
+//
+// WHAT STILL WORKS: the CONTACT link, which is a plain field rather than a
+// relation — PUT /locations/:locationId/tasks/:taskId { contactId }. That is
+// unaffected and stays.
+//
+// READING is unaffected too: the deals a task is linked to still come from
+// the task payload, so the chips and counts elsewhere stay accurate.
+//
+// Everything behind this is intact — routes, association calls, webhook
+// handlers. Flip to true if GHL opens task relations to OAuth apps.
+const TASK_RELATION_EDITING = false
+
 export default function TaskEditor({
   // Editing an existing task: pass it. Creating: leave null.
   task = null,
@@ -136,8 +168,13 @@ export default function TaskEditor({
   // through their own endpoint in save() below — which handled them already,
   // while this check ignored them, so Save sat disabled on "No changes yet"
   // for a deal or company edit with no way to save it.
-  const oppChanged = editing && (opportunityId || null) !== (task.opportunityId || null)
-  const bizChanged = editing && (businessId || null) !== (task.businessId || null)
+  // Gated too: with the pickers hidden these can still differ (a caller may
+  // pass defaultOpportunityId), which would enable Save with nothing on
+  // screen to explain it and then fire a write GHL always refuses.
+  const oppChanged = editing && TASK_RELATION_EDITING
+    && (opportunityId || null) !== (task.opportunityId || null)
+  const bizChanged = editing && TASK_RELATION_EDITING
+    && (businessId || null) !== (task.businessId || null)
   const relationsChanged = oppChanged || bizChanged
 
   const dirty = editing
@@ -191,8 +228,11 @@ export default function TaskEditor({
           title: title.trim(),
           body: body.trim() || undefined,
           dueDate: dueDate.toISOString(),
-          opportunityId: opportunityId || undefined,
-          businessId: businessId || undefined
+          // Only when the pickers are live. Sending these anyway would make
+          // the server attempt a relation call GHL always rejects, turning a
+          // clean create into one that reports relationError every time.
+          opportunityId: TASK_RELATION_EDITING ? (opportunityId || undefined) : undefined,
+          businessId: TASK_RELATION_EDITING ? (businessId || undefined) : undefined
         })
         // The task saved but its link did not — report without discarding it.
         if (res?.relationError) {
@@ -374,7 +414,7 @@ export default function TaskEditor({
             {/* Server-searched, like the note editor's — the seed list was
                 capped at 200, so anything beyond that was unreachable through
                 a client-side filter. */}
-            {showDealLink && (
+            {showDealLink && TASK_RELATION_EDITING && (
               <Field label="Deal" error={errorField === 'opportunityId' ? error : null}>
                 <RemotePicker
                   value={opportunityId}
@@ -390,7 +430,7 @@ export default function TaskEditor({
               </Field>
             )}
 
-            {showCompanyLink && (
+            {showCompanyLink && TASK_RELATION_EDITING && (
               <Field label="Company" error={errorField === 'businessId' ? error : null}>
                 <RemotePicker
                   value={businessId}
@@ -408,11 +448,20 @@ export default function TaskEditor({
           </div>
 
           {/* A task belongs to a contact, and that's worth saying once rather
-              than leaving the rep to wonder why a deal isn't enough. */}
+              than leaving the rep to wonder why a deal isn't enough.
+
+              The old wording promised it would "appear on any deal they're
+              linked to". With deal links unavailable (see
+              TASK_RELATION_EDITING) that is no longer true, and a hint that
+              overpromises is worse than none — the rep would look for the
+              task on a deal and conclude the app had lost it. */}
           {!editing && (
             <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-              Tasks are stored against the contact, so it appears on their record
-              and on any deal they're linked to.
+              {TASK_RELATION_EDITING
+                ? 'Tasks are stored against the contact, so it appears on their '
+                  + "record and on any deal they're linked to."
+                : 'Tasks are stored against the contact, so it appears on their '
+                  + 'record. Linking a task to a deal has to be done in your CRM.'}
             </p>
           )}
 
