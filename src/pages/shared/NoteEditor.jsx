@@ -60,7 +60,16 @@ import { NOTE_COLOURS } from '../../utils/noteColour'
 // attaches it on create, and a failure there returns 201 with `relationError`
 // so the note itself survives. That path is worth keeping even while it may
 // fail — losing it would mean deal-hub notes stopped being filed at all.
-const NOTE_RELATION_EDITING = false
+// Back ON — the DEAL is saved LOCALLY.
+//
+// GHL's note relations endpoint needs the `notes.write` scope this app does
+// not hold, so the deal link lives in our database and is set through
+// PUT /api/notes/:id/local-links. If that scope is granted later, switch back
+// to the real endpoint and this flag can go.
+//
+// The COMPANY is unaffected and still saves upstream — see
+// NOTE_COMPANY_EDITING below.
+const NOTE_RELATION_EDITING = true
 
 // The COMPANY link is a separate case and stays available.
 //
@@ -189,11 +198,9 @@ export default function NoteEditor({
   // explain why, then fire a write that 401s.
   const oppChanged = editing && NOTE_RELATION_EDITING
     && (opportunityId || null) !== (note.opportunityId || null)
-  // The company does NOT go through the relations endpoint — it is a plain
-  // field on the note patch (see NOTE_COMPANY_EDITING), so it is folded into
-  // `changes` below and saves in the same request as the body and title.
-  const bizChanged = editing && NOTE_COMPANY_EDITING
-    && (businessId || null) !== (note.businessId || null)
+  // No bizChanged here. The company is a plain field on the note patch (see
+  // NOTE_COMPANY_EDITING) and `changes` already detects it, so a second
+  // comparison would be dead weight that lint correctly flagged.
   const relationsChanged = oppChanged
 
   const dirty = editing
@@ -238,16 +245,13 @@ export default function NoteEditor({
           // Detach first, then attach. Skipping the detach would leave the old
           // company attached (its cap is 1000, so it appends) — only the deal
           // link replaces itself.
-          // Deal only. The company travels in `changes` above — sending it
-          // here as well would make a second call to the endpoint that needs
-          // notes.write, failing a save that had already succeeded.
-          const gone = {}
-          if (oppChanged && note.opportunityId) gone.opportunityId = note.opportunityId
-          if (Object.keys(gone).length) await notesAPI.removeRelations(note.id, gone)
-
-          const added = {}
-          if (oppChanged && opportunityId) added.opportunityId = opportunityId
-          if (Object.keys(added).length) await notesAPI.setRelations(note.id, added)
+          // Deal only, and through the LOCAL route — the GHL relations
+          // endpoint 401s without notes.write. The company is not here: it
+          // travels in `changes` above as a plain field on the note patch,
+          // which does reach GHL.
+          await notesAPI.setLocalLinks(note.id, {
+            opportunityId: opportunityId || null
+          })
         }
       } else {
         res = await notesAPI.create({

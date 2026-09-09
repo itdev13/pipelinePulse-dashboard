@@ -6,6 +6,7 @@ import {
   Panel, StateMessage, SkeletonStyles, Bar, formatDate, initialsFor, nameFor
 } from '../shared/ListChrome'
 import TagSelect from '../shared/TagSelect'
+import { htmlToText } from '../../utils/sanitiseHtml'
 
 // Contact record — everything about one person, in four panels:
 //
@@ -114,7 +115,8 @@ export default function ContactDetail({ contactId, onBack, onOpenDeal }) {
       />
       <Deals deals={contact.deals} onOpenDeal={onOpenDeal} />
       <AllMessages
-        messages={contact.messages}
+        contactId={contactId}
+        deals={contact.deals || []}
         onOpenDeal={onOpenDeal}
       />
     </Shell>
@@ -983,9 +985,69 @@ function Deals({ deals = [], onOpenDeal }) {
 
 // ── All messages ──────────────────────────────────────────────────────
 
-function AllMessages({ messages = [], onOpenDeal }) {
-  const filed = messages.filter((m) => m.dealId).length
-  const unassigned = messages.length - filed
+// Every message for this contact, whatever deal it is filed against.
+//
+// This is the view James asked for on 8 Sep: the deal timeline shows what
+// belongs to a deal, and this shows EVERYTHING so a manager can find the
+// messages that were never attributed and file them by hand.
+//
+// Cards match the deal timeline's on purpose. A rep moving between the two
+// should not have to re-learn how a message reads.
+//
+// Fetched here rather than with the contact: the list can be long, and a rep
+// who never opens this panel should not pay for it on every contact load.
+function AllMessages({ contactId, deals = [], onOpenDeal }) {
+  const [messages, setMessages] = React.useState(null)
+  const [error, setError] = React.useState(null)
+  const [unlinkedOnly, setUnlinkedOnly] = React.useState(false)
+  const [picked, setPicked] = React.useState(() => new Set())
+  const [saving, setSaving] = React.useState(false)
+  const [saveError, setSaveError] = React.useState(null)
+  const [target, setTarget] = React.useState('')
+
+  const load = React.useCallback(() => {
+    let alive = true
+    setError(null)
+    contactsAPI.messages(contactId, { unlinkedOnly })
+      .then((r) => { if (alive) setMessages(r.messages || []) })
+      .catch((e) => {
+        if (alive) setError(e?.response?.data?.error || 'Could not load the messages')
+      })
+    return () => { alive = false }
+  }, [contactId, unlinkedOnly])
+
+  React.useEffect(load, [load])
+
+  const rows = messages || []
+  const unlinked = rows.filter((m) => !m.deal).length
+
+  const toggle = (id) => setPicked((prev) => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
+
+  async function assign() {
+    if (picked.size === 0) return
+    setSaving(true)
+    setSaveError(null)
+    try {
+      const r = await contactsAPI.setMessagesMapping(
+        contactId, [...picked], target || null
+      )
+      // `rejected` names ids the server would not move — reported rather than
+      // swallowed, or "12 moved" out of 20 looks like a silent failure.
+      if (r?.rejected?.length) {
+        setSaveError(`${r.rejected.length} could not be moved — they are not on this contact`)
+      }
+      setPicked(new Set())
+      load()
+    } catch (e) {
+      setSaveError(e?.response?.data?.error || e?.message || 'That did not save')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <Panel
@@ -993,111 +1055,252 @@ function AllMessages({ messages = [], onOpenDeal }) {
       title="All messages"
       accent="gold"
       meta={
-        messages.length === 0
-          ? '0'
-          : `${messages.length} total${unassigned > 0 ? ` · ${unassigned} unassigned` : ''}`
+        messages === null ? '—'
+          : `${rows.length}${unlinked > 0 ? ` · ${unlinked} unfiled` : ''}`
       }
     >
-      <p
-        style={{
-          margin: 0, padding: '10px var(--space-4)',
-          borderTop: '1px solid var(--border-default)',
-          borderBottom: '1px solid var(--border-default)',
-          background: 'var(--gray-50)',
-          fontSize: 'var(--text-base)', lineHeight: 1.5, color: 'var(--text-body)'
-        }}
-      >
-        Every message is filed to one deal at most. Seeing them together is how
-        a wrongly-filed message shows up — it's the one whose deal looks wrong
-        beside what it says.
+      <p style={{
+        margin: 0, padding: '10px var(--space-4)',
+        borderTop: '1px solid var(--border-default)',
+        background: 'var(--gray-50)',
+        fontSize: 'var(--text-base)', lineHeight: 1.5, color: 'var(--text-body)'
+      }}>
+        A message is filed against one deal at most. Messages sent when no deal
+        was open stay here until someone files them — tick them and pick a deal
+        below.
       </p>
 
-      <StateMessage
-        empty={messages.length === 0}
-        emptyText="No messages synced for this contact yet."
-      />
+      {/* Filter + bulk bar. Sticky so the action stays reachable on a long
+          list rather than scrolling away above the selection it applies to. */}
+      <div style={{
+        position: 'sticky', top: 0, zIndex: 2,
+        display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+        flexWrap: 'wrap',
+        padding: '8px var(--space-4)',
+        borderTop: '1px solid var(--border-default)',
+        borderBottom: '1px solid var(--border-default)',
+        background: '#fff'
+      }}>
+        <label style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          fontSize: 'var(--text-sm)', color: 'var(--text-muted)', cursor: 'pointer'
+        }}>
+          <input
+            type="checkbox"
+            checked={unlinkedOnly}
+            onChange={(e) => { setUnlinkedOnly(e.target.checked); setPicked(new Set()) }}
+            style={{ accentColor: 'var(--brand-primary)' }}
+          />
+          Unfiled only
+        </label>
 
-      {messages.map((m, i) => (
-        <div
-          key={m.id}
-          style={{
-            display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)',
-            padding: 'var(--space-3) var(--space-4)',
-            borderBottom: i === messages.length - 1 ? 'none' : '1px solid var(--border-default)'
-          }}
-        >
-          <span
-            style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 30, height: 30, flex: 'none', marginTop: 1,
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--gray-50)'
-            }}
-          >
-            <span className="ms" style={{ fontSize: 16, color: 'var(--text-muted)' }}>
-              {m.channel === 'email' ? 'mail'
-                : m.channel === 'call' ? 'call'
-                : m.channel === 'note' ? 'sticky_note_2'
-                : 'sms'}
+        <span style={{ flex: 1 }} />
+
+        {picked.size > 0 && (
+          <>
+            <span style={{
+              fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-default)'
+            }}>
+              {picked.size} selected
             </span>
-          </span>
-
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-              <span
-                style={{
-                  fontSize: 'var(--text-xs)', fontWeight: 700, letterSpacing: 'var(--tracking-label)',
-                  textTransform: 'uppercase', color: 'var(--accent-clay)'
-                }}
-              >
-                {m.channel}
-              </span>
-              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-                {m.direction === 'in' ? 'In ←' : '→ Out'}
-              </span>
-              <span style={{ fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)' }}>
-                {m.who}
-              </span>
-              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
-                {formatDate(m.at)}
-              </span>
-            </div>
-            <p
+            <select
+              value={target}
+              onChange={(e) => setTarget(e.target.value)}
+              disabled={saving}
               style={{
-                margin: '4px 0 0', maxWidth: 640,
-                fontSize: 'var(--text-md)', lineHeight: 1.5, color: 'var(--text-body)'
+                padding: '5px 8px', fontSize: 'var(--text-sm)',
+                border: '1px solid var(--border-strong)',
+                borderRadius: 'var(--radius-md)', background: '#fff'
               }}
             >
-              {m.body || <span style={{ color: 'var(--text-faint)' }}>(no readable text)</span>}
-            </p>
-          </div>
-
-          {/* Which deal it's filed to. Unassigned is stated, not hidden —
-              an unfiled message is exactly what someone needs to notice. */}
-          <button
-            onClick={() => m.dealId && onOpenDeal && onOpenDeal(m.dealId)}
-            title={m.dealId ? 'Open this deal' : 'Not filed to any deal'}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5, flex: 'none',
-              maxWidth: 190,
-              height: 28, padding: '0 11px',
-              border: `1px solid ${m.dealId ? 'var(--green-300)' : 'var(--border-strong)'}`,
-              borderRadius: 'var(--radius-pill)',
-              background: m.dealId ? 'var(--tint-pine)' : 'var(--gray-50)',
-              color: m.dealId ? 'var(--green-600)' : 'var(--text-muted)',
-              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', fontWeight: 500,
-              cursor: m.dealId ? 'pointer' : 'default'
-            }}
-          >
-            <span className="ms" style={{ fontSize: 13 }}>sell</span>
-            <span
-              style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              <option value="">Unlink from every deal</option>
+              {deals.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}{d.status && d.status !== 'open' ? ` (${d.status})` : ''}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={assign}
+              disabled={saving}
+              style={{
+                padding: '5px 12px', fontSize: 'var(--text-sm)', fontWeight: 600,
+                border: 'none', borderRadius: 'var(--radius-md)',
+                background: 'var(--brand-primary)', color: '#fff',
+                cursor: saving ? 'wait' : 'pointer'
+              }}
             >
-              {m.dealName || 'Unassigned'}
-            </span>
-          </button>
-        </div>
+              {saving ? 'Filing…' : 'Apply'}
+            </button>
+          </>
+        )}
+      </div>
+
+      {saveError && (
+        <p role="alert" style={{
+          margin: 0, padding: '8px var(--space-4)',
+          fontSize: 'var(--text-sm)', color: 'var(--status-stuck)',
+          borderBottom: '1px solid var(--border-default)'
+        }}>
+          {saveError}
+        </p>
+      )}
+
+      <StateMessage
+        loading={messages === null && !error}
+        error={error}
+        empty={messages !== null && rows.length === 0}
+        emptyText={unlinkedOnly ? 'Nothing unfiled — every message is on a deal.' : 'No messages synced for this contact yet.'}
+      />
+
+      {rows.map((m, i) => (
+        <ContactMessageCard
+          key={m.id}
+          m={m}
+          last={i === rows.length - 1}
+          selected={picked.has(m.messageId)}
+          onToggle={() => toggle(m.messageId)}
+          onOpenDeal={onOpenDeal}
+        />
       ))}
     </Panel>
+  )
+}
+
+// One message, styled to match the deal timeline's rows.
+//
+// The deal timeline is where a rep spends their day; a contact's messages
+// looking materially different made the same record read as two things.
+function ContactMessageCard({ m, last, selected, onToggle, onOpenDeal }) {
+  const inbound = m.direction === 'inbound'
+  const icon = m.isCall ? 'call'
+    : m.channel === 'Email' ? 'mail'
+      : m.channel === 'SMS' ? 'sms' : 'chat'
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'flex-start', gap: 10,
+      padding: 'var(--space-3) var(--space-4)',
+      borderBottom: last ? 'none' : '1px solid var(--border-default)',
+      background: selected ? 'var(--tint-pine)' : 'transparent'
+    }}>
+      <input
+        type="checkbox"
+        checked={selected}
+        onChange={onToggle}
+        aria-label={`Select this ${m.channel || 'message'}`}
+        style={{
+          marginTop: 3, width: 16, height: 16, flex: 'none',
+          accentColor: 'var(--brand-primary)', cursor: 'pointer'
+        }}
+      />
+
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 30, height: 30, flex: 'none', marginTop: 1,
+        borderRadius: 'var(--radius-md)', background: 'var(--gray-50)'
+      }}>
+        <span className="ms" style={{ fontSize: 16, color: 'var(--text-muted)' }}>{icon}</span>
+      </span>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{
+            fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)'
+          }}>
+            {m.senderName || (inbound ? 'Customer' : 'Us')}
+          </span>
+          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+            {m.channel}
+          </span>
+        </div>
+
+        {m.subject && (
+          <div style={{
+            marginTop: 3, fontSize: 'var(--text-md)', fontWeight: 600,
+            color: 'var(--text-default)',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+          }}>
+            {m.subject}
+          </div>
+        )}
+
+        <p style={{
+          margin: '3px 0 0', maxWidth: 640,
+          fontSize: 'var(--text-md)', lineHeight: 1.5, color: 'var(--text-body)'
+        }}>
+          {htmlToText(m.body || '').slice(0, 240)
+            || <span style={{ color: 'var(--text-faint)' }}>(no readable text)</span>}
+        </p>
+      </div>
+
+      <span style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4,
+        flex: 'none'
+      }}>
+        <span style={{
+          display: 'inline-flex', alignItems: 'baseline', gap: 6, whiteSpace: 'nowrap'
+        }}>
+          <span style={{
+            fontSize: 'var(--text-xs)', fontWeight: 600,
+            letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase',
+            color: inbound ? 'var(--accent-pine-text)' : 'var(--text-faint)'
+          }}>
+            {inbound ? 'Inbound' : 'Outbound'}
+          </span>
+          <span style={{
+            fontSize: 'var(--text-sm)', color: 'var(--text-faint)',
+            fontVariantNumeric: 'tabular-nums'
+          }}>
+            {formatDate(m.ts)}
+          </span>
+        </span>
+
+        {/* Which deal it is filed against. "Not filed" is stated rather than
+            left blank — an empty space reads as a rendering gap, and this is
+            the state the panel exists to surface. */}
+        {m.deal ? (
+          <button
+            type="button"
+            onClick={() => onOpenDeal && onOpenDeal(m.deal.id)}
+            title={
+              m.mappedManually
+                ? `Filed here by hand${m.mappedBy && m.mappedBy !== 'system' ? ` (${m.mappedBy})` : ''}`
+                : 'Filed here automatically by the linking rule'
+            }
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              maxWidth: 220, padding: '2px 8px',
+              border: '1px solid var(--border-default)', borderRadius: 999,
+              background: m.mappedManually ? 'var(--tint-pine)' : 'transparent',
+              color: m.mappedManually ? 'var(--accent-pine-text)' : 'var(--text-muted)',
+              fontSize: 11, fontWeight: 600, cursor: 'pointer'
+            }}
+          >
+            {/* Same icons as the deal timeline's pill — a person for a
+                human decision, the automation mark for the rule — so the
+                two views read identically. */}
+            <span className="ms" style={{ fontSize: 13 }}>
+              {m.mappedManually ? 'person' : 'bolt'}
+            </span>
+            <span style={{
+              minWidth: 0, overflow: 'hidden',
+              textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+            }}>
+              {m.deal.name}
+            </span>
+          </button>
+        ) : (
+          <span style={{
+            padding: '2px 8px', borderRadius: 999,
+            border: '1px dashed var(--border-strong)',
+            fontSize: 11, fontWeight: 600, color: 'var(--text-faint)'
+          }}>
+            Not filed
+          </span>
+        )}
+      </span>
+    </div>
   )
 }

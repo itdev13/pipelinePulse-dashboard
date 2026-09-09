@@ -42,5 +42,13 @@ export const tasksAPI = {
   setCompleted: (id, completed) =>
     apiClient.put(`/api/tasks/${enc(id)}/completed`, { completed }),
 
+  // Deal / company links, IN OUR DATABASE ONLY.
+  //
+  // GHL blocks task relation writes on the OAuth channel entirely, so there is
+  // no upstream call to make — see the server route for the detail. Our copy
+  // is authoritative until GHL sends a task payload that says otherwise.
+  setLocalLinks: (id, { opportunityId, businessId } = {}) =>
+    apiClient.put(`/api/tasks/${enc(id)}/local-links`, { opportunityId, businessId }),
+
   remove: (id) => apiClient.delete(`/api/tasks/${enc(id)}`)
 }

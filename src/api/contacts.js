@@ -1,6 +1,20 @@
 import apiClient from './client'
 
 export const contactsAPI = {
+  // Every message for this contact, with the deal each is filed against.
+  // unlinkedOnly narrows it to the ones that need a decision.
+  messages: (id, { unlinkedOnly = false, limit } = {}) =>
+    apiClient.get(`/api/contacts/${encodeURIComponent(id)}/messages`, {
+      params: { unlinkedOnly: unlinkedOnly || undefined, limit }
+    }),
+
+  // Bulk-assign messages to a deal (null to unlink). Local only, and each is
+  // recorded as a manual decision.
+  setMessagesMapping: (id, messageIds, opportunityId) =>
+    apiClient.put(`/api/contacts/${encodeURIComponent(id)}/messages/mapping`, {
+      messageIds, opportunityId
+    }),
+
 
   // Upload files to a FILE_UPLOAD custom field.
   //

@@ -4,6 +4,7 @@ import { htmlToText } from '../../utils/sanitiseHtml'
 import AttachmentChip, { accentVar } from './AttachmentChip'
 import AttachmentViewer from './AttachmentViewer'
 import EmailThreadModal from './EmailThreadModal'
+import MessageDealPill from './MessageDealPill'
 import { noteColourStyle } from '../../utils/noteColour'
 
 // One deal's merged message timeline.
@@ -429,7 +430,12 @@ function channelLabelOf(m) {
   return CH_LABEL[m.channel] || m.channel
 }
 
-function MessageRow({ m, highlighted, onOpenAttachment, selected, onToggleSelect, thread, onOpenThread }) {
+function MessageRow({
+  m, highlighted, onOpenAttachment, selected, onToggleSelect, thread, onOpenThread,
+  // Attribution: which deal we are on, the other deals this contact has, and
+  // what to do once a message has been moved.
+  dealId, dealTargets, onMessageMoved
+}) {
   const channelCol = accentVar(m.channelAccent)
   const senderCol = accentVar(m.senderAccent)
   const inbound = m.direction === 'inbound'
@@ -603,6 +609,16 @@ function MessageRow({ m, highlighted, onOpenAttachment, selected, onToggleSelect
         )}
         <RowTime ts={m.ts} inline />
       </span>
+      {/* Which deal this message is filed against, and the control to change
+          it. Only on real messages — an event row has no attribution. */}
+      {dealId && m.messageId && (
+        <MessageDealPill
+          message={m}
+          dealId={dealId}
+          targets={dealTargets}
+          onMoved={onMessageMoved}
+        />
+      )}
     </Row>
   )
 }
@@ -778,6 +794,11 @@ export default function Timeline({
   totalCount = null,
   filtersActive = false,
   onClearFilters = null,
+  // Attribution controls. Absent (e.g. on a contact record) the pill is not
+  // rendered — there is no deal in scope to move a message off.
+  dealId = null,
+  dealTargets = [],
+  onMessageMoved = null,
 }) {
   // The header counts each kind separately — tasks and notes now share the
   // stream, and folding them into "23 messages" would overstate the thread.
@@ -978,6 +999,9 @@ export default function Timeline({
                 <MessageRow
                   m={m}
                   highlighted={highlightedId === m.id}
+                  dealId={dealId}
+                  dealTargets={dealTargets}
+                  onMessageMoved={onMessageMoved}
                   onOpenAttachment={openAttachment}
                   // undefined for anything that isn't a multi-message email
                   // thread, which is what suppresses the affordance.

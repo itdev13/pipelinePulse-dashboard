@@ -465,6 +465,20 @@ export default function DealHubTab({
   //
   // Both are checked rather than making every caller agree, because a
   // mismatch here has no symptom to debug — nothing throws and nothing logs.
+  // A message was filed against a different deal (or unlinked).
+  //
+  // Removed from THIS timeline immediately rather than refetched: the move
+  // already succeeded server-side, and a refetch would redraw the whole list
+  // and lose the reader's scroll position for a change they just made.
+  const handleMessageMoved = (moved) => {
+    setMessages((prev) =>
+      (prev || []).filter((m) => m.messageId !== moved.messageId)
+    )
+    // No toast: this tab has no toast surface, and the row vanishing from the
+    // timeline is itself the confirmation. Adding one just for this would mean
+    // a notification system for a single message.
+  }
+
   const jumpToMessage = (anyMessageId) => {
     if (!anyMessageId || !messages) return
     const row = messages.find(
@@ -1211,6 +1225,11 @@ export default function DealHubTab({
             >
               <Timeline
                 messages={filtered}
+                dealId={dealId}
+                // Every deal on this contact, including won/lost — a manager
+                // may deliberately file a message against a closed deal.
+                dealTargets={siblingDeals}
+                onMessageMoved={handleMessageMoved}
                 highlightedId={highlightedId}
                 onToggleSelect={toggleIncluded}
                 onSelectAll={setAllIncluded}

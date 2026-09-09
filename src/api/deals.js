@@ -24,6 +24,18 @@ export const dealsAPI = {
   reassignmentTargets: (id) =>
     apiClient.get(`/api/deals/${encodeURIComponent(id)}/reassignment-targets`),
 
+  // Move one message to a different deal. LOCAL ONLY — the CRM has no concept
+  // of which deal a message belongs to, so this changes our attribution and
+  // nothing upstream. Recorded as a manual decision, which the attribution
+  // engine never overwrites.
+  //
+  // opportunityId null unlinks the message from every deal.
+  setMessageMapping: (dealId, messageId, opportunityId) =>
+    apiClient.put(
+      `/api/deals/${encodeURIComponent(dealId)}/messages/${encodeURIComponent(messageId)}/mapping`,
+      { opportunityId }
+    ),
+
   // Writes go to GoHighLevel — see the server's ghlOpportunityWrite.js. They
   // need the opportunities.write scope, separate from the readonly the sync
   // uses.

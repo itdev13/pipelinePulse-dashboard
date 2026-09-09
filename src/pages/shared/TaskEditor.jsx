@@ -58,7 +58,17 @@ import {
 //
 // Everything behind this is intact — routes, association calls, webhook
 // handlers. Flip to true if GHL opens task relations to OAuth apps.
-const TASK_RELATION_EDITING = false
+// Back ON — but saved LOCALLY, not to GHL.
+//
+// GHL blocks task relation writes on the OAuth channel (their
+// tasks.service.ts rejects any task write carrying `relations`), so these
+// links live in our database and are set through PUT /api/tasks/:id/local-links.
+// The rep gets the control; the CRM simply does not learn about it.
+//
+// A GHL task payload that DOES carry relations still wins — taskWriter mirrors
+// those on every TaskCreate. So upstream stays authoritative whenever it says
+// anything, and we only fill the silence.
+const TASK_RELATION_EDITING = true
 
 export default function TaskEditor({
   // Editing an existing task: pass it. Creating: leave null.
@@ -208,19 +218,14 @@ export default function TaskEditor({
           : { task }
         // oppChanged/bizChanged come from above, so the dirty check and the
         // save cannot disagree about what changed.
+        //
+        // LOCAL endpoint, not the GHL relations one: that path 400s with
+        // "Relations cannot be modified via OAuth channel" for every task.
         if (relationsChanged) {
-          // Detach the old link BEFORE attaching the new one. Task caps are 10,
-          // so without this the task would end up linked to both deals — the
-          // silent-replace behaviour that notes get does not apply here.
-          const gone = {}
-          if (oppChanged && task.opportunityId) gone.opportunityId = task.opportunityId
-          if (bizChanged && task.businessId) gone.businessId = task.businessId
-          if (Object.keys(gone).length) await tasksAPI.removeRelations(task.id, gone)
-
-          const added = {}
-          if (oppChanged && opportunityId) added.opportunityId = opportunityId
-          if (bizChanged && businessId) added.businessId = businessId
-          if (Object.keys(added).length) await tasksAPI.setRelations(task.id, added)
+          await tasksAPI.setLocalLinks(task.id, {
+            ...(oppChanged ? { opportunityId: opportunityId || null } : {}),
+            ...(bizChanged ? { businessId: businessId || null } : {})
+          })
         }
       } else {
         res = await tasksAPI.create({
@@ -228,12 +233,26 @@ export default function TaskEditor({
           title: title.trim(),
           body: body.trim() || undefined,
           dueDate: dueDate.toISOString(),
-          // Only when the pickers are live. Sending these anyway would make
-          // the server attempt a relation call GHL always rejects, turning a
-          // clean create into one that reports relationError every time.
-          opportunityId: TASK_RELATION_EDITING ? (opportunityId || undefined) : undefined,
-          businessId: TASK_RELATION_EDITING ? (businessId || undefined) : undefined
+          // NOT sent on create: the server would forward them to GHL's
+          // relations endpoint, which rejects every task relation write. The
+          // links are applied locally straight after instead.
         })
+        // The task exists now, so its links can be set in our database. A
+        // failure here must not read as "the task was not created" — it was.
+        if (res?.task?.id && (opportunityId || businessId)) {
+          try {
+            await tasksAPI.setLocalLinks(res.task.id, {
+              opportunityId: opportunityId || null,
+              businessId: businessId || null
+            })
+          } catch (linkErr) {
+            setError(
+              `Task created, but its links did not save: ${linkErr?.response?.data?.error || linkErr.message}`
+            )
+            setSaving(false)
+            return
+          }
+        }
         // The task saved but its link did not — report without discarding it.
         if (res?.relationError) {
           setError(`Task saved, but couldn't link it: ${res.relationError}`)
