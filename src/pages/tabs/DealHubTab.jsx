@@ -429,17 +429,6 @@ export default function DealHubTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dealId])
 
-  const jumpToMessage = (ghlMessageId) => {
-    if (!ghlMessageId || !messages) return
-    const row = messages.find((m) => m.messageId === ghlMessageId)
-    if (!row) return
-    setHighlightedId(row.id)
-    const el = document.getElementById(`tl-${row.id}`)
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    // Clear the highlight so a later jump to the same message re-triggers it.
-    window.setTimeout(() => setHighlightedId((cur) => (cur === row.id ? null : cur)), 2600)
-  }
-
   const filtered = useMemo(() => {
     if (!messages) return []
     return messages.filter((m) => {
@@ -461,6 +450,60 @@ export default function DealHubTab({
       return true
     })
   }, [messages, channelFilter, peopleFilter])
+
+  // Accepts EITHER id.
+  //
+  // A timeline row carries two: `id` (our primary key, which the DOM anchor
+  // `tl-${id}` is built from) and `messageId` (GHL's id). Callers pass
+  // whichever they hold, and matching on only one made the rest fail
+  // silently — the lookup missed, the function returned, and the button
+  // looked broken:
+  //
+  //   MediaSection  → m.id        (was missed)
+  //   AskDeal cites → c.messageId (matched)
+  //   AskDeal search→ m.id        (was missed)
+  //
+  // Both are checked rather than making every caller agree, because a
+  // mismatch here has no symptom to debug — nothing throws and nothing logs.
+  const jumpToMessage = (anyMessageId) => {
+    if (!anyMessageId || !messages) return
+    const row = messages.find(
+      (m) => m.id === anyMessageId || m.messageId === anyMessageId
+    )
+    if (!row) {
+      // The message exists but is filtered out of the current view, or it is
+      // not on this deal. Silence here is what made this look broken, so say
+      // so — the caller can decide whether to clear filters.
+      // eslint-disable-next-line no-console
+      console.warn('[timeline] no row for message', anyMessageId)
+      return
+    }
+    setHighlightedId(row.id)
+
+    // The timeline renders `filtered`, not every message — so a row excluded
+    // by an active channel or people filter HAS no anchor in the DOM, and
+    // scrolling to it is impossible however correct the lookup was. Clearing
+    // the filters is what the rep wants: they asked to see this message.
+    const visible = filtered.some((m) => m.id === row.id)
+    if (!visible) {
+      setChannelFilter([])
+      setPeopleFilter([])
+    }
+
+    // Two frames, not one. The dialog unmounts in this same click and, when
+    // the filters were just cleared, the timeline re-renders with more rows —
+    // scrolling before either commits lands in the wrong place or finds
+    // nothing at all.
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const el = document.getElementById(`tl-${row.id}`)
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      })
+    })
+    // Clear the highlight so a later jump to the same message re-triggers it.
+    window.setTimeout(() => setHighlightedId((cur) => (cur === row.id ? null : cur)), 2600)
+  }
+
 
   // Channels that ACTUALLY appear on this deal. Derived from the fetched
   // messages so a Rear-Elevation-with-only-emails doesn't show a WhatsApp
