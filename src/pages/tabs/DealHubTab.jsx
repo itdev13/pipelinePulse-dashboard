@@ -84,6 +84,7 @@ export default function DealHubTab({
   // has always returned both — the switcher just never read them, so it
   // showed the first page and implied that was everything.
   const [dealsTotal, setDealsTotal] = useState(null)
+  const [dealsOpen, setDealsOpen] = useState(null)
   const [dealsCursor, setDealsCursor] = useState(null)
   const [loadingMoreDeals, setLoadingMoreDeals] = useState(false)
   const [dealsError, setDealsError] = useState(null)
@@ -174,11 +175,19 @@ export default function DealHubTab({
     // 100 is the server's MAX_LIMIT — asking for 200 silently got 100 back,
     // which then read as "that is all of them". Ask for what we can have and
     // page for the rest.
-    dealsAPI.list({ status: 'open', limit: 100 })
+    // EVERY status, not just open.
+    //
+    // The switcher listed open deals only, so a rep who wanted a won deal had
+    // to know to type its name — the list itself never offered it, and the
+    // search finding deals the list did not show read as a bug. The header
+    // now says how many of the total are open, so nothing is hidden and the
+    // useful subset is still called out.
+    dealsAPI.list({ status: 'all', limit: 100 })
       .then((res) => {
         if (!alive) return
         setDeals(res.deals || [])
         setDealsTotal(res.totalCount ?? null)
+        setDealsOpen(res.openCount ?? null)
         setDealsCursor(res.hasMore ? res.nextCursor : null)
         // Auto-select the first open deal if none is selected yet.
         if (!dealId && res.deals && res.deals.length > 0) {
@@ -499,10 +508,13 @@ export default function DealHubTab({
     if (!dealsCursor || loadingMoreDeals) return
     setLoadingMoreDeals(true)
     try {
-      const res = await dealsAPI.list({ status: 'open', limit: 100, cursor: dealsCursor })
+      // Same status as the first page — a different one here would page a
+      // different result set and interleave two queries.
+      const res = await dealsAPI.list({ status: 'all', limit: 100, cursor: dealsCursor })
       setDeals((prev) => [...(prev || []), ...(res.deals || [])])
       setDealsCursor(res.hasMore ? res.nextCursor : null)
       if (res.totalCount != null) setDealsTotal(res.totalCount)
+      if (res.openCount != null) setDealsOpen(res.openCount)
     } catch {
       // Stop paging rather than retry on every scroll tick — a failing
       // cursor would otherwise fire a request per wheel event.
@@ -798,11 +810,23 @@ export default function DealHubTab({
                     ? (switcherBusy
                         ? 'Searching…'
                         : `${visible.length} ${visible.length === 1 ? 'deal' : 'deals'} found`)
-                    : dealsTotal != null && dealsTotal > visible.length
-                      // "showing 100 of 340" — the page is not the total, and
-                      // conflating them made a paged list look complete.
-                      ? `Open deals (${visible.length} of ${dealsTotal})`
-                      : `Open deals (${dealsTotal ?? visible.length})`}
+                    // "Deals (12) · Open (4)".
+                    //
+                    // Two numbers because the list now spans every status:
+                    // the total says how much is here, the open count says
+                    // how much is live. While paging it also says how far
+                    // through we are — "(100 of 340)" — since a page is not
+                    // the total and conflating them made a paged list look
+                    // complete.
+                    : (() => {
+                        const total = dealsTotal ?? visible.length
+                        const shown = dealsTotal != null && dealsTotal > visible.length
+                          ? `${visible.length} of ${total}`
+                          : `${total}`
+                        return dealsOpen != null
+                          ? `Deals (${shown}) · Open (${dealsOpen})`
+                          : `Deals (${shown})`
+                      })()}
                 </div>
                 {visible.length === 0 && q && !switcherBusy && (
                   <div style={{ padding: '10px var(--space-2)', fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
