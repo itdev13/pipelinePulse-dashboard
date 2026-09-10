@@ -106,17 +106,30 @@ export default function MessageDealPill({
             : 'Filed here automatically by the linking rule — click to move it'
         }
         style={{
-          display: 'inline-flex', alignItems: 'center', gap: 4,
-          padding: '2px 7px', flex: 'none',
-          fontSize: 11, fontWeight: 600,
+          display: 'inline-flex', alignItems: 'center', gap: 3,
+          padding: '1px 6px', flex: 'none',
+          // alignSelf, not the row's baseline: this is a bordered box among
+          // text, and baseline alignment drops it a couple of pixels so the
+          // border sits low against OUTBOUND and the time.
+          alignSelf: 'center',
+          fontSize: 10.5, fontWeight: 600,
           letterSpacing: 'var(--tracking-label)',
-          border: '1px solid var(--border-default)',
+          textTransform: 'uppercase',
+          // NO border by default. This sits beside OUTBOUND and the time —
+          // metadata, not an action — and an outlined pill on every row read
+          // as a button competing with the message itself. The border comes
+          // back on hover, where it signals "this is clickable".
+          border: '1px solid transparent',
           borderRadius: 999,
-          // A manual decision is tinted so it reads as deliberate rather than
-          // as something the engine did.
           background: manual ? 'var(--tint-pine)' : 'transparent',
           color: manual ? 'var(--accent-pine-text)' : 'var(--text-faint)',
           cursor: 'pointer', whiteSpace: 'nowrap'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = 'var(--border-strong)'
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = 'transparent'
         }}
       >
         {/* The icon carries the distinction too, not only the words: a
@@ -126,13 +139,16 @@ export default function MessageDealPill({
         <span className="ms" style={{ fontSize: 13 }}>
           {manual ? 'person' : 'bolt'}
         </span>
-        {manual ? 'Moved here' : 'Auto-filed'}
-        <span className="ms" style={{ fontSize: 13 }}>expand_more</span>
+        {manual ? 'Moved' : 'Auto'}
       </button>
 
       {open && pos && createPortal(
         <div
           ref={boxRef}
+          // .pp-portal — this is outside [data-dealhub], and without it the
+          // Material Symbols rule does not apply and every icon renders as
+          // its ligature text ("link_off").
+          className="pp-portal"
           style={{
             position: 'fixed',
             left: pos.left, top: pos.top, bottom: pos.bottom,
@@ -144,38 +160,44 @@ export default function MessageDealPill({
             textAlign: 'left'
           }}
         >
-          {/* How it got here, before offering to change it. A manager
-              opening this is usually asking "why is this on this deal?" —
-              answering that first is worth four lines. */}
+          {/* One line of provenance, not a stacked heading — a manager
+              opening this wants "why is it here?" answered in passing, then
+              the options. The old two-line block took more room than the
+              list it introduced. */}
           <div style={{
-            padding: '2px 6px 8px',
+            display: 'flex', alignItems: 'center', gap: 5,
+            padding: '2px 8px 7px', marginBottom: 5,
             borderBottom: '1px solid var(--border-default)',
-            marginBottom: 6
+            fontSize: 11.5, color: 'var(--text-muted)'
           }}>
-            <div style={{
-              fontSize: 11, fontWeight: 600, textTransform: 'uppercase',
-              letterSpacing: '0.04em', color: 'var(--text-muted)'
-            }}>
-              {manual ? 'Moved here by hand' : 'Filed automatically'}
-            </div>
-            <div style={{ marginTop: 2, fontSize: 11.5, color: 'var(--text-faint)' }}>
+            <span className="ms" style={{ fontSize: 14, flex: 'none' }}>
+              {manual ? 'person' : 'bolt'}
+            </span>
+            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {manual
-                ? (by ? `by ${by}` : 'by a sales manager')
-                : 'the contact\'s earliest open deal'}
-            </div>
+                ? (by ? `Moved here by ${by}` : 'Moved here by hand')
+                : 'Auto-filed — earliest open deal'}
+            </span>
           </div>
 
-          <div style={{
-            fontSize: 11, fontWeight: 600, textTransform: 'uppercase',
-            letterSpacing: '0.04em', color: 'var(--text-muted)',
-            padding: '0 6px 6px'
-          }}>
-            Move this message to
-          </div>
+          {/* The heading only earns its space when there is a list under it.
+              With no other deals it introduced an empty gap, which is what
+              made the popover look broken. */}
+          {options.length > 0 && (
+            <div style={{
+              fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase',
+              letterSpacing: '0.04em', color: 'var(--text-faint)',
+              padding: '0 8px 4px'
+            }}>
+              Move to
+            </div>
+          )}
 
           {options.length === 0 && (
-            <p style={{ margin: '0 6px 6px', fontSize: 12, color: 'var(--text-faint)' }}>
-              This contact has no other deals.
+            <p style={{
+              margin: '0 8px 6px', fontSize: 12, color: 'var(--text-faint)', lineHeight: 1.45
+            }}>
+              This contact has no other deals to move it to.
             </p>
           )}
 

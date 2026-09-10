@@ -193,8 +193,21 @@
   background: var(--surface-page);
 }
 
-/* Material Symbols Rounded — utility class */
-[data-dealhub] .ms {
+/* Material Symbols Rounded — utility class.
+ *
+ * Scoped to [data-dealhub] AND to portalled content.
+ *
+ * A popover rendered with createPortal attaches to <body>, OUTSIDE the
+ * [data-dealhub] ancestor, so the selector missed it and every icon rendered
+ * as its raw ligature text — "link_off" instead of the glyph. The pill's own
+ * icons worked (still inside the tree) while the popover's did not, which is
+ * what made it look like a styling slip rather than a scope problem.
+ *
+ * .pp-portal is set by any portalled surface; see MessageDealPill and
+ * TaskDealsPopover.
+ */
+[data-dealhub] .ms,
+.pp-portal .ms {
   font-family: 'Material Symbols Rounded';
   font-weight: normal;
   font-style: normal;
@@ -209,7 +222,8 @@
   -webkit-font-smoothing: antialiased;
   font-size: 20px;
 }
-[data-dealhub] .ms.ms-fill {
+[data-dealhub] .ms.ms-fill,
+.pp-portal .ms.ms-fill {
   font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 

@@ -201,6 +201,10 @@ export default function TaskDealsPopover({
   return createPortal(
     <div
       ref={boxRef}
+      // .pp-portal — the Material Symbols rule is scoped to [data-dealhub]
+      // and this renders outside it, so without the class every icon here
+      // renders as its ligature text ("sell", "close").
+      className="pp-portal"
       style={{
         // `fixed`, in a body portal: viewport coordinates, no clipping
         // ancestor, no dependence on the card's height.

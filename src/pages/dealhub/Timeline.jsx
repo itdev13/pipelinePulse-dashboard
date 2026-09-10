@@ -596,6 +596,19 @@ function MessageRow({
           flex: 'none', whiteSpace: 'nowrap'
         }}
       >
+        {/* Attribution first, then direction, then the time.
+            Reading right to left the time is the fixed anchor, direction is
+            the fast scan, and the deal pill is the detail — so the pill goes
+            on the OUTSIDE where it has room to be a control, and the times
+            still align down the column. */}
+        {dealId && m.messageId && (
+          <MessageDealPill
+            message={m}
+            dealId={dealId}
+            targets={dealTargets}
+            onMoved={onMessageMoved}
+          />
+        )}
         {(inbound || outbound) && (
           <span
             style={{
@@ -609,16 +622,6 @@ function MessageRow({
         )}
         <RowTime ts={m.ts} inline />
       </span>
-      {/* Which deal this message is filed against, and the control to change
-          it. Only on real messages — an event row has no attribution. */}
-      {dealId && m.messageId && (
-        <MessageDealPill
-          message={m}
-          dealId={dealId}
-          targets={dealTargets}
-          onMoved={onMessageMoved}
-        />
-      )}
     </Row>
   )
 }
