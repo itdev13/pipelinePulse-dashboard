@@ -80,6 +80,12 @@ export default function DealHubTab({
 }) {
   // Deal list for the switcher dropdown
   const [deals, setDeals] = useState(null)
+  // How many open deals exist, and where the next page starts. The list route
+  // has always returned both — the switcher just never read them, so it
+  // showed the first page and implied that was everything.
+  const [dealsTotal, setDealsTotal] = useState(null)
+  const [dealsCursor, setDealsCursor] = useState(null)
+  const [loadingMoreDeals, setLoadingMoreDeals] = useState(false)
   const [dealsError, setDealsError] = useState(null)
 
   // The one active deal
@@ -165,10 +171,15 @@ export default function DealHubTab({
   // Load the deal list once — used by the switcher and the auto-select.
   useEffect(() => {
     let alive = true
-    dealsAPI.list({ status: 'open', limit: 200 })
+    // 100 is the server's MAX_LIMIT — asking for 200 silently got 100 back,
+    // which then read as "that is all of them". Ask for what we can have and
+    // page for the rest.
+    dealsAPI.list({ status: 'open', limit: 100 })
       .then((res) => {
         if (!alive) return
         setDeals(res.deals || [])
+        setDealsTotal(res.totalCount ?? null)
+        setDealsCursor(res.hasMore ? res.nextCursor : null)
         // Auto-select the first open deal if none is selected yet.
         if (!dealId && res.deals && res.deals.length > 0) {
           const select = onAutoSelectDeal || onSwitchDeal
@@ -479,6 +490,28 @@ export default function DealHubTab({
     // a notification system for a single message.
   }
 
+  // Next page of open deals, for the switcher's scroll.
+  //
+  // Appends rather than replaces, and guards against a double-fire: the
+  // scroll handler can trigger twice before the first response lands, which
+  // would duplicate a page.
+  const loadMoreDeals = async () => {
+    if (!dealsCursor || loadingMoreDeals) return
+    setLoadingMoreDeals(true)
+    try {
+      const res = await dealsAPI.list({ status: 'open', limit: 100, cursor: dealsCursor })
+      setDeals((prev) => [...(prev || []), ...(res.deals || [])])
+      setDealsCursor(res.hasMore ? res.nextCursor : null)
+      if (res.totalCount != null) setDealsTotal(res.totalCount)
+    } catch {
+      // Stop paging rather than retry on every scroll tick — a failing
+      // cursor would otherwise fire a request per wheel event.
+      setDealsCursor(null)
+    } finally {
+      setLoadingMoreDeals(false)
+    }
+  }
+
   const jumpToMessage = (anyMessageId) => {
     if (!anyMessageId || !messages) return
     const row = messages.find(
@@ -732,7 +765,23 @@ export default function DealHubTab({
                   )}
                 </div>
 
-                <div style={{ overflowY: 'auto', padding: 6 }}>
+                <div
+                  style={{ overflowY: 'auto', padding: 6 }}
+                  // Load the next page near the bottom, not AT it: waiting
+                  // for the exact end means the rep hits a dead stop and
+                  // then waits. 120px is roughly two rows of lead time.
+                  //
+                  // Only while not searching — a search is server-side and
+                  // returns its own complete result set, so paging the open
+                  // list underneath it would mix two different queries.
+                  onScroll={(e) => {
+                    if (q) return
+                    const el = e.currentTarget
+                    if (el.scrollHeight - el.scrollTop - el.clientHeight < 120) {
+                      loadMoreDeals()
+                    }
+                  }}
+                >
                 <div
                   style={{
                     padding: '6px var(--space-2)',
@@ -749,7 +798,11 @@ export default function DealHubTab({
                     ? (switcherBusy
                         ? 'Searching…'
                         : `${visible.length} ${visible.length === 1 ? 'deal' : 'deals'} found`)
-                    : `Open deals (${deals.length})`}
+                    : dealsTotal != null && dealsTotal > visible.length
+                      // "showing 100 of 340" — the page is not the total, and
+                      // conflating them made a paged list look complete.
+                      ? `Open deals (${visible.length} of ${dealsTotal})`
+                      : `Open deals (${dealsTotal ?? visible.length})`}
                 </div>
                 {visible.length === 0 && q && !switcherBusy && (
                   <div style={{ padding: '10px var(--space-2)', fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
@@ -857,6 +910,16 @@ export default function DealHubTab({
                     </button>
                   )
                 })}
+                {/* Feedback for the scroll. Without it a slow page looks
+                    like the list simply ended. */}
+                {!q && (loadingMoreDeals || dealsCursor) && (
+                  <div style={{
+                    padding: '8px var(--space-2)', textAlign: 'center',
+                    fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
+                  }}>
+                    {loadingMoreDeals ? 'Loading more…' : 'Scroll for more'}
+                  </div>
+                )}
                 </div>
               </div>
               )
