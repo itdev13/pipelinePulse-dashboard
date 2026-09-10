@@ -7,6 +7,8 @@ import {
 } from '../shared/ListChrome'
 import TagSelect from '../shared/TagSelect'
 import { htmlToText } from '../../utils/sanitiseHtml'
+import EmailBody from '../dealhub/EmailBody'
+import MessageDealPill from '../dealhub/MessageDealPill'
 
 // Contact record — everything about one person, in four panels:
 //
@@ -1161,7 +1163,12 @@ function AllMessages({ contactId, deals = [], onOpenDeal }) {
           last={i === rows.length - 1}
           selected={picked.has(m.messageId)}
           onToggle={() => toggle(m.messageId)}
-          onOpenDeal={onOpenDeal}
+          deals={deals}
+          // One message at a time, through the contact route — there is no
+          // deal in scope here, so the deal-scoped endpoint does not apply.
+          onFile={(messageId, opportunityId) =>
+            contactsAPI.setMessagesMapping(contactId, [messageId], opportunityId)}
+          onMoved={load}
         />
       ))}
     </Panel>
@@ -1172,8 +1179,13 @@ function AllMessages({ contactId, deals = [], onOpenDeal }) {
 //
 // The deal timeline is where a rep spends their day; a contact's messages
 // looking materially different made the same record read as two things.
-function ContactMessageCard({ m, last, selected, onToggle, onOpenDeal }) {
+function ContactMessageCard({ m, last, selected, onToggle, deals, onFile, onMoved }) {
   const inbound = m.direction === 'inbound'
+  // GHL labels the same channel several ways — 'Email', 'TYPE_EMAIL' and
+  // 'EMAIL' all appear in one contact's history (visible in the screenshot
+  // that prompted this). Matching only 'Email' would give the same thread
+  // two different card styles on adjacent rows.
+  const isEmail = /email/i.test(m.channel || '')
   const icon = m.isCall ? 'call'
     : m.channel === 'Email' ? 'mail'
       : m.channel === 'SMS' ? 'sms' : 'chat'
@@ -1216,23 +1228,25 @@ function ContactMessageCard({ m, last, selected, onToggle, onOpenDeal }) {
           </span>
         </div>
 
-        {m.subject && (
-          <div style={{
-            marginTop: 3, fontSize: 'var(--text-md)', fontWeight: 600,
-            color: 'var(--text-default)',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-          }}>
-            {m.subject}
+        {/* An email gets the SAME collapsed card as the deal timeline —
+            subject line, chevron, expand to the full body. The contact view
+            used to flatten it to a paragraph of stripped text, so the same
+            email looked like two different records depending on the page.
+            EmailBody is shared rather than copied, so they cannot drift
+            apart again. */}
+        {isEmail ? (
+          <div style={{ marginTop: 4 }}>
+            <EmailBody m={m} />
           </div>
+        ) : (
+          <p style={{
+            margin: '3px 0 0', maxWidth: 640,
+            fontSize: 'var(--text-md)', lineHeight: 1.5, color: 'var(--text-body)'
+          }}>
+            {htmlToText(m.body || '').slice(0, 240)
+              || <span style={{ color: 'var(--text-faint)' }}>(no readable text)</span>}
+          </p>
         )}
-
-        <p style={{
-          margin: '3px 0 0', maxWidth: 640,
-          fontSize: 'var(--text-md)', lineHeight: 1.5, color: 'var(--text-body)'
-        }}>
-          {htmlToText(m.body || '').slice(0, 240)
-            || <span style={{ color: 'var(--text-faint)' }}>(no readable text)</span>}
-        </p>
       </div>
 
       <span style={{
@@ -1257,49 +1271,16 @@ function ContactMessageCard({ m, last, selected, onToggle, onOpenDeal }) {
           </span>
         </span>
 
-        {/* Which deal it is filed against. "Not filed" is stated rather than
-            left blank — an empty space reads as a rendering gap, and this is
-            the state the panel exists to surface. */}
-        {m.deal ? (
-          <button
-            type="button"
-            onClick={() => onOpenDeal && onOpenDeal(m.deal.id)}
-            title={
-              m.mappedManually
-                ? `Filed here by hand${m.mappedBy && m.mappedBy !== 'system' ? ` (${m.mappedBy})` : ''}`
-                : 'Filed here automatically by the linking rule'
-            }
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              maxWidth: 220, padding: '2px 8px',
-              border: '1px solid var(--border-default)', borderRadius: 999,
-              background: m.mappedManually ? 'var(--tint-pine)' : 'transparent',
-              color: m.mappedManually ? 'var(--accent-pine-text)' : 'var(--text-muted)',
-              fontSize: 11, fontWeight: 600, cursor: 'pointer'
-            }}
-          >
-            {/* Same icons as the deal timeline's pill — a person for a
-                human decision, the automation mark for the rule — so the
-                two views read identically. */}
-            <span className="ms" style={{ fontSize: 13 }}>
-              {m.mappedManually ? 'person' : 'bolt'}
-            </span>
-            <span style={{
-              minWidth: 0, overflow: 'hidden',
-              textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-            }}>
-              {m.deal.name}
-            </span>
-          </button>
-        ) : (
-          <span style={{
-            padding: '2px 8px', borderRadius: 999,
-            border: '1px dashed var(--border-strong)',
-            fontSize: 11, fontWeight: 600, color: 'var(--text-faint)'
-          }}>
-            Not filed
-          </span>
-        )}
+        {/* The deal, AND the control to change it — the same pill the deal
+            timeline uses, so the two pages behave identically. Read-only
+            here before, which meant the only way to file one message was to
+            tick it and use the bulk bar above. */}
+        <MessageDealPill
+          message={m}
+          targets={deals}
+          onSave={onFile}
+          onMoved={onMoved}
+        />
       </span>
     </div>
   )

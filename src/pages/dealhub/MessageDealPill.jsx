@@ -18,7 +18,11 @@ import { dealsAPI } from '../../api/deals'
 // `overflow: hidden`, which clip an absolutely-positioned dropdown. Same
 // reason as TaskDealsPopover.
 export default function MessageDealPill({
-  message, dealId, targets = [], onMoved
+  message, dealId, targets = [], onMoved,
+  // How to persist the move. Defaults to the deal-scoped route, which needs a
+  // dealId. The contact record has no deal in scope, so it passes the
+  // contact route instead — same control, same wording, one component.
+  onSave
 }) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -28,7 +32,12 @@ export default function MessageDealPill({
   const boxRef = useRef(null)
 
   // Only the OTHER deals are worth offering, plus an explicit unlink.
-  const options = targets.filter((t) => t.id !== dealId)
+  //
+  // On the contact record there is no deal in scope, so `dealId` is absent
+  // and the message's own deal is what to exclude — offering the deal it is
+  // already on is a no-op that looks like a choice.
+  const currentId = dealId || message.deal?.id || null
+  const options = targets.filter((t) => t.id !== currentId)
 
   useEffect(() => {
     if (!open) return
@@ -75,7 +84,8 @@ export default function MessageDealPill({
     setBusy(true)
     setError(null)
     try {
-      await dealsAPI.setMessageMapping(dealId, message.messageId, targetId)
+      if (onSave) await onSave(message.messageId, targetId)
+      else await dealsAPI.setMessageMapping(dealId, message.messageId, targetId)
       setOpen(false)
       if (onMoved) onMoved(message, targetId)
     } catch (e) {
@@ -88,6 +98,10 @@ export default function MessageDealPill({
   }
 
   const manual = message.mappedManually === true
+  // On the contact record a message may be filed against NOTHING. That is a
+  // third state, not an absence — the pill is how it gets filed, so it has
+  // to be visible and clickable rather than hidden.
+  const filed = dealId ? true : !!message.deal
   // Who moved it, when we can resolve the name. 'system' is the engine's own
   // marker and is never shown — "moved by system" would imply a person.
   const by = manual && message.mappedByName && message.mappedByName !== 'system'
@@ -101,17 +115,15 @@ export default function MessageDealPill({
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
         title={
-          manual
-            ? `Moved here by hand${by ? ` by ${by}` : ''} — click to change`
-            : 'Filed here automatically by the linking rule — click to move it'
+          !filed
+            ? 'Not filed against a deal — click to file it'
+            : manual
+              ? `Moved here by hand${by ? ` by ${by}` : ''} — click to change`
+              : 'Filed here automatically by the linking rule — click to move it'
         }
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 3,
           padding: '1px 6px', flex: 'none',
-          // alignSelf, not the row's baseline: this is a bordered box among
-          // text, and baseline alignment drops it a couple of pixels so the
-          // border sits low against OUTBOUND and the time.
-          alignSelf: 'center',
           fontSize: 10.5, fontWeight: 600,
           letterSpacing: 'var(--tracking-label)',
           textTransform: 'uppercase',
@@ -121,8 +133,8 @@ export default function MessageDealPill({
           // back on hover, where it signals "this is clickable".
           border: '1px solid transparent',
           borderRadius: 999,
-          background: manual ? 'var(--tint-pine)' : 'transparent',
-          color: manual ? 'var(--accent-pine-text)' : 'var(--text-faint)',
+          background: manual && filed ? 'var(--tint-pine)' : 'transparent',
+          color: manual && filed ? 'var(--accent-pine-text)' : 'var(--text-faint)',
           cursor: 'pointer', whiteSpace: 'nowrap'
         }}
         onMouseEnter={(e) => {
@@ -137,9 +149,17 @@ export default function MessageDealPill({
             Colour alone would not survive a greyscale print or a
             colour-blind reader. */}
         <span className="ms" style={{ fontSize: 13 }}>
-          {manual ? 'person' : 'bolt'}
+          {!filed ? 'help' : manual ? 'person' : 'bolt'}
         </span>
-        {manual ? 'Moved' : 'Auto'}
+        {/* On the contact record the deal NAME is the useful label — the
+            page is a list of messages across many deals, so "Auto" alone
+            would not say which one. In the deal timeline the deal is
+            already the page, so the provenance is what adds information. */}
+        {!filed
+          ? 'Not filed'
+          : dealId
+            ? (manual ? 'Moved' : 'Auto')
+            : (message.deal?.name || 'Filed')}
       </button>
 
       {open && pos && createPortal(
@@ -170,13 +190,19 @@ export default function MessageDealPill({
             borderBottom: '1px solid var(--border-default)',
             fontSize: 11.5, color: 'var(--text-muted)'
           }}>
+            {/* Matches the button's icon, including the not-filed case —
+                the two were out of step, so an unfiled message opened a
+                popover showing the automation mark beside "no deal was
+                open when this was sent". */}
             <span className="ms" style={{ fontSize: 14, flex: 'none' }}>
-              {manual ? 'person' : 'bolt'}
+              {!filed ? 'help' : manual ? 'person' : 'bolt'}
             </span>
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {manual
-                ? (by ? `Moved here by ${by}` : 'Moved here by hand')
-                : 'Auto-filed — earliest open deal'}
+              {!filed
+                ? 'No deal was open when this was sent'
+                : manual
+                  ? (by ? `Moved here by ${by}` : 'Moved here by hand')
+                  : 'Auto-filed — earliest open deal'}
             </span>
           </div>
 
@@ -239,6 +265,7 @@ export default function MessageDealPill({
               </button>
             ))}
 
+            {filed && (
             <button
               type="button"
               disabled={busy}
@@ -255,6 +282,7 @@ export default function MessageDealPill({
               <span className="ms" style={{ fontSize: 14 }}>link_off</span>
               Unlink from every deal
             </button>
+            )}
           </div>
 
           {error && (

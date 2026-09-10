@@ -81,6 +81,11 @@ t('never throws on junk', () => {
 console.log('\nwiring');
 
 const timeline = readFileSync(join(here, '..', 'Timeline.jsx'), 'utf8');
+// EmailBody was extracted out of Timeline.jsx so the contact record could
+// render the SAME email card instead of a plainer copy. The assertions below
+// about the card's own markup follow it there; the ones about wiring
+// (AttachmentViewer, openAttachment) stay with Timeline.
+const emailBody = readFileSync(join(here, '..', 'EmailBody.jsx'), 'utf8');
 const thread = readFileSync(join(here, '..', 'EmailThreadModal.jsx'), 'utf8');
 
 t('Timeline mounts the viewer', () => {
@@ -141,18 +146,18 @@ t('an empty body does not render an empty block', () => {
   // `preview` is the body run through htmlToText, so it is the honest test of
   // "is there any text": RichBody's own `if (!html)` does not catch
   // "<div></div>", which is truthy.
-  assert.match(timeline, /\{preview \? \(\s*<RichBody/,
+  assert.match(emailBody, /\{preview \? \(\s*<RichBody/,
     'RichBody must be gated on preview, not on m.body');
 });
 
 t('no body and no files says so, rather than showing a blank card', () => {
-  assert.match(timeline, /pp-email-nobody/);
+  assert.match(emailBody, /pp-email-nobody/);
 });
 
 t('the attachment block drops its rule when there is no body', () => {
   // Without this the From/To block's rule and the attachment block's rule sit
   // one under the other, reading as an empty row where the body should be.
-  assert.match(timeline, /pp-email-atts pp-email-atts-first/);
+  assert.match(emailBody, /pp-email-atts pp-email-atts-first/);
 });
 
 console.log(`\n${n} passed`);
