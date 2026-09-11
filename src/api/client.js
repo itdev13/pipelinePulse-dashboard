@@ -27,11 +27,24 @@ apiClient.interceptors.response.use(
       window.location.reload()
       return
     }
+    // The server's own `error` field is written FOR a rep, so it is used as
+    // given. Everything after it is a fallback for when the server said
+    // nothing — a network drop, a proxy 502, a crash before the handler ran.
+    //
+    // `error.message` is NOT among the fallbacks any more. For an axios
+    // failure it reads "Request failed with status code 500", which tells a
+    // sales rep nothing and looks like a bug report. The real error is
+    // already in the browser console and in the server logs.
     const message =
       error.response?.data?.error ||
       error.response?.data?.message ||
-      (error.code === 'ECONNABORTED' ? 'Request timed out.' : error.message) ||
-      'An unexpected error occurred'
+      (error.code === 'ECONNABORTED'
+        ? 'That took too long — check your connection and try again.'
+        : status >= 500
+          ? 'Something went wrong at our end. Try again in a moment.'
+          : !status
+            ? "Couldn't reach the server — check your connection."
+            : 'That did not work. Try again.')
     const enhanced = new Error(message)
     enhanced.status = status
     enhanced.code = code || error.code

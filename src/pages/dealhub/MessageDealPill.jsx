@@ -292,7 +292,14 @@ export default function MessageDealPill({
                   flex: 1, minWidth: 0, overflow: 'hidden',
                   textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                 }}>
-                  {t.name}
+                  {/* `name` OR `label`. Two endpoints feed this control and
+                      they disagree: the contact page sends `name`, the
+                      deal-hub's reassignment-targets sends `label`. The
+                      mismatch rendered a row with a dot and no text — no
+                      error, nothing in the console, just a nameless option.
+                      Tolerating both means a third caller cannot reintroduce
+                      it. The id is a last resort so a row is never blank. */}
+                  {t.name || t.label || t.id}
                 </span>
                 {/* A manager may deliberately file against a won or lost deal
                     (James, 8 Sep), so those are offered — labelled, so the

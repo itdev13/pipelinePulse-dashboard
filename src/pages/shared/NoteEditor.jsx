@@ -266,7 +266,11 @@ export default function NoteEditor({
         // The note saved but its link did not. Report it without discarding
         // the note — the server deliberately returns 201 here.
         if (res?.relationError) {
-          setError(`Note saved, but couldn't link it: ${res.relationError}`)
+          // The server's message already says what failed, so the old
+          // "Note saved, but couldn't link it: Could not link the note…"
+          // said it twice. The prefix keeps the part the server cannot
+          // know — that the note itself survived.
+          setError(`Note saved. ${res.relationError}`)
           setSaving(false)
           return
         }
