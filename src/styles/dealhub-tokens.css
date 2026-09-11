@@ -2542,3 +2542,60 @@
 [data-dealhub] .pp-mc-btn:hover {
   background: var(--gray-25);
 }
+
+
+/* Deal options inside the message-attribution popover.
+ *
+ * CSS rather than inline onMouseEnter handlers for three reasons: it also
+ * covers :focus-visible, so a keyboard user gets the same affordance; it is
+ * one rule instead of two handlers per row; and a JS hover cannot be
+ * verified in a headless browser, because React synthesises onMouseEnter
+ * from delegated mouseover/mouseout and a dispatched event does not
+ * reproduce it.
+ *
+ * Also under .pp-portal — the popover renders outside [data-dealhub].
+ */
+[data-dealhub] .pp-deal-option,
+.pp-portal .pp-deal-option {
+  background: #fff;
+  border: 1px solid var(--border-default);
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+[data-dealhub] .pp-deal-option:hover,
+.pp-portal .pp-deal-option:hover,
+[data-dealhub] .pp-deal-option:focus-visible,
+.pp-portal .pp-deal-option:focus-visible {
+  background: var(--tint-pine);
+  border-color: var(--accent-pine-text);
+}
+[data-dealhub] .pp-deal-option:disabled,
+.pp-portal .pp-deal-option:disabled {
+  opacity: 0.6;
+}
+
+
+/* Primary action button.
+ *
+ * The brand fill is set inline where it is used (several places already do
+ * that); this adds the states inline styles cannot express — hover, active
+ * and keyboard focus. --brand-primary-hover / -active have been defined
+ * since the token file was written and nothing was using them.
+ */
+[data-dealhub] .pp-btn-primary:hover,
+.pp-portal .pp-btn-primary:hover {
+  background: var(--brand-primary-hover);
+}
+[data-dealhub] .pp-btn-primary:active,
+.pp-portal .pp-btn-primary:active {
+  background: var(--brand-primary-active);
+}
+[data-dealhub] .pp-btn-primary:focus-visible,
+.pp-portal .pp-btn-primary:focus-visible {
+  outline: 2px solid var(--brand-primary-active);
+  outline-offset: 2px;
+}
+[data-dealhub] .pp-btn-primary:disabled,
+.pp-portal .pp-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

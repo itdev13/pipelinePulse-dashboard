@@ -248,7 +248,10 @@ export default function MessageDealPill({
             </p>
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', padding: '0 6px 6px' }}>
+          <div style={{
+            display: 'flex', flexDirection: 'column', gap: 5,
+            padding: '0 10px 10px'
+          }}>
             {options.map((t) => (
               <button
                 key={t.id}
@@ -257,20 +260,21 @@ export default function MessageDealPill({
                 onClick={() => move(t.id)}
                 // Hover on the row, not just the cursor. A list of plain text
                 // gives no feedback that each line is a target.
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--gray-50)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'transparent'
-                }}
+                // A visible card at REST — border, white ground, its own
+                // row — because relying on hover alone left each option
+                // looking like a bullet in a list. Nothing said it could be
+                // clicked until the pointer was already on it, and on a
+                // touch device that moment never comes.
+                //
+                // Hover and focus live in CSS (.pp-deal-option), so a
+                // keyboard user gets the same affordance as a mouse one.
+                className="pp-deal-option"
                 style={{
                   display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '8px 10px', width: '100%',
-                  border: 'none', borderRadius: 8,
-                  background: 'transparent', textAlign: 'left',
-                  fontSize: 13, color: 'var(--text-default)',
-                  cursor: busy ? 'wait' : 'pointer',
-                  transition: 'background 0.12s ease'
+                  padding: '9px 10px', width: '100%',
+                  borderRadius: 8, textAlign: 'left',
+                  fontSize: 13, fontWeight: 500, color: 'var(--text-default)',
+                  cursor: busy ? 'wait' : 'pointer'
                 }}
               >
                 {/* A dot, coloured by status — green for a live deal, grey
@@ -304,6 +308,13 @@ export default function MessageDealPill({
                     {t.status}
                   </span>
                 )}
+                {/* Points where the click leads. Faint at rest so it does not
+                    compete with the deal name, which is what the rep reads. */}
+                <span className="ms" style={{
+                  fontSize: 16, flex: 'none', color: 'var(--text-faint)'
+                }}>
+                  chevron_right
+                </span>
               </button>
             ))}
 
@@ -316,12 +327,14 @@ export default function MessageDealPill({
               onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
-                padding: '8px 10px', marginTop: 4,
-                // A rule ABOVE, inset to the list's padding, so unlink reads
-                // as separate from the deals without a full-bleed divider
-                // cutting the card in two.
-                border: 'none', borderTop: '1px solid var(--border-default)',
-                borderRadius: 8, background: 'transparent', textAlign: 'left',
+                // Deliberately NOT a card. The deals above are targets you
+                // pick from; this is the destructive escape hatch, and giving
+                // it the same weight would make it look like a third deal.
+                // Kept flat and quiet, separated by space rather than a rule
+                // — a divider under bordered cards reads as clutter.
+                padding: '7px 10px', marginTop: 2,
+                border: 'none', borderRadius: 8,
+                background: 'transparent', textAlign: 'left',
                 fontSize: 12.5, color: 'var(--text-muted)',
                 cursor: busy ? 'wait' : 'pointer',
                 transition: 'background 0.12s ease'

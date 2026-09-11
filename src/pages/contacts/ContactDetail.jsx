@@ -965,15 +965,25 @@ function Deals({ deals = [], onOpenDeal }) {
               {d.value}
             </span>
           )}
+          {/* The card's primary action, so it takes the brand fill rather
+              than a grey outline. Outlined it read as secondary — the same
+              weight as a Cancel — when opening the deal is the only thing
+              this row is for.
+
+              --brand-primary with white text is what the app already uses
+              for a primary action (BusinessesTab, AskDeal, the save button
+              above), so this matches rather than inventing a treatment. */}
           <button
             onClick={() => onOpenDeal && onOpenDeal(d.id)}
+            className="pp-btn-primary"
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none',
               height: 32, padding: '0 13px',
-              border: '1px solid var(--border-strong)',
+              border: 'none',
               borderRadius: 'var(--radius-md)',
-              background: '#fff', color: 'var(--text-body)',
-              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', cursor: 'pointer'
+              background: 'var(--brand-primary)', color: '#fff',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
+              fontWeight: 600, cursor: 'pointer'
             }}
           >
             Open deal
