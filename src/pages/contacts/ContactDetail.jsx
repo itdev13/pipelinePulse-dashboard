@@ -1250,37 +1250,44 @@ function ContactMessageCard({ m, last, selected, onToggle, deals, onFile, onMove
       </div>
 
       <span style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4,
-        flex: 'none'
+        // ONE line: pill, direction, date — matching the deal timeline.
+        //
+        // This was a column, so the pill sat on a second row under the date
+        // and read as a detached control rather than part of the row's
+        // metadata.
+        display: 'flex', alignItems: 'center', gap: 6,
+        flex: 'none', whiteSpace: 'nowrap', flexWrap: 'nowrap',
+        // Level with the first line of the message, not the middle of a
+        // tall email card.
+        alignSelf: 'start'
       }}>
-        <span style={{
-          display: 'inline-flex', alignItems: 'baseline', gap: 6, whiteSpace: 'nowrap'
-        }}>
-          <span style={{
-            fontSize: 'var(--text-xs)', fontWeight: 600,
-            letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase',
-            color: inbound ? 'var(--accent-pine-text)' : 'var(--text-faint)'
-          }}>
-            {inbound ? 'Inbound' : 'Outbound'}
-          </span>
-          <span style={{
-            fontSize: 'var(--text-sm)', color: 'var(--text-faint)',
-            fontVariantNumeric: 'tabular-nums'
-          }}>
-            {formatDate(m.ts)}
-          </span>
-        </span>
-
         {/* The deal, AND the control to change it — the same pill the deal
             timeline uses, so the two pages behave identically. Read-only
             here before, which meant the only way to file one message was to
-            tick it and use the bulk bar above. */}
+            tick it and use the bulk bar above.
+
+            First, so the dates stay aligned down the right edge: the pill is
+            the variable-width element and putting it outside would leave
+            them ragged. */}
         <MessageDealPill
           message={m}
           targets={deals}
           onSave={onFile}
           onMoved={onMoved}
         />
+        <span style={{
+          fontSize: 'var(--text-xs)', fontWeight: 600,
+          letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase',
+          color: inbound ? 'var(--accent-pine-text)' : 'var(--text-faint)'
+        }}>
+          {inbound ? 'Inbound' : 'Outbound'}
+        </span>
+        <span style={{
+          fontSize: 'var(--text-sm)', color: 'var(--text-faint)',
+          fontVariantNumeric: 'tabular-nums'
+        }}>
+          {formatDate(m.ts)}
+        </span>
       </span>
     </div>
   )

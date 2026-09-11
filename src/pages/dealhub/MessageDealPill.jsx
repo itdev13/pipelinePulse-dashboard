@@ -172,11 +172,17 @@ export default function MessageDealPill({
           style={{
             position: 'fixed',
             left: pos.left, top: pos.top, bottom: pos.bottom,
-            zIndex: 50, width: 260, padding: 'var(--space-2)',
+            zIndex: 50, width: 300,
+            // No padding on the shell: the header sits on its own tinted
+            // ground edge to edge, and the list pads itself. Padding here
+            // would leave a white gutter around the header band.
+            padding: 0, overflow: 'hidden',
             background: '#fff',
-            border: '1px solid var(--border-strong)',
-            borderRadius: 'var(--radius-lg)',
-            boxShadow: '0 12px 32px rgba(15, 34, 26, 0.16)',
+            border: '1px solid var(--border-default)',
+            borderRadius: 12,
+            // Two shadows: a tight one for the edge and a broad soft one for
+            // depth. A single large blur reads as a grey smudge.
+            boxShadow: '0 1px 2px rgba(15,34,26,0.06), 0 12px 28px rgba(15,34,26,0.14)',
             textAlign: 'left'
           }}
         >
@@ -185,16 +191,21 @@ export default function MessageDealPill({
               the options. The old two-line block took more room than the
               list it introduced. */}
           <div style={{
-            display: 'flex', alignItems: 'center', gap: 5,
-            padding: '2px 8px 7px', marginBottom: 5,
+            display: 'flex', alignItems: 'center', gap: 7,
+            padding: '10px 12px',
             borderBottom: '1px solid var(--border-default)',
-            fontSize: 11.5, color: 'var(--text-muted)'
+            // A tinted band so the state reads as context, not as the first
+            // option in the list. Unfiled is neutral; a filed message takes
+            // the accent, matching its pill.
+            background: filed ? 'var(--tint-pine)' : 'var(--gray-25)',
+            fontSize: 12, fontWeight: 500,
+            color: filed ? 'var(--accent-pine-text)' : 'var(--text-muted)'
           }}>
             {/* Matches the button's icon, including the not-filed case —
                 the two were out of step, so an unfiled message opened a
                 popover showing the automation mark beside "no deal was
                 open when this was sent". */}
-            <span className="ms" style={{ fontSize: 14, flex: 'none' }}>
+            <span className="ms" style={{ fontSize: 15, flex: 'none', opacity: 0.85 }}>
               {!filed ? 'help' : manual ? 'person' : 'bolt'}
             </span>
             <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -211,38 +222,59 @@ export default function MessageDealPill({
               made the popover look broken. */}
           {options.length > 0 && (
             <div style={{
-              fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase',
-              letterSpacing: '0.04em', color: 'var(--text-faint)',
-              padding: '0 8px 4px'
+              fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+              letterSpacing: '0.06em', color: 'var(--text-faint)',
+              padding: '10px 12px 4px'
             }}>
-              Move to
+              {filed ? 'Move to' : 'File against'}
             </div>
           )}
 
           {options.length === 0 && (
             <p style={{
-              margin: '0 8px 6px', fontSize: 12, color: 'var(--text-faint)', lineHeight: 1.45
+              margin: 0, padding: '10px 12px 12px',
+              fontSize: 12, color: 'var(--text-faint)', lineHeight: 1.45
             }}>
-              This contact has no other deals to move it to.
+              {filed
+                ? 'This contact has no other deals to move it to.'
+                : 'This contact has no deals to file it against.'}
             </p>
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', padding: '0 6px 6px' }}>
             {options.map((t) => (
               <button
                 key={t.id}
                 type="button"
                 disabled={busy}
                 onClick={() => move(t.id)}
+                // Hover on the row, not just the cursor. A list of plain text
+                // gives no feedback that each line is a target.
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--gray-50)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent'
+                }}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '6px 8px', width: '100%',
-                  border: 'none', borderRadius: 'var(--radius-md)',
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '8px 10px', width: '100%',
+                  border: 'none', borderRadius: 8,
                   background: 'transparent', textAlign: 'left',
-                  fontSize: 12.5, color: 'var(--text-default)',
-                  cursor: busy ? 'wait' : 'pointer'
+                  fontSize: 13, color: 'var(--text-default)',
+                  cursor: busy ? 'wait' : 'pointer',
+                  transition: 'background 0.12s ease'
                 }}
               >
+                {/* A dot, coloured by status — green for a live deal, grey
+                    for a closed one. Reads at a glance where a trailing
+                    "won" label has to be read. */}
+                <span style={{
+                  width: 6, height: 6, flex: 'none', borderRadius: '50%',
+                  background: !t.status || t.status === 'open'
+                    ? 'var(--accent-pine-text)'
+                    : 'var(--border-strong)'
+                }} />
                 {/* min-width: 0 so a long deal name truncates instead of
                     pushing the status chip out of the popover. */}
                 <span style={{
@@ -256,8 +288,11 @@ export default function MessageDealPill({
                     choice is informed rather than accidental. */}
                 {t.status && t.status !== 'open' && (
                   <span style={{
-                    fontSize: 10, textTransform: 'uppercase',
-                    color: 'var(--text-faint)', flex: 'none'
+                    fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    padding: '2px 5px', borderRadius: 4,
+                    background: 'var(--gray-50)', color: 'var(--text-faint)',
+                    flex: 'none'
                   }}>
                     {t.status}
                   </span>
@@ -270,13 +305,19 @@ export default function MessageDealPill({
               type="button"
               disabled={busy}
               onClick={() => move(null)}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--gray-50)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
               style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '6px 8px', marginTop: 2,
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 10px', marginTop: 4,
+                // A rule ABOVE, inset to the list's padding, so unlink reads
+                // as separate from the deals without a full-bleed divider
+                // cutting the card in two.
                 border: 'none', borderTop: '1px solid var(--border-default)',
-                borderRadius: 0, background: 'transparent', textAlign: 'left',
+                borderRadius: 8, background: 'transparent', textAlign: 'left',
                 fontSize: 12.5, color: 'var(--text-muted)',
-                cursor: busy ? 'wait' : 'pointer'
+                cursor: busy ? 'wait' : 'pointer',
+                transition: 'background 0.12s ease'
               }}
             >
               <span className="ms" style={{ fontSize: 14 }}>link_off</span>
@@ -287,7 +328,10 @@ export default function MessageDealPill({
 
           {error && (
             <p role="alert" style={{
-              margin: '6px 6px 0', fontSize: 11.5, color: 'var(--status-stuck)'
+              margin: 0, padding: '8px 12px',
+              borderTop: '1px solid var(--border-default)',
+              background: 'var(--tint-clay, #FDF2F2)',
+              fontSize: 11.5, lineHeight: 1.4, color: 'var(--status-stuck)'
             }}>
               {error}
             </p>
