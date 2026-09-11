@@ -987,11 +987,11 @@ function Deals({ deals = [], onOpenDeal }) {
 
 // ── All messages ──────────────────────────────────────────────────────
 
-// Every message for this contact, whatever deal it is filed against.
+// Every message for this contact, whatever deal it is linked to.
 //
 // This is the view James asked for on 8 Sep: the deal timeline shows what
 // belongs to a deal, and this shows EVERYTHING so a manager can find the
-// messages that were never attributed and file them by hand.
+// messages that were never attributed and link them by hand.
 //
 // Cards match the deal timeline's on purpose. A rep moving between the two
 // should not have to re-learn how a message reads.
@@ -1058,7 +1058,7 @@ function AllMessages({ contactId, deals = [], onOpenDeal }) {
       accent="gold"
       meta={
         messages === null ? '—'
-          : `${rows.length}${unlinked > 0 ? ` · ${unlinked} unfiled` : ''}`
+          : `${rows.length}${unlinked > 0 ? ` · ${unlinked} unlinked` : ''}`
       }
     >
       <p style={{
@@ -1067,8 +1067,8 @@ function AllMessages({ contactId, deals = [], onOpenDeal }) {
         background: 'var(--gray-50)',
         fontSize: 'var(--text-base)', lineHeight: 1.5, color: 'var(--text-body)'
       }}>
-        A message is filed against one deal at most. Messages sent when no deal
-        was open stay here until someone files them — tick them and pick a deal
+        A message is linked to one deal at most. Messages sent when no deal was
+        open stay here until someone links them — tick them and pick a deal
         below.
       </p>
 
@@ -1093,7 +1093,7 @@ function AllMessages({ contactId, deals = [], onOpenDeal }) {
             onChange={(e) => { setUnlinkedOnly(e.target.checked); setPicked(new Set()) }}
             style={{ accentColor: 'var(--brand-primary)' }}
           />
-          Unfiled only
+          Unlinked only
         </label>
 
         <span style={{ flex: 1 }} />
@@ -1153,7 +1153,7 @@ function AllMessages({ contactId, deals = [], onOpenDeal }) {
         loading={messages === null && !error}
         error={error}
         empty={messages !== null && rows.length === 0}
-        emptyText={unlinkedOnly ? 'Nothing unfiled — every message is on a deal.' : 'No messages synced for this contact yet.'}
+        emptyText={unlinkedOnly ? 'Nothing unlinked — every message is on a deal.' : 'No messages synced for this contact yet.'}
       />
 
       {rows.map((m, i) => (

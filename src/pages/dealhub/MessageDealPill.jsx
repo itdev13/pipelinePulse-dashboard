@@ -116,10 +116,10 @@ export default function MessageDealPill({
         onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
         title={
           !filed
-            ? 'Not filed against a deal — click to file it'
+            ? 'Not linked to a deal — click to link it'
             : manual
               ? `Moved here by hand${by ? ` by ${by}` : ''} — click to change`
-              : 'Filed here automatically by the linking rule — click to move it'
+              : 'Linked automatically by the linking rule — click to move it'
         }
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 3,
@@ -156,10 +156,10 @@ export default function MessageDealPill({
             would not say which one. In the deal timeline the deal is
             already the page, so the provenance is what adds information. */}
         {!filed
-          ? 'Not filed'
+          ? 'Not linked'
           : dealId
             ? (manual ? 'Moved' : 'Auto')
-            : (message.deal?.name || 'Filed')}
+            : (message.deal?.name || 'Linked')}
       </button>
 
       {open && pos && createPortal(
@@ -215,7 +215,7 @@ export default function MessageDealPill({
                 ? 'No deal was open when this was sent'
                 : manual
                   ? (by ? `Moved here by ${by}` : 'Moved here by hand')
-                  : 'Auto-filed — earliest open deal'}
+                  : 'Linked automatically — earliest open deal'}
             </span>
           </div>
 
@@ -228,7 +228,12 @@ export default function MessageDealPill({
               letterSpacing: '0.06em', color: 'var(--text-faint)',
               padding: '10px 12px 4px'
             }}>
-              {filed ? 'Move to' : 'File against'}
+              {/* "Link to" / "Move to", not "File against".
+                  The rest of the app says LINK throughout — "Link this task
+                  to a deal", "Not linked to a deal" — and "file against" was
+                  filing-cabinet language invented here that appeared nowhere
+                  else. */}
+              {filed ? 'Move to' : 'Link to'}
             </div>
           )}
 
@@ -239,7 +244,7 @@ export default function MessageDealPill({
             }}>
               {filed
                 ? 'This contact has no other deals to move it to.'
-                : 'This contact has no deals to file it against.'}
+                : 'This contact has no deals to link it to.'}
             </p>
           )}
 
