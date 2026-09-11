@@ -54,6 +54,17 @@ t('the icon rule covers portalled content',
 t('and so does the filled variant',
   /\.pp-portal \.ms\.ms-fill/.test(css));
 
+// The icon rule was only half the problem: every design TOKEN is declared on
+// the same [data-dealhub] selector, so a portal resolved none of them —
+// var(--gray-50), var(--text-muted), var(--radius-lg) all fell back. The card
+// still rendered, which is why it looked merely ugly rather than broken.
+t('design tokens are declared for portals too',
+  /\[data-dealhub\],\s*\n\.pp-portal \{/.test(css));
+
+t('and the token block still covers the dealhub subtree',
+  // Same trap as the icon rule: this must ADD a selector, not replace one.
+  /\[data-dealhub\],\s*\n\.pp-portal \{[\s\S]{0,400}--gray-25:/.test(css));
+
 t('the dealhub scope is still there',
   // The fix ADDS a selector; it must not have replaced the original, or
   // every icon outside a portal breaks instead.

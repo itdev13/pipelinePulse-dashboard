@@ -10,7 +10,20 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0..1,0');
 
-[data-dealhub] {
+/* Tokens are declared for the dealhub subtree AND for portalled surfaces.
+ *
+ * A popover rendered with createPortal attaches to <body>, outside
+ * [data-dealhub], so NONE of these variables resolved there: every
+ * var(--gray-25), var(--text-muted), var(--radius-lg) fell back to its
+ * default or to nothing. The card still rendered, which is what made it
+ * look merely ugly rather than broken — tinted bands came out transparent
+ * and spacing tokens collapsed.
+ *
+ * The same scope problem hit the Material Symbols rule further down; see the
+ * note there. Anything portalled must carry .pp-portal.
+ */
+[data-dealhub],
+.pp-portal {
   /* Neutrals */
   --white: #ffffff;
   --gray-25: #fafbfc;

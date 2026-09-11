@@ -197,7 +197,9 @@ export default function MessageDealPill({
             // A tinted band so the state reads as context, not as the first
             // option in the list. Unfiled is neutral; a filed message takes
             // the accent, matching its pill.
-            background: filed ? 'var(--tint-pine)' : 'var(--gray-25)',
+            // gray-50, not gray-25: #fafbfc is a hair off white and the
+            // band read as transparent against the card.
+            background: filed ? 'var(--tint-pine)' : 'var(--gray-50)',
             fontSize: 12, fontWeight: 500,
             color: filed ? 'var(--accent-pine-text)' : 'var(--text-muted)'
           }}>
