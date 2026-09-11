@@ -308,13 +308,7 @@ export default function MessageDealPill({
                     {t.status}
                   </span>
                 )}
-                {/* Points where the click leads. Faint at rest so it does not
-                    compete with the deal name, which is what the rep reads. */}
-                <span className="ms" style={{
-                  fontSize: 16, flex: 'none', color: 'var(--text-faint)'
-                }}>
-                  chevron_right
-                </span>
+
               </button>
             ))}
 
