@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import DealHubTab from './tabs/DealHubTab'
 import DealsTab from './tabs/DealsTab'
 import BusinessesTab from './tabs/BusinessesTab'
@@ -56,11 +56,47 @@ function samePlace(a, b) {
     && a.businessId === b.businessId
 }
 
+// Where the rep was, across a page reload.
+//
+// The app is a single route inside a GHL iframe — there are no URLs, so a
+// reload has nothing to restore from and every position resets to the Deal
+// hub. A rep editing a contact who refreshes (or whose iframe reloads on its
+// own) lands somewhere else entirely and has to navigate back.
+//
+// Namespaced by location: the same browser can hold several sub-accounts, and
+// restoring one account's contact id into another shows a record that is not
+// theirs.
+//
+// Unlike useTabState — which deliberately does NOT persist, because a filter
+// from yesterday reappearing with no explanation is worse than a clean page —
+// this is the page you were literally just on. Restoring it is what a browser
+// would do if we had URLs.
+const POSITION_KEY = (locationId) => `pp.position.${locationId || 'unknown'}`;
+
+function readPosition(locationId) {
+  try {
+    const raw = localStorage.getItem(POSITION_KEY(locationId))
+    if (!raw) return null
+    const p = JSON.parse(raw)
+    // Validate rather than trust: a stale or hand-edited value must not put
+    // the shell into a tab that no longer exists.
+    if (!p || typeof p.tab !== 'string') return null
+    return p
+  } catch {
+    // Private browsing, cleared storage, corrupt JSON — a missing position is
+    // never worth failing the app for.
+    return null
+  }
+}
+
 export default function DealHubShell() {
   const { location } = useAuth()
   const locationName = location?.name || location?.id || ''
-  const [activeTab, setActiveTab] = useState('hub')
-  const [selectedDealId, setSelectedDealId] = useState(null)
+  // Restored once, on the first render, from where we were before a reload.
+  // Lazy initialisers so localStorage is read once rather than every render.
+  const restored = useRef(readPosition(location?.id)).current
+  const [activeTab, setActiveTab] = useState(() => restored?.tab || 'hub')
+  const [selectedDealId, setSelectedDealId] = useState(() => restored?.dealId || null)
   // Location-wide totals for the top-nav pill counters. One fetch on mount.
   // Matches what each tab actually shows (Deals 343 = every open opp, etc).
   const [counts, setCounts] = useState(null)
@@ -73,12 +109,12 @@ export default function DealHubShell() {
     return () => { alive = false }
   }, [])
 
-  const [openBusinessId, setOpenBusinessId] = useState(null)
+  const [openBusinessId, setOpenBusinessId] = useState(() => restored?.businessId || null)
   // Which deal the Deals tab should open EXPANDED for editing. Set by the Deal
   // Hub's "Edit full record" action; cleared on the next navigation so
   // returning to the tab later does not silently reopen an editor.
   const [editDealId, setEditDealId] = useState(null)
-  const [openContactId, setOpenContactId] = useState(null)
+  const [openContactId, setOpenContactId] = useState(() => restored?.contactId || null)
 
   // Where we've been. A stack, not the browser's history: the app is one route
   // inside an iframe, so there are no URLs to go back through — every jump
@@ -93,6 +129,22 @@ export default function DealHubShell() {
     contactId: openContactId,
     businessId: openBusinessId
   }
+
+  // Remember where we are, so a reload comes back here.
+  //
+  // Writes on every move rather than on unload: an iframe can be torn down
+  // without firing beforeunload, and this is four short strings — cheap
+  // enough that there is no reason to batch it.
+  useEffect(() => {
+    try {
+      localStorage.setItem(POSITION_KEY(location?.id), JSON.stringify(here))
+    } catch {
+      // Storage disabled or full. Losing the position is a small cost; an
+      // exception here would take the whole shell down.
+    }
+    // `here` is rebuilt every render, so depend on its fields, not the object.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, selectedDealId, openContactId, openBusinessId, location?.id])
 
   // The single way to move. Records where we were, then goes.
   const navigate = (next) => {
