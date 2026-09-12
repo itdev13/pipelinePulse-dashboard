@@ -64,6 +64,8 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
   // rather than only "Save view" under a new name.
   const [dirtyView, setDirtyView] = useState(null)
 
+
+
   useEffect(() => {
     let alive = true
     savedViewsAPI.list('deals')
@@ -78,6 +80,16 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
   // Server-side: filtering only the loaded page would hide matches further
   // down the list.
   const [search, setSearch] = useTabState('deals', 'search', '')
+
+  // Search is stored in a saved view (see saveView), so committing new text
+  // edits the applied view exactly as a filter change does.
+  const commitSearch = useCallback(() => {
+    const next = q.trim()
+    if (next === search) return
+    setSearch(next)
+    setDirtyView(activeViewId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, search, activeViewId])
 
   // Which row is expanded for editing. One at a time: two open editors mean two
   // sets of unsaved changes and no way to tell which Update belongs to which.
@@ -256,8 +268,13 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
             <SearchInput
               value={q}
               onChange={setQ}
-              onKeyDown={(e) => { if (e.key === 'Enter') setSearch(q.trim()) }}
-              onBlur={() => setSearch(q.trim())}
+              // The search text is SAVED into a view (see saveView), so
+              // changing it edits the applied view the same way a filter does.
+              // Only when the text actually CHANGED. Blur fires every time the
+              // box loses focus, and marking the view dirty on a no-op would
+              // offer "Update view1" to a rep who merely clicked away.
+              onKeyDown={(e) => { if (e.key === 'Enter') commitSearch() }}
+              onBlur={commitSearch}
               placeholder="Search deal name — press Enter"
               width={280}
             />
@@ -349,9 +366,16 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
           assignedTo: ((refData?.users || [])
             .find((u) => u.id === filters.assignedTo) || {}).name
         }}
-        onClearFilter={(k) => setFilters((f) => {
-          const next = { ...f }; delete next[k]; return next
-        })}
+        // Removing a chip EDITS the applied view, exactly like changing a
+        // filter in the panel does. It used to change the filters without
+        // marking the view dirty, so the toolbar went on offering "Save view"
+        // under a new name while "view1" sat active and no longer matched.
+        onClearFilter={(k) => {
+          setFilters((f) => {
+            const next = { ...f }; delete next[k]; return next
+          })
+          setDirtyView(activeViewId)
+        }}
         onClearAll={() => { setFilters({}); setActiveViewId(null); setDirtyView(null) }}
         // The view whose filters have been edited since it was applied. The
         // toolbar turns this into "Update <name>", which saves over it rather
