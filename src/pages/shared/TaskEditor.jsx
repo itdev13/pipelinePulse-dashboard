@@ -415,9 +415,40 @@ export default function TaskEditor({
               />
             </Field>
 
-            {/* Only on create. Moving a task to a different contact isn't a
-                field the CRM's update endpoint accepts, so offering it here
-                would be a control that silently does nothing. */}
+            {/* READ-ONLY when editing.
+                Moving a task to another contact isn't a field the CRM's update
+                endpoint accepts, so a picker here would be a control that
+                silently does nothing — but hiding the contact entirely left
+                the rep unable to see whose task this is. That matters most
+                when the deal picker rejects a choice: the error reads "that
+                deal is not on this contact" while the contact it refers to was
+                nowhere on screen. */}
+            {editing && task?.contact?.name && (
+              <Field label="Contact">
+                <div
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+                    height: 32, padding: '0 11px',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--surface-sunken)',
+                    color: 'var(--text-body)', fontSize: 'var(--text-md)'
+                  }}
+                  title="A task cannot be moved to another contact"
+                >
+                  <span className="ms" style={{ fontSize: 15, color: 'var(--text-faint)' }}>
+                    person
+                  </span>
+                  <span style={{
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                  }}>
+                    {task.contact.name}
+                  </span>
+                </div>
+              </Field>
+            )}
+
+            {/* Only on create — see above. */}
             {!editing && (
               <Field label="Contact" required error={errorField === 'contactId' ? error : null}>
                 {/* Searches every contact in the sub-account, not just the ones
