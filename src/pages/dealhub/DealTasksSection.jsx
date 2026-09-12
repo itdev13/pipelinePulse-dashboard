@@ -328,7 +328,16 @@ export function DealTasksSection({ dealId, people = [], onOpenAll }) {
           // unrelated to which deal's rail it was opened from, and hiding it
           // (as a single showLinks flag used to) meant the association could
           // only be set from the standalone Tasks tab.
-          showDealLink={false}
+          //
+          // THE DEAL PICKER IS SHOWN TOO, pre-filled with this rail's deal.
+          //
+          // It was hidden on the reasoning that the deal is already known
+          // here, so a picker only invites refiling by accident. But the
+          // result was a rep who could see the Company and not the Deal, with
+          // no way to tell what the task was attached to or to correct it
+          // when wrong. Showing it pre-filled states the answer; changing it
+          // is then a deliberate act, not an accident waiting to happen.
+          deals={linkTargets.deals}
           defaultOpportunityId={dealId}
           onClose={() => setEditor(null)}
           onSaved={(saved) => {
@@ -586,10 +595,10 @@ export function DealNotesSection({ dealId, people = [], onOpenAll }) {
           contacts={people}
           businesses={linkTargets.businesses}
           defaultContactId={targetContactId}
-          // Deal picker hidden, company picker kept — see the note on
-          // TaskEditor above. The deal is already known here; the company is
-          // not, and it has to be settable somewhere other than the Notes tab.
-          showDealLink={false}
+          // Both pickers shown — see the note on TaskEditor above. The deal
+          // is pre-filled with this rail's, so the rep can see what the note
+          // is attached to and change it if it is wrong.
+          deals={linkTargets.deals}
           defaultOpportunityId={dealId}
           // How many notes are already pinned on the target contact, so the pin
           // toggle can say when there's no room rather than failing on save.
