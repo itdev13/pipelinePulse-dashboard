@@ -190,9 +190,15 @@ export default function DealToolbar({
       border: '1px solid var(--border-default)',
       borderRadius: 'var(--radius-lg)'
     }}>
-      {/* Pipeline FIRST: it decides which board you are even looking at, so
-          it reads as the outer choice and Filters narrows within it. */}
-      {secondaryControl}
+      {/* CONTEXT — which pipeline, and how many deals it holds.
+          Its own group, separated by a rule: it is not a control you set to
+          narrow the list, it is what the list IS. Everything after the rule
+          acts on it. */}
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)',
+        flex: 'none'
+      }}>
+        {secondaryControl}
 
       {/* The count belongs to the pipeline beside it, not to the far right of
           the row — it answers "how many are in THIS", which is the question
@@ -203,15 +209,33 @@ export default function DealToolbar({
           display: 'inline-flex', alignItems: 'center', flex: 'none',
           height: 26, padding: '0 10px',
           borderRadius: 'var(--radius-pill)',
-          background: 'var(--tint-sky)',
+          // Grey, not a tint. It sits inside the context group and states a
+          // fact; a coloured pill there read as another filter chip, which is
+          // the one thing it is not.
+          background: 'var(--gray-100)',
           fontSize: 'var(--text-md)', fontWeight: 600,
           fontVariantNumeric: 'tabular-nums',
-          color: 'var(--text-body)', whiteSpace: 'nowrap'
+          color: 'var(--text-muted)', whiteSpace: 'nowrap'
         }}>
           {count} {count === 1 ? countLabel.replace(/s$/, '') : countLabel}
         </span>
       )}
 
+      </span>
+
+      {/* A hairline, not a gap. Spacing alone read as "these are all one
+          row of controls", which is exactly what made the strip feel
+          crammed — nine items with no grouping. */}
+      <span
+        aria-hidden="true"
+        style={{
+          flex: 'none', width: 1, height: 22,
+          background: 'var(--border-default)',
+          margin: '0 var(--space-1)'
+        }}
+      />
+
+      {/* NARROWING — what cuts the list down, and the saved sets of it. */}
       {filterControl}
 
       {active.map(([k, v]) => (
@@ -302,9 +326,15 @@ export default function DealToolbar({
           </button>
         </span>
       ) : (
-        // EDITED an applied view? Offer to update it. Without this a rep who
-        // tweaked one filter could only "Save view" under a new name, which
-        // left two near-identical views and no way to correct the first.
+        // Three states, one slot:
+        //
+        //   a view is applied and EDITED  -> "Update <name>"
+        //   no view, but filters are set  -> "Save view"
+        //   a view is applied, unchanged  -> nothing
+        //
+        // That last case was missing: "Save view" showed beside an applied
+        // view whose filters had not been touched, inviting a rep to save a
+        // duplicate of the view they were already looking at.
         dirtyViewId && dirtyView ? (
           <button
             onClick={() => onUpdateView(dirtyViewId)}
@@ -322,7 +352,7 @@ export default function DealToolbar({
             <span className="ms" style={{ fontSize: 16 }}>save</span>
             Update {dirtyView.name}
           </button>
-        ) : active.length > 0 && (
+        ) : (active.length > 0 && !activeViewId) && (
           <button
             onClick={() => setNaming(true)}
             title="Save these filters as a view"

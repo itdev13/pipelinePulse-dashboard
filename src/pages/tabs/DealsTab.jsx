@@ -464,7 +464,9 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
               // 36px matches Filters, the saved views and the view switch.
               // antd's size="large" is 40px, so the pipeline stood a notch
               // taller than everything beside it and the row lost its line.
-              style={{ width: 220 }}
+              // 280px: "Marketing pipeline" and "customer pipeline" both fit
+              // without truncation, which 220 did not manage.
+              style={{ width: 280 }}
               styles={{ root: { height: 36 } }}
               // The menu is wider than the control when a name needs it,
               // rather than truncating every option to the box.
