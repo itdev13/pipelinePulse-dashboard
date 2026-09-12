@@ -381,7 +381,10 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
             || null
           }
           search={search}
-          status="open"
+          // The board's columns ARE the stages, so a stage filter would leave
+          // one column populated and the rest empty — it is applied by the
+          // board's own column scoping instead. Status does pass through.
+          status={filters.status || 'open'}
           onOpenDeal={onOpenDeal}
         />
       )}
