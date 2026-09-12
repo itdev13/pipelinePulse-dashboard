@@ -365,7 +365,11 @@ export default function MessageDealPill({
               }}
             >
               <span className="ms" style={{ fontSize: 14 }}>link_off</span>
-              Unlink from every deal
+              {/* "this deal", not "every deal". A message is linked to ONE
+                  deal at most, so "every" describes something that cannot
+                  happen — it was carried over from the task popover, where a
+                  task genuinely can hold up to ten. */}
+              Unlink from this deal
             </button>
             )}
           </div>

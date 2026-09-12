@@ -1125,7 +1125,10 @@ function AllMessages({ contactId, deals = [], onOpenDeal }) {
                 borderRadius: 'var(--radius-md)', background: '#fff'
               }}
             >
-              <option value="">Unlink from every deal</option>
+              {/* The blank entry means "no deal", not an action on many —
+                  a message is on one deal at most. Phrased as a destination
+                  so it reads consistently with the deal names below it. */}
+              <option value="">— No deal (leave on the contact)</option>
               {deals.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}{d.status && d.status !== 'open' ? ` (${d.status})` : ''}
