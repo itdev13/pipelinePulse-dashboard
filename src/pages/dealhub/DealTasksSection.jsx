@@ -3,6 +3,7 @@ import { tasksAPI } from '../../api/tasks'
 import { notesAPI } from '../../api/notes'
 import { formatDue, relativeTime, RichBody, AttachmentCount } from '../shared/ListChrome'
 import TaskEditor from '../shared/TaskEditor'
+import { useLinkTargets } from '../../hooks/useLinkTargets'
 import NoteEditor from '../shared/NoteEditor'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import { noteColourStyle } from '../../utils/noteColour'
@@ -35,6 +36,14 @@ export function DealTasksSection({ dealId, people = [], onOpenAll }) {
   const [status, setStatus] = useState('open')
   const [sort, setSort] = useState('due')
   const [editor, setEditor] = useState(null)
+  // Companies for the editor's picker. LAZY — nothing is fetched until an
+  // editor opens, so a rep who only reads the rail pays nothing.
+  //
+  // The deal hub never passed these, so the picker seeded empty and showed
+  // "Type to search" where the standalone Tasks and Notes tabs offer the
+  // list straight away. The same company is equally likely from either
+  // place; only the wiring differed.
+  const linkTargets = useLinkTargets(!!editor)
   const [saving, setSaving] = useState(() => new Set())
   const [failed, setFailed] = useState(null)
   // The task queued for deletion. Same treatment as notes: the CRM keeps no
@@ -304,6 +313,7 @@ export function DealTasksSection({ dealId, people = [], onOpenAll }) {
         <TaskEditor
           task={editor.task}
           contacts={people}
+          businesses={linkTargets.businesses}
           defaultContactId={
             editor.task?.contact?.id
             || people.find((p) => p.primary)?.id
@@ -349,6 +359,14 @@ export function DealNotesSection({ dealId, people = [], onOpenAll }) {
 
   const [sort, setSort] = useState('newest')
   const [editor, setEditor] = useState(null)
+  // Companies for the editor's picker. LAZY — nothing is fetched until an
+  // editor opens, so a rep who only reads the rail pays nothing.
+  //
+  // The deal hub never passed these, so the picker seeded empty and showed
+  // "Type to search" where the standalone Tasks and Notes tabs offer the
+  // list straight away. The same company is equally likely from either
+  // place; only the wiring differed.
+  const linkTargets = useLinkTargets(!!editor)
   const [failed, setFailed] = useState(null)
   const [busy, setBusy] = useState(null)
 
@@ -566,6 +584,7 @@ export function DealNotesSection({ dealId, people = [], onOpenAll }) {
         <NoteEditor
           note={editor.note}
           contacts={people}
+          businesses={linkTargets.businesses}
           defaultContactId={targetContactId}
           // Deal picker hidden, company picker kept — see the note on
           // TaskEditor above. The deal is already known here; the company is

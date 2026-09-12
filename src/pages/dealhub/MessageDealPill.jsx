@@ -342,10 +342,22 @@ export default function MessageDealPill({
                 // Deliberately NOT a card. The deals above are targets you
                 // pick from; this is the destructive escape hatch, and giving
                 // it the same weight would make it look like a third deal.
-                // Kept flat and quiet, separated by space rather than a rule
-                // — a divider under bordered cards reads as clutter.
-                padding: '7px 10px', marginTop: 2,
-                border: 'none', borderRadius: 8,
+                //
+                // A rule ABOVE it, though. Space alone was enough under
+                // bordered cards, but with no deals to offer the empty-state
+                // sentence sits directly against this row and the two read as
+                // one block. The rule separates them in both states.
+                //
+                // Inset by the container's padding rather than full-bleed, so
+                // it groups the list above rather than cutting the card in two.
+                padding: '9px 10px 7px', marginTop: 4,
+                borderTop: '1px solid var(--border-default)',
+                borderLeft: 'none', borderRight: 'none', borderBottom: 'none',
+                // Rounded at the BOTTOM only: the top edge carries the rule
+                // and must stay square against it, while the hover highlight
+                // would otherwise render as a hard-cornered rectangle inside
+                // a 12px-rounded card.
+                borderRadius: '0 0 8px 8px',
                 background: 'transparent', textAlign: 'left',
                 fontSize: 12.5, color: 'var(--text-muted)',
                 cursor: busy ? 'wait' : 'pointer',
