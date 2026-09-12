@@ -364,6 +364,24 @@ export default function NoteEditor({
           className="pp-modal-body"
           style={{ display: 'grid', gap: 'var(--space-3)', padding: 'var(--space-4)' }}
         >
+          {/* Optional, and worth saying so: before this existed the UI derived
+              a heading from the body's first line, so reps had no way to give a
+              note a real title. */}
+          <Field
+            label="Title"
+            hint="Optional — without one, the first line is used as the heading"
+            error={errorField === 'title' ? error : null}
+          >
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Short heading"
+              maxLength={255}
+              autoFocus={!editing}
+              status={errorField === 'title' ? 'error' : undefined}
+            />
+          </Field>
+
           <Field label="Note" required error={errorField === 'body' ? error : null}>
             {/* Rich text, not a textarea.
                 GHL stores a note body as HTML, and this used to strip it on
@@ -392,26 +410,8 @@ export default function NoteEditor({
               // Mirrors notePatch.js's MAX_BODY on the server.
               maxLength={65000}
               minHeight={150}
-              autoFocus={!editing}
             />
             </React.Suspense>
-          </Field>
-
-          {/* Optional, and worth saying so: before this existed the UI derived
-              a heading from the body's first line, so reps had no way to give a
-              note a real title. */}
-          <Field
-            label="Title"
-            hint="Optional — without one, the first line is used as the heading"
-            error={errorField === 'title' ? error : null}
-          >
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Short heading"
-              maxLength={255}
-              status={errorField === 'title' ? 'error' : undefined}
-            />
           </Field>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
