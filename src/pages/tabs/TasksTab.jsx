@@ -275,7 +275,16 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                   padding: 'var(--space-4)',
                   // The chip row below carries the divider when present, so
                   // the two lines read as one row.
-                  borderBottom: hasChips ? 'none' : '1px solid var(--border-default)',
+                  // In the grid each task is a CARD — a full border and a
+                  // radius. In rows it is a list item, so only the divider
+                  // below it. Same markup, different separation.
+                  ...(view === 'grid'
+                    ? {
+                      border: '1px solid var(--border-default)',
+                      borderRadius: 'var(--radius-md)',
+                      background: 'var(--surface-card)'
+                    }
+                    : { borderBottom: hasChips ? 'none' : '1px solid var(--border-default)' }),
                   opacity: done ? 0.6 : 1,
                   transition: 'background 120ms ease'
                 }}

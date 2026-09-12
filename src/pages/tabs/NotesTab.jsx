@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import ViewSwitch from '../shared/ViewSwitch'
 import { notesAPI } from '../../api/notes'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import NoteEditor from '../shared/NoteEditor'
@@ -41,6 +42,14 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
   const linkTargets = useLinkTargets(!!editor)
   const [busy, setBusy] = useState(null)
   const [toast, setToast] = useState(null)
+
+  // Rows or a grid — see TasksTab. Persisted per tab, so the two can differ.
+  const [view, setView] = useState(() => {
+    try { return localStorage.getItem('pp.notes.view') || 'rows' } catch { return 'rows' }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('pp.notes.view', view) } catch { /* private mode */ }
+  }, [view])
 
   const say = (message, tone = 'done') => {
     setToast({ message, tone })
@@ -115,9 +124,19 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
         title="Notes"
         subtitle="Agreed information, saved by you or the AI agent — every note also lands on its deal timeline"
         action={
-          <PrimaryAction onClick={() => setEditor({ note: null })} icon="add">
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <ViewSwitch
+              value={view}
+              onChange={setView}
+              options={[
+                { id: 'rows', icon: 'view_agenda', label: 'Rows' },
+                { id: 'grid', icon: 'grid_view', label: 'Grid' }
+              ]}
+            />
+            <PrimaryAction onClick={() => setEditor({ note: null })} icon="add">
             Add note
           </PrimaryAction>
+          </span>
         }
       />
 
@@ -139,6 +158,14 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
           loadingText="Loading notes…"
         />
 
+        {/* GRID wraps the same rows — see TasksTab for why the markup is
+            shared rather than duplicated. */}
+        <div style={view === 'grid' ? {
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+          gap: 'var(--space-3)',
+          padding: 'var(--space-3)'
+        } : undefined}>
         {notes.map((n) => {
           // A real title wins over one derived from the body. Before migration
           // 058 there was no title column, so an author who DID title their
@@ -316,6 +343,7 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
             </div>
           )
         })}
+        </div>
 
         {!loading && notes.length > 0 && (
           <LoadMore
