@@ -65,6 +65,40 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
     return () => { alive = false }
   }, [])
 
+  const [q, setQ] = useTabState('deals', 'q', '')
+  // Server-side: filtering only the loaded page would hide matches further
+  // down the list.
+  const [search, setSearch] = useTabState('deals', 'search', '')
+
+  // Which row is expanded for editing. One at a time: two open editors mean two
+  // sets of unsaved changes and no way to tell which Update belongs to which.
+  // Seeded from initialEditDealId so the Deal Hub can send a rep straight to
+  // this deal's editor — "edit the full record" on the deal card. Held as
+  // state, not read directly, so closing the row does not reopen it on the
+  // next render.
+  const [editingId, setEditingId] = useState(initialEditDealId)
+
+  // The create form, above the list. Mutually exclusive with an open editor —
+  // two draft forms on screen is two things to lose.
+  const [creating, setCreating] = useState(false)
+
+  // Pipelines and users, fetched ONCE for the whole tab rather than per row.
+  // They are location-wide and identical for every deal; fetching them in the
+  // panel would be two requests every time a row is expanded.
+  //
+  // Lazy: the fetch runs when the first row is expanded, not on page load, so a
+  // rep who only reads the list never pays for it.
+  const [refData, setRefData] = useState(null)
+  const [refError, setRefError] = useState(null)
+
+  // Saved-view actions.
+  //
+  // DECLARED HERE, not beside the view state above, because `const` is not
+  // hoisted: applyView reads setQ/setSearch and saveView reads search and
+  // setRefError, all of which are declared further down. Sitting above them
+  // it threw "Cannot access 'g' before initialization" on first render — a
+  // temporal dead zone error that both lint and the production build accept
+  // without complaint.
   const applyView = useCallback((id) => {
     setActiveViewId(id)
     const v = views.find((x) => x.id === id)
@@ -106,31 +140,7 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
       setRefError(e.message || 'That view could not be deleted')
     }
   }, [activeViewId])
-  const [q, setQ] = useTabState('deals', 'q', '')
-  // Server-side: filtering only the loaded page would hide matches further
-  // down the list.
-  const [search, setSearch] = useTabState('deals', 'search', '')
 
-  // Which row is expanded for editing. One at a time: two open editors mean two
-  // sets of unsaved changes and no way to tell which Update belongs to which.
-  // Seeded from initialEditDealId so the Deal Hub can send a rep straight to
-  // this deal's editor — "edit the full record" on the deal card. Held as
-  // state, not read directly, so closing the row does not reopen it on the
-  // next render.
-  const [editingId, setEditingId] = useState(initialEditDealId)
-
-  // The create form, above the list. Mutually exclusive with an open editor —
-  // two draft forms on screen is two things to lose.
-  const [creating, setCreating] = useState(false)
-
-  // Pipelines and users, fetched ONCE for the whole tab rather than per row.
-  // They are location-wide and identical for every deal; fetching them in the
-  // panel would be two requests every time a row is expanded.
-  //
-  // Lazy: the fetch runs when the first row is expanded, not on page load, so a
-  // rep who only reads the list never pays for it.
-  const [refData, setRefData] = useState(null)
-  const [refError, setRefError] = useState(null)
 
   useEffect(() => {
     // Also when the create form opens — it needs the pipeline list to be
