@@ -246,14 +246,50 @@ function Column({ stage, search, status, onOpen, onMoved, registerReload }) {
             }}
           />
         ))}
+        {/* An empty column is also a DROP TARGET, and the old state said
+            nothing about that: one line of grey text pinned to the top of a
+            600px void. A dashed outline is the same shape a card would take
+            if one were dragged here, so the column reads as "put one here"
+            rather than "broken".
+
+            Vertically centred, not top-aligned — text at the top of a tall
+            empty box looks like content that failed to load. */}
         {!loading && !deals.length && !error && (
-          <p style={{
-            margin: 0, padding: 'var(--space-3)',
-            fontSize: 'var(--text-base)', color: 'var(--text-faint)',
-            textAlign: 'center'
+          <div style={{
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            gap: 8, minHeight: 140, padding: 'var(--space-4)',
+            // Answers the drag too. The column already tints on hover, but
+            // the placeholder inside it stayed grey — so the one element a
+            // rep is aiming at was the one that did not react.
+            border: `1px dashed ${over ? 'var(--green-300)' : 'var(--border-strong)'}`,
+            borderRadius: 'var(--radius-md)',
+            // A shade lighter than the column, so the outline reads as an
+            // opening in it rather than another card.
+            background: over ? 'transparent' : 'var(--gray-50)',
+            transition: 'border-color 120ms ease'
           }}>
-            Nothing in this stage
-          </p>
+            <span className="ms" style={{
+              fontSize: 26,
+              color: over ? 'var(--green-600)' : 'var(--text-faint)'
+            }}>
+              {over ? 'move_down' : 'inbox'}
+            </span>
+            <p style={{
+              margin: 0, textAlign: 'center',
+              fontSize: 'var(--text-md)', fontWeight: 500,
+              color: 'var(--text-muted)'
+            }}>
+              No deals here
+            </p>
+            <p style={{
+              margin: 0, textAlign: 'center',
+              fontSize: 'var(--text-base)', color: 'var(--text-faint)',
+              lineHeight: 1.4
+            }}>
+              Drag a deal across to move it into {stage.name}
+            </p>
+          </div>
         )}
         {hasMore && (
           <button
