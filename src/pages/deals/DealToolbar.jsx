@@ -23,6 +23,14 @@ const FILTER_LABEL = {
 // a tinted page and an underline on a light ground reads as a divider.
 function ViewTab({ view, active, onSelect, onDelete }) {
   const [hover, setHover] = useState(false)
+
+  // A saved view is NOT a filter chip, and it was styled as one — same pill,
+  // same size, sitting in the same row, so "view1" read as a third filter
+  // rather than the thing that produced the other two.
+  //
+  // It is now a bookmark: an icon, a heavier label, and a solid fill when
+  // active. The icon does most of the work — one glyph says "this is a saved
+  // thing" in a row where everything else is a value.
   return (
     <span
       onMouseEnter={() => setHover(true)}
@@ -31,24 +39,31 @@ function ViewTab({ view, active, onSelect, onDelete }) {
     >
       <button
         onClick={onSelect}
-        title={view.isShared && !view.isMine ? 'Shared with the team' : undefined}
+        title={
+          view.isShared && !view.isMine
+            ? `${view.name} — shared with the team`
+            : (active ? `${view.name} — click to clear` : `Apply "${view.name}"`)
+        }
         style={{
-          display: 'inline-flex', alignItems: 'center', gap: 5,
-          height: 32, padding: onDelete && hover ? '0 4px 0 12px' : '0 12px',
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          height: 32, padding: onDelete && hover ? '0 4px 0 11px' : '0 11px',
           border: '1px solid',
-          borderColor: active ? 'var(--green-300)' : 'transparent',
-          borderRadius: 'var(--radius-pill)',
-          background: active ? 'var(--tint-pine)' : 'transparent',
-          color: active ? 'var(--green-600)' : 'var(--text-muted)',
-          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)',
-          fontWeight: active ? 600 : 500,
-          cursor: 'pointer', whiteSpace: 'nowrap'
+          borderColor: active ? 'var(--brand-primary)' : 'var(--border-strong)',
+          borderRadius: 'var(--radius-md)',
+          background: active ? 'var(--brand-primary)' : 'var(--surface-card)',
+          color: active ? '#fff' : 'var(--text-body)',
+          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+          fontWeight: 600,
+          cursor: 'pointer', whiteSpace: 'nowrap',
+          maxWidth: 200
         }}
       >
-        {view.isShared && (
-          <span className="ms" style={{ fontSize: 14 }} title="Shared">group</span>
-        )}
-        {view.name}
+        <span className="ms" style={{ fontSize: 16, flex: 'none' }}>
+          {view.isShared ? 'group' : 'bookmark'}
+        </span>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {view.name}
+        </span>
       </button>
       {/* Delete appears on hover and only on your own views — a shared view
           belongs to whoever made it. */}
@@ -61,7 +76,8 @@ function ViewTab({ view, active, onSelect, onDelete }) {
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: 22, height: 22, marginLeft: -6, marginRight: 4,
             border: 'none', borderRadius: '50%',
-            background: 'transparent', color: 'var(--text-faint)',
+            background: 'transparent',
+            color: active ? '#fff' : 'var(--text-faint)',
             cursor: 'pointer'
           }}
         >
@@ -155,8 +171,10 @@ export default function DealToolbar({
       border: '1px solid var(--border-default)',
       borderRadius: 'var(--radius-lg)'
     }}>
-      {filterControl}
+      {/* Pipeline FIRST: it decides which board you are even looking at, so
+          it reads as the outer choice and Filters narrows within it. */}
       {secondaryControl}
+      {filterControl}
 
       {active.map(([k, v]) => (
         <FilterChip
@@ -206,8 +224,8 @@ export default function DealToolbar({
             maxLength={60}
             style={{
               height: 32, width: 180, padding: '0 10px',
-              border: '1px solid var(--green-300)',
-              borderRadius: 'var(--radius-pill)',
+              border: '1px solid var(--brand-primary)',
+              borderRadius: 'var(--radius-md)',
               fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
               color: 'var(--text-body)', outline: 'none'
             }}
@@ -217,7 +235,7 @@ export default function DealToolbar({
             disabled={!name.trim()}
             style={{
               height: 32, padding: '0 12px',
-              border: 'none', borderRadius: 'var(--radius-pill)',
+              border: 'none', borderRadius: 'var(--radius-md)',
               background: name.trim() ? 'var(--brand-primary)' : 'var(--gray-200)',
               color: name.trim() ? '#fff' : 'var(--text-faint)',
               fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
@@ -235,11 +253,13 @@ export default function DealToolbar({
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 4,
               height: 32, padding: '0 10px',
+              // Dashed and square-cornered, matching the saved views it
+              // creates — it is the empty slot beside them, not a filter.
               border: '1px dashed var(--border-strong)',
-              borderRadius: 'var(--radius-pill)',
+              borderRadius: 'var(--radius-md)',
               background: 'transparent', color: 'var(--text-muted)',
               fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
-              cursor: 'pointer'
+              fontWeight: 500, cursor: 'pointer'
             }}
           >
             <span className="ms" style={{ fontSize: 16 }}>add</span>

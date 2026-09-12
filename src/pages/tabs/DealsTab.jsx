@@ -206,13 +206,40 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
 
   const deals = items || []
 
+  // The deal's own page REPLACES the list, the way ContactDetail replaces the
+  // contacts list. Rendered before the Shell so the shell's tab strip, Back
+  // button and location name all stay on screen — a full-screen overlay hid
+  // them and left this page with no way out except its own header.
+  const openDeal = openDealId ? deals.find((d) => d.id === openDealId) : null
+  if (openDealId && openDeal) {
+    return (
+      <Shell maxWidth={1240}>
+        <DealEditPage
+          deal={openDeal}
+          pipelines={refData?.pipelines || null}
+          users={refData?.users || null}
+          refError={refError}
+          onClose={() => setOpenDealId(null)}
+          onSaved={() => refreshDeal(openDealId)}
+          onDeleted={() => { setOpenDealId(null); reload() }}
+          onOpenInHub={(id) => { setOpenDealId(null); onOpenDeal(id) }}
+        />
+      </Shell>
+    )
+  }
+
   return (
     // The BOARD gets the full width. A kanban is read across, and 1240px
     // centred left a third of a wide screen empty while the columns scrolled
     // sideways — the one layout where a reading-width cap is exactly wrong.
     // The paged views keep the cap: a table or a card list stretched to
     // 2400px is a line of text nobody can track back from.
-    <Shell maxWidth={view === 'board' ? 'none' : 1240}>
+    // Full width in EVERY view. The cap was kept for the table and the card
+    // list on the reasoning that a very wide row is hard to track back from —
+    // but a nine-column table squeezed into 1240px while a third of the screen
+    // sits empty is the worse problem, and the table scrolls inside its own
+    // box rather than stretching its type.
+    <Shell maxWidth="none">
       <PageHeader
         title="Deals"
         subtitle="Expand any deal to edit it — changes save straight to your CRM"
@@ -430,22 +457,6 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
           onDeleted={() => { setEditingId(null); reload() }}
         />
       ))}
-
-      {/* The deal's own page. Rendered from the LOADED row rather than
-          refetching: the list already holds every field the editor needs, and
-          a second request would show an empty form for a moment. */}
-      {openDealId && (
-        <DealEditPage
-          deal={deals.find((d) => d.id === openDealId) || null}
-          pipelines={refData?.pipelines || null}
-          users={refData?.users || null}
-          refError={refError}
-          onClose={() => setOpenDealId(null)}
-          onSaved={() => refreshDeal(openDealId)}
-          onDeleted={() => { setOpenDealId(null); reload() }}
-          onOpenInHub={(id) => { setOpenDealId(null); onOpenDeal(id) }}
-        />
-      )}
 
       {/* Not on the board: this paginates the card/table list, and each board
           column pages itself. Shown there it read as the board's own total —

@@ -1,67 +1,47 @@
 import React, { useEffect } from 'react'
-import { createPortal } from 'react-dom'
 import DealEditPanel from './DealEditPanel'
 
-// A deal's editor as a PAGE, not a row that expands in place.
+// A deal's editor as a PAGE — the tab's whole content, not a row that expands.
 //
 // Expanding inline put a tall form inside a scrolling list: on the board it
 // was clipped by the column strip, and on the card list it pushed every other
-// deal off screen while the rep worked. A record you edit deserves the whole
-// surface, the way a contact does.
+// deal off screen while the rep worked.
 //
-// Rendered through a portal for the same reason the filter panel is — the
-// board's horizontally scrolling strip and the list's own overflow both clip
-// anything positioned inside them.
+// NOT a portal, and not fixed-position. It was both, and that covered the
+// shell's own navigation — the tab strip, the Back button, the location name —
+// so a rep on this page had no way anywhere except the button in its header.
+// ContactDetail solves the same problem by simply REPLACING its tab's content
+// (an early return in ContactsTab), which leaves the shell's chrome in place.
+// This matches that.
 //
-// NOT a route. Adding a fifth field to the shell's position (tab, dealId,
-// contactId, businessId) means touching history, the localStorage restore and
-// labelForPlace — for a surface whose back action is a single Close. The
-// escape hatch a rep actually wants from here is "open this on the deal hub",
-// which IS a real position, and that button is right in the header.
+// NOT a route either. Adding a fifth field to the shell's position (tab,
+// dealId, contactId, businessId) means touching history, the localStorage
+// restore and labelForPlace — for a surface whose back action is one button.
+// The position a rep actually wants from here is the deal hub, which IS a
+// real position, and that button is in the header.
 
 export default function DealEditPage({
   deal, pipelines, users, refError,
   onClose, onSaved, onDeleted, onOpenInHub
 }) {
-  // Escape closes. The panel holds unsaved edits, so this is the one dialog
-  // where a stray click on the backdrop must NOT discard work — hence no
-  // click-outside handler, unlike the filter panel.
+  // Escape returns to the list — the keyboard equivalent of Back.
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  // The page behind must not scroll while this is open — two scrollbars, and
-  // closing returns the rep to a list scrolled somewhere they never went.
-  useEffect(() => {
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
-  }, [])
-
   if (!deal) return null
 
-  return createPortal(
-    // .pp-portal — tokens and the icon font are scoped to [data-dealhub],
-    // which a portal escapes.
-    <div
-      className="pp-portal"
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Edit ${deal.dealTag || deal.opportunityName || 'deal'}`}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 900,
-        background: 'var(--surface-card)',
-        display: 'flex', flexDirection: 'column'
-      }}
-    >
+  return (
+    <div style={{ display: 'grid', gap: 0, minHeight: 0 }}>
       <header style={{
-        flex: 'none',
         display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
         padding: 'var(--space-3) var(--space-4)',
         borderBottom: '1px solid var(--border-default)',
-        background: 'var(--surface-card)'
+        background: 'var(--surface-card)',
+        borderTopLeftRadius: 'var(--radius-lg)',
+        borderTopRightRadius: 'var(--radius-lg)'
       }}>
         <button
           onClick={onClose}
@@ -109,20 +89,22 @@ export default function DealEditPage({
         )}
       </header>
 
-      <div style={{ flex: 1, overflowY: 'auto', background: 'var(--surface-sunken)' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: 'var(--space-4)' }}>
-          <DealEditPanel
-            deal={deal}
-            pipelines={pipelines}
-            users={users}
-            refError={refError}
-            onSaved={onSaved}
-            onDeleted={onDeleted}
-            onClose={onClose}
-          />
-        </div>
+      <div style={{
+        background: 'var(--surface-sunken)',
+        padding: 'var(--space-4)',
+        borderBottomLeftRadius: 'var(--radius-lg)',
+        borderBottomRightRadius: 'var(--radius-lg)'
+      }}>
+        <DealEditPanel
+          deal={deal}
+          pipelines={pipelines}
+          users={users}
+          refError={refError}
+          onSaved={onSaved}
+          onDeleted={onDeleted}
+          onClose={onClose}
+        />
       </div>
-    </div>,
-    document.body
+    </div>
   )
 }

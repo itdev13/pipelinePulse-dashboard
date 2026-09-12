@@ -168,7 +168,10 @@ function Column({ stage, search, status, onOpen, onMoved, registerReload }) {
         // Without it, an empty column collapsed to its header and the row of
         // headers sat at different depths.
         height: 'calc(100vh - 260px)', minHeight: 380,
-        background: over ? 'var(--tint-pine)' : 'var(--gray-50)',
+        // gray-100, not gray-50: against a white header and white cards, 50 is
+        // a 1.02:1 difference — the header did not read as a header and the
+        // cards floated with no visible column behind them.
+        background: over ? 'var(--tint-pine)' : 'var(--gray-100)',
         border: `1px ${over ? 'dashed' : 'solid'} ${over ? 'var(--green-300)' : 'var(--border-default)'}`,
         borderRadius: 'var(--radius-lg)',
         overflow: 'hidden',
@@ -180,9 +183,12 @@ function Column({ stage, search, status, onOpen, onMoved, registerReload }) {
           background and read as the first card. */}
       <header style={{
         flex: 'none',
-        padding: '11px 14px',
+        padding: '12px 14px',
         background: 'var(--surface-card)',
-        borderBottom: '1px solid var(--border-default)',
+        // A real edge, not a hairline: this is the line between "what stage
+        // is this" and "which deals are in it", and at border-default on a
+        // near-white column it was invisible.
+        borderBottom: '2px solid var(--border-strong)',
         display: 'grid', gap: 3
       }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
