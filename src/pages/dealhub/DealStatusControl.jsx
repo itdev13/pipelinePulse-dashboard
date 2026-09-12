@@ -56,6 +56,14 @@ export default function DealStatusControl({
   const [touched, setTouched] = useState(false)
 
   const current = String(status || 'open').toLowerCase()
+
+  // Clear the pending choice once the save has landed — i.e. when the status
+  // prop finally reports what was picked. Also clears it if the deal's status
+  // changes underneath us (another tab, a webhook), since the dialog would
+  // then be asking about a state that no longer applies.
+  React.useEffect(() => {
+    if (pending && current === pending) setPending(null)
+  }, [current, pending])
   const tone = TONE[current] || TONE.open
 
   function pick(next) {
@@ -82,7 +90,14 @@ export default function DealStatusControl({
       reason: reason.trim(),
       lostReasonId: lostReasonId || undefined
     })
-    setPending(null)
+    // `pending` is NOT cleared here.
+    //
+    // The save is still in flight, and clearing it would drop the dropdown
+    // back to the old status until the new one arrives — a visible flash of
+    // "Open" on a deal the rep just marked lost. The effect below clears it
+    // once the saved status actually matches, so the control moves exactly
+    // once. A failed save leaves the choice on screen with the error, which
+    // is what lets the rep retry without picking again.
   }
 
   const missing = touched && !reason.trim()
@@ -90,7 +105,14 @@ export default function DealStatusControl({
   return (
     <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
       <Select
-        value={current}
+        // The PENDING choice while the reason is being asked for, otherwise
+        // the saved one.
+        //
+        // Bound to `current` alone, the dropdown snapped back to the saved
+        // status the moment it was changed: the rep picked "Lost", the dialog
+        // below correctly asked why the deal was lost, and the control above
+        // it still read "Open". Two halves of the same question disagreeing.
+        value={pending || current}
         onChange={pick}
         options={STATUS_OPTIONS}
         size="large"
