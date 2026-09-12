@@ -142,7 +142,11 @@ function Shell({ children, onBack }) {
             display: 'inline-flex', alignItems: 'center', gap: 6,
             border: 'none', background: 'none', padding: 'var(--space-1) 0',
             cursor: 'pointer',
+            // Weighted: it is the only way back to the list, and at regular
+            // weight in link blue it read as a caption rather than a control.
+            // Size comes from the raised --text-md (14px).
             fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+            fontWeight: 600,
             color: 'var(--text-link)'
           }}
         >

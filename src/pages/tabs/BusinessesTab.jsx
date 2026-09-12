@@ -29,7 +29,9 @@ export default function BusinessesTab({
   onNavigate
 }) {
   const [q, setQ] = useTabState('businesses', 'q', '')
-  const [openId, setOpenId] = useTabState('businesses', 'openId', null)
+  // Plain state, not useTabState — see ContactsTab for why. Leaving the tab
+  // and returning should land on the list, not reopen the last record.
+  const [openId, setOpenId] = useState(null)
 
   // A business link elsewhere in the app (the Deal card) hands us an id to
   // open. Mirrors how ContactsTab handles openContactId.

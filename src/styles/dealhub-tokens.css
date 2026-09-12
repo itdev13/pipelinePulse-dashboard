@@ -150,13 +150,27 @@
    *   16-18   -> xl    (panel headings)
    *   19-25   -> 2xl   (page titles)
    */
-  --text-xs: 10px;
-  --text-sm: 11px;
-  --text-base: 12px;
-  --text-md: 13px;
-  --text-lg: 14px;
-  --text-xl: 17px;
-  --text-2xl: 22px;
+  /* Raised one step across the board (2026-09-12).
+   *
+   * The old scale ran 10/11/12/13/14 — five sizes inside 4px, which is not a
+   * scale so much as a rounding error, and the bottom of it was genuinely
+   * hard to read on a laptop at arm's length. Labels, table cells, chips and
+   * meta lines all sat at 11-12px.
+   *
+   * Every size moves up 1-2px and the gaps widen, so the steps are now
+   * distinguishable: a label reads as smaller than body text rather than
+   * merely thinner. Changed at the TOKEN, so all ~40 components move together
+   * and nothing drifts out of step.
+   *
+   * .pp-menu and .pp-cal below keep their own smaller overrides on purpose —
+   * a dropdown's own type should not grow with the page's. */
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 15px;
+  --text-xl: 18px;
+  --text-2xl: 24px;
   --text-3xl: 28px;   /* page titles */
   --text-display: 34px;  /* the one number or name a card is ABOUT */
 

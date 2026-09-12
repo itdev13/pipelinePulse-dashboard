@@ -596,7 +596,10 @@ export function Shell({ children, maxWidth = 1140 }) {
     <div
       style={{
         maxWidth, width: '100%', boxSizing: 'border-box',
-        margin: '0 auto', padding: 'var(--space-1) 20px var(--space-7)',
+        // space-3 on top, not space-1 (4px): a focused search box draws a
+        // ring outside its border, and at 4px that ring was clipped by the
+        // tab strip directly above it. Applies to every tab's page.
+        margin: '0 auto', padding: 'var(--space-3) 20px var(--space-7)',
         display: 'grid', gap: 'var(--space-4)'
       }}
     >

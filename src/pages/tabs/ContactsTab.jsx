@@ -21,7 +21,13 @@ export default function ContactsTab({
   // Which contact's record is open. Null = the grid. Local navigation within
   // this tab, except when another tab hands us a contact to open (a contact
   // chip on a task or note) — openContactId is that entry point.
-  const [openId, setOpenId] = useTabState('contacts', 'openId', null)
+  //
+  // PLAIN STATE, not useTabState. It was persisted in the tab store, which
+  // survives unmount — so leaving Contacts and coming back reopened whichever
+  // record was last viewed, and the rep had to press Back to reach the list
+  // they asked for. The search text and scroll position below DO persist;
+  // those are where a rep was, while an open record is where they went.
+  const [openId, setOpenId] = useState(null)
 
   useEffect(() => {
     if (openContactId) setOpenId(openContactId)
