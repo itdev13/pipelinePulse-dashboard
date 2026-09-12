@@ -76,7 +76,9 @@ function shortDate(ts) {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export default function DealTable({ deals = [], onOpenDeal, onOpenContact }) {
+export default function DealTable({
+  deals = [], onOpenDeal, onOpenContact, onOpenInHub
+}) {
   if (!deals.length) return null
 
   return (
@@ -105,6 +107,10 @@ export default function DealTable({ deals = [], onOpenDeal, onOpenContact }) {
             <th style={TH}>Tags</th>
             <th style={TH}>Created</th>
             <th style={TH}>Updated</th>
+            {/* No label: two icon buttons under the word "Actions" is a
+                column header explaining itself. The buttons carry their own
+                titles and aria-labels. */}
+            <th style={{ ...TH, width: 92 }} aria-label="Actions" />
           </tr>
         </thead>
         <tbody>
@@ -223,11 +229,60 @@ export default function DealTable({ deals = [], onOpenDeal, onOpenContact }) {
                 <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>
                   {shortDate(d.updatedAt) || '—'}
                 </td>
+
+                {/* Explicit actions. The whole row already opens the editor,
+                    but a row that silently does something on click is a
+                    guess — and there was no way at all to reach the deal hub
+                    from here without opening the editor first. */}
+                <td
+                  style={{ ...td, width: 92, whiteSpace: 'nowrap' }}
+                  // The row's own handler must not fire underneath these.
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <span style={{ display: 'inline-flex', gap: 4 }}>
+                    <RowIcon
+                      icon="edit"
+                      title="Edit this deal"
+                      onClick={() => onOpenDeal && onOpenDeal(d.id)}
+                    />
+                    <RowIcon
+                      icon="space_dashboard"
+                      title="Open on the deal hub"
+                      onClick={onOpenInHub ? () => onOpenInHub(d.id) : undefined}
+                    />
+                  </span>
+                </td>
               </tr>
             )
           })}
         </tbody>
       </table>
     </div>
+  )
+}
+
+
+// A row-level icon button. Inert without an onClick rather than rendering a
+// pointer cursor over something that does nothing.
+function RowIcon({ icon, title, onClick }) {
+  const live = typeof onClick === 'function'
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      disabled={!live}
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 30, height: 30,
+        border: '1px solid var(--border-default)',
+        borderRadius: 'var(--radius-md)',
+        background: 'var(--surface-card)',
+        color: live ? 'var(--text-muted)' : 'var(--text-faint)',
+        cursor: live ? 'pointer' : 'default'
+      }}
+    >
+      <span className="ms" style={{ fontSize: 17 }}>{icon}</span>
+    </button>
   )
 }
