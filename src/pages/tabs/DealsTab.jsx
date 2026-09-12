@@ -129,9 +129,11 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
   // hoisted, and an effect reading them from above throws on first render.
   useEffect(() => {
     let alive = true
+    // The board always counts ONE pipeline (its columns are that pipeline's
+    // stages). Elsewhere an empty picker means "all", so no filter is sent.
     const pipelineId = view === 'board'
       ? (boardPipelineId || (refData?.pipelines || [])[0]?.id || undefined)
-      : undefined
+      : (boardPipelineId || undefined)
     dealsAPI.list({
       status: filters.status || 'open',
       q: search || undefined,
@@ -229,11 +231,14 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
   const fetchPage = useCallback(
     ({ cursor }) => dealsAPI.list({
       status: 'open', limit: 20, cursor, q: search || undefined,
+      // The table and card views were ignoring the pipeline picker entirely —
+      // it only ever reached the board. Empty means "all pipelines".
+      pipelineId: boardPipelineId || undefined,
       // The saved view's filters, minus `view` (display mode, stripped when
       // the view is applied) and `q` (owned by the search box above).
       ...filters
     }),
-    [search, filters]
+    [search, filters, boardPipelineId]
   )
   const { items, error, hasMore, loadingMore, loading, loadMore, patchItem, reload } =
     usePagedList({ fetchPage, key: 'deals', deps: [search] })
@@ -447,16 +452,31 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
         // WHICH deals are on screen, which is the same question Filters
         // answers. The icons only decide how they are drawn.
         secondaryControl={
-          view === 'board' && (refData?.pipelines || []).length > 1 && (
+          (refData?.pipelines || []).length > 1 && (
             // antd Select, not a native one: a browser renders <option> with
             // the OS's own menu, so the list could not be styled, sized or
             // given the app's type. This one shares the .pp-menu treatment
             // every other picker in the app uses.
             <Select
               aria-label="Pipeline"
-              value={boardPipelineId || refData.pipelines[0]?.id || ''}
+              // On the BOARD an empty value is impossible — its columns are one
+              // pipeline's stages — so it falls back to the first. Elsewhere
+              // '' is a real choice meaning "all pipelines", and `||` would
+              // have swallowed it back to the first one.
+              value={
+                view === 'board'
+                  ? (boardPipelineId || refData.pipelines[0]?.id || '')
+                  : (boardPipelineId ?? '')
+              }
               onChange={setBoardPipelineId}
-              options={refData.pipelines.map((p) => ({ value: p.id, label: p.name }))}
+              options={[
+                // "All pipelines" only OFF the board. A board's columns ARE
+                // one pipeline's stages, so "all" there would mean merging
+                // several pipelines' stage lists into one set of columns —
+                // which is not a board any more.
+                ...(view === 'board' ? [] : [{ value: '', label: 'All pipelines' }]),
+                ...refData.pipelines.map((p) => ({ value: p.id, label: p.name }))
+              ]}
               popupClassName="pp-menu"
               // Wide enough for a real pipeline name. The old control was
               // sized to its current value, so "Marketing pipeline" was
@@ -523,6 +543,8 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
           // Straight to the hub, skipping the editor — the row's other
           // action already covers "edit this record".
           onOpenInHub={onOpenDeal}
+          // Already filtered to one stage, so every row would repeat it.
+          singleStage={!!filters.stageId}
         />
       )}
 

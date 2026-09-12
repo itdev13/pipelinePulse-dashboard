@@ -77,9 +77,16 @@ function shortDate(ts) {
 }
 
 export default function DealTable({
-  deals = [], onOpenDeal, onOpenContact, onOpenInHub
+  deals = [], onOpenDeal, onOpenContact, onOpenInHub,
+  // True when the list is already filtered to ONE stage.
+  singleStage = false
 }) {
   if (!deals.length) return null
+
+  // Filtered to one stage? Drop the column. Every row would print the same
+  // value, which is a column of noise that pushes the useful ones sideways —
+  // the stage is already named in the filter chip above the table.
+  const showStage = !singleStage
 
   return (
     // The table scrolls sideways inside its own box. Without this the page
@@ -100,7 +107,7 @@ export default function DealTable({
           <tr>
             <th style={TH}>Deal</th>
             <th style={TH}>Contact</th>
-            <th style={TH}>Stage</th>
+            {showStage && <th style={TH}>Stage</th>}
             <th style={{ ...TH, textAlign: 'right' }}>Value</th>
             <th style={TH}>Status</th>
             <th style={TH}>Owner</th>
@@ -166,11 +173,13 @@ export default function DealTable({
                     : <span style={{ color: 'var(--text-faint)' }}>—</span>}
                 </td>
 
-                <td style={td}>
-                  {d.stage
-                    ? <Pill bg="var(--tint-pine)" fg="var(--green-600)">{d.stage}</Pill>
-                    : <span style={{ color: 'var(--text-faint)' }}>—</span>}
-                </td>
+                {showStage && (
+                  <td style={td}>
+                    {d.stage
+                      ? <Pill bg="var(--tint-pine)" fg="var(--green-600)">{d.stage}</Pill>
+                      : <span style={{ color: 'var(--text-faint)' }}>—</span>}
+                  </td>
+                )}
 
                 {/* Right-aligned and tabular so the column reads as a column
                     of figures. An unpriced deal says so rather than showing
