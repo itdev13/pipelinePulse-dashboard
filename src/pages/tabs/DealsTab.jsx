@@ -272,6 +272,9 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
   // them and left this page with no way out except its own header.
   const openDeal = openDealId ? deals.find((d) => d.id === openDealId) : null
   if (openDealId && openDeal) {
+    // The editor keeps a cap. It is a FORM, and a row of inputs stretched
+    // across a 2400px screen is unreadable — unlike the lists, which are
+    // scanned in rows and want the width.
     return (
       <Shell maxWidth={1240}>
         <DealEditPage

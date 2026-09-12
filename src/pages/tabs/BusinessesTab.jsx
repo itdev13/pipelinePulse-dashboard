@@ -207,6 +207,44 @@ function BusinessCard({ business: b, onOpen }) {
               {[b.city, b.description].filter(Boolean).join(' · ')}
             </span>
           )}
+
+          {/* Address, phone, email and website — the things a rep needs BEFORE
+              deciding to open the record. The card showed only a name and a
+              description, so every one of those lookups meant a click through
+              and a click back. Read-only here; editing stays in the detail
+              view behind the arrow.
+
+              Only the parts that exist: four empty labelled slots read as a
+              broken record rather than a sparse one. */}
+          {(b.address || b.phone || b.email || b.website) && (
+            <span style={{
+              display: 'flex', flexWrap: 'wrap', gap: '2px 14px',
+              marginTop: 4,
+              fontSize: 'var(--text-base)', color: 'var(--text-muted)',
+              lineHeight: 1.5
+            }}>
+              {[
+                ['location_on', b.address],
+                ['call', b.phone],
+                ['mail', b.email],
+                ['language', b.website]
+              ].filter(([, v]) => v).map(([icon, v]) => (
+                <span
+                  key={icon}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    maxWidth: 260,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                  }}
+                >
+                  <span className="ms" style={{ fontSize: 15, color: 'var(--text-faint)', flex: 'none' }}>
+                    {icon}
+                  </span>
+                  {v}
+                </span>
+              ))}
+            </span>
+          )}
         </span>
 
         <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 'none' }}>

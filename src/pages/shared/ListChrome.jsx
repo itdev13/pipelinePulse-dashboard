@@ -591,7 +591,14 @@ export function DealCardsSkeleton({ cards = 3 }) {
 }
 
 
-export function Shell({ children, maxWidth = 1140 }) {
+// The page container.
+//
+// FULL WIDTH BY DEFAULT. It was capped at 1140px and centred, which left a
+// third of a wide screen empty on every tab — a task queue, a note list and a
+// business roll-up are all scanned in rows, and a row that stops two thirds
+// of the way across wastes the space it needed. A caller can still pass a cap
+// where reading length genuinely matters.
+export function Shell({ children, maxWidth = 'none' }) {
   return (
     <div
       style={{
