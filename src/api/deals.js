@@ -51,8 +51,20 @@ export const dealsAPI = {
 
   // Its own endpoint because a lost reason can only be attached here; the
   // general update silently drops it.
-  setStatus: (id, status, lostReasonId) =>
-    apiClient.put(`/api/deals/${encodeURIComponent(id)}/status`, { status, lostReasonId }),
+  //
+  // `reason` is the free text explaining the outcome. The server files it in
+  // the field matching the status — won -> meddic_10, lost -> meddic_9,
+  // abandoned -> meddic_11 — and REQUIRES it for all three; only a move back
+  // to Open may omit it.
+  //
+  // Resolves to { ok, status, reasonSaved, reasonError }. The status and the
+  // reason are two separate GHL calls, so `reasonError` with ok:true means the
+  // deal DID change status but the reason did not save. Show that, rather
+  // than treating it as a failed save.
+  setStatus: (id, status, { lostReasonId, reason } = {}) =>
+    apiClient.put(`/api/deals/${encodeURIComponent(id)}/status`, {
+      status, lostReasonId, reason
+    }),
 
   // The location's lost reasons, for the picker shown when marking a deal lost.
   lostReasons: () => apiClient.get('/api/deals/lost-reasons'),

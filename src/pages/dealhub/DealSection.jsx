@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import DealStatusControl from './DealStatusControl'
 import { DatePicker, Select } from 'antd'
 import dayjs from 'dayjs'
 import TagSelect from '../shared/TagSelect'
@@ -43,7 +44,11 @@ export default function DealSection({
   onEditRecord,
   // { client_type: { id, label, options[], multiple }, ... } from
   // GET /api/deals/custom-field-options.
-  fieldOptions = {}
+  fieldOptions = {},
+  // GHL's own lost-reason picklist, fetched lazily like `users` — needed only
+  // when a manager marks a deal lost.
+  lostReasons = null,
+  onNeedLostReasons
 }) {
   if (!deal) return null
 
@@ -178,8 +183,11 @@ export default function DealSection({
           stages={stages}
           onSaveField={onSaveField}
           saving={saving}
+          saveError={saveError}
           users={users}
           onNeedUsers={onNeedUsers}
+          lostReasons={lostReasons}
+          onNeedLostReasons={onNeedLostReasons}
         />
 
       </div>
@@ -404,7 +412,7 @@ function ValueColumn({ deal, onSaveField, saving, onOpenBusiness }) {
   )
 }
 
-function StageColumn({ deal, stages, onSaveField, saving, users, onNeedUsers }) {
+function StageColumn({ deal, stages, onSaveField, saving, saveError, users, onNeedUsers, lostReasons, onNeedLostReasons }) {
   // Days in stage comes from the stage the deal currently sits on. The
   // stages endpoint carries enteredAt on the current entry when available;
   // otherwise fall back to the deal's own updated_at, which moves on every
@@ -432,6 +440,23 @@ function StageColumn({ deal, stages, onSaveField, saving, users, onNeedUsers }) 
 
   return (
     <Column label="Stage">
+      {/* Status sits with Stage because both answer "where does this deal
+          stand?". It was previously a read-only pill in the header that
+          appeared ONLY once a deal was already closed — so an open deal
+          showed no status at all, and closing one meant leaving Deal Hub for
+          the editor on the Deals tab. */}
+      <div style={{ marginBottom: 'var(--space-3)' }}>
+        <DealStatusControl
+          status={deal.status}
+          outcomeReason={deal.outcomeReason}
+          onSave={(v) => onSaveField && onSaveField('status', v)}
+          saving={saving === 'status'}
+          error={saveError && saveError.field === 'status' ? saveError.message : null}
+          lostReasons={lostReasons}
+          onNeedLostReasons={onNeedLostReasons}
+        />
+      </div>
+
       {/* antd Select. The stage change is the primary action on this card, so
           it keeps the brand-tinted treatment via className rather than reverting
           to a default form control. */}

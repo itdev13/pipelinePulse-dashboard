@@ -6,6 +6,9 @@ import { contactsAPI } from '../../api/contacts'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import { nameFor } from '../shared/ListChrome'
 import ContactPicker from '../shared/ContactPicker'
+import {
+  CLOSING_STATUSES, REASON_LABEL, REASON_PLACEHOLDER
+} from '../../utils/outcomeReason'
 import CustomFieldSections from '../shared/CustomFieldSections'
 import { currencySymbol } from '../../utils/money'
 
@@ -114,6 +117,10 @@ export default function DealEditPanel({
   const [stageId, setStageId] = useState(deal.stageId || null)
   const [status, setStatus] = useState(deal.status || 'open')
   const [lostReasonId, setLostReasonId] = useState(null)
+  // Free text explaining the outcome. Filed by the server in the field that
+  // matches the status — won -> meddic_10, lost -> meddic_9,
+  // abandoned -> meddic_11 — and required for all three.
+  const [reason, setReason] = useState(deal.outcomeReason || '')
   // The RAW number. deal.value is display-formatted ("£26,000") and the input
   // prints its own £ prefix, so binding to it renders "£ £26,000" and sends the
   // formatted string back on save.
@@ -262,7 +269,10 @@ export default function DealEditPanel({
         await dealsAPI.update(deal.id, dealPatch)
       }
       if (statusChanged) {
-        await dealsAPI.setStatus(deal.id, status, lostReasonId || undefined)
+        await dealsAPI.setStatus(deal.id, status, {
+          lostReasonId: lostReasonId || undefined,
+          reason: reason.trim() || undefined
+        })
       }
       if (followerChanges?.add?.length) {
         await dealsAPI.addFollowers(deal.id, followerChanges.add)
@@ -413,6 +423,30 @@ export default function DealEditPanel({
             />
           </Field>
         </Row>
+
+        {/* Why it closed. Shown for won, lost AND abandoned — every outcome
+            is worth a sentence, and the manager is already in the dialog.
+            Hidden for Open, which has no outcome to explain. */}
+        {CLOSING_STATUSES.includes(status) && (
+          <Row>
+            <Field
+              label={REASON_LABEL[status]}
+              required
+              span={2}
+              error={errorField === 'reason' ? error : null}
+            >
+              <Input.TextArea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                disabled={saving}
+                rows={2}
+                maxLength={2000}
+                status={errorField === 'reason' ? 'error' : undefined}
+                placeholder={REASON_PLACEHOLDER[status]}
+              />
+            </Field>
+          </Row>
+        )}
 
         {/* Only when it applies. A reason picker permanently on screen would be
             a control that does nothing for the other three statuses. */}

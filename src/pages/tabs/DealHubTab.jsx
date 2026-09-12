@@ -287,6 +287,18 @@ export default function DealHubTab({
       .catch(() => setUsers([]))
   }, [users])
 
+  // GHL's own lost-reason picklist. Lazy like `users`: only a manager marking
+  // a deal lost ever needs it, and most Deal Hub visits never do.
+  const [lostReasons, setLostReasons] = useState(null)
+  const loadLostReasons = useCallback(() => {
+    if (lostReasons !== null) return
+    dealsAPI.lostReasons()
+      .then((r) => setLostReasons(r?.reasons || []))
+      // An empty list shows "No lost reasons configured in your CRM" rather
+      // than an empty dropdown — the free-text reason still works.
+      .catch(() => setLostReasons([]))
+  }, [lostReasons])
+
   const saveDealField = async (field, value) => {
     if (savingField) return
     // Custom fields are keyed by their GHL id, so the right picker shows
@@ -336,9 +348,22 @@ export default function DealHubTab({
           dealsAPI.get(dealId).then(setDeal).catch(() => {})
         }, 2500)
       } else if (field === 'status') {
-        // Its own endpoint — the only one that records a lost reason.
-        await dealsAPI.setStatus(dealId, value?.status ?? value, value?.lostReasonId)
-        setDeal((d) => d && { ...d, status: value?.status ?? value })
+        // Its own endpoint — the only one that records a lost reason, and the
+        // only one that files the outcome reason in the right custom field.
+        const next = value?.status ?? value
+        const r = await dealsAPI.setStatus(dealId, next, {
+          lostReasonId: value?.lostReasonId,
+          reason: value?.reason
+        })
+        // The status and the reason are separate GHL calls. ok:true with a
+        // reasonError means the deal DID close but the reason did not save —
+        // surface that instead of a silent success.
+        setDeal((d) => d && {
+          ...d,
+          status: next,
+          outcomeReason: r?.reasonSaved ? (value?.reason || null) : (d.outcomeReason ?? null)
+        })
+        if (r?.reasonError) throw new Error(r.reasonError)
       } else {
         res = await dealsAPI.update(dealId, { [field]: value })
         // Apply what GHL echoed rather than what was sent — it truncates the
@@ -1082,6 +1107,8 @@ export default function DealHubTab({
               fieldOptions={fieldOptions}
               users={users}
               onNeedUsers={loadUsers}
+              lostReasons={lostReasons}
+              onNeedLostReasons={loadLostReasons}
               // Opens this deal's full editor on the Deals tab — every field
               // the card cannot edit inline (pipeline, status, followers).
               onEditRecord={onEditDealRecord ? () => onEditDealRecord(dealId) : undefined}
