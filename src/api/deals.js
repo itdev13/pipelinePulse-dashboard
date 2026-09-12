@@ -17,6 +17,12 @@ export const dealsAPI = {
       form
     )
   },
+  // `params` may carry: status, q, limit, cursor, contactId, and — for the
+  // board and table views — stageId, pipelineId, assignedTo.
+  //
+  // The board fetches one COLUMN at a time with stageId rather than pulling
+  // every deal and grouping client-side: a pipeline can hold hundreds, and
+  // rendering one screen should not mean holding all of them in memory.
   list: (params = {}) => apiClient.get('/api/deals', { params }),
   get: (id) => apiClient.get(`/api/deals/${encodeURIComponent(id)}`),
   timeline: (id) => apiClient.get(`/api/deals/${encodeURIComponent(id)}/timeline`),

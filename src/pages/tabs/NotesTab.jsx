@@ -275,6 +275,7 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                       absence to hide. */}
                   <DealChip
                     name={n.deal?.name || 'No deal'}
+                    empty={!n.deal}
                     onClick={
                       n.deal && onOpenDeal ? () => onOpenDeal(n.deal.id) : undefined
                     }

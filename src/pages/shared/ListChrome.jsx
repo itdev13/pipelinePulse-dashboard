@@ -143,13 +143,17 @@ export function ContactChip({ name, onClick }) {
   )
 }
 
-export function DealChip({ name, onClick }) {
+export function DealChip({ name, onClick, empty = false }) {
+  // `empty` is "no deal linked", which is a real state worth seeing — but it
+  // was rendered in the SAME green pill as a real deal, so a row with no deal
+  // looked identical to a linked one until you read the words. Now it is a
+  // dashed outline in muted grey: present, clearly not a value.
   return (
     <Chip
-      icon="sell"
+      icon={empty ? 'link_off' : 'sell'}
       onClick={onClick}
-      title={onClick ? 'Open this deal' : undefined}
-      tone="deal"
+      title={onClick ? 'Open this deal' : (empty ? 'Not linked to a deal' : undefined)}
+      tone={empty ? 'empty' : 'deal'}
     >
       {name}
     </Chip>
@@ -158,6 +162,9 @@ export function DealChip({ name, onClick }) {
 
 export function Chip({ icon, children, onClick, title, tone, danger }) {
   const isDeal = tone === 'deal'
+  // An ABSENCE, not a value: dashed border, muted text, no fill. It has to
+  // stay legible next to a filled chip without competing with it.
+  const isEmpty = tone === 'empty'
   return (
     <button
       onClick={onClick}
@@ -167,7 +174,7 @@ export function Chip({ icon, children, onClick, title, tone, danger }) {
         display: 'inline-flex', alignItems: 'center', gap: 6,
         maxWidth: 260,
         height: 30, padding: '0 var(--space-3)',
-        border: `1px solid ${
+        border: `1px ${isEmpty ? 'dashed' : 'solid'} ${
           danger ? 'var(--border-default)'
             : isDeal ? 'var(--green-300)'
             : 'var(--border-default)'
@@ -178,7 +185,9 @@ export function Chip({ icon, children, onClick, title, tone, danger }) {
         background: isDeal ? 'var(--tint-pine)' : '#fff',
         color: danger
           ? 'var(--status-stuck)'
-          : isDeal ? 'var(--green-600)' : 'var(--text-body)',
+          : isDeal ? 'var(--green-600)'
+          : isEmpty ? 'var(--text-faint)'
+          : 'var(--text-body)',
         fontFamily: 'var(--font-sans)',
         fontSize: 'var(--text-base)', fontWeight: 500,
         cursor: onClick ? 'pointer' : 'default',

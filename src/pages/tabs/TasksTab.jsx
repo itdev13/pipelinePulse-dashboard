@@ -233,12 +233,27 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
             <div key={t.id}>
               <div
                 style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 10,
-                  padding: 'var(--space-3) var(--space-4)',
+                  display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)',
+                  // Taller rows. At space-3 the three lines of a task —
+                  // title, description, due date — were closer to each other
+                  // than the rows were to their neighbours, so the list read
+                  // as one dense block rather than a set of items.
+                  padding: 'var(--space-4)',
                   // The chip row below carries the divider when present, so
                   // the two lines read as one row.
                   borderBottom: hasChips ? 'none' : '1px solid var(--border-default)',
-                  opacity: done ? 0.6 : 1
+                  opacity: done ? 0.6 : 1,
+                  transition: 'background 120ms ease'
+                }}
+                // A row is a target — the title opens the deal hub — so it
+                // should say so on approach. Inline rather than a class: the
+                // hover colour is the only state and a stylesheet rule for it
+                // would sit far from the row it belongs to.
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--surface-sunken)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent'
                 }}
               >
                 <input
@@ -269,7 +284,14 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                       fontSize: 'var(--text-xl)', fontWeight: 600,
                       lineHeight: 1.3, letterSpacing: '-0.01em',
                       color: 'var(--text-heading)',
-                      textDecoration: done ? 'line-through' : 'none'
+                      textDecoration: done ? 'line-through' : 'none',
+                      // A title is whatever GHL holds, and that is not always
+                      // prose — a task named with a raw record id
+                      // ("Kf2bBEEvu8aJZ4Mo0Ikj") is one unbroken 20-character
+                      // word that pushed the chips off the row. Wrap it rather
+                      // than let it set the row's width.
+                      maxWidth: '100%',
+                      overflowWrap: 'anywhere'
                     }}
                   >
                     {t.title || '(untitled task)'}
@@ -331,7 +353,13 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                 <div
                   style={{
                     display: 'flex', gap: 6, flexWrap: 'wrap',
-                    justifyContent: 'flex-end', alignItems: 'center'
+                    justifyContent: 'flex-end',
+                    // Aligned to the TITLE's line rather than centred against
+                    // the whole row: a task with a long description pushed its
+                    // chips halfway down the row, so they no longer read as
+                    // belonging to the title they describe.
+                    alignItems: 'flex-start',
+                    flex: 'none'
                   }}
                 >
                   {/* GHL names a new opportunity after its contact, so the
@@ -355,6 +383,7 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                       ones are counted here and edited in the popover. */}
                   <DealChip
                     name={t.deal?.name || 'No deal'}
+                    empty={!t.deal}
                     onClick={
                       t.deal && onOpenDeal ? () => onOpenDeal(t.deal.id) : undefined
                     }

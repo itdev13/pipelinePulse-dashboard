@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import DealBoard from '../deals/DealBoard'
+import DealTable from '../deals/DealTable'
 import { FollowUpChips } from '../shared/ListChrome'
 import { dealsAPI } from '../../api/deals'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
@@ -25,6 +27,23 @@ import {
 // made the rest actually saveable.
 
 export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
+  // Which view. Persisted because it is a working preference, not a
+  // navigation step: a rep who works the board should not be handed the list
+  // again every time they come back to this tab.
+  //
+  // 'cards' is the existing expandable list and stays the default — it is the
+  // only view that can EDIT a deal inline, so demoting it would take a
+  // capability away from anyone who does not switch back.
+  const [view, setView] = useState(() => {
+    try { return localStorage.getItem('pp.deals.view') || 'cards' } catch { return 'cards' }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('pp.deals.view', view) } catch { /* private mode */ }
+  }, [view])
+
+  // The board needs one pipeline at a time — its columns ARE that pipeline's
+  // stages. Defaults to the first, which is the only one most locations have.
+  const [boardPipelineId, setBoardPipelineId] = useState(null)
   const [q, setQ] = useTabState('deals', 'q', '')
   // Server-side: filtering only the loaded page would hide matches further
   // down the list.
@@ -106,6 +125,7 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
         subtitle="Expand any deal to edit it — changes save straight to your CRM"
         action={
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <ViewSwitch value={view} onChange={setView} />
             <SearchInput
               value={q}
               onChange={setQ}
@@ -178,7 +198,62 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
         </div>
       )}
 
-      {deals.map((d) => (
+      {/* BOARD — one pipeline's stages as columns. Each column fetches its own
+          stage, so this deliberately does not read `deals` above. */}
+      {/* Pipeline picker — only when there IS a choice. A location with one
+          pipeline gets a dropdown with one option, which is furniture. */}
+      {view === 'board' && (refData?.pipelines || []).length > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <label
+            htmlFor="board-pipeline"
+            style={{
+              fontSize: 'var(--text-sm)', fontWeight: 600,
+              textTransform: 'uppercase', letterSpacing: '0.04em',
+              color: 'var(--text-muted)'
+            }}
+          >
+            Pipeline
+          </label>
+          <select
+            id="board-pipeline"
+            value={boardPipelineId || refData.pipelines[0]?.id || ''}
+            onChange={(e) => setBoardPipelineId(e.target.value)}
+            style={{
+              height: 32, padding: '0 10px',
+              border: '1px solid var(--border-strong)',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--surface)',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+              color: 'var(--text-body)', cursor: 'pointer'
+            }}
+          >
+            {refData.pipelines.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {view === 'board' && !error && (
+        <DealBoard
+          pipeline={
+            (refData?.pipelines || []).find((p) => p.id === boardPipelineId)
+            || (refData?.pipelines || [])[0]
+            || null
+          }
+          search={search}
+          status="open"
+          onOpenDeal={onOpenDeal}
+        />
+      )}
+
+      {/* TABLE — the same paged `deals` as the cards, rendered dense. */}
+      {view === 'table' && !error && deals.length > 0 && (
+        <DealTable deals={deals} onOpenDeal={onOpenDeal} />
+      )}
+
+      {/* CARDS — the default, and the only view that edits a deal inline. */}
+      {view === 'cards' && deals.map((d) => (
         <DealCard
           key={d.id}
           deal={d}
@@ -522,4 +597,59 @@ function daysSince(ts) {
   const then = new Date(ts).getTime()
   if (Number.isNaN(then)) return null
   return Math.max(0, Math.floor((Date.now() - then) / 86400000))
+}
+
+
+// Cards / Board / Table.
+//
+// A segmented control rather than a dropdown: there are three options, the
+// choice is made often, and a dropdown would hide two of them behind a click.
+function ViewSwitch({ value, onChange }) {
+  const OPTIONS = [
+    { id: 'cards', icon: 'view_agenda', label: 'Cards' },
+    { id: 'board', icon: 'view_kanban', label: 'Board' },
+    { id: 'table', icon: 'table_rows', label: 'Table' }
+  ]
+  return (
+    <div
+      role="tablist"
+      aria-label="Deal view"
+      style={{
+        display: 'inline-flex', flex: 'none',
+        border: '1px solid var(--border-strong)',
+        borderRadius: 'var(--radius-md)',
+        background: 'var(--surface)',
+        overflow: 'hidden'
+      }}
+    >
+      {OPTIONS.map((o) => {
+        const on = value === o.id
+        return (
+          <button
+            key={o.id}
+            role="tab"
+            aria-selected={on}
+            onClick={() => onChange(o.id)}
+            title={`${o.label} view`}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              height: 36, padding: '0 12px',
+              border: 'none',
+              // The divider sits BETWEEN buttons so the group reads as one
+              // control rather than three adjacent ones.
+              borderLeft: o.id === 'cards' ? 'none' : '1px solid var(--border-default)',
+              background: on ? 'var(--tint-pine)' : 'transparent',
+              color: on ? 'var(--green-600)' : 'var(--text-muted)',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+              fontWeight: on ? 600 : 500,
+              cursor: 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 17 }}>{o.icon}</span>
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
 }
