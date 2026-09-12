@@ -238,6 +238,19 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
           loadingText="Loading tasks…"
         />
 
+        {/* GRID wraps the same rows in a responsive grid; the row markup is
+            unchanged, so a task looks and behaves identically in both views
+            and there is only one place to fix a bug in it.
+
+            auto-fill with a 340px minimum: the column count follows the
+            window rather than a breakpoint, so a wide screen shows four and a
+            narrow one shows one, with no layout that fits neither. */}
+        <div style={view === 'grid' ? {
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+          gap: 'var(--space-3)',
+          padding: 'var(--space-3)'
+        } : undefined}>
         {tasks.map((t) => {
           const done = t.status !== 'open'
           // A completed task isn't overdue, whatever its due date says.
@@ -488,6 +501,7 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
             </div>
           )
         })}
+        </div>
 
         {!loading && openCount > 0 && (
           <LoadMore
