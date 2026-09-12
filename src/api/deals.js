@@ -114,3 +114,15 @@ export const dealsAPI = {
   removeFollowers: (id, followers) =>
     apiClient.delete(`/api/deals/${encodeURIComponent(id)}/followers`, { data: { followers } })
 }
+
+// Saved views — named filter sets for the board and table.
+//
+// `filters` is the same set of query parameters dealsAPI.list accepts, so
+// applying a view means putting them back on the list request rather than
+// translating between two shapes.
+export const savedViewsAPI = {
+  list: (scope = 'deals') => apiClient.get('/api/saved-views', { params: { scope } }),
+  save: ({ name, filters, isShared = false, scope = 'deals' }) =>
+    apiClient.post('/api/saved-views', { name, filters, isShared, scope }),
+  remove: (id) => apiClient.delete(`/api/saved-views/${encodeURIComponent(id)}`)
+}

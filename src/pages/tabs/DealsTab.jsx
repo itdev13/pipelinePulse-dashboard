@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import DealBoard from '../deals/DealBoard'
 import DealTable from '../deals/DealTable'
+import DealToolbar from '../deals/DealToolbar'
+import { savedViewsAPI } from '../../api/deals'
 import { FollowUpChips } from '../shared/ListChrome'
 import { dealsAPI } from '../../api/deals'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
@@ -44,6 +46,65 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
   // The board needs one pipeline at a time — its columns ARE that pipeline's
   // stages. Defaults to the first, which is the only one most locations have.
   const [boardPipelineId, setBoardPipelineId] = useState(null)
+
+  // Live filters. The keys match GET /api/deals's query parameters exactly,
+  // so applying a saved view is "spread these onto the request" rather than a
+  // translation step that can drift.
+  const [filters, setFilters] = useState({})
+  const [views, setViews] = useState([])
+  const [activeViewId, setActiveViewId] = useState(null)
+
+  useEffect(() => {
+    let alive = true
+    savedViewsAPI.list('deals')
+      .then((r) => { if (alive) setViews(r?.views || []) })
+      // A failed fetch leaves the tab strip with just "All open deals", which
+      // is still a working page — no banner for a feature nobody invoked.
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
+
+  const applyView = useCallback((id) => {
+    setActiveViewId(id)
+    const v = views.find((x) => x.id === id)
+    const f = { ...(v?.filters || {}) }
+    // `view` rides along in a saved view but is the display mode, not a
+    // filter — it is pulled out before the rest reach the query.
+    if (f.view) { setView(f.view); delete f.view }
+    setFilters(f)
+    if (f.q !== undefined) { setQ(f.q || ''); setSearch(f.q || '') }
+    // setQ/setSearch are stable useState setters; React guarantees their
+    // identity, and listing them would only add noise.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [views])
+
+  const saveView = useCallback(async (name) => {
+    try {
+      const r = await savedViewsAPI.save({
+        name,
+        filters: { ...filters, ...(search ? { q: search } : {}), view }
+      })
+      // Replace by id so re-saving a name updates its tab rather than adding
+      // a second one — the server upserts, and the list must agree.
+      setViews((prev) => {
+        const rest = prev.filter((v) => v.id !== r.view.id)
+        return [...rest, r.view]
+      })
+      setActiveViewId(r.view.id)
+    } catch (e) {
+      setRefError(e.message || 'That view could not be saved')
+    }
+  }, [filters, search, view])
+
+  const deleteView = useCallback(async (id) => {
+    try {
+      await savedViewsAPI.remove(id)
+      setViews((prev) => prev.filter((v) => v.id !== id))
+      if (activeViewId === id) { setActiveViewId(null); setFilters({}) }
+    } catch (e) {
+      setRefError(e.message || 'That view could not be deleted')
+    }
+  }, [activeViewId])
   const [q, setQ] = useTabState('deals', 'q', '')
   // Server-side: filtering only the loaded page would hide matches further
   // down the list.
@@ -93,8 +154,13 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
   }, [editingId, creating, refData, view])
 
   const fetchPage = useCallback(
-    ({ cursor }) => dealsAPI.list({ status: 'open', limit: 20, cursor, q: search || undefined }),
-    [search]
+    ({ cursor }) => dealsAPI.list({
+      status: 'open', limit: 20, cursor, q: search || undefined,
+      // The saved view's filters, minus `view` (display mode, stripped when
+      // the view is applied) and `q` (owned by the search box above).
+      ...filters
+    }),
+    [search, filters]
   )
   const { items, error, hasMore, loadingMore, loading, loadMore, patchItem, reload } =
     usePagedList({ fetchPage, key: 'deals', deps: [search] })
@@ -129,7 +195,6 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
         subtitle="Expand any deal to edit it — changes save straight to your CRM"
         action={
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <ViewSwitch value={view} onChange={setView} />
             <SearchInput
               value={q}
               onChange={setQ}
@@ -210,6 +275,22 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
 
       {/* BOARD — one pipeline's stages as columns. Each column fetches its own
           stage, so this deliberately does not read `deals` above. */}
+      <DealToolbar
+        views={views}
+        activeViewId={activeViewId}
+        onSelectView={applyView}
+        onSaveView={saveView}
+        onDeleteView={deleteView}
+        filters={filters}
+        onClearFilter={(k) => setFilters((f) => {
+          const next = { ...f }; delete next[k]; return next
+        })}
+        onClearAll={() => { setFilters({}); setActiveViewId(null) }}
+        count={view === 'board' ? undefined : deals.length}
+      >
+        <ViewSwitch value={view} onChange={setView} />
+      </DealToolbar>
+
       {/* Pipeline picker — only when there IS a choice. A location with one
           pipeline gets a dropdown with one option, which is furniture. */}
       {view === 'board' && (refData?.pipelines || []).length > 1 && (
