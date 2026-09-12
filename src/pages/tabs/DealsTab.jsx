@@ -35,7 +35,7 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
   // only view that can EDIT a deal inline, so demoting it would take a
   // capability away from anyone who does not switch back.
   const [view, setView] = useState(() => {
-    try { return localStorage.getItem('pp.deals.view') || 'cards' } catch { return 'cards' }
+    try { return localStorage.getItem('pp.deals.view') || 'board' } catch { return 'board' }
   })
   useEffect(() => {
     try { localStorage.setItem('pp.deals.view', view) } catch { /* private mode */ }
@@ -73,7 +73,11 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
   useEffect(() => {
     // Also when the create form opens — it needs the pipeline list to be
     // usable at all, since a pipeline is required.
-    if ((editingId === null && !creating) || refData !== null) return
+    //
+    // AND on the board, whose COLUMNS are a pipeline's stages: without this
+    // the board rendered nothing at all, because refData stayed null until
+    // someone opened an editor.
+    if ((editingId === null && !creating && view !== 'board') || refData !== null) return
     let alive = true
     Promise.all([
       dealsAPI.pipelines().catch(() => null),
@@ -86,7 +90,7 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
       setRefData({ pipelines: p?.pipelines || [], users: u?.users || [] })
     })
     return () => { alive = false }
-  }, [editingId, creating, refData])
+  }, [editingId, creating, refData, view])
 
   const fetchPage = useCallback(
     ({ cursor }) => dealsAPI.list({ status: 'open', limit: 20, cursor, q: search || undefined }),
@@ -176,9 +180,15 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
 
       {/* Cards, not rows — so the loading state mirrors the card shape
           rather than the generic row skeleton. */}
-      {loading && <DealCardsSkeleton cards={3} />}
+      {/* Card-shaped, so only for the card and table views. The board has its
+          own "Loading pipeline…" and each column reports its own emptiness —
+          three card skeletons above a board was the blank area with no
+          explanation. */}
+      {view !== 'board' && loading && <DealCardsSkeleton cards={3} />}
 
-      {(error || (!loading && deals.length === 0)) && (
+      {/* An ERROR is worth showing everywhere; an empty page only matters to
+          the paged views, since a board with no deals says so per column. */}
+      {(error || (view !== 'board' && !loading && deals.length === 0)) && (
         <div
           style={{
             border: '1px solid var(--border-default)',
@@ -234,7 +244,28 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
         </div>
       )}
 
-      {view === 'board' && !error && (
+      {/* The board waits on the PIPELINE list, not the deal page — its columns
+          are stages. Without this it rendered an empty area with no
+          explanation while that request was in flight. */}
+      {view === 'board' && !error && refData === null && (
+        <p style={{
+          margin: 0, padding: 'var(--space-5)', textAlign: 'center',
+          fontSize: 'var(--text-md)', color: 'var(--text-muted)'
+        }}>
+          Loading pipeline…
+        </p>
+      )}
+      {view === 'board' && !error && refData !== null
+        && !(refData.pipelines || []).length && (
+        <p style={{
+          margin: 0, padding: 'var(--space-5)', textAlign: 'center',
+          fontSize: 'var(--text-md)', color: 'var(--text-muted)'
+        }}>
+          {refError || 'No pipelines found in this sub-account.'}
+        </p>
+      )}
+
+      {view === 'board' && !error && (refData?.pipelines || []).length > 0 && (
         <DealBoard
           pipeline={
             (refData?.pipelines || []).find((p) => p.id === boardPipelineId)
@@ -273,7 +304,10 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
         />
       ))}
 
-      {!loading && deals.length > 0 && (
+      {/* Not on the board: this paginates the card/table list, and each board
+          column pages itself. Shown there it read as the board's own total —
+          "5 deals — that's everything" under a board holding far more. */}
+      {view !== 'board' && !loading && deals.length > 0 && (
         <LoadMore
           sentinelRef={sentinelRef}
           hasMore={hasMore}
@@ -606,9 +640,11 @@ function daysSince(ts) {
 // choice is made often, and a dropdown would hide two of them behind a click.
 function ViewSwitch({ value, onChange }) {
   const OPTIONS = [
-    { id: 'cards', icon: 'view_agenda', label: 'Cards' },
     { id: 'board', icon: 'view_kanban', label: 'Board' },
-    { id: 'table', icon: 'table_rows', label: 'Table' }
+    { id: 'table', icon: 'table_rows', label: 'Table' },
+    // Last: it is the only view that edits inline, but it is also the
+    // slowest to scan, so it is a destination rather than the default.
+    { id: 'cards', icon: 'view_agenda', label: 'Cards' }
   ]
   return (
     <div
@@ -637,7 +673,7 @@ function ViewSwitch({ value, onChange }) {
               border: 'none',
               // The divider sits BETWEEN buttons so the group reads as one
               // control rather than three adjacent ones.
-              borderLeft: o.id === 'cards' ? 'none' : '1px solid var(--border-default)',
+              borderLeft: o.id === 'board' ? 'none' : '1px solid var(--border-default)',
               background: on ? 'var(--tint-pine)' : 'transparent',
               color: on ? 'var(--green-600)' : 'var(--text-muted)',
               fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
