@@ -40,7 +40,7 @@ function ViewTab({ view, active, onSelect, onDelete }) {
           borderRadius: 'var(--radius-pill)',
           background: active ? 'var(--tint-pine)' : 'transparent',
           color: active ? 'var(--green-600)' : 'var(--text-muted)',
-          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)',
           fontWeight: active ? 600 : 500,
           cursor: 'pointer', whiteSpace: 'nowrap'
         }}
@@ -131,13 +131,22 @@ export default function DealToolbar({
   }
 
   return (
-    <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
+    // A white band, not a floating group. GHL's toolbar is a surface the
+    // controls sit ON; ours sat directly on the tinted page, so the tabs and
+    // the chips looked like loose elements rather than one strip.
+    <div style={{
+      display: 'grid', gap: 0,
+      background: 'var(--surface)',
+      border: '1px solid var(--border-default)',
+      borderRadius: 'var(--radius-lg)',
+      overflow: 'hidden'
+    }}>
       {/* ROW 1 — which deals */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
         flexWrap: 'wrap',
         borderBottom: '1px solid var(--border-default)',
-        paddingBottom: 'var(--space-2)'
+        padding: '8px 14px'
       }}>
         <ViewTab
           view={{ name: 'All open deals' }}
@@ -215,7 +224,7 @@ export default function DealToolbar({
         {typeof count === 'number' && (
           <span style={{
             marginLeft: 'auto',
-            fontSize: 'var(--text-md)', color: 'var(--text-muted)',
+            fontSize: 'var(--text-lg)', color: 'var(--text-muted)',
             fontVariantNumeric: 'tabular-nums'
           }}>
             {count} {count === 1 ? countLabel.replace(/s$/, '') : countLabel}
@@ -226,7 +235,8 @@ export default function DealToolbar({
       {/* ROW 2 — how they look, and how to narrow them */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-        flexWrap: 'wrap'
+        flexWrap: 'wrap',
+        padding: '8px 14px'
       }}>
         {children}
 

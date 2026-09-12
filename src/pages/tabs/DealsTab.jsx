@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import DealBoard from '../deals/DealBoard'
 import DealTable from '../deals/DealTable'
 import DealToolbar from '../deals/DealToolbar'
+import DealFilters from '../deals/DealFilters'
 import { savedViewsAPI } from '../../api/deals'
 import { FollowUpChips } from '../shared/ListChrome'
 import { dealsAPI } from '../../api/deals'
@@ -138,7 +139,10 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
     // AND on the board, whose COLUMNS are a pipeline's stages: without this
     // the board rendered nothing at all, because refData stayed null until
     // someone opened an editor.
-    if ((editingId === null && !creating && view !== 'board') || refData !== null) return
+    // Always, now: the Filters control offers Stage and Owner in EVERY view,
+    // and both lists live here. Gating this on the board left the table and
+    // card views with a filter popover holding only Status.
+    if (refData !== null) return
     let alive = true
     Promise.all([
       dealsAPI.pipelines().catch(() => null),
@@ -151,7 +155,7 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
       setRefData({ pipelines: p?.pipelines || [], users: u?.users || [] })
     })
     return () => { alive = false }
-  }, [editingId, creating, refData, view])
+  }, [refData])
 
   const fetchPage = useCallback(
     ({ cursor }) => dealsAPI.list({
@@ -189,7 +193,12 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
   const deals = items || []
 
   return (
-    <Shell maxWidth={1240}>
+    // The BOARD gets the full width. A kanban is read across, and 1240px
+    // centred left a third of a wide screen empty while the columns scrolled
+    // sideways — the one layout where a reading-width cap is exactly wrong.
+    // The paged views keep the cap: a table or a card list stretched to
+    // 2400px is a line of text nobody can track back from.
+    <Shell maxWidth={view === 'board' ? 'none' : 1240}>
       <PageHeader
         title="Deals"
         subtitle="Expand any deal to edit it — changes save straight to your CRM"
@@ -282,6 +291,15 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
         onSaveView={saveView}
         onDeleteView={deleteView}
         filters={filters}
+        // Chips show NAMES, not ids. Without this a stage filter rendered as
+        // "Stage bc551c54-eb49-…", which tells a rep nothing about what their
+        // board is currently showing.
+        filterLabels={{
+          stageId: ((refData?.pipelines || []).flatMap((p) => p.stages || [])
+            .find((st) => st.id === filters.stageId) || {}).name,
+          assignedTo: ((refData?.users || [])
+            .find((u) => u.id === filters.assignedTo) || {}).name
+        }}
         onClearFilter={(k) => setFilters((f) => {
           const next = { ...f }; delete next[k]; return next
         })}
@@ -289,32 +307,40 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
         count={view === 'board' ? undefined : deals.length}
       >
         <ViewSwitch value={view} onChange={setView} />
-      </DealToolbar>
 
-      {/* Pipeline picker — only when there IS a choice. A location with one
-          pipeline gets a dropdown with one option, which is furniture. */}
-      {view === 'board' && (refData?.pipelines || []).length > 1 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <label
-            htmlFor="board-pipeline"
-            style={{
-              fontSize: 'var(--text-sm)', fontWeight: 600,
-              textTransform: 'uppercase', letterSpacing: '0.04em',
-              color: 'var(--text-muted)'
-            }}
-          >
-            Pipeline
-          </label>
+        {/* Status / Stage / Owner. Stages come from the pipeline currently
+            shown, so the list offers exactly the stages on screen rather than
+            every stage in the sub-account. */}
+        <DealFilters
+          filters={filters}
+          onChange={(next) => {
+            setFilters(next)
+            // The filters no longer match the saved view that produced them,
+            // so the tab stops claiming to be active — otherwise a rep edits
+            // a filter and the tab still says they are on "My open deals".
+            setActiveViewId(null)
+          }}
+          stages={
+            ((refData?.pipelines || []).find((p) => p.id === boardPipelineId)
+              || (refData?.pipelines || [])[0])?.stages || []
+          }
+          users={refData?.users || []}
+        />
+
+        {/* The pipeline belongs with the view controls, not above the board:
+            it selects WHICH board, so it is part of the same strip. Only
+            rendered when there is a choice to make. */}
+        {view === 'board' && (refData?.pipelines || []).length > 1 && (
           <select
-            id="board-pipeline"
+            aria-label="Pipeline"
             value={boardPipelineId || refData.pipelines[0]?.id || ''}
             onChange={(e) => setBoardPipelineId(e.target.value)}
             style={{
-              height: 32, padding: '0 10px',
+              height: 36, padding: '0 10px',
               border: '1px solid var(--border-strong)',
               borderRadius: 'var(--radius-md)',
               background: 'var(--surface)',
-              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)',
               color: 'var(--text-body)', cursor: 'pointer'
             }}
           >
@@ -322,8 +348,9 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
-        </div>
-      )}
+        )}
+      </DealToolbar>
+
 
       {/* The board waits on the PIPELINE list, not the deal page — its columns
           are stages. Without this it rendered an empty area with no
@@ -757,7 +784,7 @@ function ViewSwitch({ value, onChange }) {
               borderLeft: o.id === 'board' ? 'none' : '1px solid var(--border-default)',
               background: on ? 'var(--tint-pine)' : 'transparent',
               color: on ? 'var(--green-600)' : 'var(--text-muted)',
-              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)',
               fontWeight: on ? 600 : 500,
               cursor: 'pointer'
             }}

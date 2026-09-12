@@ -31,8 +31,8 @@ function DealCard({ deal, onOpen, onDragStart, dragging }) {
         background: 'var(--surface)',
         border: '1px solid var(--border-default)',
         borderRadius: 'var(--radius-md)',
-        padding: 'var(--space-3)',
-        display: 'grid', gap: 6,
+        padding: '12px 14px',
+        display: 'grid', gap: 7,
         cursor: 'grab',
         // The card being dragged fades rather than disappears: a gap where a
         // card was reads as "it moved already", which it has not yet.
@@ -44,9 +44,13 @@ function DealCard({ deal, onOpen, onDragStart, dragging }) {
       }}
       onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none' }}
     >
+      {/* 15px, not 13px. A card's title is the one thing scanned down a
+          column, and at the body size it carried no more weight than the
+          contact line under it. */}
       <h4 style={{
-        margin: 0, fontSize: 'var(--text-md)', fontWeight: 600,
-        color: 'var(--text-heading)', lineHeight: 1.35,
+        margin: 0, fontSize: 15, fontWeight: 600,
+        color: 'var(--text-heading)', lineHeight: 1.3,
+        letterSpacing: '-0.01em',
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
       }}>
         {deal.dealTag || deal.opportunityName || 'Untitled deal'}
@@ -60,7 +64,7 @@ function DealCard({ deal, onOpen, onDragStart, dragging }) {
            !== (deal.dealTag || '').trim()
         && (
         <p style={{
-          margin: 0, fontSize: 'var(--text-base)', color: 'var(--text-muted)',
+          margin: 0, fontSize: 'var(--text-md)', color: 'var(--text-muted)',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
         }}>
           {`${deal.contact.firstName} ${deal.contact.lastName || ''}`.trim()}
@@ -75,7 +79,7 @@ function DealCard({ deal, onOpen, onDragStart, dragging }) {
             than printing £0, which reads as "worth nothing" instead of
             "not yet quoted". */}
         <span style={{
-          fontSize: 'var(--text-md)', fontWeight: 600,
+          fontSize: 'var(--text-lg)', fontWeight: 600,
           fontVariantNumeric: 'tabular-nums',
           color: value > 0 ? 'var(--text-heading)' : 'var(--text-faint)'
         }}>
@@ -85,7 +89,7 @@ function DealCard({ deal, onOpen, onDragStart, dragging }) {
           <span
             title={deal.owner}
             style={{
-              fontSize: 'var(--text-sm)', color: 'var(--text-faint)',
+                fontSize: 'var(--text-base)', color: 'var(--text-faint)',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               maxWidth: 110
             }}
@@ -157,38 +161,55 @@ function Column({ stage, search, status, onOpen, onMoved, registerReload }) {
         if (id && from !== stage.id) onMoved(id, from, stage.id)
       }}
       style={{
-        flex: 'none', width: 300,
+        flex: 'none', width: 320,
         display: 'flex', flexDirection: 'column',
-        maxHeight: '100%',
-        background: over ? 'var(--tint-pine)' : 'var(--surface-sunken)',
+        // A fixed height, not maxHeight: every column ends at the same line
+        // whether it holds ten cards or none, so the board reads as a grid.
+        // Without it, an empty column collapsed to its header and the row of
+        // headers sat at different depths.
+        height: 'calc(100vh - 260px)', minHeight: 380,
+        background: over ? 'var(--tint-pine)' : 'var(--gray-50)',
         border: `1px ${over ? 'dashed' : 'solid'} ${over ? 'var(--green-300)' : 'var(--border-default)'}`,
         borderRadius: 'var(--radius-lg)',
+        overflow: 'hidden',
         transition: 'background 120ms ease'
       }}
     >
+      {/* Its own band — white against the column's tinted body, the way a
+          table header sits above its rows. It used to share the column's
+          background and read as the first card. */}
       <header style={{
-        padding: 'var(--space-3)',
+        flex: 'none',
+        padding: '11px 14px',
+        background: 'var(--surface)',
         borderBottom: '1px solid var(--border-default)',
-        display: 'grid', gap: 2
+        display: 'grid', gap: 3
       }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
           <h3 style={{
-            margin: 0, fontSize: 'var(--text-md)', fontWeight: 600,
-            color: 'var(--text-heading)',
+            margin: 0, fontSize: 'var(--text-lg)', fontWeight: 600,
+            color: 'var(--text-heading)', letterSpacing: '-0.01em',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
           }}>
             {stage.name}
           </h3>
+          {/* A pill, not loose digits: it is a count of the column below it
+              and needed a shape to say so. */}
           <span style={{
-            fontSize: 'var(--text-sm)', fontWeight: 600,
+            flex: 'none',
+            minWidth: 22, height: 20, padding: '0 7px',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            borderRadius: 'var(--radius-pill)',
+            background: 'var(--gray-100)',
+            fontSize: 'var(--text-base)', fontWeight: 600,
             fontVariantNumeric: 'tabular-nums', color: 'var(--text-muted)'
           }}>
             {total ?? deals.length}
           </span>
         </div>
         <span style={{
-          fontSize: 'var(--text-sm)', color: 'var(--text-faint)',
-          fontVariantNumeric: 'tabular-nums'
+          fontSize: 'var(--text-md)', color: 'var(--text-muted)',
+          fontVariantNumeric: 'tabular-nums', fontWeight: 500
         }}>
           {loadedValue > 0
             ? `${formatMoney(loadedValue, deals[0]?.currency)}${hasMore ? ' loaded' : ''}`
