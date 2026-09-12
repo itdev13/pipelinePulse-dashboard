@@ -38,6 +38,23 @@ const TONE = {
   abandoned: { fg: 'var(--text-muted)', bg: 'var(--surface-sunken)' }
 }
 
+// The recorded reason's own treatment, keyed on the outcome so the block reads
+// as part of that outcome rather than as a stray paragraph. `tint` is the
+// ground; `rail` is the left edge that ties it to the status above it.
+const REASON_TONE = {
+  won:       { tint: 'var(--tint-pine)', rail: 'var(--status-done)' },
+  lost:      { tint: 'var(--tint-rose)', rail: 'var(--status-stuck)' },
+  abandoned: { tint: 'var(--tint-gray)', rail: 'var(--gray-300)' }
+}
+
+// What the reason answers. Past tense — it is a record, not a prompt, and it
+// sits under a status that has already been decided.
+const REASON_HEADING = {
+  won: 'Why it was won',
+  lost: 'Why it was lost',
+  abandoned: 'Why it was abandoned'
+}
+
 export default function DealStatusControl({
   status = 'open',
   // The reason already on record, so reopening a closed deal shows what was
@@ -147,14 +164,37 @@ export default function DealStatusControl({
       />
 
       {/* The reason already on record. Shown when the deal is closed and the
-          dialog is not open — otherwise the manager sees two reason boxes. */}
+          dialog is not open — otherwise the manager sees two reason boxes.
+
+          It was a bare grey <p> sitting directly under the dropdown, which
+          read as an orphaned line of text: nothing said it was the REASON, or
+          that it belonged to the status above it. Now a labelled block,
+          tinted and railed to match the outcome. */}
       {!pending && outcomeReason && CLOSING_STATUSES.includes(current) && (
-        <p style={{
-          margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)',
-          lineHeight: 1.45
+        <div style={{
+          borderLeft: `3px solid ${(REASON_TONE[current] || {}).rail || 'var(--gray-300)'}`,
+          borderRadius: '0 var(--radius-md) var(--radius-md) 0',
+          background: (REASON_TONE[current] || {}).tint || 'var(--surface-sunken)',
+          padding: '8px 11px',
+          display: 'grid', gap: 3
         }}>
-          {outcomeReason}
-        </p>
+          <span style={{
+            fontSize: 'var(--text-sm)', fontWeight: 600,
+            color: 'var(--text-muted)',
+            textTransform: 'uppercase', letterSpacing: '0.04em'
+          }}>
+            {REASON_HEADING[current] || 'Reason'}
+          </span>
+          <p style={{
+            margin: 0, fontSize: 'var(--text-md)',
+            color: 'var(--text-heading)', lineHeight: 1.45,
+            // A rep can type a paragraph: let it wrap rather than clip, and
+            // keep any line breaks they typed.
+            whiteSpace: 'pre-wrap', overflowWrap: 'anywhere'
+          }}>
+            {outcomeReason}
+          </p>
+        </div>
       )}
 
       {pending && (

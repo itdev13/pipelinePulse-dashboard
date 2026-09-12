@@ -188,6 +188,57 @@ export default function DealHubShell() {
     })
   }
 
+  // Keyboard navigation.
+  //
+  // The browser's own Back button is useless here: this app runs inside GHL's
+  // iframe, so Back navigates the PARENT page and takes the rep out of the
+  // app entirely. Our history is internal, so the shortcuts have to be too.
+  //
+  //   Alt+Left / Backspace   go back one position
+  //   Alt+1 .. Alt+7         jump straight to a tab
+  //
+  // Alt rather than Cmd/Ctrl: the parent GHL app and the browser have already
+  // claimed most of those, and a shortcut that fights the host is worse than
+  // none. Plain Backspace is included because it is the muscle-memory key for
+  // "back", but ONLY outside a text field — see the guard below, without which
+  // it would swallow the delete key while a rep is typing.
+  React.useEffect(() => {
+    const onKey = (e) => {
+      // Never hijack a key the user is typing with. contentEditable covers the
+      // rich-text editors; the tag names cover inputs, textareas and selects.
+      const el = e.target;
+      const typing = el && (
+        el.isContentEditable ||
+        /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName || '')
+      );
+
+      // A modal is open? Leave it alone — Escape belongs to the modal, and a
+      // tab switch underneath one would strand it over the wrong page.
+      if (document.querySelector('[role="dialog"], .pp-modal')) return;
+
+      if (e.altKey && e.key === 'ArrowLeft') {
+        e.preventDefault();
+        goBack();
+        return;
+      }
+      if (e.key === 'Backspace' && !typing && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        goBack();
+        return;
+      }
+      if (e.altKey && /^[1-9]$/.test(e.key)) {
+        const tab = TABS[Number(e.key) - 1];
+        if (tab) {
+          e.preventDefault();
+          navigate({ tab: tab.id });
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+
   // Opening a record CLEARS the other two ids. Otherwise a contact opened
   // after a business would leave the business id set, and Back — which
   // restores the whole position — would reopen a record you'd already left.
@@ -272,7 +323,7 @@ export default function DealHubShell() {
           title={
             history.length === 0
               ? 'Nowhere to go back to yet'
-              : `Back to ${labelForPlace(history[history.length - 1])}`
+              : `Back to ${labelForPlace(history[history.length - 1])}  (Alt+\u2190 or Backspace)`
           }
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
