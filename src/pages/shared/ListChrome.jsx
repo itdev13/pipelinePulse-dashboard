@@ -21,7 +21,11 @@ export function PageHeader({ title, subtitle, action }) {
         <p
           style={{
             margin: 0, flex: 1, minWidth: 200,
-            fontSize: 'var(--text-md)', color: 'var(--text-muted)'
+            // --text-lg (14px), not --text-md (13px): this line explains what
+            // the page does and sits beside a 24px title, where 13px read as
+            // fine print rather than the page's own description. Shared by
+            // every tab's header, so all of them gain the same legibility.
+            fontSize: 'var(--text-lg)', color: 'var(--text-muted)'
           }}
         >
           {subtitle}
