@@ -43,7 +43,7 @@ function ViewTab({ view, active, onSelect, onDelete }) {
       }
       style={{
         display: 'inline-flex', alignItems: 'center', flex: 'none',
-        height: 32, maxWidth: 220,
+        height: 36, maxWidth: 220,
         border: '1px solid',
         borderColor: active ? 'var(--brand-primary)' : 'var(--border-strong)',
         borderRadius: 'var(--radius-md)',
@@ -193,6 +193,25 @@ export default function DealToolbar({
       {/* Pipeline FIRST: it decides which board you are even looking at, so
           it reads as the outer choice and Filters narrows within it. */}
       {secondaryControl}
+
+      {/* The count belongs to the pipeline beside it, not to the far right of
+          the row — it answers "how many are in THIS", which is the question
+          the control to its left just set. Reflects the filters too, so a
+          filtered board says how many survived them. */}
+      {typeof count === 'number' && (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', flex: 'none',
+          height: 26, padding: '0 10px',
+          borderRadius: 'var(--radius-pill)',
+          background: 'var(--tint-sky)',
+          fontSize: 'var(--text-md)', fontWeight: 600,
+          fontVariantNumeric: 'tabular-nums',
+          color: 'var(--text-body)', whiteSpace: 'nowrap'
+        }}>
+          {count} {count === 1 ? countLabel.replace(/s$/, '') : countLabel}
+        </span>
+      )}
+
       {filterControl}
 
       {active.map(([k, v]) => (
@@ -242,7 +261,7 @@ export default function DealToolbar({
             placeholder="Name this view"
             maxLength={60}
             style={{
-              height: 32, width: 180, padding: '0 10px',
+              height: 36, width: 180, padding: '0 10px',
               border: '1px solid var(--brand-primary)',
               borderRadius: 'var(--radius-md)',
               fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
@@ -253,7 +272,7 @@ export default function DealToolbar({
             onClick={save}
             disabled={!name.trim()}
             style={{
-              height: 32, padding: '0 12px',
+              height: 36, padding: '0 12px',
               border: 'none', borderRadius: 'var(--radius-md)',
               background: name.trim() ? 'var(--brand-primary)' : 'var(--gray-200)',
               color: name.trim() ? '#fff' : 'var(--text-faint)',
@@ -272,7 +291,7 @@ export default function DealToolbar({
             aria-label="Cancel naming this view"
             style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 32, height: 32, flex: 'none',
+              width: 36, height: 36, flex: 'none',
               border: '1px solid var(--border-strong)',
               borderRadius: 'var(--radius-md)',
               background: 'var(--surface-card)', color: 'var(--text-muted)',
@@ -292,7 +311,7 @@ export default function DealToolbar({
             title={`Save these filters over "${dirtyView.name}"`}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 5,
-              height: 32, padding: '0 11px', flex: 'none',
+              height: 36, padding: '0 11px', flex: 'none',
               border: '1px solid var(--brand-primary)',
               borderRadius: 'var(--radius-md)',
               background: 'var(--surface-card)', color: 'var(--brand-primary)',
@@ -309,7 +328,7 @@ export default function DealToolbar({
             title="Save these filters as a view"
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 4,
-              height: 32, padding: '0 10px',
+              height: 36, padding: '0 10px',
               // Dashed and square-cornered, matching the saved views it
               // creates — it is the empty slot beside them, not a filter.
               border: '1px dashed var(--border-strong)',
@@ -331,14 +350,6 @@ export default function DealToolbar({
         marginLeft: 'auto',
         display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)'
       }}>
-        {typeof count === 'number' && (
-          <span style={{
-            fontSize: 'var(--text-lg)', color: 'var(--text-muted)',
-            fontVariantNumeric: 'tabular-nums'
-          }}>
-            {count} {count === 1 ? countLabel.replace(/s$/, '') : countLabel}
-          </span>
-        )}
         {children}
       </span>
     </div>

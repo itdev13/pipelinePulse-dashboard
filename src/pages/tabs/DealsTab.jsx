@@ -53,6 +53,14 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
   // The deal open as a full page. Null = the list.
   const [openDealId, setOpenDealId] = useState(null)
 
+  // How many deals the CURRENT pipeline and filters resolve to.
+  //
+  // Not deals.length: that is the loaded page (20 rows), and on the board it
+  // is not even that — each column fetches its own stage, so the tab never
+  // holds a full list. The server already counts under the same WHERE as the
+  // page, so one request with limit:1 gets the real number.
+  const [pipelineCount, setPipelineCount] = useState(null)
+
   // Live filters. The keys match GET /api/deals's query parameters exactly,
   // so applying a saved view is "spread these onto the request" rather than a
   // translation step that can drift.
@@ -92,6 +100,8 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, search, activeViewId])
 
+
+
   // Which row is expanded for editing. One at a time: two open editors mean two
   // sets of unsaved changes and no way to tell which Update belongs to which.
   // Seeded from initialEditDealId so the Deal Hub can send a rep straight to
@@ -112,6 +122,30 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
   // rep who only reads the list never pays for it.
   const [refData, setRefData] = useState(null)
   const [refError, setRefError] = useState(null)
+
+  // The count, refetched whenever what it counts changes.
+  //
+  // Placed AFTER filters/search/boardPipelineId are declared — `const` is not
+  // hoisted, and an effect reading them from above throws on first render.
+  useEffect(() => {
+    let alive = true
+    const pipelineId = view === 'board'
+      ? (boardPipelineId || (refData?.pipelines || [])[0]?.id || undefined)
+      : undefined
+    dealsAPI.list({
+      status: filters.status || 'open',
+      q: search || undefined,
+      stageId: filters.stageId || undefined,
+      assignedTo: filters.assignedTo || undefined,
+      pipelineId,
+      // One row, because only the count is wanted — totalCount is computed
+      // under the same WHERE regardless of the page size.
+      limit: 1
+    })
+      .then((r) => { if (alive) setPipelineCount(typeof r?.totalCount === 'number' ? r.totalCount : null) })
+      .catch(() => { if (alive) setPipelineCount(null) })
+    return () => { alive = false }
+  }, [view, boardPipelineId, refData, filters, search])
 
   // Saved-view actions.
   //
@@ -386,7 +420,10 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
           const v = views.find((x) => x.id === id)
           if (v) saveView(v.name)
         }}
-        count={view === 'board' ? undefined : deals.length}
+        // The REAL total for the current pipeline and filters, not the
+        // loaded page. On the board `deals` is not even the page — each
+        // column fetches its own stage — so this was previously blank there.
+        count={pipelineCount}
         filterControl={
           <DealFilters
             filters={filters}
@@ -424,11 +461,14 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
               // Wide enough for a real pipeline name. The old control was
               // sized to its current value, so "Marketing pipeline" was
               // clipped while "James" left the box half empty.
+              // 36px matches Filters, the saved views and the view switch.
+              // antd's size="large" is 40px, so the pipeline stood a notch
+              // taller than everything beside it and the row lost its line.
               style={{ width: 220 }}
+              styles={{ root: { height: 36 } }}
               // The menu is wider than the control when a name needs it,
               // rather than truncating every option to the box.
               popupMatchSelectWidth={false}
-              size="large"
             />
           )
         }
