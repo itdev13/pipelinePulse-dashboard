@@ -37,7 +37,18 @@ export default function MessageDealPill({
   // and the message's own deal is what to exclude — offering the deal it is
   // already on is a no-op that looks like a choice.
   const currentId = dealId || message.deal?.id || null
-  const options = targets.filter((t) => t.id !== currentId)
+  const options = targets.filter((t) =>
+    // A real deal only. reassignment-targets appends a synthetic
+    // `{ id: null, label: 'Unassigned — contact record only' }` from before
+    // this control had its own unlink row, so the same action appeared
+    // twice — once as a deal option, once as "Unlink from every deal".
+    // DealSection filters it the same way (`d.id && !d.current`).
+    //
+    // Dropped rather than removed from the endpoint: DealSection also reads
+    // it, and changing a shared response to fix one consumer is how the
+    // other one breaks.
+    t.id && t.id !== currentId
+  )
 
   useEffect(() => {
     if (!open) return
