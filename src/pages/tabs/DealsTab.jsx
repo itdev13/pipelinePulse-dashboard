@@ -5,6 +5,7 @@ import DealTable from '../deals/DealTable'
 import DealToolbar from '../deals/DealToolbar'
 import DealFilters from '../deals/DealFilters'
 import DealEditPage from '../deals/DealEditPage'
+import ViewSwitch from '../shared/ViewSwitch'
 import { savedViewsAPI } from '../../api/deals'
 import { FollowUpChips } from '../shared/ListChrome'
 import { dealsAPI } from '../../api/deals'
@@ -498,7 +499,17 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
           )
         }
       >
-        <ViewSwitch value={view} onChange={setView} />
+        <ViewSwitch
+          value={view}
+          onChange={setView}
+          options={[
+            { id: 'board', icon: 'view_kanban', label: 'Board' },
+            { id: 'table', icon: 'table_rows', label: 'Table' },
+            // Last: the only view that edits inline, but also the slowest to
+            // scan, so it is a destination rather than the default.
+            { id: 'cards', icon: 'view_agenda', label: 'Cards' }
+          ]}
+        />
       </DealToolbar>
 
 
@@ -902,72 +913,6 @@ function daysSince(ts) {
 }
 
 
-// Cards / Board / Table.
-//
-// A segmented control rather than a dropdown: there are three options, the
-// choice is made often, and a dropdown would hide two of them behind a click.
-function ViewSwitch({ value, onChange }) {
-  const OPTIONS = [
-    { id: 'board', icon: 'view_kanban', label: 'Board' },
-    { id: 'table', icon: 'table_rows', label: 'Table' },
-    { id: 'cards', icon: 'view_agenda', label: 'Cards' }
-  ]
-  const [hover, setHover] = useState(null)
-
-  // ICONS, with the name only on the active one or on hover.
-  //
-  // Three labelled buttons took the width of a filter chip each for a control
-  // that is set once and rarely changed. The active view still reads its own
-  // name, so the strip never becomes a row of anonymous glyphs — and `title`
-  // carries the name for anyone who does not hover long enough to see it.
-  return (
-    <div
-      role="tablist"
-      aria-label="Deal view"
-      style={{
-        display: 'inline-flex', flex: 'none',
-        border: '1px solid var(--border-strong)',
-        borderRadius: 'var(--radius-md)',
-        background: 'var(--surface-card)',
-        overflow: 'hidden'
-      }}
-    >
-      {OPTIONS.map((o) => {
-        const on = value === o.id
-        const showLabel = on || hover === o.id
-        return (
-          <button
-            key={o.id}
-            role="tab"
-            aria-selected={on}
-            aria-label={o.label}
-            onClick={() => onChange(o.id)}
-            onMouseEnter={() => setHover(o.id)}
-            onMouseLeave={() => setHover(null)}
-            title={`${o.label} view`}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: showLabel ? 5 : 0,
-              height: 36, padding: showLabel ? '0 12px' : '0 10px',
-              border: 'none',
-              borderLeft: o.id === 'board' ? 'none' : '1px solid var(--border-default)',
-              background: on ? 'var(--tint-pine)' : 'transparent',
-              color: on ? 'var(--green-600)' : 'var(--text-muted)',
-              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)',
-              fontWeight: on ? 600 : 500,
-              cursor: 'pointer',
-              // Width changes as the label appears; without this the two
-              // neighbours jump sideways on every hover.
-              transition: 'padding 120ms ease, background 120ms ease'
-            }}
-          >
-            <span className="ms" style={{ fontSize: 18 }}>{o.icon}</span>
-            {showLabel && o.label}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
 
 
 // The board, while its pipeline loads.

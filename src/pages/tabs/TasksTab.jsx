@@ -1,4 +1,5 @@
-import React, { useCallback, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import ViewSwitch from '../shared/ViewSwitch'
 import { tasksAPI } from '../../api/tasks'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
@@ -64,6 +65,16 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
   const [dueFilter, setDueFilter] = useTabState('tasks', 'dueFilter', 'all')
   const [status, setStatus] = useTabState('tasks', 'status', 'open')
   const [toast, setToast] = useState(null)
+
+  // Rows or a grid. Persisted: a display preference, not a navigation step, so
+  // a rep who prefers the grid should not be handed rows every time they come
+  // back to this tab.
+  const [view, setView] = useState(() => {
+    try { return localStorage.getItem('pp.tasks.view') || 'rows' } catch { return 'rows' }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('pp.tasks.view', view) } catch { /* private mode */ }
+  }, [view])
 
   const fetchPage = useCallback(
     ({ cursor }) => tasksAPI.list({ status, due: dueFilter, limit: 20, cursor }),
@@ -196,9 +207,19 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
         // full-width grey strip under the title that read as its own section.
         // In the header it sits beside the count, where it belongs.
         action={
-          <PrimaryAction onClick={() => setEditor({ task: null })} icon="add">
-            Add task
-          </PrimaryAction>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <ViewSwitch
+              value={view}
+              onChange={setView}
+              options={[
+                { id: 'rows', icon: 'view_agenda', label: 'Rows' },
+                { id: 'grid', icon: 'grid_view', label: 'Grid' }
+              ]}
+            />
+            <PrimaryAction onClick={() => setEditor({ task: null })} icon="add">
+              Add task
+            </PrimaryAction>
+          </span>
         }
       >
         <StateMessage
