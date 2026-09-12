@@ -200,7 +200,18 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                   // Matches the deal rail's treatment, so the same note looks
                   // the same in both places.
                   borderLeft: col.stripe ? `3px solid ${col.stripe}` : 'none',
-                  borderBottom: hasChips ? 'none' : '1px solid var(--border-default)'
+                  // A card in the grid, a list item in rows — see TasksTab.
+                  // The colour stripe on the left survives either way.
+                  ...(view === 'grid'
+                    ? {
+                      border: '1px solid var(--border-default)',
+                      borderLeft: col.stripe
+                        ? `3px solid ${col.stripe}`
+                        : '1px solid var(--border-default)',
+                      borderRadius: 'var(--radius-md)',
+                      background: 'var(--surface-card)'
+                    }
+                    : { borderBottom: hasChips ? 'none' : '1px solid var(--border-default)' })
                 }}
               >
                 <span
