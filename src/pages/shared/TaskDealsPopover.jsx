@@ -272,7 +272,7 @@ export default function TaskDealsPopover({
             {/* min-width: 0 — without it a long deal name refuses to
                 truncate and pushes the remove button out of the popover. */}
             <span style={{
-              flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--text-default)',
+              flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--text-body)',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
             }} title={d.name}>
               {d.name}

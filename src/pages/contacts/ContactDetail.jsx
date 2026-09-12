@@ -1111,7 +1111,7 @@ function AllMessages({ contactId, deals = [], onOpenDeal }) {
         {picked.size > 0 && (
           <>
             <span style={{
-              fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-default)'
+              fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-body)'
             }}>
               {picked.size} selected
             </span>

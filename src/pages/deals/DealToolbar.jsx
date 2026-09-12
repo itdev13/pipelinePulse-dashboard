@@ -81,7 +81,7 @@ function FilterChip({ label, value, onClear }) {
       height: 28, padding: '0 6px 0 10px',
       border: '1px solid var(--border-strong)',
       borderRadius: 'var(--radius-pill)',
-      background: 'var(--surface)',
+      background: 'var(--surface-card)',
       fontSize: 'var(--text-base)', color: 'var(--text-body)',
       maxWidth: 220
     }}>
@@ -115,6 +115,10 @@ export default function DealToolbar({
   // The Filters control, rendered first — it is what a rep reaches for to
   // narrow the list, so it leads the row.
   filterControl,
+  // Sits beside Filters. The pipeline picker lives here: it decides WHICH
+  // deals are shown, the same question Filters answers — where the view
+  // icons on the right only decide how they are drawn.
+  secondaryControl,
   // Display controls (view switch, pipeline picker). Pushed right.
   children
 }) {
@@ -147,11 +151,12 @@ export default function DealToolbar({
       display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
       flexWrap: 'wrap',
       padding: '8px 14px',
-      background: 'var(--surface)',
+      background: 'var(--surface-card)',
       border: '1px solid var(--border-default)',
       borderRadius: 'var(--radius-lg)'
     }}>
       {filterControl}
+      {secondaryControl}
 
       {active.map(([k, v]) => (
         <FilterChip

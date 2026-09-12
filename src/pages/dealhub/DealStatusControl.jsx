@@ -290,7 +290,7 @@ export default function DealStatusControl({
                 height: 32, padding: '0 14px',
                 border: '1px solid var(--border-strong)',
                 borderRadius: 'var(--radius-md)',
-                background: 'var(--surface)',
+                background: 'var(--surface-card)',
                 fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
                 fontWeight: 500, color: 'var(--text-body)',
                 cursor: saving ? 'not-allowed' : 'pointer'

@@ -28,7 +28,7 @@ function DealCard({ deal, onOpen, onDragStart, dragging }) {
       onDragStart={(e) => onDragStart(e, deal)}
       onClick={() => onOpen && onOpen(deal.id)}
       style={{
-        background: 'var(--surface)',
+        background: 'var(--surface-card)',
         border: '1px solid var(--border-default)',
         borderRadius: 'var(--radius-md)',
         padding: '12px 14px',
@@ -181,7 +181,7 @@ function Column({ stage, search, status, onOpen, onMoved, registerReload }) {
       <header style={{
         flex: 'none',
         padding: '11px 14px',
-        background: 'var(--surface)',
+        background: 'var(--surface-card)',
         borderBottom: '1px solid var(--border-default)',
         display: 'grid', gap: 3
       }}>
@@ -255,7 +255,7 @@ function Column({ stage, search, status, onOpen, onMoved, registerReload }) {
             disabled={loading}
             style={{
               height: 30, border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-md)', background: 'var(--surface)',
+              borderRadius: 'var(--radius-md)', background: 'var(--surface-card)',
               fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
               color: 'var(--text-body)', cursor: 'pointer'
             }}

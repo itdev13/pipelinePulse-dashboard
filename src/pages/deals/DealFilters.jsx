@@ -32,7 +32,7 @@ const SELECT = {
   width: '100%', height: 38, padding: '0 11px',
   border: '1px solid var(--border-strong)',
   borderRadius: 'var(--radius-md)',
-  background: 'var(--surface)',
+  background: 'var(--surface-card)',
   fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)',
   color: 'var(--text-body)', cursor: 'pointer'
 }
@@ -94,7 +94,7 @@ export default function DealFilters({
           border: '1px solid',
           borderColor: applied ? 'var(--green-300)' : 'var(--border-strong)',
           borderRadius: 'var(--radius-md)',
-          background: applied ? 'var(--tint-pine)' : 'var(--surface)',
+          background: applied ? 'var(--tint-pine)' : 'var(--surface-card)',
           color: applied ? 'var(--green-600)' : 'var(--text-body)',
           fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)',
           fontWeight: applied ? 600 : 500,
@@ -124,7 +124,7 @@ export default function DealFilters({
           <div
             style={{
               width: 'min(380px, 100vw)', height: '100%',
-              background: 'var(--surface)',
+              background: 'var(--surface-card)',
               display: 'flex', flexDirection: 'column',
               boxShadow: '-8px 0 28px rgba(0,0,0,0.14)'
             }}
@@ -242,7 +242,7 @@ export default function DealFilters({
                     height: 36, padding: '0 14px',
                     border: '1px solid var(--border-strong)',
                     borderRadius: 'var(--radius-md)',
-                    background: 'var(--surface)',
+                    background: 'var(--surface-card)',
                     fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
                     fontWeight: 500, color: 'var(--text-body)', cursor: 'pointer'
                   }}

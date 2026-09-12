@@ -284,7 +284,7 @@ export default function MessageDealPill({
                   display: 'flex', alignItems: 'center', gap: 8,
                   padding: '9px 10px', width: '100%',
                   borderRadius: 8, textAlign: 'left',
-                  fontSize: 13, fontWeight: 500, color: 'var(--text-default)',
+                  fontSize: 13, fontWeight: 500, color: 'var(--text-body)',
                   cursor: busy ? 'wait' : 'pointer'
                 }}
               >

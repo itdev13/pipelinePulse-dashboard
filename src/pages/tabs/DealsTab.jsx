@@ -3,6 +3,7 @@ import DealBoard from '../deals/DealBoard'
 import DealTable from '../deals/DealTable'
 import DealToolbar from '../deals/DealToolbar'
 import DealFilters from '../deals/DealFilters'
+import DealEditPage from '../deals/DealEditPage'
 import { savedViewsAPI } from '../../api/deals'
 import { FollowUpChips } from '../shared/ListChrome'
 import { dealsAPI } from '../../api/deals'
@@ -47,6 +48,9 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
   // The board needs one pipeline at a time — its columns ARE that pipeline's
   // stages. Defaults to the first, which is the only one most locations have.
   const [boardPipelineId, setBoardPipelineId] = useState(null)
+
+  // The deal open as a full page. Null = the list.
+  const [openDealId, setOpenDealId] = useState(null)
 
   // Live filters. The keys match GET /api/deals's query parameters exactly,
   // so applying a saved view is "spread these onto the request" rather than a
@@ -331,10 +335,11 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
             users={refData?.users || []}
           />
         }
-      >
-        {/* Pipeline first, then the view switch: the pipeline decides WHICH
-            board, the switch decides how it is drawn. */}
-        {view === 'board' && (refData?.pipelines || []).length > 1 && (
+        // The pipeline sits with Filters, not with the view icons: it decides
+        // WHICH deals are on screen, which is the same question Filters
+        // answers. The icons only decide how they are drawn.
+        secondaryControl={
+          view === 'board' && (refData?.pipelines || []).length > 1 && (
           <select
             aria-label="Pipeline"
             value={boardPipelineId || refData.pipelines[0]?.id || ''}
@@ -343,7 +348,7 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
               height: 36, padding: '0 10px',
               border: '1px solid var(--border-strong)',
               borderRadius: 'var(--radius-md)',
-              background: 'var(--surface)',
+              background: 'var(--surface-card)',
               fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)',
               color: 'var(--text-body)', cursor: 'pointer'
             }}
@@ -352,7 +357,9 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
-        )}
+          )
+        }
+      >
         <ViewSwitch value={view} onChange={setView} />
       </DealToolbar>
 
@@ -390,13 +397,17 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
           // one column populated and the rest empty — it is applied by the
           // board's own column scoping instead. Status does pass through.
           status={filters.status || 'open'}
-          onOpenDeal={onOpenDeal}
+          // A card opens the deal's own page. It used to jump straight to the
+          // deal hub, which is a different question — the hub is the record's
+          // activity, this is the record itself. The hub is one button away
+          // from there.
+          onOpenDeal={setOpenDealId}
         />
       )}
 
       {/* TABLE — the same paged `deals` as the cards, rendered dense. */}
       {view === 'table' && !error && deals.length > 0 && (
-        <DealTable deals={deals} onOpenDeal={onOpenDeal} />
+        <DealTable deals={deals} onOpenDeal={setOpenDealId} />
       )}
 
       {/* CARDS — the default, and the only view that edits a deal inline. */}
@@ -419,6 +430,22 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
           onDeleted={() => { setEditingId(null); reload() }}
         />
       ))}
+
+      {/* The deal's own page. Rendered from the LOADED row rather than
+          refetching: the list already holds every field the editor needs, and
+          a second request would show an empty form for a moment. */}
+      {openDealId && (
+        <DealEditPage
+          deal={deals.find((d) => d.id === openDealId) || null}
+          pipelines={refData?.pipelines || null}
+          users={refData?.users || null}
+          refError={refError}
+          onClose={() => setOpenDealId(null)}
+          onSaved={() => refreshDeal(openDealId)}
+          onDeleted={() => { setOpenDealId(null); reload() }}
+          onOpenInHub={(id) => { setOpenDealId(null); onOpenDeal(id) }}
+        />
+      )}
 
       {/* Not on the board: this paginates the card/table list, and each board
           column pages itself. Shown there it read as the board's own total —
@@ -776,7 +803,7 @@ function ViewSwitch({ value, onChange }) {
         display: 'inline-flex', flex: 'none',
         border: '1px solid var(--border-strong)',
         borderRadius: 'var(--radius-md)',
-        background: 'var(--surface)',
+        background: 'var(--surface-card)',
         overflow: 'hidden'
       }}
     >
