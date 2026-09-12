@@ -607,7 +607,14 @@ export function DealNotesSection({ dealId, people = [], onOpenAll }) {
           }
           onClose={() => setEditor(null)}
           onSaved={(saved) => {
-            if (editor.note && saved) {
+            // Moved to a DIFFERENT deal? This rail is fetched by dealId, so
+            // the note no longer belongs in it. Patching the row in place
+            // would leave it sitting under a deal it is not on any more —
+            // reload so it leaves the list, the same as any other row that
+            // stops matching.
+            const movedAway = editor.note
+              && (saved?.opportunityId ?? null) !== (editor.note.opportunityId ?? null)
+            if (editor.note && saved && !movedAway) {
               patchItem((x) => x.id === editor.note.id, {
                 body: saved.body ?? editor.note.body,
                 title: saved.title ?? null,

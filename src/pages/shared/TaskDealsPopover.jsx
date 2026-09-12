@@ -59,6 +59,14 @@ export default function TaskDealsPopover({
   const boxRef = useRef(null)
   const [pos, setPos] = useState(null)
 
+  // Deal search scoped to this task's contact, keyed so a different task's
+  // popover never reuses the previous contact's cached results.
+  const taskContactId = task?.contact?.id || null
+  const dealSearch = React.useCallback(
+    (q) => searchDeals(q, { contactId: taskContactId }),
+    [taskContactId]
+  )
+
   // PORTALLED TO THE BODY, not positioned inside the card.
   //
   // The list sits in a Panel with `overflow: hidden` — it needs that to clip
@@ -313,7 +321,9 @@ export default function TaskDealsPopover({
           <RemotePicker
             value={adding}
             onChange={add}
-            search={searchDeals}
+            // Scoped to the task's contact — see searchDeals. A task on
+            // Alice should not offer Bob's deals.
+            search={dealSearch}
             // Already-linked deals filtered out so the picker does not
             // offer what is listed a line above.
             seed={seed

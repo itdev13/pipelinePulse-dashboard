@@ -63,8 +63,22 @@ export function useLinkTargets(enabled) {
 // a list to browse. A longer page would just be more to scroll past.
 const SEARCH_PAGE = 20
 
-export function searchDeals(q) {
-  return dealsAPI.list({ status: 'all', q, limit: SEARCH_PAGE })
+// `contactId` SCOPES THE SEARCH TO THAT CONTACT'S DEALS.
+//
+// A note or task belongs to a contact, so the deal it is filed against should
+// be one of that contact's. Without this the picker searched every deal in the
+// location and a rep could file a note against a deal the contact has nothing
+// to do with — invisibly, because the search runs on the server and the list
+// never said what it was showing.
+//
+// Server-side it matches the contact card's own chips: the deals where they
+// are PRIMARY, plus the ones they are merely linked to through
+// opportunity_contacts (an architect on someone else's deal).
+//
+// Omitting it keeps the old location-wide behaviour, which is what the deals
+// list itself wants.
+export function searchDeals(q, { contactId } = {}) {
+  return dealsAPI.list({ status: 'all', q, limit: SEARCH_PAGE, contactId })
     .then((r) => (r?.deals || []).map(dealOption))
 }
 

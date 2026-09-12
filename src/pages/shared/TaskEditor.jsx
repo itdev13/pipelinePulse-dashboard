@@ -136,6 +136,13 @@ export default function TaskEditor({
     task?.contact?.id || defaultContactId || (contacts.length === 1 ? contacts[0].id : null)
   )
 
+  // Deal search bound to the chosen contact. Keyed on contactId so switching
+  // contact does not leave the previous one's deals in the picker's cache.
+  const dealSearchForContact = React.useCallback(
+    (q) => searchDeals(q, { contactId }),
+    [contactId]
+  )
+
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [errorField, setErrorField] = useState(null)
@@ -438,7 +445,9 @@ export default function TaskEditor({
                 <RemotePicker
                   value={opportunityId}
                   onChange={setOpportunityId}
-                  search={searchDeals}
+                  // Scoped to this contact's deals — a task lives on a
+                  // contact, so a deal they are not on is never a valid answer.
+                  search={dealSearchForContact}
                   seed={deals.map(dealOption)}
                   disabled={saving}
                   invalid={errorField === 'opportunityId'}

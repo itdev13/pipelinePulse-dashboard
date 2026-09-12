@@ -143,6 +143,16 @@ export default function NoteEditor({
     note?.contact?.id || defaultContactId || (contacts.length === 1 ? contacts[0].id : null)
   )
 
+  // The deal search, bound to the chosen contact.
+  //
+  // useCallback keyed on contactId: RemotePicker caches results per search
+  // function, so reusing one identity across contacts showed the previous
+  // contact's deals until the dialog was reopened.
+  const dealSearchForContact = React.useCallback(
+    (q) => searchDeals(q, { contactId }),
+    [contactId]
+  )
+
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [errorField, setErrorField] = useState(null)
@@ -252,6 +262,18 @@ export default function NoteEditor({
           await notesAPI.setLocalLinks(note.id, {
             opportunityId: opportunityId || null
           })
+          // Merge the deal back into what we hand to onSaved.
+          //
+          // `res.note` comes from GHL, and GHL does not hold the note->deal
+          // link at all — it lives only in our database (notes.write is not
+          // granted, so the relations endpoint is closed). Returning GHL's
+          // copy unchanged therefore reported the OLD deal, and the list went
+          // on showing it until the page was reloaded or another record was
+          // opened.
+          res = {
+            ...res,
+            note: { ...(res?.note || note), opportunityId: opportunityId || null }
+          }
         }
       } else {
         res = await notesAPI.create({
@@ -485,7 +507,11 @@ export default function NoteEditor({
                 <RemotePicker
                   value={opportunityId}
                   onChange={setOpportunityId}
-                  search={searchDeals}
+                  // Scoped to THIS contact's deals — primary or linked. A note
+                  // lives on a contact, so a deal they are not on is never a
+                  // valid answer. Re-created when the contact changes so the
+                  // picker never offers the previous contact's deals.
+                  search={dealSearchForContact}
                   seed={deals.map(dealOption)}
                   disabled={saving}
                   invalid={errorField === 'opportunityId'}
