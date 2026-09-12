@@ -31,7 +31,7 @@ import {
 // opens in place via DealEditPanel. That removed the half-working controls and
 // made the rest actually saveable.
 
-export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
+export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId = null }) {
   // Which view. Persisted because it is a working preference, not a
   // navigation step: a rep who works the board should not be handed the list
   // again every time they come back to this tab.
@@ -516,7 +516,14 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
 
       {/* TABLE — the same paged `deals` as the cards, rendered dense. */}
       {view === 'table' && !error && deals.length > 0 && (
-        <DealTable deals={deals} onOpenDeal={setOpenDealId} />
+        <DealTable
+          deals={deals}
+          onOpenDeal={setOpenDealId}
+          onOpenContact={onOpenContact}
+          // Straight to the hub, skipping the editor — the row's other
+          // action already covers "edit this record".
+          onOpenInHub={onOpenDeal}
+        />
       )}
 
       {/* CARDS — the default, and the only view that edits a deal inline. */}

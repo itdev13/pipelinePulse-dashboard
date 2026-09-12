@@ -429,7 +429,13 @@ export default function DealHubShell() {
           />
         )}
         {activeTab === 'deals' && (
-          <DealsTab onOpenDeal={openDeal} initialEditDealId={editDealId} />
+          <DealsTab
+            onOpenDeal={openDeal}
+            // The table's Contact column opens that person's record, the same
+            // way a contact chip does on a task or note.
+            onOpenContact={openContact}
+            initialEditDealId={editDealId}
+          />
         )}
         {/* Deal links on a contact record jump into the Deal hub. */}
         {/* Deal + contact links on a business roll-up reuse the same
