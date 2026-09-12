@@ -315,31 +315,25 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
         })}
         onClearAll={() => { setFilters({}); setActiveViewId(null) }}
         count={view === 'board' ? undefined : deals.length}
+        filterControl={
+          <DealFilters
+            filters={filters}
+            onChange={(next) => {
+              setFilters(next)
+              // The filters no longer match the saved view that produced them,
+              // so the tab stops claiming to be active.
+              setActiveViewId(null)
+            }}
+            stages={
+              ((refData?.pipelines || []).find((p) => p.id === boardPipelineId)
+                || (refData?.pipelines || [])[0])?.stages || []
+            }
+            users={refData?.users || []}
+          />
+        }
       >
-        <ViewSwitch value={view} onChange={setView} />
-
-        {/* Status / Stage / Owner. Stages come from the pipeline currently
-            shown, so the list offers exactly the stages on screen rather than
-            every stage in the sub-account. */}
-        <DealFilters
-          filters={filters}
-          onChange={(next) => {
-            setFilters(next)
-            // The filters no longer match the saved view that produced them,
-            // so the tab stops claiming to be active — otherwise a rep edits
-            // a filter and the tab still says they are on "My open deals".
-            setActiveViewId(null)
-          }}
-          stages={
-            ((refData?.pipelines || []).find((p) => p.id === boardPipelineId)
-              || (refData?.pipelines || [])[0])?.stages || []
-          }
-          users={refData?.users || []}
-        />
-
-        {/* The pipeline belongs with the view controls, not above the board:
-            it selects WHICH board, so it is part of the same strip. Only
-            rendered when there is a choice to make. */}
+        {/* Pipeline first, then the view switch: the pipeline decides WHICH
+            board, the switch decides how it is drawn. */}
         {view === 'board' && (refData?.pipelines || []).length > 1 && (
           <select
             aria-label="Pipeline"
@@ -359,6 +353,7 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
             ))}
           </select>
         )}
+        <ViewSwitch value={view} onChange={setView} />
       </DealToolbar>
 
 
@@ -763,10 +758,16 @@ function ViewSwitch({ value, onChange }) {
   const OPTIONS = [
     { id: 'board', icon: 'view_kanban', label: 'Board' },
     { id: 'table', icon: 'table_rows', label: 'Table' },
-    // Last: it is the only view that edits inline, but it is also the
-    // slowest to scan, so it is a destination rather than the default.
     { id: 'cards', icon: 'view_agenda', label: 'Cards' }
   ]
+  const [hover, setHover] = useState(null)
+
+  // ICONS, with the name only on the active one or on hover.
+  //
+  // Three labelled buttons took the width of a filter chip each for a control
+  // that is set once and rarely changed. The active view still reads its own
+  // name, so the strip never becomes a row of anonymous glyphs — and `title`
+  // carries the name for anyone who does not hover long enough to see it.
   return (
     <div
       role="tablist"
@@ -781,29 +782,34 @@ function ViewSwitch({ value, onChange }) {
     >
       {OPTIONS.map((o) => {
         const on = value === o.id
+        const showLabel = on || hover === o.id
         return (
           <button
             key={o.id}
             role="tab"
             aria-selected={on}
+            aria-label={o.label}
             onClick={() => onChange(o.id)}
+            onMouseEnter={() => setHover(o.id)}
+            onMouseLeave={() => setHover(null)}
             title={`${o.label} view`}
             style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              height: 36, padding: '0 12px',
+              display: 'inline-flex', alignItems: 'center', gap: showLabel ? 5 : 0,
+              height: 36, padding: showLabel ? '0 12px' : '0 10px',
               border: 'none',
-              // The divider sits BETWEEN buttons so the group reads as one
-              // control rather than three adjacent ones.
               borderLeft: o.id === 'board' ? 'none' : '1px solid var(--border-default)',
               background: on ? 'var(--tint-pine)' : 'transparent',
               color: on ? 'var(--green-600)' : 'var(--text-muted)',
               fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)',
               fontWeight: on ? 600 : 500,
-              cursor: 'pointer'
+              cursor: 'pointer',
+              // Width changes as the label appears; without this the two
+              // neighbours jump sideways on every hover.
+              transition: 'padding 120ms ease, background 120ms ease'
             }}
           >
-            <span className="ms" style={{ fontSize: 17 }}>{o.icon}</span>
-            {o.label}
+            <span className="ms" style={{ fontSize: 18 }}>{o.icon}</span>
+            {showLabel && o.label}
           </button>
         )
       })}

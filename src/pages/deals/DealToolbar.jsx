@@ -112,6 +112,10 @@ export default function DealToolbar({
   views = [], activeViewId, onSelectView, onSaveView, onDeleteView,
   filters = {}, filterLabels = {}, onClearFilter, onClearAll,
   count, countLabel = 'deals',
+  // The Filters control, rendered first — it is what a rep reaches for to
+  // narrow the list, so it leads the row.
+  filterControl,
+  // Display controls (view switch, pipeline picker). Pushed right.
   children
 }) {
   const [naming, setNaming] = useState(false)
@@ -131,138 +135,130 @@ export default function DealToolbar({
   }
 
   return (
-    // A white band, not a floating group. GHL's toolbar is a surface the
-    // controls sit ON; ours sat directly on the tinted page, so the tabs and
-    // the chips looked like loose elements rather than one strip.
+    // ONE row: what narrows the list on the left, how it is displayed on the
+    // right. It was two rows with a tab strip on top, but the strip held a
+    // single permanent "All open deals" tab that did nothing until a view was
+    // saved — a whole row of chrome for a control most reps never used.
+    //
+    // Saved views now appear only once they EXIST, and the way back to
+    // unfiltered is the chips' own clear buttons, which is where a rep is
+    // already looking.
     <div style={{
-      display: 'grid', gap: 0,
+      display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+      flexWrap: 'wrap',
+      padding: '8px 14px',
       background: 'var(--surface)',
       border: '1px solid var(--border-default)',
-      borderRadius: 'var(--radius-lg)',
-      overflow: 'hidden'
+      borderRadius: 'var(--radius-lg)'
     }}>
-      {/* ROW 1 — which deals */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-        flexWrap: 'wrap',
-        borderBottom: '1px solid var(--border-default)',
-        padding: '8px 14px'
-      }}>
-        <ViewTab
-          view={{ name: 'All open deals' }}
-          active={!activeViewId}
-          onSelect={() => onSelectView(null)}
+      {filterControl}
+
+      {active.map(([k, v]) => (
+        <FilterChip
+          key={k}
+          label={FILTER_LABEL[k] || k}
+          value={filterLabels[k] || v}
+          onClear={() => onClearFilter(k)}
         />
-        {views.map((v) => (
-          <ViewTab
-            key={v.id}
-            view={v}
-            active={activeViewId === v.id}
-            onSelect={() => onSelectView(v.id)}
-            onDelete={v.isMine ? () => onDeleteView(v.id) : undefined}
+      ))}
+      {active.length > 1 && (
+        <button
+          onClick={onClearAll}
+          style={{
+            height: 28, padding: '0 10px',
+            border: 'none', background: 'transparent',
+            color: 'var(--text-muted)',
+            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
+            textDecoration: 'underline', cursor: 'pointer'
+          }}
+        >
+          Clear all
+        </button>
+      )}
+
+      {/* Saved views, only once there are any. */}
+      {views.map((v) => (
+        <ViewTab
+          key={v.id}
+          view={v}
+          active={activeViewId === v.id}
+          onSelect={() => onSelectView(activeViewId === v.id ? null : v.id)}
+          onDelete={v.isMine ? () => onDeleteView(v.id) : undefined}
+        />
+      ))}
+
+      {naming ? (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <input
+            ref={inputRef}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') save()
+              if (e.key === 'Escape') { setNaming(false); setName('') }
+            }}
+            placeholder="Name this view"
+            maxLength={60}
+            style={{
+              height: 32, width: 180, padding: '0 10px',
+              border: '1px solid var(--green-300)',
+              borderRadius: 'var(--radius-pill)',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+              color: 'var(--text-body)', outline: 'none'
+            }}
           />
-        ))}
+          <button
+            onClick={save}
+            disabled={!name.trim()}
+            style={{
+              height: 32, padding: '0 12px',
+              border: 'none', borderRadius: 'var(--radius-pill)',
+              background: name.trim() ? 'var(--brand-primary)' : 'var(--gray-200)',
+              color: name.trim() ? '#fff' : 'var(--text-faint)',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
+              cursor: name.trim() ? 'pointer' : 'default'
+            }}
+          >
+            Save
+          </button>
+        </span>
+      ) : (
+        active.length > 0 && (
+          <button
+            onClick={() => setNaming(true)}
+            title="Save these filters as a view"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              height: 32, padding: '0 10px',
+              border: '1px dashed var(--border-strong)',
+              borderRadius: 'var(--radius-pill)',
+              background: 'transparent', color: 'var(--text-muted)',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+              cursor: 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 16 }}>add</span>
+            Save view
+          </button>
+        )
+      )}
 
-        {naming ? (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <input
-              ref={inputRef}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') save()
-                if (e.key === 'Escape') { setNaming(false); setName('') }
-              }}
-              placeholder="Name this view"
-              maxLength={60}
-              style={{
-                height: 32, width: 180, padding: '0 10px',
-                border: '1px solid var(--green-300)',
-                borderRadius: 'var(--radius-pill)',
-                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
-                color: 'var(--text-body)', outline: 'none'
-              }}
-            />
-            <button
-              onClick={save}
-              disabled={!name.trim()}
-              style={{
-                height: 32, padding: '0 12px',
-                border: 'none', borderRadius: 'var(--radius-pill)',
-                background: name.trim() ? 'var(--brand-primary)' : 'var(--gray-200)',
-                color: name.trim() ? '#fff' : 'var(--text-faint)',
-                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
-                cursor: name.trim() ? 'pointer' : 'default'
-              }}
-            >
-              Save
-            </button>
-          </span>
-        ) : (
-          // Only offered once something is actually filtered: saving "all
-          // deals" under a name is a tab that does what the first tab does.
-          active.length > 0 && (
-            <button
-              onClick={() => setNaming(true)}
-              title="Save these filters as a view"
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4,
-                height: 32, padding: '0 10px',
-                border: '1px dashed var(--border-strong)',
-                borderRadius: 'var(--radius-pill)',
-                background: 'transparent', color: 'var(--text-muted)',
-                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
-                cursor: 'pointer'
-              }}
-            >
-              <span className="ms" style={{ fontSize: 16 }}>add</span>
-              Save view
-            </button>
-          )
-        )}
-
+      {/* Display controls sit right, away from everything that changes WHICH
+          deals are shown. */}
+      <span style={{
+        marginLeft: 'auto',
+        display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)'
+      }}>
         {typeof count === 'number' && (
           <span style={{
-            marginLeft: 'auto',
             fontSize: 'var(--text-lg)', color: 'var(--text-muted)',
             fontVariantNumeric: 'tabular-nums'
           }}>
             {count} {count === 1 ? countLabel.replace(/s$/, '') : countLabel}
           </span>
         )}
-      </div>
-
-      {/* ROW 2 — how they look, and how to narrow them */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-        flexWrap: 'wrap',
-        padding: '8px 14px'
-      }}>
         {children}
-
-        {active.map(([k, v]) => (
-          <FilterChip
-            key={k}
-            label={FILTER_LABEL[k] || k}
-            value={filterLabels[k] || v}
-            onClear={() => onClearFilter(k)}
-          />
-        ))}
-        {active.length > 1 && (
-          <button
-            onClick={onClearAll}
-            style={{
-              height: 28, padding: '0 10px',
-              border: 'none', background: 'transparent',
-              color: 'var(--text-muted)',
-              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
-              textDecoration: 'underline', cursor: 'pointer'
-            }}
-          >
-            Clear all
-          </button>
-        )}
-      </div>
+      </span>
     </div>
   )
 }
