@@ -58,6 +58,11 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
   const [filters, setFilters] = useState({})
   const [views, setViews] = useState([])
   const [activeViewId, setActiveViewId] = useState(null)
+  // The id of a saved view whose filters have since been EDITED. Not the same
+  // as activeViewId: the view is still the one on screen, but what it shows no
+  // longer matches what was saved — so the toolbar offers "Update <name>"
+  // rather than only "Save view" under a new name.
+  const [dirtyView, setDirtyView] = useState(null)
 
   useEffect(() => {
     let alive = true
@@ -105,6 +110,8 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
   // without complaint.
   const applyView = useCallback((id) => {
     setActiveViewId(id)
+    // Freshly applied: what is on screen IS what was saved.
+    setDirtyView(null)
     const v = views.find((x) => x.id === id)
     const f = { ...(v?.filters || {}) }
     // `view` rides along in a saved view but is the display mode, not a
@@ -130,6 +137,7 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
         return [...rest, r.view]
       })
       setActiveViewId(r.view.id)
+      setDirtyView(null)
     } catch (e) {
       setRefError(e.message || 'That view could not be saved')
     }
@@ -344,16 +352,27 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
         onClearFilter={(k) => setFilters((f) => {
           const next = { ...f }; delete next[k]; return next
         })}
-        onClearAll={() => { setFilters({}); setActiveViewId(null) }}
+        onClearAll={() => { setFilters({}); setActiveViewId(null); setDirtyView(null) }}
+        // The view whose filters have been edited since it was applied. The
+        // toolbar turns this into "Update <name>", which saves over it rather
+        // than creating a second view with almost the same filters.
+        dirtyViewId={dirtyView}
+        onUpdateView={(id) => {
+          const v = views.find((x) => x.id === id)
+          if (v) saveView(v.name)
+        }}
         count={view === 'board' ? undefined : deals.length}
         filterControl={
           <DealFilters
             filters={filters}
             onChange={(next) => {
               setFilters(next)
-              // The filters no longer match the saved view that produced them,
-              // so the tab stops claiming to be active.
-              setActiveViewId(null)
+              // The view that produced these filters is now EDITED, not
+              // abandoned. Keeping its id is what lets the toolbar offer
+              // "Update <name>" — clearing it here left a rep who tweaked a
+              // filter with no way back to the view they were working on,
+              // only "Save view" under a new name.
+              setDirtyView(activeViewId)
             }}
             stages={
               ((refData?.pipelines || []).find((p) => p.id === boardPipelineId)

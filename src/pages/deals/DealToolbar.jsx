@@ -24,38 +24,43 @@ const FILTER_LABEL = {
 function ViewTab({ view, active, onSelect, onDelete }) {
   const [hover, setHover] = useState(false)
 
-  // A saved view is NOT a filter chip, and it was styled as one — same pill,
-  // same size, sitting in the same row, so "view1" read as a third filter
-  // rather than the thing that produced the other two.
+  // A saved view is NOT a filter chip. It is the thing that PRODUCED the
+  // filters beside it, so it reads as a bookmark: an icon, a heavier label,
+  // and a solid fill when active.
   //
-  // It is now a bookmark: an icon, a heavier label, and a solid fill when
-  // active. The icon does most of the work — one glyph says "this is a saved
-  // thing" in a row where everything else is a value.
+  // THE BORDER LIVES ON THE WRAPPER, not on the label button. It used to sit
+  // on the button, which put the delete × outside the pill's outline — a
+  // stray glyph floating next to a control rather than part of it. With the
+  // outline on the wrapper, both children sit inside one shape.
   return (
     <span
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      style={{ display: 'inline-flex', alignItems: 'center', flex: 'none' }}
+      title={
+        view.isShared && !view.isMine
+          ? `${view.name} — shared with the team`
+          : (active ? `${view.name} — click to clear` : `Apply "${view.name}"`)
+      }
+      style={{
+        display: 'inline-flex', alignItems: 'center', flex: 'none',
+        height: 32, maxWidth: 220,
+        border: '1px solid',
+        borderColor: active ? 'var(--brand-primary)' : 'var(--border-strong)',
+        borderRadius: 'var(--radius-md)',
+        background: active ? 'var(--brand-primary)' : 'var(--surface-card)',
+        color: active ? '#fff' : 'var(--text-body)',
+        overflow: 'hidden'
+      }}
     >
       <button
         onClick={onSelect}
-        title={
-          view.isShared && !view.isMine
-            ? `${view.name} — shared with the team`
-            : (active ? `${view.name} — click to clear` : `Apply "${view.name}"`)
-        }
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
-          height: 32, padding: onDelete && hover ? '0 4px 0 11px' : '0 11px',
-          border: '1px solid',
-          borderColor: active ? 'var(--brand-primary)' : 'var(--border-strong)',
-          borderRadius: 'var(--radius-md)',
-          background: active ? 'var(--brand-primary)' : 'var(--surface-card)',
-          color: active ? '#fff' : 'var(--text-body)',
+          minWidth: 0, height: '100%',
+          padding: '0 11px',
+          border: 'none', background: 'transparent', color: 'inherit',
           fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
-          fontWeight: 600,
-          cursor: 'pointer', whiteSpace: 'nowrap',
-          maxWidth: 200
+          fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap'
         }}
       >
         <span className="ms" style={{ fontSize: 16, flex: 'none' }}>
@@ -65,19 +70,27 @@ function ViewTab({ view, active, onSelect, onDelete }) {
           {view.name}
         </span>
       </button>
-      {/* Delete appears on hover and only on your own views — a shared view
-          belongs to whoever made it. */}
-      {onDelete && hover && (
+
+      {/* Inside the pill, and ALWAYS occupying its slot.
+          It used to mount on hover, so the pill grew ~24px the moment the
+          pointer touched it and shoved every neighbour sideways. Rendered
+          always and faded instead: the width never changes.
+          Only on your own views — a shared one belongs to whoever made it. */}
+      {onDelete && (
         <button
           onClick={onDelete}
           title={`Delete "${view.name}"`}
           aria-label={`Delete ${view.name}`}
+          tabIndex={hover ? 0 : -1}
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 22, height: 22, marginLeft: -6, marginRight: 4,
-            border: 'none', borderRadius: '50%',
-            background: 'transparent',
+            width: 24, height: '100%', flex: 'none',
+            paddingRight: 4,
+            border: 'none', background: 'transparent',
             color: active ? '#fff' : 'var(--text-faint)',
+            opacity: hover ? 1 : 0,
+            pointerEvents: hover ? 'auto' : 'none',
+            transition: 'opacity 120ms ease',
             cursor: 'pointer'
           }}
         >
@@ -130,6 +143,8 @@ export default function DealToolbar({
   count, countLabel = 'deals',
   // The Filters control, rendered first — it is what a rep reaches for to
   // narrow the list, so it leads the row.
+  // A saved view whose filters have been edited since it was applied.
+  dirtyViewId, onUpdateView,
   filterControl,
   // Sits beside Filters. The pipeline picker lives here: it decides WHICH
   // deals are shown, the same question Filters answers — where the view
@@ -145,6 +160,10 @@ export default function DealToolbar({
   useEffect(() => { if (naming) inputRef.current?.focus() }, [naming])
 
   const active = Object.entries(filters).filter(([, v]) => v)
+  // Only offer an update for a view the caller can actually write to.
+  const dirtyView = dirtyViewId
+    ? views.find((v) => v.id === dirtyViewId && v.isMine)
+    : null
 
   function save() {
     const n = name.trim()
@@ -246,7 +265,27 @@ export default function DealToolbar({
           </button>
         </span>
       ) : (
-        active.length > 0 && (
+        // EDITED an applied view? Offer to update it. Without this a rep who
+        // tweaked one filter could only "Save view" under a new name, which
+        // left two near-identical views and no way to correct the first.
+        dirtyViewId && dirtyView ? (
+          <button
+            onClick={() => onUpdateView(dirtyViewId)}
+            title={`Save these filters over "${dirtyView.name}"`}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              height: 32, padding: '0 11px', flex: 'none',
+              border: '1px solid var(--brand-primary)',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--surface-card)', color: 'var(--brand-primary)',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+              fontWeight: 600, cursor: 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 16 }}>save</span>
+            Update {dirtyView.name}
+          </button>
+        ) : active.length > 0 && (
           <button
             onClick={() => setNaming(true)}
             title="Save these filters as a view"

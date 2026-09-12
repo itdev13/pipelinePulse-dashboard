@@ -16,8 +16,10 @@ import { formatMoney } from '../../utils/money'
 
 const TH = {
   textAlign: 'left',
-  padding: 'var(--space-2) var(--space-3)',
-  fontSize: 'var(--text-sm)', fontWeight: 600,
+  // Taller header, and a size up: at text-sm on a tinted strip the column
+  // names read as a caption above the table rather than part of it.
+  padding: '11px var(--space-4)',
+  fontSize: 'var(--text-base)', fontWeight: 600,
   textTransform: 'uppercase', letterSpacing: '0.04em',
   color: 'var(--text-muted)',
   borderBottom: '1px solid var(--border-strong)',
@@ -29,12 +31,18 @@ const TH = {
 }
 
 const TD = {
-  padding: 'var(--space-3)',
-  fontSize: 'var(--text-md)',
+  // 14px vertical / 16px horizontal. At space-3 the rows were closer to each
+  // other than a row's own cells were to its edges, so the grid read as one
+  // dense block instead of a list of records.
+  padding: '14px var(--space-4)',
+  fontSize: 'var(--text-lg)',
   color: 'var(--text-body)',
   borderBottom: '1px solid var(--border-default)',
   verticalAlign: 'middle'
 }
+
+// The final row's divider doubles up with the container's own border.
+const TD_LAST = { ...TD, borderBottom: 'none' }
 
 const STATUS_TONE = {
   open: { bg: 'var(--tint-sky)', fg: 'var(--text-body)' },
@@ -74,7 +82,14 @@ export default function DealTable({ deals = [], onOpenDeal, onOpenContact }) {
   return (
     // The table scrolls sideways inside its own box. Without this the page
     // body scrolls horizontally and the nav goes with it.
-    <div style={{ overflowX: 'auto', width: '100%' }}>
+    // A card, not a bare table. It sat directly on the page ground with no
+    // edge, so the header strip floated and the last row ended in mid-air.
+    <div style={{
+      width: '100%', overflowX: 'auto',
+      background: 'var(--surface-card)',
+      border: '1px solid var(--border-default)',
+      borderRadius: 'var(--radius-lg)'
+    }}>
       <table style={{
         width: '100%', borderCollapse: 'collapse',
         fontFamily: 'var(--font-sans)'
@@ -93,13 +108,14 @@ export default function DealTable({ deals = [], onOpenDeal, onOpenContact }) {
           </tr>
         </thead>
         <tbody>
-          {deals.map((d) => {
+          {deals.map((d, rowIndex) => {
             const value = Number(d.monetaryValue)
             const tone = STATUS_TONE[String(d.status || 'open').toLowerCase()] || STATUS_TONE.open
             const contactName = d.contact
               ? `${d.contact.firstName || ''} ${d.contact.lastName || ''}`.trim()
               : ''
             const tags = Array.isArray(d.tags) ? d.tags : []
+            const td = rowIndex === deals.length - 1 ? TD_LAST : TD
             return (
               <tr
                 key={d.id}
@@ -110,7 +126,7 @@ export default function DealTable({ deals = [], onOpenDeal, onOpenContact }) {
                 }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
               >
-                <td style={{ ...TD, fontWeight: 600, color: 'var(--text-heading)', maxWidth: 260 }}>
+                <td style={{ ...td, fontWeight: 600, color: 'var(--text-heading)', maxWidth: 260 }}>
                   <span style={{
                     display: 'block',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
@@ -119,7 +135,7 @@ export default function DealTable({ deals = [], onOpenDeal, onOpenContact }) {
                   </span>
                 </td>
 
-                <td style={{ ...TD, maxWidth: 200 }}>
+                <td style={{ ...td, maxWidth: 200 }}>
                   {contactName
                     ? (
                       <button
@@ -144,7 +160,7 @@ export default function DealTable({ deals = [], onOpenDeal, onOpenContact }) {
                     : <span style={{ color: 'var(--text-faint)' }}>—</span>}
                 </td>
 
-                <td style={TD}>
+                <td style={td}>
                   {d.stage
                     ? <Pill bg="var(--tint-pine)" fg="var(--green-600)">{d.stage}</Pill>
                     : <span style={{ color: 'var(--text-faint)' }}>—</span>}
@@ -154,7 +170,7 @@ export default function DealTable({ deals = [], onOpenDeal, onOpenContact }) {
                     of figures. An unpriced deal says so rather than showing
                     £0, which reads as "worth nothing". */}
                 <td style={{
-                  ...TD, textAlign: 'right',
+                  ...td, textAlign: 'right',
                   fontVariantNumeric: 'tabular-nums',
                   color: value > 0 ? 'var(--text-heading)' : 'var(--text-faint)',
                   fontWeight: value > 0 ? 600 : 400,
@@ -163,11 +179,11 @@ export default function DealTable({ deals = [], onOpenDeal, onOpenContact }) {
                   {value > 0 ? formatMoney(value, d.currency) : 'Not priced'}
                 </td>
 
-                <td style={TD}>
+                <td style={td}>
                   <Pill bg={tone.bg} fg={tone.fg}>{d.status || 'open'}</Pill>
                 </td>
 
-                <td style={{ ...TD, maxWidth: 160 }}>
+                <td style={{ ...td, maxWidth: 160 }}>
                   <span style={{
                     display: 'block', color: d.owner ? 'var(--text-body)' : 'var(--text-faint)',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
@@ -178,7 +194,7 @@ export default function DealTable({ deals = [], onOpenDeal, onOpenContact }) {
 
                 {/* Two tags, then a count. A deal with a dozen tags would
                     otherwise set the width of the whole column. */}
-                <td style={{ ...TD, maxWidth: 180 }}>
+                <td style={{ ...td, maxWidth: 180 }}>
                   {tags.length
                     ? (
                       <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
@@ -201,10 +217,10 @@ export default function DealTable({ deals = [], onOpenDeal, onOpenContact }) {
                     : <span style={{ color: 'var(--text-faint)' }}>—</span>}
                 </td>
 
-                <td style={{ ...TD, whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>
+                <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>
                   {shortDate(d.createdAt) || '—'}
                 </td>
-                <td style={{ ...TD, whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>
+                <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>
                   {shortDate(d.updatedAt) || '—'}
                 </td>
               </tr>
