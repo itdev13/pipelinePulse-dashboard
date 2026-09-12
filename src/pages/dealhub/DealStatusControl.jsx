@@ -56,6 +56,9 @@ export default function DealStatusControl({
   const [touched, setTouched] = useState(false)
 
   const current = String(status || 'open').toLowerCase()
+  // What the dropdown displays: the pending choice while its reason is being
+  // asked for, otherwise the saved status.
+  const shown = pending || current
 
   // Clear the pending choice once the save has landed — i.e. when the status
   // prop finally reports what was picked. Also clears it if the deal's status
@@ -64,13 +67,31 @@ export default function DealStatusControl({
   React.useEffect(() => {
     if (pending && current === pending) setPending(null)
   }, [current, pending])
-  const tone = TONE[current] || TONE.open
+  // Keyed on what is DISPLAYED, so a pending choice is coloured as itself
+  // rather than keeping the old status's treatment.
+  const tone = TONE[shown] || TONE.open
 
   function pick(next) {
-    if (next === current) return
+    // Compared against what the DROPDOWN shows, not the saved status.
+    //
+    // `current` alone was wrong once a pending choice existed: with the deal
+    // still Open and Abandoned picked, choosing "Open" matched `current` and
+    // returned early — so the selection did nothing and the reason panel
+    // stayed open asking about Abandoned. Re-picking the pending value is the
+    // real no-op.
+    if (next === shown) return
+
     if (!CLOSING_STATUSES.includes(next)) {
-      // Reopening. Nothing to explain.
-      onSave && onSave({ status: next })
+      // Back to Open. Nothing to explain, so close the panel — it is asking
+      // about an outcome that is no longer being chosen.
+      setPending(null)
+      setReason('')
+      setLostReasonId(null)
+      setTouched(false)
+      // Only actually save if this CHANGES the stored status. Backing out of
+      // a pending choice on a deal that was already Open is a cancel, not a
+      // write.
+      if (next !== current) onSave && onSave({ status: next })
       return
     }
     setPending(next)
@@ -112,7 +133,7 @@ export default function DealStatusControl({
         // status the moment it was changed: the rep picked "Lost", the dialog
         // below correctly asked why the deal was lost, and the control above
         // it still read "Open". Two halves of the same question disagreeing.
-        value={pending || current}
+        value={shown}
         onChange={pick}
         options={STATUS_OPTIONS}
         size="large"
@@ -122,7 +143,7 @@ export default function DealStatusControl({
         style={{ width: '100%' }}
         // The closed states carry their colour into the closed control, so the
         // card reads as won/lost at a glance without a separate badge.
-        styles={{ root: { fontWeight: current === 'open' ? 400 : 600, color: tone.fg } }}
+        styles={{ root: { fontWeight: shown === 'open' ? 400 : 600, color: tone.fg } }}
       />
 
       {/* The reason already on record. Shown when the deal is closed and the
@@ -139,16 +160,19 @@ export default function DealStatusControl({
       {pending && (
         <div
           style={{
-            display: 'grid', gap: 'var(--space-2)',
-            padding: 'var(--space-3)',
+            display: 'grid', gap: 'var(--space-3)',
+            padding: 'var(--space-4)',
             border: '1px solid var(--border-strong)',
-            borderRadius: 'var(--radius-md)',
+            borderRadius: 'var(--radius-lg)',
             background: 'var(--surface-sunken)'
           }}
         >
+          {/* --text-md, not --text-sm (11px): this question is the whole
+              point of the panel, and at label size it read as a caption above
+              the box rather than something being asked. */}
           <label style={{
-            fontSize: 'var(--text-sm)', fontWeight: 600,
-            color: 'var(--text-heading)'
+            fontSize: 'var(--text-md)', fontWeight: 600,
+            color: 'var(--text-heading)', lineHeight: 1.4
           }}>
             {REASON_LABEL[pending]}
           </label>
@@ -208,12 +232,29 @@ export default function DealStatusControl({
             </p>
           )}
 
-          <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end' }}>
+          {/* Both buttons carry their own box styling.
+              .pp-btn-primary supplies only the hover/active/focus STATES —
+              the fill, height and radius are inline everywhere it is used
+              (see the note above the class in dealhub-tokens.css). Relying on
+              the class alone rendered a bare unpadded rectangle. */}
+          <div style={{
+            display: 'flex', gap: 'var(--space-2)',
+            justifyContent: 'flex-end', alignItems: 'center',
+            marginTop: 'var(--space-1)'
+          }}>
             <button
               type="button"
               onClick={() => setPending(null)}
               disabled={saving}
-              className="pp-btn"
+              style={{
+                height: 32, padding: '0 14px',
+                border: '1px solid var(--border-strong)',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--surface)',
+                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+                fontWeight: 500, color: 'var(--text-body)',
+                cursor: saving ? 'not-allowed' : 'pointer'
+              }}
             >
               Cancel
             </button>
@@ -222,6 +263,14 @@ export default function DealStatusControl({
               onClick={commit}
               disabled={saving}
               className="pp-btn-primary"
+              style={{
+                height: 32, padding: '0 14px',
+                border: 'none', borderRadius: 'var(--radius-md)',
+                background: 'var(--brand-primary)', color: '#fff',
+                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+                fontWeight: 600,
+                cursor: saving ? 'not-allowed' : 'pointer'
+              }}
             >
               {saving ? 'Saving…' : `Mark ${pending}`}
             </button>
