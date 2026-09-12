@@ -263,6 +263,24 @@ export default function DealToolbar({
           >
             Save
           </button>
+          {/* Escape works, but a rep who opened this by accident should not
+              have to know that — and on the board there is nothing else to
+              click that would dismiss it. */}
+          <button
+            onClick={() => { setNaming(false); setName('') }}
+            title="Cancel"
+            aria-label="Cancel naming this view"
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 32, height: 32, flex: 'none',
+              border: '1px solid var(--border-strong)',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--surface-card)', color: 'var(--text-muted)',
+              cursor: 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 17 }}>close</span>
+          </button>
         </span>
       ) : (
         // EDITED an applied view? Offer to update it. Without this a rep who

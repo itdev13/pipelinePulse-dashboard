@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { Select } from 'antd'
 import DealBoard from '../deals/DealBoard'
 import DealTable from '../deals/DealTable'
 import DealToolbar from '../deals/DealToolbar'
@@ -410,23 +411,25 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
         // answers. The icons only decide how they are drawn.
         secondaryControl={
           view === 'board' && (refData?.pipelines || []).length > 1 && (
-          <select
-            aria-label="Pipeline"
-            value={boardPipelineId || refData.pipelines[0]?.id || ''}
-            onChange={(e) => setBoardPipelineId(e.target.value)}
-            style={{
-              height: 36, padding: '0 10px',
-              border: '1px solid var(--border-strong)',
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--surface-card)',
-              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)',
-              color: 'var(--text-body)', cursor: 'pointer'
-            }}
-          >
-            {refData.pipelines.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
+            // antd Select, not a native one: a browser renders <option> with
+            // the OS's own menu, so the list could not be styled, sized or
+            // given the app's type. This one shares the .pp-menu treatment
+            // every other picker in the app uses.
+            <Select
+              aria-label="Pipeline"
+              value={boardPipelineId || refData.pipelines[0]?.id || ''}
+              onChange={setBoardPipelineId}
+              options={refData.pipelines.map((p) => ({ value: p.id, label: p.name }))}
+              popupClassName="pp-menu"
+              // Wide enough for a real pipeline name. The old control was
+              // sized to its current value, so "Marketing pipeline" was
+              // clipped while "James" left the box half empty.
+              style={{ width: 220 }}
+              // The menu is wider than the control when a name needs it,
+              // rather than truncating every option to the box.
+              popupMatchSelectWidth={false}
+              size="large"
+            />
           )
         }
       >
@@ -437,14 +440,8 @@ export default function DealsTab({ onOpenDeal, initialEditDealId = null }) {
       {/* The board waits on the PIPELINE list, not the deal page — its columns
           are stages. Without this it rendered an empty area with no
           explanation while that request was in flight. */}
-      {view === 'board' && !error && refData === null && (
-        <p style={{
-          margin: 0, padding: 'var(--space-5)', textAlign: 'center',
-          fontSize: 'var(--text-md)', color: 'var(--text-muted)'
-        }}>
-          Loading pipeline…
-        </p>
-      )}
+      {view === 'board' && !error && refData === null && <BoardSkeleton />}
+
       {view === 'board' && !error && refData !== null
         && !(refData.pipelines || []).length && (
         <p style={{
@@ -894,6 +891,66 @@ function ViewSwitch({ value, onChange }) {
           </button>
         )
       })}
+    </div>
+  )
+}
+
+
+// The board, while its pipeline loads.
+//
+// It was the words "Loading pipeline…" centred on an empty page — which says
+// nothing about what is coming and leaves the viewport blank for as long as
+// the request takes. Columns in outline hold the shape, so the real board
+// arrives into the layout the rep is already looking at rather than replacing
+// a paragraph of text.
+function BoardSkeleton() {
+  return (
+    <div style={{ display: 'flex', gap: 'var(--space-3)', overflow: 'hidden' }}>
+      {[0, 1, 2, 3].map((i) => (
+        <section
+          key={i}
+          aria-hidden="true"
+          style={{
+            flex: 'none', width: 320,
+            height: 'calc(100vh - 260px)', minHeight: 380,
+            background: 'var(--gray-100)',
+            border: '1px solid var(--border-default)',
+            borderRadius: 'var(--radius-lg)',
+            overflow: 'hidden'
+          }}
+        >
+          <div style={{
+            padding: '12px 14px',
+            background: 'var(--surface-card)',
+            borderBottom: '2px solid var(--border-strong)',
+            display: 'grid', gap: 6
+          }}>
+            <span className="pp-sk" style={{ height: 14, width: '62%' }} />
+            <span className="pp-sk" style={{ height: 11, width: '34%' }} />
+          </div>
+          {/* Fewer placeholder cards in later columns: a board is rarely even,
+              and four identical columns reads as a loading GRID rather than a
+              pipeline. */}
+          <div style={{ padding: 'var(--space-2)', display: 'grid', gap: 'var(--space-2)' }}>
+            {Array.from({ length: Math.max(1, 3 - i) }).map((_, c) => (
+              <div
+                key={c}
+                style={{
+                  background: 'var(--surface-card)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '12px 14px',
+                  display: 'grid', gap: 8
+                }}
+              >
+                <span className="pp-sk" style={{ height: 13, width: '72%' }} />
+                <span className="pp-sk" style={{ height: 11, width: '48%' }} />
+                <span className="pp-sk" style={{ height: 12, width: '36%' }} />
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   )
 }
