@@ -11,7 +11,7 @@ import TaskDealsPopover from '../shared/TaskDealsPopover'
 import { useLinkTargets } from '../../hooks/useLinkTargets'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import {
-  Shell, PageHeader, Panel, ContactChip, DealChip, RowAction,
+  Shell, Panel, ContactChip, DealChip, RowAction,
   PrimaryAction, NoteChip, StateMessage, LoadMore,
   RichBody, formatDue, relativeTime
 } from '../shared/ListChrome'
@@ -179,14 +179,13 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
 
   return (
     <Shell>
-      <PageHeader
-        title="Tasks"
-        subtitle="Tasks come first — each one links to its contact and its deal; click a task to see it on the deal hub"
-      />
-
+      {/* No PageHeader. It sat above the panel repeating the tab name the
+          nav already shows, with a subtitle explaining what a task list is —
+          and everything it used to carry (Add task, the filters, the view
+          switch) now lives on the panel itself. */}
       <Panel
         icon="task_alt"
-        title="Task queue"
+        title="Tasks"
         // Status and Due live in the panel's own toolbar band, not floating
         // above it. They narrow THIS list, so they belong to it — outside, the
         // panel started with an unexplained header while the controls that
