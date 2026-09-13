@@ -8,6 +8,8 @@ import {
 import TagSelect from '../shared/TagSelect'
 import { htmlToText } from '../../utils/sanitiseHtml'
 import EmailBody from '../dealhub/EmailBody'
+import AttachmentChip from '../dealhub/AttachmentChip'
+import AttachmentViewer from '../dealhub/AttachmentViewer'
 import MessageDealPill from '../dealhub/MessageDealPill'
 
 // Contact record — everything about one person, in four panels:
@@ -1013,6 +1015,9 @@ function Deals({ deals = [], onOpenDeal }) {
 // Fetched here rather than with the contact: the list can be long, and a rep
 // who never opens this panel should not pay for it on every contact load.
 function AllMessages({ contactId, deals = [], onOpenDeal }) {
+  // The attachment lightbox, hosted here rather than per card so paging
+  // through a message's files works the way it does on the deal timeline.
+  const [viewing, setViewing] = useState(null)
   const [messages, setMessages] = React.useState(null)
   const [error, setError] = React.useState(null)
   const [unlinkedOnly, setUnlinkedOnly] = React.useState(false)
@@ -1181,6 +1186,9 @@ function AllMessages({ contactId, deals = [], onOpenDeal }) {
           selected={picked.has(m.messageId)}
           onToggle={() => toggle(m.messageId)}
           deals={deals}
+          // EmailBody calls this unconditionally when a chip is clicked, so it
+          // is not optional — without it a click throws.
+          onOpenAttachment={(atts, i) => setViewing({ attachments: atts, index: i })}
           // One message at a time, through the contact route — there is no
           // deal in scope here, so the deal-scoped endpoint does not apply.
           onFile={(messageId, opportunityId) =>
@@ -1188,6 +1196,14 @@ function AllMessages({ contactId, deals = [], onOpenDeal }) {
           onMoved={load}
         />
       ))}
+
+      {viewing && (
+        <AttachmentViewer
+          attachments={viewing.attachments}
+          index={viewing.index}
+          onClose={() => setViewing(null)}
+        />
+      )}
     </Panel>
   )
 }
@@ -1196,7 +1212,7 @@ function AllMessages({ contactId, deals = [], onOpenDeal }) {
 //
 // The deal timeline is where a rep spends their day; a contact's messages
 // looking materially different made the same record read as two things.
-function ContactMessageCard({ m, last, selected, onToggle, deals, onFile, onMoved }) {
+function ContactMessageCard({ m, last, selected, onToggle, deals, onFile, onMoved, onOpenAttachment }) {
   const inbound = m.direction === 'inbound'
   // GHL labels the same channel several ways — 'Email', 'TYPE_EMAIL' and
   // 'EMAIL' all appear in one contact's history (visible in the screenshot
@@ -1253,7 +1269,7 @@ function ContactMessageCard({ m, last, selected, onToggle, deals, onFile, onMove
             apart again. */}
         {isEmail ? (
           <div style={{ marginTop: 4 }}>
-            <EmailBody m={m} />
+            <EmailBody m={m} onOpenAttachment={onOpenAttachment} />
           </div>
         ) : (
           <p style={{
@@ -1263,6 +1279,22 @@ function ContactMessageCard({ m, last, selected, onToggle, deals, onFile, onMove
             {htmlToText(m.body || '').slice(0, 240)
               || <span style={{ color: 'var(--text-faint)' }}>(no readable text)</span>}
           </p>
+        )}
+
+        {/* Media on a non-email message. EmailBody renders an email's own
+            chips, so this branch is guarded the same way the deal timeline
+            guards it — otherwise every email file would render twice. */}
+        {!isEmail && m.attachments?.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 5 }}>
+            {m.attachments.map((att, i) => (
+              <AttachmentChip
+                key={`${att.name}-${i}`}
+                att={att}
+                channelAccent={m.channelAccent}
+                onClick={() => onOpenAttachment && onOpenAttachment(m.attachments, i)}
+              />
+            ))}
+          </div>
         )}
       </div>
 

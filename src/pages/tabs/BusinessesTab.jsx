@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import AttachmentChip from '../dealhub/AttachmentChip'
+import AttachmentViewer from '../dealhub/AttachmentViewer'
 import ViewSwitch from '../shared/ViewSwitch'
 import { businessesAPI } from '../../api/businesses'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
@@ -1020,6 +1022,9 @@ function ContactsPanel({ contacts, onOpenContact }) {
 const CHANNELS = ['EMAIL', 'SMS', 'WHATSAPP', 'CALL']
 
 function ConversationsPanel({ businessId, total, dealCount, onOpenDeal }) {
+  // The attachment lightbox, hosted on the panel so paging through a
+  // message's files works as it does on the deal timeline.
+  const [viewing, setViewing] = useState(null)
   const [channel, setChannel] = useState(null)
 
   const fetchPage = useCallback(
@@ -1090,8 +1095,17 @@ function ConversationsPanel({ businessId, total, dealCount, onOpenDeal }) {
           message={m}
           last={i === items.length - 1 && !hasMore}
           onOpenDeal={onOpenDeal}
+          onOpenAttachment={(atts, idx) => setViewing({ attachments: atts, index: idx })}
         />
       ))}
+
+      {viewing && (
+        <AttachmentViewer
+          attachments={viewing.attachments}
+          index={viewing.index}
+          onClose={() => setViewing(null)}
+        />
+      )}
 
       {items?.length > 0 && (
         <div style={{ padding: '0 var(--space-4)' }}>
@@ -1108,7 +1122,7 @@ function ConversationsPanel({ businessId, total, dealCount, onOpenDeal }) {
   )
 }
 
-function MessageRow({ message: m, last, onOpenDeal }) {
+function MessageRow({ message: m, last, onOpenDeal, onOpenAttachment }) {
   const inbound = m.direction === 'in'
   return (
     <Row last={last}>
@@ -1169,6 +1183,22 @@ function MessageRow({ message: m, last, onOpenDeal }) {
         >
           {m.body || 'No content'}
         </span>
+
+        {/* Every channel, not just non-email: this row has no EmailBody to
+            render an email's own chips, so without this an email's files
+            appear on the deal timeline and nowhere else. */}
+        {m.attachments?.length > 0 && (
+          <span style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 5 }}>
+            {m.attachments.map((att, i) => (
+              <AttachmentChip
+                key={`${att.name}-${i}`}
+                att={att}
+                channelAccent={m.channelAccent}
+                onClick={() => onOpenAttachment && onOpenAttachment(m.attachments, i)}
+              />
+            ))}
+          </span>
+        )}
       </span>
 
       {/* An unattributed message is the point of this page — flag it rather
