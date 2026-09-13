@@ -190,7 +190,13 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
             <div key={n.id}>
               <div
                 style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  // Stacked in a card — see TasksTab. At a 340px column the
+                  // horizontal layout left the title a few pixels and it
+                  // wrapped one letter per line.
+                  display: 'flex',
+                  flexDirection: view === 'grid' ? 'column' : 'row',
+                  alignItems: view === 'grid' ? 'stretch' : 'flex-start',
+                  gap: 10,
                   // The stripe eats the left padding rather than adding to it,
                   // so coloured and uncoloured rows keep their text on one
                   // vertical line.
@@ -292,7 +298,8 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                 <div
                   style={{
                     display: 'flex', gap: 6, flexWrap: 'wrap',
-                    justifyContent: 'flex-end', alignItems: 'center'
+                    justifyContent: view === 'grid' ? 'flex-start' : 'flex-end',
+                    alignItems: 'center'
                   }}
                 >
                   {/* The design loops contacts — a note can involve several

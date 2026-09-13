@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import ViewSwitch from '../shared/ViewSwitch'
 import { businessesAPI } from '../../api/businesses'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
@@ -32,6 +33,14 @@ export default function BusinessesTab({
   // Plain state, not useTabState — see ContactsTab for why. Leaving the tab
   // and returning should land on the list, not reopen the last record.
   const [openId, setOpenId] = useState(null)
+
+  // Rows or a grid — see TasksTab.
+  const [view, setView] = useState(() => {
+    try { return localStorage.getItem('pp.businesses.view') || 'rows' } catch { return 'rows' }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('pp.businesses.view', view) } catch { /* private mode */ }
+  }, [view])
 
   // A business link elsewhere in the app (the Deal card) hands us an id to
   // open. Mirrors how ContactsTab handles openContactId.
@@ -135,11 +144,35 @@ export default function BusinessesTab({
 
       {items?.length > 0 && (
         <>
-          <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
+          {/* In a Panel, like Tasks and Notes. The cards used to float bare on
+              the page ground with no container, which is why this tab read as
+              unfinished beside the others. */}
+          <Panel
+            icon="domain"
+            title="All businesses"
+            accent="rose"
+            meta={`${items.length}${hasMore ? '+' : ''} ${items.length === 1 ? 'business' : 'businesses'}`}
+            action={
+              <ViewSwitch
+                value={view}
+                onChange={setView}
+                options={[
+                  { id: 'rows', icon: 'view_agenda', label: 'Rows' },
+                  { id: 'grid', icon: 'grid_view', label: 'Grid' }
+                ]}
+              />
+            }
+          >
+          <div style={view === 'grid' ? {
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
+            gap: 'var(--space-3)', padding: 'var(--space-3)'
+          } : { display: 'grid', gap: 0 }}>
             {items.map((b) => (
               <BusinessCard
                 key={b.id}
                 business={b}
+                view={view}
                 onOpen={() => {
                   setOpenId(b.id)
                   if (onNavigate) onNavigate({ businessId: b.id })
@@ -147,6 +180,7 @@ export default function BusinessesTab({
               />
             ))}
           </div>
+          </Panel>
           <LoadMore
             sentinelRef={sentinelRef}
             hasMore={hasMore}
@@ -170,11 +204,17 @@ function BusinessCard({ business: b, onOpen }) {
       // styles — which worked, but meant this card's hover was defined
       // separately from every other card's (and the others had none at all).
       // CSS also covers focus-visible and touch, which the handlers did not.
-      className="pp-card"
+      // .pp-card in the GRID (a bordered card); a plain row inside the Panel
+      // otherwise — a bordered card inside a bordered panel is a box in a box,
+      // and the list reads as nested rather than as one list.
+      className={view === 'grid' ? 'pp-card' : undefined}
       style={{
         display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
         padding: '14px var(--space-4)',
-        fontFamily: 'var(--font-sans)'
+        fontFamily: 'var(--font-sans)',
+        ...(view === 'grid'
+          ? { height: '100%' }
+          : { borderBottom: '1px solid var(--border-default)', background: 'transparent' })
       }}
     >
       <span style={{ display: 'flex', alignItems: 'center', gap: 11 }}>

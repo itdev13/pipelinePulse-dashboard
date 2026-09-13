@@ -267,7 +267,13 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
             <div key={t.id}>
               <div
                 style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)',
+                  // ROW: title left, chips right. CARD: stacked, because at a
+                  // 340px column width the horizontal layout left the title
+                  // ~40px and it wrapped to one letter per line.
+                  display: 'flex',
+                  flexDirection: view === 'grid' ? 'column' : 'row',
+                  alignItems: view === 'grid' ? 'stretch' : 'flex-start',
+                  gap: 'var(--space-3)',
                   // Taller rows. At space-3 the three lines of a task —
                   // title, description, due date — were closer to each other
                   // than the rows were to their neighbours, so the list read
@@ -396,7 +402,9 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                 <div
                   style={{
                     display: 'flex', gap: 6, flexWrap: 'wrap',
-                    justifyContent: 'flex-end',
+                    // In a card the chips sit UNDER the title, so they start
+                    // from the left like everything else in the card.
+                    justifyContent: view === 'grid' ? 'flex-start' : 'flex-end',
                     // Aligned to the TITLE's line rather than centred against
                     // the whole row: a task with a long description pushed its
                     // chips halfway down the row, so they no longer read as

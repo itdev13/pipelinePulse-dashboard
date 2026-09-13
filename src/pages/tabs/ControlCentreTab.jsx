@@ -92,7 +92,10 @@ export default function ControlCentreTab() {
 
 function Shell({ children }) {
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: 'var(--space-1) 20px var(--space-7)' }}>
+    // Full width, like every other tab. The 1100px cap left a third of a wide
+    // screen empty for a page whose main content is a two-column table of
+    // qualification headings — the width is exactly what it needed.
+    <div style={{ width: '100%', padding: 'var(--space-3) 20px var(--space-7)' }}>
       <div
         style={{
           display: 'flex', alignItems: 'baseline', gap: 14,

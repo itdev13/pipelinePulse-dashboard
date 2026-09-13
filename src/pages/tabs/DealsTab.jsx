@@ -49,7 +49,13 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
 
   // The board needs one pipeline at a time — its columns ARE that pipeline's
   // stages. Defaults to the first, which is the only one most locations have.
-  const [boardPipelineId, setBoardPipelineId] = useState(null)
+  // Remembered across tab switches — see useTabState.
+  //
+  // `view` persists in localStorage (a preference that should outlive the
+  // session), but the pipeline, filters and applied view are WHERE THE REP
+  // WAS. They were plain state, so stepping out to the deal hub and back
+  // reset the board to its default and threw away the filters they had set.
+  const [boardPipelineId, setBoardPipelineId] = useTabState('deals', 'pipelineId', null)
 
   // The deal open as a full page. Null = the list.
   const [openDealId, setOpenDealId] = useState(null)
@@ -65,14 +71,14 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
   // Live filters. The keys match GET /api/deals's query parameters exactly,
   // so applying a saved view is "spread these onto the request" rather than a
   // translation step that can drift.
-  const [filters, setFilters] = useState({})
+  const [filters, setFilters] = useTabState('deals', 'filters', {})
   const [views, setViews] = useState([])
-  const [activeViewId, setActiveViewId] = useState(null)
+  const [activeViewId, setActiveViewId] = useTabState('deals', 'activeViewId', null)
   // The id of a saved view whose filters have since been EDITED. Not the same
   // as activeViewId: the view is still the one on screen, but what it shows no
   // longer matches what was saved — so the toolbar offers "Update <name>"
   // rather than only "Save view" under a new name.
-  const [dirtyView, setDirtyView] = useState(null)
+  const [dirtyView, setDirtyView] = useTabState('deals', 'dirtyView', null)
 
 
 
