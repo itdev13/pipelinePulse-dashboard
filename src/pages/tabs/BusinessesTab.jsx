@@ -219,13 +219,21 @@ function BusinessCard({ business: b, onOpen, view = 'rows' }) {
           the name loses — "company desc1…" and a clipped URL. */}
       <span style={{
         display: 'flex',
-        alignItems: view === 'grid' ? 'flex-start' : 'center',
+        // flex-start in BOTH views. Centring against a three-line block put
+        // the icon beside the SECOND line — the description — while the name
+        // it belongs to started a line above it, so nothing shared a top edge.
+        alignItems: 'flex-start',
         flexDirection: view === 'grid' ? 'column' : 'row',
         gap: view === 'grid' ? 10 : 11
       }}>
         <span
           className="ms"
-          style={{ fontSize: 'var(--text-xl)', color: `var(--accent-${b.accent})`, flex: 'none' }}
+          style={{
+            fontSize: 'var(--text-xl)', color: `var(--accent-${b.accent})`, flex: 'none',
+            // Matches the title's line box, so the glyph sits ON the name's
+            // line rather than flush with the top of its own box.
+            lineHeight: 1.45
+          }}
         >
           domain
         </span>
@@ -332,16 +340,23 @@ function BusinessCard({ business: b, onOpen, view = 'rows' }) {
             </span>
           </span>
         ) : (
-          <>
-            <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 'none' }}>
+          // Chips and arrow are one group, centred on the TITLE's line rather
+          // than on the whole three-line block. The wrapper's height is that
+          // line, so ordinary centring aligns them however tall a chip gets —
+          // no margin arithmetic tied to a fixed chip height.
+          <span style={{
+            display: 'flex', alignItems: 'center', gap: 11, flex: 'none',
+            height: 'calc(var(--text-lg) * 1.45)'
+          }}>
+            <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {chips}
             </span>
-            {/* In a ROW the arrow already has the chips beside it and the
-                right edge to anchor to, so it reads correctly as-is. */}
+            {/* In a ROW the arrow has the chips beside it and the right edge
+                to anchor to, so a bare glyph reads correctly here. */}
             <span className="ms" style={{ fontSize: 18, color: 'var(--text-faint)', flex: 'none' }}>
               arrow_forward
             </span>
-          </>
+          </span>
         )}
       </span>
     </button>

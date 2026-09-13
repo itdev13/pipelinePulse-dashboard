@@ -98,12 +98,26 @@ function Shell({ children }) {
     <div style={{ width: '100%', padding: 'var(--space-3) 20px var(--space-7)' }}>
       <div
         style={{
-          display: 'flex', alignItems: 'baseline', gap: 14,
+          display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
           flexWrap: 'wrap', marginBottom: 18
         }}
       >
-        <h1 style={{ fontSize: 'var(--text-2xl)', fontWeight: 600, margin: 0 }}>Control panel</h1>
-        <p style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
+        <span
+          className="ms"
+          style={{ fontSize: 20, color: 'var(--accent-sky-text)', flex: 'none' }}
+        >
+          tune
+        </span>
+        <h1 style={{
+          margin: 0, fontSize: 'var(--text-xl)', fontWeight: 600,
+          color: 'var(--accent-sky-text)', letterSpacing: '-0.01em'
+        }}>
+          Control panel
+        </h1>
+        <p style={{
+          margin: 0, marginLeft: 6,
+          fontSize: 'var(--text-md)', color: 'var(--text-muted)'
+        }}>
           One markdown file of business context — this is the entire control
           panel in v1
         </p>
