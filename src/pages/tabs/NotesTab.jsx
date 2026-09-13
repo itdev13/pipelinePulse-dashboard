@@ -255,6 +255,16 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                     : { borderBottom: hasChips ? 'none' : '1px solid var(--border-default)' })
                 }}
               >
+                {/* Icon and actions share ONE row.
+                    The card is a flex COLUMN in grid view, so as siblings they
+                    stacked — the buttons dropped onto their own line beneath
+                    the icon. Wrapping them in a row puts the icon left and the
+                    actions right, on the same line. */}
+                <span style={{
+                  display: 'flex', alignItems: 'flex-start',
+                  gap: 'var(--space-2)',
+                  ...(view === 'grid' ? { width: '100%' } : {})
+                }}>
                 <span
                   title={col.name ? `${col.name} note` : undefined}
                   style={{
@@ -300,6 +310,7 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                       />
                     </span>
                   )}
+                </span>
 
                 {/* In a CARD this is a column that fills the stretched
                     height, so the metadata line can be pushed to the bottom.
