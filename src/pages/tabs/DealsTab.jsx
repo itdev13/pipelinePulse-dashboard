@@ -364,6 +364,7 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
         }
         toolbar={
         <DealToolbar
+          bare
           views={views}
           activeViewId={activeViewId}
           onSelectView={applyView}

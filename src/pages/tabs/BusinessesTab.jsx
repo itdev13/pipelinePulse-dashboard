@@ -226,17 +226,19 @@ function BusinessCard({ business: b, onOpen, view = 'rows' }) {
         flexDirection: view === 'grid' ? 'column' : 'row',
         gap: view === 'grid' ? 10 : 11
       }}>
-        <span
-          className="ms"
-          style={{
-            fontSize: 'var(--text-xl)', color: `var(--accent-${b.accent})`, flex: 'none',
-            // Matches the title's line box, so the glyph sits ON the name's
-            // line rather than flush with the top of its own box.
-            lineHeight: 1.45
-          }}
-        >
-          domain
-        </span>
+        {view !== 'grid' && (
+          <span
+            className="ms"
+            style={{
+              fontSize: 'var(--text-xl)', color: `var(--accent-${b.accent})`, flex: 'none',
+              // Matches the title's line box, so the glyph sits ON the name's
+              // line rather than flush with the top of its own box.
+              lineHeight: 1.45
+            }}
+          >
+            domain
+          </span>
+        )}
         <span style={{ minWidth: 0, flex: 1 }}>
           <span
             style={{
