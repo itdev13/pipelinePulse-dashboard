@@ -183,34 +183,42 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
         subtitle="Tasks come first — each one links to its contact and its deal; click a task to see it on the deal hub"
       />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-          <Label>Status</Label>
-          {STATUS_FILTERS.map(([id, label]) => (
-            <FilterChip
-              key={id}
-              label={label}
-              active={status === id}
-              onClick={() => setStatus(id)}
-            />
-          ))}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-          <Label>Due</Label>
-          {DUE_FILTERS.map(([id, label]) => (
-            <FilterChip
-              key={id}
-              label={label}
-              active={dueFilter === id}
-              onClick={() => setDueFilter(id)}
-            />
-          ))}
-        </div>
-      </div>
-
       <Panel
         icon="task_alt"
         title="Task queue"
+        // Status and Due live in the panel's own toolbar band, not floating
+        // above it. They narrow THIS list, so they belong to it — outside, the
+        // panel started with an unexplained header while the controls that
+        // governed it sat on the page behind.
+        toolbar={
+          <div style={{
+            display: 'flex', alignItems: 'center',
+            gap: 'var(--space-3)', flexWrap: 'wrap'
+          }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+              <Label>Status</Label>
+              {STATUS_FILTERS.map(([id, label]) => (
+                <FilterChip
+                  key={id}
+                  label={label}
+                  active={status === id}
+                  onClick={() => setStatus(id)}
+                />
+              ))}
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+              <Label>Due</Label>
+              {DUE_FILTERS.map(([id, label]) => (
+                <FilterChip
+                  key={id}
+                  label={label}
+                  active={dueFilter === id}
+                  onClick={() => setDueFilter(id)}
+                />
+              ))}
+            </span>
+          </div>
+        }
         accent="rose"
         meta={loading ? null : `${openCount}${hasMore ? '+' : ''} ${countNoun}`}
         // `action`, not `toolbar`: a lone button in the toolbar band drew a
