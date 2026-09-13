@@ -58,7 +58,11 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
   const [boardPipelineId, setBoardPipelineId] = useTabState('deals', 'pipelineId', null)
 
   // The deal open as a full page. Null = the list.
-  const [openDealId, setOpenDealId] = useState(null)
+  //
+  // useTabState, not plain state: this is WHERE THE REP WAS. Opening a deal
+  // from the table, stepping into the Deal Hub to read it and clicking back
+  // used to return to the whole list with the deal to find again.
+  const [openDealId, setOpenDealId] = useTabState('deals', 'openDealId', null)
 
   // How many deals the CURRENT pipeline and filters resolve to.
   //
@@ -281,13 +285,36 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
   }, [patchItem])
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
+
   const deals = items || []
+
+  // The remembered deal, fetched by id when it is not on the loaded page.
+  //
+  // Returning to this tab re-fetches page one, so a deal the rep had open may
+  // simply not be in `deals` — further down the list, or filtered out. The
+  // render guard below needs the row itself, not just the id.
+  const [fetchedDeal, setFetchedDeal] = useState(null)
+  useEffect(() => {
+    if (!openDealId) { setFetchedDeal(null); return }
+    // Already on the page: no request needed, and the list copy is fresher.
+    if (deals.some((d) => d.id === openDealId)) { setFetchedDeal(null); return }
+    let alive = true
+    dealsAPI.get(openDealId)
+      .then((d) => { if (alive && d) setFetchedDeal(d) })
+      // A deal that 404s (deleted elsewhere) drops us back to the list, which
+      // is the right outcome — better than an empty editor.
+      .catch(() => { if (alive) setOpenDealId(null) })
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openDealId, deals])
 
   // The deal's own page REPLACES the list, the way ContactDetail replaces the
   // contacts list. Rendered before the Shell so the shell's tab strip, Back
   // button and location name all stay on screen — a full-screen overlay hid
   // them and left this page with no way out except its own header.
-  const openDeal = openDealId ? deals.find((d) => d.id === openDealId) : null
+  const listedDeal = openDealId ? deals.find((d) => d.id === openDealId) : null
+  const openDeal = listedDeal || fetchedDeal
+
   if (openDealId && openDeal) {
     // The editor keeps a cap. It is a FORM, and a row of inputs stretched
     // across a 2400px screen is unreadable — unlike the lists, which are
@@ -302,7 +329,10 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
           onClose={() => setOpenDealId(null)}
           onSaved={() => refreshDeal(openDealId)}
           onDeleted={() => { setOpenDealId(null); reload() }}
-          onOpenInHub={(id) => { setOpenDealId(null); onOpenDeal(id) }}
+          // Deliberately does NOT clear openDealId: the rep is stepping out to
+          // read this deal in the hub and expects to come back to it, not to
+          // the list. Closing is the editor's own Close button.
+          onOpenInHub={(id) => onOpenDeal(id)}
         />
       </Shell>
     )
