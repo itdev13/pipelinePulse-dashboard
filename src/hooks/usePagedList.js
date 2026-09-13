@@ -23,6 +23,9 @@ export function usePagedList({ fetchPage, key, deps = [] }) {
   const [error, setError] = useState(null)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(false)
+  // The server's count for the CURRENT filter, not the loaded page. null
+  // until the first response, and for any endpoint that sends no total.
+  const [total, setTotal] = useState(null)
 
   const cursorRef = useRef(null)
   // Guards against two loadMore calls racing (fast scroll, or the observer
@@ -46,6 +49,9 @@ export function usePagedList({ fetchPage, key, deps = [] }) {
         const rows = res?.[key] || []
         cursorRef.current = res?.nextCursor || null
         setHasMore(!!res?.nextCursor)
+        // Every page carries it, and it must not go stale when a filter
+        // changes mid-scroll. Number() because 0 is a real, falsy total.
+        setTotal(typeof res?.totalCount === 'number' ? res.totalCount : null)
         setItems((prev) => (mode === 'reset' || prev === null ? rows : [...prev, ...rows]))
         setError(null)
       } catch (err) {
@@ -55,6 +61,8 @@ export function usePagedList({ fetchPage, key, deps = [] }) {
         // subsequent page keep what we have and stop asking for more.
         setItems((prev) => prev ?? [])
         setHasMore(false)
+        // A stale total beside a failed load is worse than none.
+        setTotal(null)
       } finally {
         inFlight.current = false
         setLoadingMore(false)
@@ -93,6 +101,7 @@ export function usePagedList({ fetchPage, key, deps = [] }) {
     items,
     error,
     hasMore,
+    total,
     loadingMore,
     loading: items === null && !error,
     loadMore,

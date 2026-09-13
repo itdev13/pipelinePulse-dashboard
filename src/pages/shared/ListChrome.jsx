@@ -213,15 +213,19 @@ export function DealChip({ name, onClick, empty = false }) {
 }
 
 export function Chip({ icon, children, onClick, title, tone, danger }) {
+  // A <button> only when it DOES something. A decorative chip inside a card
+  // that is itself a button nested a button in a button — invalid HTML, and
+  // it put three extra stops in the tab order of every business card for
+  // controls that cannot be activated.
+  const Tag = onClick ? 'button' : 'span'
   const isDeal = tone === 'deal'
   // An ABSENCE, not a value: dashed border, muted text, no fill. It has to
   // stay legible next to a filled chip without competing with it.
   const isEmpty = tone === 'empty'
   return (
-    <button
+    <Tag
       onClick={onClick}
       title={title}
-      disabled={!onClick}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6,
         maxWidth: 260,
@@ -248,7 +252,7 @@ export function Chip({ icon, children, onClick, title, tone, danger }) {
     >
       {icon && <span className="ms" style={{ fontSize: 15, flex: 'none' }}>{icon}</span>}
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{children}</span>
-    </button>
+    </Tag>
   )
 }
 
@@ -733,7 +737,7 @@ export function nameFor(p) {
 
 // End-of-list sentinel + status. Render after the rows; the ref goes on the
 // element an IntersectionObserver watches, so reaching it loads the next page.
-export function LoadMore({ sentinelRef, hasMore, loadingMore, count, noun = 'item' }) {
+export function LoadMore({ sentinelRef, hasMore, loadingMore, count, total = null, noun = 'item' }) {
   return (
     <div
       ref={sentinelRef}
@@ -750,7 +754,11 @@ export function LoadMore({ sentinelRef, hasMore, loadingMore, count, noun = 'ite
           <span>Loading more…</span>
         </>
       ) : hasMore ? (
-        <span>Scroll for more</span>
+        <span>
+          {total != null
+            ? `Showing ${count} of ${total} — scroll for more`
+            : 'Scroll for more'}
+        </span>
       ) : count > 0 ? (
         <span>
           {count} {count === 1 ? noun : `${noun}s`} — that's everything

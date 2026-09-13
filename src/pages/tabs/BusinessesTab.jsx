@@ -181,6 +181,19 @@ export default function BusinessesTab({
 // ── List card ─────────────────────────────────────────────────────────
 
 function BusinessCard({ business: b, onOpen, view = 'rows' }) {
+  // Defined once and rendered by both layouts — the two differ in how they
+  // ARRANGE the chips, not in what the chips say.
+  const chips = (
+    <>
+      <Chip icon="group">
+        {b.contactCount} {b.contactCount === 1 ? 'contact' : 'contacts'}
+      </Chip>
+      <Chip icon="sell" tone="deal">
+        {b.dealCount} {b.dealCount === 1 ? 'deal' : 'deals'}
+      </Chip>
+      <Chip icon="forum">{b.messageCount}</Chip>
+    </>
+  )
   return (
     <button
       onClick={onOpen}
@@ -290,25 +303,46 @@ function BusinessCard({ business: b, onOpen, view = 'rows' }) {
           )}
         </span>
 
-        <span style={{
-          display: 'flex', gap: 6, flexWrap: 'wrap',
-          flex: 'none',
-          // Under the name in a card, so they start from the left like
-          // everything else rather than hanging off the right edge.
-          ...(view === 'grid' ? { width: '100%' } : {})
-        }}>
-          <Chip icon="group">
-            {b.contactCount} {b.contactCount === 1 ? 'contact' : 'contacts'}
-          </Chip>
-          <Chip icon="sell" tone="deal">
-            {b.dealCount} {b.dealCount === 1 ? 'deal' : 'deals'}
-          </Chip>
-          <Chip icon="forum">{b.messageCount}</Chip>
-        </span>
-
-        <span className="ms" style={{ fontSize: 18, color: 'var(--text-faint)', flex: 'none' }}>
-          arrow_forward
-        </span>
+        {/* The card wrapper is a COLUMN, so the chips and the affordance are
+            siblings on separate lines unless they share a row of their own —
+            which is why the old arrow floated alone under the chips with
+            nothing beside it. A row puts them on one line and lets "Open"
+            sit hard right. */}
+        {view === 'grid' ? (
+          <span style={{
+            display: 'flex', alignItems: 'center', gap: 8, width: '100%'
+          }}>
+            <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', minWidth: 0 }}>
+              {chips}
+            </span>
+            {/* A labelled affordance, not a bare glyph: an arrow on its own
+                says "there is more" without saying where. aria-hidden because
+                the card itself is the button and already announces the name. */}
+            <span
+              aria-hidden="true"
+              style={{
+                marginLeft: 'auto', flex: 'none',
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                fontSize: 'var(--text-sm)', fontWeight: 600,
+                color: 'var(--accent-sky-text)'
+              }}
+            >
+              Open
+              <span className="ms" style={{ fontSize: 16 }}>arrow_forward</span>
+            </span>
+          </span>
+        ) : (
+          <>
+            <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 'none' }}>
+              {chips}
+            </span>
+            {/* In a ROW the arrow already has the chips beside it and the
+                right edge to anchor to, so it reads correctly as-is. */}
+            <span className="ms" style={{ fontSize: 18, color: 'var(--text-faint)', flex: 'none' }}>
+              arrow_forward
+            </span>
+          </>
+        )}
       </span>
     </button>
   )

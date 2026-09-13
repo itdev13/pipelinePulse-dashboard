@@ -96,7 +96,7 @@ export default function ContactsTab({
     }),
     [search, filters]
   )
-  const { items, error, hasMore, loadingMore, loading, loadMore, patchItem } =
+  const { items, error, hasMore, total, loadingMore, loading, loadMore, patchItem } =
     usePagedList({ fetchPage, key: 'contacts', deps: [search, filters] })
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
@@ -179,7 +179,11 @@ export default function ContactsTab({
         icon="group"
         title="Contacts"
         accent="sky"
-        count={loading ? null : `${contacts.length}${hasMore ? '+' : ''}`}
+        // The server's total for the CURRENT filter. It used to be the loaded
+        // row count, so the badge read "20+" and then "25" as you scrolled —
+        // a number that answered no question a rep actually has.
+        count={loading ? null : (total ?? contacts.length)}
+        countTitle={total != null ? `${total} contacts match these filters` : undefined}
         // The controls sit on the TITLE row, not in a band below it.
         //
         // Contacts has one row of them — search, filters, view switch — and a
@@ -339,6 +343,7 @@ export default function ContactsTab({
           hasMore={hasMore}
           loadingMore={loadingMore}
           count={contacts.length}
+          total={total}
           noun="contact"
         />
       )}
