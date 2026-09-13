@@ -276,6 +276,34 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                   >
                     sticky_note_2
                   </span>
+
+                  {/* Edit and delete, top-right beside the note icon.
+                      They used to trail the chips at the bottom, so they
+                      landed in a different place on every card depending on
+                      how many chips wrapped — and on a card with several they
+                      dropped onto their own line. A fixed corner is the same
+                      place every time.
+
+                      Card only: in a row they belong at the end of the row,
+                      where the eye already finishes. */}
+                  {view === 'grid' && (
+                    <span style={{
+                      marginLeft: 'auto',
+                      display: 'inline-flex', gap: 6, flex: 'none'
+                    }}>
+                      <RowAction
+                        icon="edit"
+                        title="Edit this note"
+                        onClick={() => setEditor({ note: n })}
+                      />
+                      <RowAction
+                        icon="close"
+                        danger
+                        title="Delete this note"
+                        onClick={() => { setConfirmError(null); setConfirming(n) }}
+                      />
+                    </span>
+                  )}
                 </span>
 
                 {/* In a CARD this is a column that fills the stretched
@@ -451,17 +479,25 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                       every note, and did nothing when clicked. The CRM has no
                       equivalent either. If note-to-task is built later it
                       belongs in the editor, not as a permanent dead chip. */}
-                  <RowAction
-                    icon="edit"
-                    title="Edit this note"
-                    onClick={() => setEditor({ note: n })}
-                  />
-                  <RowAction
-                    icon="close"
-                    danger
-                    title="Delete this note"
-                    onClick={() => { setConfirmError(null); setConfirming(n) }}
-                  />
+
+                  {/* ROW view keeps them at the end of the chips, where the eye
+                      already finishes the line. In a card they sit in the
+                      corner instead — see the note icon above. */}
+                  {view !== 'grid' && (
+                    <>
+                      <RowAction
+                        icon="edit"
+                        title="Edit this note"
+                        onClick={() => setEditor({ note: n })}
+                      />
+                      <RowAction
+                        icon="close"
+                        danger
+                        title="Delete this note"
+                        onClick={() => { setConfirmError(null); setConfirming(n) }}
+                      />
+                    </>
+                  )}
                 </div>
               </div>
 
