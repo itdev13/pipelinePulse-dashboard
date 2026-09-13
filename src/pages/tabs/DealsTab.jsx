@@ -111,11 +111,21 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
 
   // Which row is expanded for editing. One at a time: two open editors mean two
   // sets of unsaved changes and no way to tell which Update belongs to which.
+  //
+  // Remembered (useTabState), because an open row is WHERE THE REP WAS:
+  // expanding a deal, stepping into the Deal Hub to read it and coming back
+  // used to collapse the row and drop them at the top of the list, with the
+  // deal to find again.
+  //
   // Seeded from initialEditDealId so the Deal Hub can send a rep straight to
-  // this deal's editor — "edit the full record" on the deal card. Held as
-  // state, not read directly, so closing the row does not reopen it on the
-  // next render.
-  const [editingId, setEditingId] = useState(initialEditDealId)
+  // this deal's editor — "edit the full record" on the deal card. That is an
+  // explicit request for a particular deal, so it outranks the remembered one.
+  const [editingId, setEditingId] = useTabState('deals', 'editingId', null)
+  useEffect(() => {
+    if (initialEditDealId) setEditingId(initialEditDealId)
+    // Only when the hub actually asks; otherwise the remembered row stands.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEditDealId])
 
   // The create form, above the list. Mutually exclusive with an open editor —
   // two draft forms on screen is two things to lose.

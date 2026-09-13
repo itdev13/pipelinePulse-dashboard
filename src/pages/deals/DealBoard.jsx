@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { dealsAPI } from '../../api/deals'
 import { formatMoney } from '../../utils/money'
+import { Bar, SkeletonStyles } from '../shared/ListChrome'
 
 // The pipeline as a board: one column per stage, deals as cards.
 //
@@ -254,6 +255,27 @@ function Column({ stage, search, status, onOpen, onMoved, registerReload }) {
 
             Vertically centred, not top-aligned — text at the top of a tall
             empty box looks like content that failed to load. */}
+        {loading && (
+          <div style={{ display: 'grid', gap: 8 }}>
+            <SkeletonStyles />
+            {[0, 1].map((i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'grid', gap: 8,
+                  padding: 'var(--space-3)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--surface-card)'
+                }}
+              >
+                <Bar w="70%" h={13} />
+                <Bar w="45%" h={11} />
+              </div>
+            ))}
+          </div>
+        )}
+
         {!loading && !deals.length && !error && (
           <div style={{
             display: 'flex', flexDirection: 'column',
