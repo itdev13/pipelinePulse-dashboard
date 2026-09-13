@@ -203,7 +203,10 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
           // accepts on write.
           const col = noteColourStyle(n.color)
           return (
-            <div key={n.id}>
+            <div
+              key={n.id}
+              style={view === 'grid' ? undefined : { marginBottom: 'var(--space-2)' }}
+            >
               <div
                 style={{
                   // Stacked in a card — see TasksTab. At a 340px column the
@@ -244,7 +247,14 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                       borderRadius: 'var(--radius-md)',
                       background: 'var(--surface-card)'
                     }
-                    : { borderBottom: hasChips ? 'none' : '1px solid var(--border-default)' })
+                    : {
+                      // NO DIVIDER. Full-width rules between rows made the
+                      // list read as a dense table — nine hairlines across a
+                      // wide screen, louder than the notes themselves. The
+                      // wrapper below carries the spacing instead, because it
+                      // holds the chip row too and the gap belongs after
+                      // BOTH.
+                    })
                 }}
               >
                 {/* Icon and actions share ONE row.
@@ -503,8 +513,11 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                 <div
                   style={{
                     display: 'flex', flexWrap: 'wrap', gap: 5,
-                    padding: '0 var(--space-4) var(--space-3) var(--space-7)',
-                    borderBottom: '1px solid var(--border-default)'
+                    padding: '0 var(--space-4) var(--space-3) var(--space-7)'
+                    // No divider here either — it used to carry the row's
+                    // border when chips were present. With the row dividers
+                    // gone this was the only line left, so notes WITH linked
+                    // notes had a rule under them and the rest did not.
                   }}
                 >
                   {n.noteChips.map((c) => (

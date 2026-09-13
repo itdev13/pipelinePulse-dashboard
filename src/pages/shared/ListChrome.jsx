@@ -74,12 +74,12 @@ export function Panel({
         style={{
           display: 'flex', alignItems: 'center', gap: 9,
           padding: 'var(--space-3) var(--space-4)',
-          // A line under the title, separating the header from the list.
-          // Without it the first row sat directly against the title and the
-          // two read as one block. Not drawn when a toolbar follows — that
-          // band brings its own top border, and two lines a pixel apart is a
-          // double rule.
-          borderBottom: toolbar ? 'none' : '1px solid var(--border-default)'
+          // A line under the title, separating the header from whatever
+          // follows — the filter band or the list itself. Always drawn now:
+          // the toolbar used to bring its own top border, but it is white
+          // rather than tinted, so without this line the header and the
+          // filter row ran together as one white block.
+          borderBottom: '1px solid var(--border-default)'
         }}
       >
         <span className="ms" style={{ fontSize: 20, color }}>{icon}</span>
@@ -136,9 +136,13 @@ export function Panel({
           style={{
             display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
             padding: '10px var(--space-4)',
-            borderTop: '1px solid var(--border-default)',
+            // White, like the rest of the panel. The tinted band read as its
+            // own section wedged between the title and the list, which is
+            // exactly what the panel is trying not to be. A single bottom
+            // border is enough to separate it from the rows below — the top
+            // edge is already implied by the header above it.
             borderBottom: '1px solid var(--border-default)',
-            background: 'var(--gray-50)'
+            background: 'var(--surface-card)'
           }}
         >
           {toolbar}
