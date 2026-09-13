@@ -196,6 +196,7 @@ export default function ContactsTab({
           <>
           <DealToolbar
             bare
+            countLabel="contacts"
           views={views}
           activeViewId={activeViewId}
           onSelectView={applyView}

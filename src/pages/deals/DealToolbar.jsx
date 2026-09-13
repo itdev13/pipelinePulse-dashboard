@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import ConfirmDialog from '../shared/ConfirmDialog'
 
 // The strip above the board: saved views, filters, search, view switch.
 //
@@ -156,6 +157,8 @@ export default function DealToolbar({
   // Display controls (view switch, pipeline picker). Pushed right.
   children
 }) {
+  // The view awaiting a delete confirmation, or null.
+  const [confirmingView, setConfirmingView] = useState(null)
   const [naming, setNaming] = useState(false)
   const [name, setName] = useState('')
   const inputRef = useRef(null)
@@ -185,6 +188,7 @@ export default function DealToolbar({
     // Saved views now appear only once they EXIST, and the way back to
     // unfiltered is the chips' own clear buttons, which is where a rep is
     // already looking.
+    <>
     <div style={{
       display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
       flexWrap: 'wrap',
@@ -287,7 +291,7 @@ export default function DealToolbar({
           view={v}
           active={activeViewId === v.id}
           onSelect={() => onSelectView(activeViewId === v.id ? null : v.id)}
-          onDelete={v.isMine ? () => onDeleteView(v.id) : undefined}
+          onDelete={v.isMine ? () => setConfirmingView(v) : undefined}
         />
       ))}
 
@@ -402,5 +406,23 @@ export default function DealToolbar({
         {children}
       </span>
     </div>
+
+    {/* Deleting a saved view cannot be undone, and the ✕ sits a few pixels
+        from the pill a rep clicks to APPLY that view — close enough that a
+        misclick threw away filters they had built up. */}
+    {confirmingView && (
+      <ConfirmDialog
+        title="Delete this view?"
+        message={`This cannot be undone. The ${countLabel} it filtered are not affected.`}
+        preview={confirmingView.name}
+        confirmLabel="Delete view"
+        onConfirm={() => {
+          onDeleteView(confirmingView.id)
+          setConfirmingView(null)
+        }}
+        onCancel={() => setConfirmingView(null)}
+      />
+    )}
+    </>
   )
 }
