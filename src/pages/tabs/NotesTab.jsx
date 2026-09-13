@@ -239,12 +239,20 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                       // same line. Without it a card with a description was
                       // taller than one without, and the row below started at
                       // a different depth for every column — the zig-zag.
-                      height: 210,
-                      // A fixed height WITHOUT this spills: the border stops at
-                      // 210px and the content keeps going, which is the text
-                      // running out of the bottom of a card. The body is
-                      // clamped above; this catches everything else.
-                      overflow: 'hidden',
+                      // MINIMUM height, not fixed.
+                      //
+                      // A hard 210px with overflow:hidden lined the cards up
+                      // and then CUT THE CONTROLS OFF — a card whose body
+                      // pushed the chips past 210px simply lost its edit and
+                      // delete buttons. RichBody also adds its own "Show plain
+                      // text" toggle on formatted notes, which I had not
+                      // counted.
+                      //
+                      // min-height keeps the row aligned for ordinary cards
+                      // and lets a taller one grow rather than swallow what a
+                      // rep needs to click. The body's 3-line clamp already
+                      // bounds the only part that can grow without limit.
+                      minHeight: 210,
                       borderLeft: col.stripe
                         ? `3px solid ${col.stripe}`
                         : '1px solid var(--border-default)',
@@ -337,6 +345,11 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                         color="var(--text-body)"
                         size="var(--text-lg)"
                         leading="var(--leading-normal)"
+                        // In a card the body is clamped and "Read note" opens
+                        // the full text, so a second toggle is redundant — and
+                        // it took the line that pushed edit and delete out of
+                        // the card.
+                        showPlainToggle={view !== 'grid'}
                       />
                     </div>
                   )}
@@ -349,7 +362,13 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                       threshold while a long plain one fell under it — the
                       opposite of what the reader needs. ~3 lines at this width
                       is roughly 120 characters. */}
-                  {view === 'grid' && htmlToText(rest || '').length > 120 && (
+                  {/* ~90 characters is about three lines at this width, which
+                      is exactly where the clamp bites. At 120 the "asdf" note
+                      — 55 characters of text that still wraps to three lines
+                      once formatted — was clamped with no way to read the
+                      rest. Better to offer the link a little early than to
+                      hide text behind an ellipsis with no way out. */}
+                  {view === 'grid' && htmlToText(rest || '').length > 90 && (
                     <button
                       onClick={(e) => { e.stopPropagation(); setReading(n) }}
                       style={{

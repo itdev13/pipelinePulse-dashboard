@@ -754,7 +754,14 @@ export function RichBody({
   // caption does. Overridable so a caller sizing the text up can loosen the
   // leading to match — the two have to move together or a bigger font just
   // reads as more crowded.
-  leading = 1.5
+  leading = 1.5,
+  // Hide the "Show plain text" toggle.
+  //
+  // For a CARD: the body is clamped to three lines with its own "Read note"
+  // link, and a second control offering a different way to see the same text
+  // is one control too many in a 340px card — it also took the line that
+  // pushed the edit and delete buttons out of view.
+  showPlainToggle = true
 }) {
   const [plain, setPlain] = useState(false)
 
@@ -803,7 +810,7 @@ export function RichBody({
 
       {/* Only when stripping would change what you read — not merely when
           markup exists. See hasMeaningfulFormatting. */}
-      {hasMeaningfulFormatting(html) && (
+      {showPlainToggle && hasMeaningfulFormatting(html) && (
         <button
           onClick={() => setPlain((v) => !v)}
           style={{
