@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import ViewSwitch from '../shared/ViewSwitch'
+import WorkFilters from '../shared/WorkFilters'
 import { tasksAPI } from '../../api/tasks'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
@@ -76,12 +77,20 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
     try { localStorage.setItem('pp.tasks.view', view) } catch { /* private mode */ }
   }, [view])
 
+  // Contact / deal filters. useTabState, not plain state: stepping out to a
+  // deal or a contact and back should not discard them.
+  const [filters, setFilters] = useTabState('tasks', 'filters', {})
+
   const fetchPage = useCallback(
-    ({ cursor }) => tasksAPI.list({ status, due: dueFilter, limit: 20, cursor }),
-    [status, dueFilter]
+    ({ cursor }) => tasksAPI.list({
+      status, due: dueFilter, limit: 20, cursor,
+      contactId: filters.contactId || undefined,
+      dealId: filters.dealId || undefined
+    }),
+    [status, dueFilter, filters]
   )
   const { items, error, hasMore, loadingMore, loading, loadMore, patchItem, reload } =
-    usePagedList({ fetchPage, key: 'tasks', deps: [status, dueFilter] })
+    usePagedList({ fetchPage, key: 'tasks', deps: [status, dueFilter, filters] })
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
   const tasks = items || []
@@ -208,6 +217,11 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
         // In the header it sits beside the count, where it belongs.
         action={
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <WorkFilters
+              filters={filters}
+              onChange={setFilters}
+              noun="tasks"
+            />
             <ViewSwitch
               value={view}
               onChange={setView}

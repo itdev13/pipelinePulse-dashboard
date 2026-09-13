@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import ViewSwitch from '../shared/ViewSwitch'
+import WorkFilters from '../shared/WorkFilters'
+import { useTabState } from '../../hooks/useTabState'
 import { notesAPI } from '../../api/notes'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import NoteEditor from '../shared/NoteEditor'
@@ -25,12 +27,20 @@ import {
 // from the body's first block — see splitNote.
 
 export default function NotesTab({ onOpenDeal, onOpenContact }) {
+  // Contact / deal filters. useTabState, not plain state: stepping out to a
+  // deal or a contact and back should not discard them.
+  const [filters, setFilters] = useTabState('notes', 'filters', {})
+
   const fetchPage = useCallback(
-    ({ cursor }) => notesAPI.list({ limit: 20, cursor }),
-    []
+    ({ cursor }) => notesAPI.list({
+      limit: 20, cursor,
+      contactId: filters.contactId || undefined,
+      dealId: filters.dealId || undefined
+    }),
+    [filters]
   )
   const { items, error, hasMore, loadingMore, loading, loadMore, patchItem, reload } =
-    usePagedList({ fetchPage, key: 'notes', deps: [] })
+    usePagedList({ fetchPage, key: 'notes', deps: [filters] })
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
   const notes = items || []
@@ -50,6 +60,7 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
   useEffect(() => {
     try { localStorage.setItem('pp.notes.view', view) } catch { /* private mode */ }
   }, [view])
+
 
   const say = (message, tone = 'done') => {
     setToast({ message, tone })
@@ -125,6 +136,11 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
         subtitle="Agreed information, saved by you or the AI agent — every note also lands on its deal timeline"
         action={
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <WorkFilters
+              filters={filters}
+              onChange={setFilters}
+              noun="notes"
+            />
             <ViewSwitch
               value={view}
               onChange={setView}

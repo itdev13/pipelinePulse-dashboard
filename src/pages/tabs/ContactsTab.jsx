@@ -1,4 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import ViewSwitch from '../shared/ViewSwitch'
+import ContactTable from '../contacts/ContactTable'
+import ContactFilters from '../contacts/ContactFilters'
+import DealToolbar from '../deals/DealToolbar'
+import { savedViewsAPI } from '../../api/deals'
 import { FollowUpChips } from '../shared/ListChrome'
 import { contactsAPI } from '../../api/contacts'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
@@ -37,13 +42,95 @@ export default function ContactsTab({
   // thousands — filtering the loaded page would quietly miss most of them.
   const [search, setSearch] = useTabState('contacts', 'search', '')
 
+  // Cards or table. Persisted in localStorage: a display preference that
+  // should outlive the session.
+  const [view, setView] = useState(() => {
+    try { return localStorage.getItem('pp.contacts.view') || 'cards' } catch { return 'cards' }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('pp.contacts.view', view) } catch { /* private mode */ }
+  }, [view])
+
+  // Filters and saved views — the same machinery the deals tab uses, so a
+  // saved contacts view is stored, listed and applied by the same endpoints.
+  // useTabState, not plain state: these are WHERE THE REP WAS, and stepping
+  // into a contact record and back should not discard them.
+  const [filters, setFilters] = useTabState('contacts', 'filters', {})
+  const [views, setViews] = useTabState('contacts', 'views', [])
+  const [activeViewId, setActiveViewId] = useTabState('contacts', 'activeViewId', null)
+  const [dirtyView, setDirtyView] = useTabState('contacts', 'dirtyView', null)
+  const [viewError, setViewError] = useState(null)
+  const [tagList, setTagList] = useState([])
+
+  useEffect(() => {
+    let alive = true
+    savedViewsAPI.list('contacts')
+      .then((r) => { if (alive) setViews(r?.views || []) })
+      // A failed fetch leaves the strip empty, which is still a working page.
+      .catch(() => {})
+    contactsAPI.tagCatalogue()
+      .then((r) => { if (alive) setTagList((r?.tags || []).map((t) => t.name || t)) })
+      .catch(() => {})
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const fetchPage = useCallback(
-    ({ cursor }) => contactsAPI.list({ limit: 20, cursor, q: search || undefined }),
-    [search]
+    ({ cursor }) => contactsAPI.list({
+      limit: 20, cursor, q: search || undefined,
+      // `view` is the display mode, not a filter — stripped when a saved view
+      // is applied, so it never reaches the query.
+      contactType: filters.contactType || undefined,
+      tag: filters.tag || undefined
+    }),
+    [search, filters]
   )
   const { items, error, hasMore, loadingMore, loading, loadMore, patchItem } =
-    usePagedList({ fetchPage, key: 'contacts', deps: [search] })
+    usePagedList({ fetchPage, key: 'contacts', deps: [search, filters] })
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
+
+  // Saved-view actions. DECLARED HERE, below the state they close over —
+  // `const` is not hoisted, and a callback reading `filters` or `search` from
+  // above throws on first render.
+  const applyView = useCallback((id) => {
+    setActiveViewId(id)
+    setDirtyView(null)
+    const v = views.find((x) => x.id === id)
+    const f = { ...(v?.filters || {}) }
+    if (f.view) { setView(f.view); delete f.view }
+    setFilters(f)
+    if (f.q !== undefined) { setQ(f.q || ''); setSearch(f.q || '') }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [views])
+
+  const saveView = useCallback(async (name) => {
+    try {
+      const r = await savedViewsAPI.save({
+        scope: 'contacts',
+        name,
+        filters: { ...filters, ...(search ? { q: search } : {}), view }
+      })
+      // Replace by id so re-saving a name updates its tab rather than adding
+      // a second one — the server upserts, and the list must agree.
+      setViews((prev) => [...prev.filter((v) => v.id !== r.view.id), r.view])
+      setActiveViewId(r.view.id)
+      setDirtyView(null)
+    } catch (e) {
+      setViewError(e.message || 'That view could not be saved')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, search, view])
+
+  const deleteView = useCallback(async (id) => {
+    try {
+      await savedViewsAPI.remove(id)
+      setViews((prev) => prev.filter((v) => v.id !== id))
+      if (activeViewId === id) { setActiveViewId(null); setFilters({}) }
+    } catch (e) {
+      setViewError(e.message || 'That view could not be deleted')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeViewId])
 
   const contacts = items || []
 
@@ -96,6 +183,55 @@ export default function ContactsTab({
         />
       </div>
 
+      {/* Filters and saved views — the same toolbar the deals tab uses, so a
+          saved contacts view behaves identically to a saved deals view. */}
+      <div style={{ marginBottom: 14 }}>
+        <DealToolbar
+          views={views}
+          activeViewId={activeViewId}
+          onSelectView={applyView}
+          onSaveView={saveView}
+          onDeleteView={deleteView}
+          dirtyViewId={dirtyView}
+          onUpdateView={(id) => {
+            const v = views.find((x) => x.id === id)
+            if (v) saveView(v.name)
+          }}
+          filters={filters}
+          onClearFilter={(k) => {
+            setFilters((f) => { const next = { ...f }; delete next[k]; return next })
+            setDirtyView(activeViewId)
+          }}
+          onClearAll={() => { setFilters({}); setActiveViewId(null); setDirtyView(null) }}
+          count={loading ? undefined : contacts.length}
+          countLabel="contacts"
+          filterControl={
+            <ContactFilters
+              filters={filters}
+              tags={tagList}
+              onChange={(next) => { setFilters(next); setDirtyView(activeViewId) }}
+            />
+          }
+        >
+          <ViewSwitch
+            value={view}
+            onChange={setView}
+            options={[
+              { id: 'cards', icon: 'grid_view', label: 'Cards' },
+              { id: 'table', icon: 'table_rows', label: 'Table' }
+            ]}
+          />
+        </DealToolbar>
+        {viewError && (
+          <p style={{
+            margin: '8px 0 0', fontSize: 'var(--text-md)',
+            color: 'var(--status-stuck-text)'
+          }}>
+            {viewError}
+          </p>
+        )}
+      </div>
+
       {error && (
         <div
           style={{
@@ -122,8 +258,19 @@ export default function ContactsTab({
         </div>
       )}
 
+      {/* TABLE — the same paged `contacts`, rendered dense. */}
+      {view === 'table' && contacts.length > 0 && (
+        <ContactTable
+          contacts={contacts}
+          onOpen={(id) => {
+            setOpenId(id)
+            if (onNavigate) onNavigate({ contactId: id })
+          }}
+        />
+      )}
+
       <div
-        style={{
+        style={view === 'table' ? { display: 'none' } : {
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(430px, 1fr))',
           gap: 14
