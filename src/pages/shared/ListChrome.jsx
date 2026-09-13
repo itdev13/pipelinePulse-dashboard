@@ -73,7 +73,13 @@ export function Panel({
       <header
         style={{
           display: 'flex', alignItems: 'center', gap: 9,
-          padding: 'var(--space-3) var(--space-4)'
+          padding: 'var(--space-3) var(--space-4)',
+          // A line under the title, separating the header from the list.
+          // Without it the first row sat directly against the title and the
+          // two read as one block. Not drawn when a toolbar follows — that
+          // band brings its own top border, and two lines a pixel apart is a
+          // double rule.
+          borderBottom: toolbar ? 'none' : '1px solid var(--border-default)'
         }}
       >
         <span className="ms" style={{ fontSize: 20, color }}>{icon}</span>

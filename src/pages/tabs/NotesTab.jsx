@@ -227,10 +227,6 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                   ...(view === 'grid'
                     ? {
                       border: '1px solid var(--border-default)',
-                      // A heavier bottom edge, so a card sits ON the row
-                      // rather than floating in it — the same weight the row
-                      // view's divider carries.
-                      borderBottom: '2px solid var(--border-default)',
                       // A FIXED height, so a grid row's cards all end on the
                       // same line. Without it a card with a description was
                       // taller than one without, and the row below started at
