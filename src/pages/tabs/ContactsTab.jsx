@@ -3,7 +3,7 @@ import ViewSwitch from '../shared/ViewSwitch'
 import ContactTable from '../contacts/ContactTable'
 import ContactFilters, { activityParams, contactFilterLabels } from '../contacts/ContactFilters'
 import DealToolbar from '../deals/DealToolbar'
-import { savedViewsAPI } from '../../api/deals'
+import { savedViewsAPI, dealsAPI } from '../../api/deals'
 import { FollowUpChips, Panel } from '../shared/ListChrome'
 import { contactsAPI } from '../../api/contacts'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
@@ -61,6 +61,7 @@ export default function ContactsTab({
   const [dirtyView, setDirtyView] = useTabState('contacts', 'dirtyView', null)
   const [viewError, setViewError] = useState(null)
   const [tagList, setTagList] = useState([])
+  const [userList, setUserList] = useState([])
 
   useEffect(() => {
     let alive = true
@@ -70,6 +71,10 @@ export default function ContactsTab({
       .catch(() => {})
     contactsAPI.tagCatalogue()
       .then((r) => { if (alive) setTagList((r?.tags || []).map((t) => t.name || t)) })
+      .catch(() => {})
+    dealsAPI.users()
+      .then((r) => { if (alive) setUserList(r?.users || []) })
+      // Same as above: no owner dropdown is better than a broken page.
       .catch(() => {})
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -81,6 +86,7 @@ export default function ContactsTab({
       // `view` is the display mode, not a filter — stripped when a saved view
       // is applied, so it never reaches the query.
       contactType: filters.contactType || undefined,
+      assignedTo: filters.assignedTo || undefined,
       tag: filters.tag || undefined,
       minValue: filters.minValue || undefined,
       maxValue: filters.maxValue || undefined,
@@ -174,7 +180,14 @@ export default function ContactsTab({
         title="Contacts"
         accent="sky"
         count={loading ? null : `${contacts.length}${hasMore ? '+' : ''}`}
-        toolbar={
+        // The controls sit on the TITLE row, not in a band below it.
+        //
+        // Contacts has one row of them — search, filters, view switch — and a
+        // separate band for a single row put an empty strip under the title
+        // and left the switch stranded mid-row. Tasks keeps its band because
+        // it has two rows (Status and Due) that genuinely need their own line.
+        actionFill
+        action={
           <>
           <DealToolbar
             bare
@@ -191,7 +204,7 @@ export default function ContactsTab({
           filters={filters}
           // Chips read as sentences, not raw values — "Quiet for 30+ days"
           // rather than "Activity quiet:30".
-          filterLabels={contactFilterLabels(filters)}
+          filterLabels={contactFilterLabels(filters, userList)}
           onClearFilter={(k) => {
             setFilters((f) => { const next = { ...f }; delete next[k]; return next })
             setDirtyView(activeViewId)
@@ -223,6 +236,7 @@ export default function ContactsTab({
               <ContactFilters
               filters={filters}
               tags={tagList}
+              users={userList}
               onChange={(next) => { setFilters(next); setDirtyView(activeViewId) }}
             />
             </span>

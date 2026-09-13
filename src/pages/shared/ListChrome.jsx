@@ -43,6 +43,8 @@ export function Panel({
   // context a bare number loses (Tasks counts only what the status filter
   // selected, so "10" means "10 open" or "10 completed").
   count, countTitle,
+  // Let the action slot grow — for an action that is a full control row.
+  actionFill = false,
   // A single primary action, rendered IN the header beside `meta`.
   //
   // Distinct from `toolbar`, which draws its own band below the header —
@@ -103,7 +105,10 @@ export function Panel({
             {count}
           </span>
         )}
-        <span style={{ flex: 1 }} />
+        {/* Pushes a lone action to the right. NOT when the action fills the
+            row itself — two things claiming the free space leaves the toolbar
+            no width to right-align its own controls within. */}
+        {!actionFill && <span style={{ flex: 1 }} />}
         {meta != null && (
           <span
             // An error is announced, not just displayed: a screen reader user
@@ -127,7 +132,17 @@ export function Panel({
         {/* After the count, so the header reads "Task queue … 9 open [+ Add
             task]" — the state first, then what you can do about it. */}
         {action && (
-          <span style={{ flex: 'none', display: 'inline-flex' }}>{action}</span>
+          <span style={{
+            // GROWS when the action is a whole control row rather than a lone
+            // button — a toolbar with its own right-aligned group needs the
+            // width to push against. `actionFill` opts into that; a plain
+            // "Add task" button stays hugged to the right.
+            flex: actionFill ? 1 : 'none',
+            minWidth: 0,
+            display: 'flex', alignItems: 'center'
+          }}>
+            {action}
+          </span>
         )}
       </header>
 

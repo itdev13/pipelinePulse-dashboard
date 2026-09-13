@@ -188,15 +188,23 @@ export default function DealToolbar({
     <div style={{
       display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
       flexWrap: 'wrap',
-      padding: '8px 14px',
+      // No padding when bare — the Panel's band already pads, and doubling it
+      // pushed the controls into the middle of an over-tall strip.
+      padding: bare ? 0 : '8px 14px',
       // `bare` drops the border and radius for a caller that already provides
       // a surface — a Panel's toolbar band. Without it the toolbar drew its
       // own rounded card inside the panel's, a box in a box.
-      ...(bare ? {} : {
-        background: 'var(--surface-card)',
-        border: '1px solid var(--border-default)',
-        borderRadius: 'var(--radius-lg)'
-      })
+      ...(bare
+        // Fill the band. The Panel's toolbar slot is itself a flex row, so a
+        // bare toolbar sized to its content and marginLeft:auto had nothing
+        // to push against — the view switch sat beside the filters instead of
+        // at the far right.
+        ? { flex: 1, minWidth: 0 }
+        : {
+          background: 'var(--surface-card)',
+          border: '1px solid var(--border-default)',
+          borderRadius: 'var(--radius-lg)'
+        })
     }}>
       {/* CONTEXT — which pipeline, and how many deals it holds.
           Its own group, separated by a rule: it is not a control you set to
@@ -231,17 +239,20 @@ export default function DealToolbar({
 
       </span>
 
-      {/* A hairline, not a gap. Spacing alone read as "these are all one
-          row of controls", which is exactly what made the strip feel
-          crammed — nine items with no grouping. */}
-      <span
-        aria-hidden="true"
-        style={{
-          flex: 'none', width: 1, height: 22,
-          background: 'var(--border-default)',
-          margin: '0 var(--space-1)'
-        }}
-      />
+      {/* A hairline, not a gap — spacing alone read as one long row of
+          controls with no grouping.
+          Only when there IS a context group to separate: Contacts passes no
+          pipeline and no count, so this drew a line before nothing. */}
+      {(secondaryControl || typeof count === 'number') && (
+        <span
+          aria-hidden="true"
+          style={{
+            flex: 'none', width: 1, height: 22,
+            background: 'var(--border-default)',
+            margin: '0 var(--space-1)'
+          }}
+        />
+      )}
 
       {/* NARROWING — what cuts the list down, and the saved sets of it. */}
       {filterControl}

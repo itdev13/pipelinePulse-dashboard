@@ -16,7 +16,6 @@ import { createPortal } from 'react-dom'
 // a rep actually asks, and a number field invites 1-day and 400-day filters
 // that answer none of them.
 const ACTIVITY_OPTIONS = [
-  { value: '', label: 'Any time' },
   { value: 'active:7', label: 'Active in the last 7 days' },
   { value: 'active:30', label: 'Active in the last 30 days' },
   { value: 'quiet:30', label: 'Quiet for 30+ days' },
@@ -24,13 +23,11 @@ const ACTIVITY_OPTIONS = [
 ]
 
 const DEALS_OPTIONS = [
-  { value: '', label: 'Any' },
   { value: 'yes', label: 'Has an open deal' },
   { value: 'no', label: 'No open deal' }
 ]
 
 const TYPE_OPTIONS = [
-  { value: '', label: 'Any type' },
   { value: 'lead', label: 'Lead' },
   { value: 'customer', label: 'Customer' }
 ]
@@ -68,18 +65,26 @@ export function activityParams(activity) {
 
 // What a filter chip should read. Without this the strip showed raw values —
 // "Activity quiet:30" rather than "Quiet for 30+ days".
-export function contactFilterLabels(f = {}) {
+export function contactFilterLabels(f = {}, users = []) {
   const activity = ACTIVITY_OPTIONS.find((o) => o.value === f.activity)
   const deals = DEALS_OPTIONS.find((o) => o.value === f.hasDeals)
+  const owner = users.find((u) => u.id === f.assignedTo)
   return {
     activity: activity && activity.value ? activity.label : undefined,
     hasDeals: deals && deals.value ? deals.label : undefined,
     minValue: f.minValue ? `over ${f.minValue}` : undefined,
-    maxValue: f.maxValue ? `under ${f.maxValue}` : undefined
+    maxValue: f.maxValue ? `under ${f.maxValue}` : undefined,
+    assignedTo: f.assignedTo
+      ? (f.assignedTo === 'unassigned'
+          ? 'Unassigned'
+          // Same fallback chain as the dropdown's own labels, so the chip and
+          // the option a rep picked always read identically.
+          : (owner?.name || owner?.email || f.assignedTo))
+      : undefined
   }
 }
 
-export default function ContactFilters({ filters = {}, onChange, tags = [] }) {
+export default function ContactFilters({ filters = {}, onChange, tags = [], users = [] }) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState(filters)
 
@@ -180,8 +185,10 @@ export default function ContactFilters({ filters = {}, onChange, tags = [] }) {
               <label style={{ display: 'grid', gap: 6 }}>
                 <span style={LABEL}>Contact type</span>
                 <Select
-                  value={draft.contactType || '' || undefined}
+                  value={draft.contactType || undefined}
                   onChange={(v) => set('contactType', v)}
+                  placeholder="Any type"
+                  allowClear
                   options={TYPE_OPTIONS}
                   // Searchable, and OUR menu — a native <select>
                   // renders the OS's own list, which cannot be
@@ -197,8 +204,10 @@ export default function ContactFilters({ filters = {}, onChange, tags = [] }) {
               <label style={{ display: 'grid', gap: 6 }}>
                 <span style={LABEL}>Last activity</span>
                 <Select
-                  value={draft.activity || '' || undefined}
+                  value={draft.activity || undefined}
                   onChange={(v) => set('activity', v)}
+                  placeholder="Any time"
+                  allowClear
                   options={ACTIVITY_OPTIONS}
                   // Searchable, and OUR menu — a native <select>
                   // renders the OS's own list, which cannot be
@@ -211,11 +220,39 @@ export default function ContactFilters({ filters = {}, onChange, tags = [] }) {
                 />
               </label>
 
+              {users.length > 0 && (
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span style={LABEL}>Owner</span>
+                  <Select
+                    value={draft.assignedTo || undefined}
+                    onChange={(v) => set('assignedTo', v)}
+                    // Searchable, and OUR menu — a native <select>
+                    // renders the OS's own list, which cannot be
+                    // styled, searched or given the app's type.
+                    showSearch
+                    allowClear
+                    optionFilterProp="label"
+                    placeholder="Anyone"
+                    options={[
+                      // Not a user id but a question managers ask; the
+                      // server special-cases it to `assigned_to IS NULL`.
+                      { value: 'unassigned', label: 'Unassigned' },
+                      ...users.map((u) => ({ value: u.id, label: u.name || u.email || u.id }))
+                    ]}
+                    popupClassName="pp-menu"
+                    style={{ width: '100%' }}
+                    styles={{ root: { height: 38 } }}
+                  />
+                </label>
+              )}
+
               <label style={{ display: 'grid', gap: 6 }}>
                 <span style={LABEL}>Open deals</span>
                 <Select
-                  value={draft.hasDeals || '' || undefined}
+                  value={draft.hasDeals || undefined}
                   onChange={(v) => set('hasDeals', v)}
+                  placeholder="Any"
+                  allowClear
                   options={DEALS_OPTIONS}
                   // Searchable, and OUR menu — a native <select>
                   // renders the OS's own list, which cannot be
