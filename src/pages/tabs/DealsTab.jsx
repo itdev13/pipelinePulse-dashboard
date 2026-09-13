@@ -248,7 +248,7 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
     [search, filters, boardPipelineId]
   )
   const { items, error, hasMore, loadingMore, loading, loadMore, patchItem, reload } =
-    usePagedList({ fetchPage, key: 'deals', deps: [search] })
+    usePagedList({ fetchPage, key: 'deals', deps: [search, filters, boardPipelineId] })
 
   // After a save: refetch THAT deal and patch it in place.
   //
