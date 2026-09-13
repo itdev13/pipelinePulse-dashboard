@@ -196,7 +196,7 @@ export default function BusinessesTab({
 
 // ── List card ─────────────────────────────────────────────────────────
 
-function BusinessCard({ business: b, onOpen }) {
+function BusinessCard({ business: b, onOpen, view = 'rows' }) {
   return (
     <button
       onClick={onOpen}
