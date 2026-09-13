@@ -11,6 +11,23 @@ import { createPortal } from 'react-dom'
 // and different option sources, and a single component taking a schema would
 // be harder to read than two that each say what they filter.
 
+// Named windows rather than a free-text "days" box: these are the questions
+// a rep actually asks, and a number field invites 1-day and 400-day filters
+// that answer none of them.
+const ACTIVITY_OPTIONS = [
+  { value: '', label: 'Any time' },
+  { value: 'active:7', label: 'Active in the last 7 days' },
+  { value: 'active:30', label: 'Active in the last 30 days' },
+  { value: 'quiet:30', label: 'Quiet for 30+ days' },
+  { value: 'quiet:90', label: 'Quiet for 90+ days' }
+]
+
+const DEALS_OPTIONS = [
+  { value: '', label: 'Any' },
+  { value: 'yes', label: 'Has an open deal' },
+  { value: 'no', label: 'No open deal' }
+]
+
 const TYPE_OPTIONS = [
   { value: '', label: 'Any type' },
   { value: 'lead', label: 'Lead' },
@@ -34,6 +51,31 @@ const LABEL = {
 
 export function countContactFilters(f = {}) {
   return Object.entries(f).filter(([k, v]) => v && k !== 'view').length
+}
+
+// `activity` is one UI control but TWO server parameters, because "active
+// within N days" and "quiet for N days" are different comparisons, not one
+// with a sign. Kept as a single stored value so a saved view holds one filter
+// rather than two that could drift apart.
+export function activityParams(activity) {
+  const [kind, days] = String(activity || '').split(':')
+  if (!kind || !days) return {}
+  if (kind === 'active') return { activeWithin: days }
+  if (kind === 'quiet') return { quietFor: days }
+  return {}
+}
+
+// What a filter chip should read. Without this the strip showed raw values —
+// "Activity quiet:30" rather than "Quiet for 30+ days".
+export function contactFilterLabels(f = {}) {
+  const activity = ACTIVITY_OPTIONS.find((o) => o.value === f.activity)
+  const deals = DEALS_OPTIONS.find((o) => o.value === f.hasDeals)
+  return {
+    activity: activity && activity.value ? activity.label : undefined,
+    hasDeals: deals && deals.value ? deals.label : undefined,
+    minValue: f.minValue ? `over ${f.minValue}` : undefined,
+    maxValue: f.maxValue ? `under ${f.maxValue}` : undefined
+  }
 }
 
 export default function ContactFilters({ filters = {}, onChange, tags = [] }) {
@@ -146,6 +188,61 @@ export default function ContactFilters({ filters = {}, onChange, tags = [] }) {
                   ))}
                 </select>
               </label>
+
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={LABEL}>Last activity</span>
+                <select
+                  value={draft.activity || ''}
+                  onChange={(e) => set('activity', e.target.value)}
+                  style={SELECT}
+                >
+                  {ACTIVITY_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={LABEL}>Open deals</span>
+                <select
+                  value={draft.hasDeals || ''}
+                  onChange={(e) => set('hasDeals', e.target.value)}
+                  style={SELECT}
+                >
+                  {DEALS_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </label>
+
+              {/* Open deal value. Either bound alone is valid — "over £10k"
+                  and "under £1k" are both real questions. */}
+              <div style={{ display: 'grid', gap: 6 }}>
+                <span style={LABEL}>Open deal value</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="0"
+                    value={draft.minValue || ''}
+                    onChange={(e) => set('minValue', e.target.value)}
+                    placeholder="Min"
+                    aria-label="Minimum open deal value"
+                    style={{ ...SELECT, cursor: 'text' }}
+                  />
+                  <span style={{ color: 'var(--text-faint)', flex: 'none' }}>to</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="0"
+                    value={draft.maxValue || ''}
+                    onChange={(e) => set('maxValue', e.target.value)}
+                    placeholder="Max"
+                    aria-label="Maximum open deal value"
+                    style={{ ...SELECT, cursor: 'text' }}
+                  />
+                </div>
+              </div>
 
               {/* Only when the location HAS tags — an empty dropdown says
                   nothing useful, and a sub-account that tags nothing should

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ViewSwitch from '../shared/ViewSwitch'
 import ContactTable from '../contacts/ContactTable'
-import ContactFilters from '../contacts/ContactFilters'
+import ContactFilters, { activityParams, contactFilterLabels } from '../contacts/ContactFilters'
 import DealToolbar from '../deals/DealToolbar'
 import { savedViewsAPI } from '../../api/deals'
 import { FollowUpChips } from '../shared/ListChrome'
@@ -81,7 +81,12 @@ export default function ContactsTab({
       // `view` is the display mode, not a filter — stripped when a saved view
       // is applied, so it never reaches the query.
       contactType: filters.contactType || undefined,
-      tag: filters.tag || undefined
+      tag: filters.tag || undefined,
+      minValue: filters.minValue || undefined,
+      maxValue: filters.maxValue || undefined,
+      hasDeals: filters.hasDeals || undefined,
+      // One UI control, two server parameters — see activityParams.
+      ...activityParams(filters.activity)
     }),
     [search, filters]
   )
@@ -198,6 +203,9 @@ export default function ContactsTab({
             if (v) saveView(v.name)
           }}
           filters={filters}
+          // Chips read as sentences, not raw values — "Quiet for 30+ days"
+          // rather than "Activity quiet:30".
+          filterLabels={contactFilterLabels(filters)}
           onClearFilter={(k) => {
             setFilters((f) => { const next = { ...f }; delete next[k]; return next })
             setDirtyView(activeViewId)
