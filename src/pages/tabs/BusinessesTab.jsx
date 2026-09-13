@@ -36,7 +36,7 @@ export default function BusinessesTab({
 
   // Rows or a grid — see TasksTab.
   const [view, setView] = useState(() => {
-    try { return localStorage.getItem('pp.businesses.view') || 'rows' } catch { return 'rows' }
+    try { return localStorage.getItem('pp.businesses.view') || 'grid' } catch { return 'grid' }
   })
   useEffect(() => {
     try { localStorage.setItem('pp.businesses.view', view) } catch { /* private mode */ }
@@ -137,8 +137,8 @@ export default function BusinessesTab({
                   value={view}
                   onChange={setView}
                   options={[
-                    { id: 'rows', icon: 'view_agenda', label: 'Rows' },
-                    { id: 'grid', icon: 'grid_view', label: 'Grid' }
+                    { id: 'grid', icon: 'grid_view', label: 'Grid' },
+                    { id: 'rows', icon: 'view_agenda', label: 'Rows' }
                   ]}
                 />
                 <PrimaryAction onClick={() => setCreating(true)} icon="add">

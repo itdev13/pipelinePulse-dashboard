@@ -73,7 +73,7 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
   // a rep who prefers the grid should not be handed rows every time they come
   // back to this tab.
   const [view, setView] = useState(() => {
-    try { return localStorage.getItem('pp.tasks.view') || 'rows' } catch { return 'rows' }
+    try { return localStorage.getItem('pp.tasks.view') || 'grid' } catch { return 'grid' }
   })
   useEffect(() => {
     try { localStorage.setItem('pp.tasks.view', view) } catch { /* private mode */ }
@@ -242,8 +242,8 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
               value={view}
               onChange={setView}
               options={[
-                { id: 'rows', icon: 'view_agenda', label: 'Rows' },
-                { id: 'grid', icon: 'grid_view', label: 'Grid' }
+                { id: 'grid', icon: 'grid_view', label: 'Grid' },
+                { id: 'rows', icon: 'view_agenda', label: 'Rows' }
               ]}
             />
             <PrimaryAction onClick={() => setEditor({ task: null })} icon="add">

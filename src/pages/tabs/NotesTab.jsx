@@ -156,8 +156,8 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
               value={view}
               onChange={setView}
               options={[
-                { id: 'rows', icon: 'view_agenda', label: 'Rows' },
-                { id: 'grid', icon: 'grid_view', label: 'Grid' }
+                { id: 'grid', icon: 'grid_view', label: 'Grid' },
+                { id: 'rows', icon: 'view_agenda', label: 'Rows' }
               ]}
             />
             <PrimaryAction onClick={() => setEditor({ note: null })} icon="add">
