@@ -182,7 +182,7 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
           gap: 'var(--space-3)',
           padding: 'var(--space-3)'
         } : undefined}>
-        {notes.map((n) => {
+        {notes.map((n, i) => {
           // A real title wins over one derived from the body. Before migration
           // 058 there was no title column, so an author who DID title their
           // note saw it rendered as body text with a heading invented from the
@@ -205,7 +205,13 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
           return (
             <div
               key={n.id}
-              style={view === 'grid' ? undefined : { marginBottom: 'var(--space-2)' }}
+              style={view === 'grid' ? undefined : {
+                paddingBottom: 'var(--space-3)',
+                marginBottom: 'var(--space-3)',
+                borderBottom: i === notes.length - 1
+                  ? 'none'
+                  : '1px solid var(--border-default)'
+              }}
             >
               <div
                 style={{
