@@ -282,6 +282,10 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
             <div key={t.id}>
               <div
                 style={{
+                  // position:relative — the card's action corner is absolutely
+                  // placed, and without a positioned ancestor it would anchor
+                  // to the page instead.
+                  position: 'relative',
                   // ROW: title left, chips right. CARD: stacked, because at a
                   // 340px column width the horizontal layout left the title
                   // ~40px and it wrapped to one letter per line.
@@ -326,18 +330,52 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                   e.currentTarget.style.background = 'transparent'
                 }}
               >
-                <input
-                  type="checkbox"
-                  checked={done}
-                  onChange={() => toggle(t)}
-                  disabled={saving.has(t.id)}
-                  aria-label={`Mark ${t.title || 'task'} ${done ? 'open' : 'complete'}`}
-                  style={{
-                    marginTop: 2, width: 17, height: 17, flex: 'none',
-                    accentColor: 'var(--brand-primary)',
-                    cursor: saving.has(t.id) ? 'progress' : 'pointer'
-                  }}
-                />
+                {/* A tick, not a checkbox.
+                    A bare 17px checkbox says nothing about what ticking it
+                    does, and in a CARD it was a direct child of a column
+                    layout — so it stacked ABOVE the title on its own line and
+                    took a row of height on every card.
+                    In a row it sits where the checkbox did; in a card it moves
+                    to the actions corner, which is why it is rendered there
+                    instead. */}
+                {view !== 'grid' && (
+                  <CompleteToggle
+                    done={done}
+                    busy={saving.has(t.id)}
+                    label={t.title || 'task'}
+                    onToggle={() => toggle(t)}
+                  />
+                )}
+
+                {/* Complete, edit and delete — top-right, the same corner the
+                    note cards use. They used to trail the chips at the card's
+                    bottom, which put them in a different place depending on
+                    how many chips wrapped. */}
+                {view === 'grid' && (
+                  <span style={{
+                    position: 'absolute', top: 12, right: 12,
+                    display: 'inline-flex', gap: 6, flex: 'none'
+                  }}>
+                    <CompleteToggle
+                      done={done}
+                      busy={saving.has(t.id)}
+                      label={t.title || 'task'}
+                      onToggle={() => toggle(t)}
+                      compact
+                    />
+                    <RowAction
+                          icon="edit"
+                          title="Edit this task"
+                          onClick={() => setEditor({ task: t })}
+                        />
+                        <RowAction
+                          icon="close"
+                          danger
+                          title="Delete this task"
+                          onClick={() => { setConfirmError(null); setConfirming(t) }}
+                        />
+                  </span>
+                )}
 
                 {/* A column that fills the stretched card — see NotesTab.
                     Without it the content bunched at the top and left a ragged
@@ -556,31 +594,7 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                       />
                     )}
                   </span>
-                  )}
-                  {/* Edit and delete, in their OWN group.
-                      They used to sit loose among the chips, so they wrapped
-                      wherever the chips left room — a different place on every
-                      card. In a grid they are pinned to the bottom-right;
-                      in a row they trail the chips as before. */}
-                  <span style={{
-                    display: 'inline-flex', gap: 6, flex: 'none',
-                    ...(view === 'grid'
-                      ? { marginTop: 'auto', marginLeft: 'auto', paddingTop: 6 }
-                      : {})
-                  }}>
-                    <RowAction
-                      icon="edit"
-                      title="Edit this task"
-                      onClick={() => setEditor({ task: t })}
-                    />
-                    <RowAction
-                      icon="close"
-                      danger
-                      title="Delete this task"
-                      onClick={() => { setConfirmError(null); setConfirming(t) }}
-                    />
-                  </span>
-                </div>
+                  )}                </div>
               </div>
 
               {hasChips && (
@@ -596,6 +610,25 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                   {t.noteChips.map((c) => (
                     <NoteChip key={c.id} label={c.label} />
                   ))}
+
+                  {/* ROW view keeps them at the end of the chips, where the eye
+                      already finishes the line. In a card they sit in the
+                      top-right corner instead. */}
+                  {view !== 'grid' && (
+                    <>
+                      <RowAction
+                        icon="edit"
+                        title="Edit this task"
+                        onClick={() => setEditor({ task: t })}
+                      />
+                      <RowAction
+                        icon="close"
+                        danger
+                        title="Delete this task"
+                        onClick={() => { setConfirmError(null); setConfirming(t) }}
+                      />
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -729,5 +762,47 @@ function Toast({ children, tone = 'error' }) {
       </span>
       {children}
     </div>
+  )
+}
+
+
+// Mark complete / mark open.
+//
+// Replaces a bare checkbox: an unlabelled 17px box says nothing about what
+// ticking it does, and it read as a selection control rather than an action.
+// A circled tick that fills when done says both.
+//
+// `compact` is the card form — icon only, since a card already has a row of
+// icon buttons beside it and "Mark complete" spelled out would be the widest
+// thing on the card.
+function CompleteToggle({ done, busy, label, onToggle, compact = false }) {
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onToggle() }}
+      disabled={busy}
+      title={done ? 'Mark this task open again' : 'Mark this task complete'}
+      aria-label={`Mark ${label} ${done ? 'open' : 'complete'}`}
+      aria-pressed={done}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: compact ? 0 : 6,
+        flex: 'none',
+        height: 30, padding: compact ? '0 6px' : '0 11px 0 9px',
+        border: '1px solid',
+        borderColor: done ? 'var(--green-300)' : 'var(--border-strong)',
+        borderRadius: 'var(--radius-pill)',
+        background: done ? 'var(--tint-pine)' : 'var(--surface-card)',
+        color: done ? 'var(--green-600)' : 'var(--text-muted)',
+        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
+        fontWeight: 500,
+        cursor: busy ? 'progress' : 'pointer'
+      }}
+    >
+      {/* Filled when done, outlined when not — the state reads from the glyph
+          alone, before the label is processed. */}
+      <span className="ms" style={{ fontSize: 18 }}>
+        {done ? 'check_circle' : 'radio_button_unchecked'}
+      </span>
+      {!compact && (done ? 'Completed' : 'Mark complete')}
+    </button>
   )
 }
