@@ -1124,26 +1124,32 @@ function AllMessages({ contactId, deals = [], onOpenDeal }) {
             }}>
               {picked.size} selected
             </span>
-            <select
+            <Select
               value={target}
-              onChange={(e) => setTarget(e.target.value)}
+              onChange={(v) => setTarget(v ?? '')}
               disabled={saving}
-              style={{
-                padding: '5px 8px', fontSize: 'var(--text-sm)',
-                border: '1px solid var(--border-strong)',
-                borderRadius: 'var(--radius-md)', background: '#fff'
-              }}
-            >
-              {/* The blank entry means "no deal", not an action on many —
-                  a message is on one deal at most. Phrased as a destination
-                  so it reads consistently with the deal names below it. */}
-              <option value="">— No deal (leave on the contact)</option>
-              {deals.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}{d.status && d.status !== 'open' ? ` (${d.status})` : ''}
-                </option>
-              ))}
-            </select>
+              // Searchable, and OUR menu: a native <select> renders the OS's
+              // own list, which cannot be styled or searched — and a contact
+              // with a dozen deals is exactly where searching starts to matter.
+              showSearch
+              optionFilterProp="label"
+              popupClassName="pp-menu"
+              // The menu is wider than the control when a deal name needs it,
+              // rather than truncating every option to the box.
+              popupMatchSelectWidth={false}
+              style={{ width: 280 }}
+              styles={{ root: { height: 30 } }}
+              options={[
+                // The blank entry means "no deal", not an action on many —
+                // a message is on one deal at most. Phrased as a destination
+                // so it reads consistently with the deal names below it.
+                { value: '', label: '— No deal (leave on the contact)' },
+                ...deals.map((d) => ({
+                  value: d.id,
+                  label: `${d.name}${d.status && d.status !== 'open' ? ` (${d.status})` : ''}`
+                }))
+              ]}
+            />
             <button
               type="button"
               onClick={assign}
