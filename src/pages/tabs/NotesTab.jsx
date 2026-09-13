@@ -276,16 +276,12 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                   >
                     sticky_note_2
                   </span>
+                </span>
 
-                  {/* Edit and delete, top-right beside the note icon.
-                      They used to trail the chips at the bottom, so they
-                      landed in a different place on every card depending on
-                      how many chips wrapped — and on a card with several they
-                      dropped onto their own line. A fixed corner is the same
-                      place every time.
-
-                      Card only: in a row they belong at the end of the row,
-                      where the eye already finishes. */}
+                  {/* Edit and delete, top-right. A SIBLING of the icon tile, not a
+                      child of it — nested inside, the tile's fixed 28px width and
+                      flex:none meant the buttons overflowed their own container and
+                      sat on top of the icon. */}
                   {view === 'grid' && (
                     <span style={{
                       marginLeft: 'auto',
@@ -304,7 +300,6 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                       />
                     </span>
                   )}
-                </span>
 
                 {/* In a CARD this is a column that fills the stretched
                     height, so the metadata line can be pushed to the bottom.
