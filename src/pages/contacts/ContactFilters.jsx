@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { Select } from 'antd'
 import { createPortal } from 'react-dom'
 
 // Contact type / tag, as a panel with Apply and Cancel.
@@ -178,41 +179,53 @@ export default function ContactFilters({ filters = {}, onChange, tags = [] }) {
             }}>
               <label style={{ display: 'grid', gap: 6 }}>
                 <span style={LABEL}>Contact type</span>
-                <select
-                  value={draft.contactType || ''}
-                  onChange={(e) => set('contactType', e.target.value)}
-                  style={SELECT}
-                >
-                  {TYPE_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
+                <Select
+                  value={draft.contactType || '' || undefined}
+                  onChange={(v) => set('contactType', v)}
+                  options={TYPE_OPTIONS}
+                  // Searchable, and OUR menu — a native <select>
+                  // renders the OS's own list, which cannot be
+                  // styled, searched or given the app's type.
+                  showSearch
+                  optionFilterProp="label"
+                  popupClassName="pp-menu"
+                  style={{ width: '100%' }}
+                  styles={{ root: { height: 38 } }}
+                />
               </label>
 
               <label style={{ display: 'grid', gap: 6 }}>
                 <span style={LABEL}>Last activity</span>
-                <select
-                  value={draft.activity || ''}
-                  onChange={(e) => set('activity', e.target.value)}
-                  style={SELECT}
-                >
-                  {ACTIVITY_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
+                <Select
+                  value={draft.activity || '' || undefined}
+                  onChange={(v) => set('activity', v)}
+                  options={ACTIVITY_OPTIONS}
+                  // Searchable, and OUR menu — a native <select>
+                  // renders the OS's own list, which cannot be
+                  // styled, searched or given the app's type.
+                  showSearch
+                  optionFilterProp="label"
+                  popupClassName="pp-menu"
+                  style={{ width: '100%' }}
+                  styles={{ root: { height: 38 } }}
+                />
               </label>
 
               <label style={{ display: 'grid', gap: 6 }}>
                 <span style={LABEL}>Open deals</span>
-                <select
-                  value={draft.hasDeals || ''}
-                  onChange={(e) => set('hasDeals', e.target.value)}
-                  style={SELECT}
-                >
-                  {DEALS_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
+                <Select
+                  value={draft.hasDeals || '' || undefined}
+                  onChange={(v) => set('hasDeals', v)}
+                  options={DEALS_OPTIONS}
+                  // Searchable, and OUR menu — a native <select>
+                  // renders the OS's own list, which cannot be
+                  // styled, searched or given the app's type.
+                  showSearch
+                  optionFilterProp="label"
+                  popupClassName="pp-menu"
+                  style={{ width: '100%' }}
+                  styles={{ root: { height: 38 } }}
+                />
               </label>
 
               {/* Open deal value. Either bound alone is valid — "over £10k"
@@ -250,16 +263,20 @@ export default function ContactFilters({ filters = {}, onChange, tags = [] }) {
               {tags.length > 0 && (
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={LABEL}>Tag</span>
-                  <select
-                    value={draft.tag || ''}
-                    onChange={(e) => set('tag', e.target.value)}
-                    style={SELECT}
-                  >
-                    <option value="">Any tag</option>
-                    {tags.map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
+                  <Select
+                    value={draft.tag || undefined}
+                    onChange={(v) => set('tag', v)}
+                    // Searchable, and OUR menu: a native <select> renders the
+                    // OS's own list, which cannot be styled or searched.
+                    showSearch
+                    allowClear
+                    optionFilterProp="label"
+                    placeholder="Any tag"
+                    options={tags.map((t) => ({ value: t, label: t }))}
+                    popupClassName="pp-menu"
+                    style={{ width: '100%' }}
+                    styles={{ root: { height: 38 } }}
+                  />
                 </label>
               )}
             </div>

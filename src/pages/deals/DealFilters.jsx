@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { Select } from 'antd'
 import { createPortal } from 'react-dom'
 
 // Status / Stage / Owner, as a panel with Apply and Cancel.
@@ -164,15 +165,19 @@ export default function DealFilters({
             }}>
               <label style={{ display: 'grid', gap: 6 }}>
                 <span style={LABEL}>Status</span>
-                <select
-                  value={draft.status || 'open'}
-                  onChange={(e) => set('status', e.target.value)}
-                  style={SELECT}
-                >
-                  {STATUS_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
+                <Select
+                  value={draft.status || 'open' || undefined}
+                  onChange={(v) => set('status', v)}
+                  options={STATUS_OPTIONS}
+                  // Searchable, and OUR menu — a native <select>
+                  // renders the OS's own list, which cannot be
+                  // styled, searched or given the app's type.
+                  showSearch
+                  optionFilterProp="label"
+                  popupClassName="pp-menu"
+                  style={{ width: '100%' }}
+                  styles={{ root: { height: 38 } }}
+                />
               </label>
 
               {/* Offered only when the lists exist. On a sub-account whose
@@ -181,32 +186,40 @@ export default function DealFilters({
               {stages.length > 0 && (
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={LABEL}>Stage</span>
-                  <select
-                    value={draft.stageId || ''}
-                    onChange={(e) => set('stageId', e.target.value)}
-                    style={SELECT}
-                  >
-                    <option value="">Any stage</option>
-                    {stages.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
+                  <Select
+                    value={draft.stageId || undefined}
+                    onChange={(v) => set('stageId', v)}
+                    // Searchable, and OUR menu: a native <select> renders the
+                    // OS's own list, which cannot be styled or searched.
+                    showSearch
+                    allowClear
+                    optionFilterProp="label"
+                    placeholder="Any stage"
+                    options={stages.map((s) => ({ value: s.id, label: s.name }))}
+                    popupClassName="pp-menu"
+                    style={{ width: '100%' }}
+                    styles={{ root: { height: 38 } }}
+                  />
                 </label>
               )}
 
               {users.length > 0 && (
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={LABEL}>Owner</span>
-                  <select
-                    value={draft.assignedTo || ''}
-                    onChange={(e) => set('assignedTo', e.target.value)}
-                    style={SELECT}
-                  >
-                    <option value="">Anyone</option>
-                    {users.map((u) => (
-                      <option key={u.id} value={u.id}>{u.name || u.email || u.id}</option>
-                    ))}
-                  </select>
+                  <Select
+                    value={draft.assignedTo || undefined}
+                    onChange={(v) => set('assignedTo', v)}
+                    // Searchable, and OUR menu: a native <select> renders the
+                    // OS's own list, which cannot be styled or searched.
+                    showSearch
+                    allowClear
+                    optionFilterProp="label"
+                    placeholder="Anyone"
+                    options={users.map((u) => ({ value: u.id, label: u.name || u.email || u.id }))}
+                    popupClassName="pp-menu"
+                    style={{ width: '100%' }}
+                    styles={{ root: { height: 38 } }}
+                  />
                 </label>
               )}
             </div>

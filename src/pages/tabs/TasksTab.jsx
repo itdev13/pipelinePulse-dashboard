@@ -301,6 +301,11 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                   ...(view === 'grid'
                     ? {
                       border: '1px solid var(--border-default)',
+                      // A FIXED height, so a grid row's cards all end on the
+                      // same line. Without it a card with a description was
+                      // taller than one without, and the row below started at
+                      // a different depth for every column — the zig-zag.
+                      height: 210,
                       borderRadius: 'var(--radius-md)',
                       background: 'var(--surface-card)'
                     }
@@ -419,6 +424,11 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                     // In a card the chips sit UNDER the title, so they start
                     // from the left like everything else in the card.
                     justifyContent: view === 'grid' ? 'flex-start' : 'flex-end',
+                    // Fills the card's remaining height so the actions below
+                    // can be pushed to its bottom with margin-top:auto.
+                    ...(view === 'grid'
+                      ? { flex: 1, alignContent: 'flex-start', width: '100%' }
+                      : {}),
                     // Aligned to the TITLE's line rather than centred against
                     // the whole row: a task with a long description pushed its
                     // chips halfway down the row, so they no longer read as
@@ -500,17 +510,29 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                     )}
                   </span>
                   )}
-                  <RowAction
-                    icon="edit"
-                    title="Edit this task"
-                    onClick={() => setEditor({ task: t })}
-                  />
-                  <RowAction
-                    icon="close"
-                    danger
-                    title="Delete this task"
-                    onClick={() => { setConfirmError(null); setConfirming(t) }}
-                  />
+                  {/* Edit and delete, in their OWN group.
+                      They used to sit loose among the chips, so they wrapped
+                      wherever the chips left room — a different place on every
+                      card. In a grid they are pinned to the bottom-right;
+                      in a row they trail the chips as before. */}
+                  <span style={{
+                    display: 'inline-flex', gap: 6, flex: 'none',
+                    ...(view === 'grid'
+                      ? { marginTop: 'auto', marginLeft: 'auto', paddingTop: 6 }
+                      : {})
+                  }}>
+                    <RowAction
+                      icon="edit"
+                      title="Edit this task"
+                      onClick={() => setEditor({ task: t })}
+                    />
+                    <RowAction
+                      icon="close"
+                      danger
+                      title="Delete this task"
+                      onClick={() => { setConfirmError(null); setConfirming(t) }}
+                    />
+                  </span>
                 </div>
               </div>
 

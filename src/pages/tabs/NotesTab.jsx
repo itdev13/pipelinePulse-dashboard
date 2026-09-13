@@ -9,7 +9,7 @@ import { useLinkTargets } from '../../hooks/useLinkTargets'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import { noteColourStyle } from '../../utils/noteColour'
 import {
-  Shell, PageHeader, Panel, ContactChip, DealChip, Chip, RowAction,
+  Shell, PageHeader, ContactChip, DealChip, Chip, RowAction,
   PrimaryAction, NoteChip, StateMessage, LoadMore, RichBody, relativeTime,
   AttachmentCount
 } from '../shared/ListChrome'
@@ -156,16 +156,16 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
         }
       />
 
-      <Panel
-        icon="sticky_note_2"
-        title="All notes"
-        accent="gold"
-        meta={
-          loading
-            ? null
-            : `${notes.length}${hasMore ? '+' : ''} ${notes.length === 1 ? 'note' : 'notes'}`
-        }
-      >
+      {/* A plain surface, not a Panel.
+          The Panel added a second header — "All notes" and a count — directly
+          under the page's own title and count, and the tab read as a page
+          inside a page. The controls live in the page header, like Contacts. */}
+      <div style={{
+        background: 'var(--surface-card)',
+        border: '1px solid var(--border-default)',
+        borderRadius: 'var(--radius-lg)',
+        overflow: 'hidden'
+      }}>
         <StateMessage
           loading={loading}
           error={error}
@@ -227,6 +227,11 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                   ...(view === 'grid'
                     ? {
                       border: '1px solid var(--border-default)',
+                      // A FIXED height, so a grid row's cards all end on the
+                      // same line. Without it a card with a description was
+                      // taller than one without, and the row below started at
+                      // a different depth for every column — the zig-zag.
+                      height: 210,
                       borderLeft: col.stripe
                         ? `3px solid ${col.stripe}`
                         : '1px solid var(--border-default)',
@@ -388,7 +393,7 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
             noun="note"
           />
         )}
-      </Panel>
+      </div>
 
       {editor && (
         <NoteEditor

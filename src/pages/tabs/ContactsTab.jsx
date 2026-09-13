@@ -167,25 +167,10 @@ export default function ContactsTab({
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-3)', flexWrap: 'wrap', marginBottom: 14 }}>
         <h1 style={{ fontSize: 'var(--text-2xl)' }}>Contacts</h1>
         <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
-          {loading
-            ? 'Loading…'
-            : `${contacts.length}${hasMore ? '+' : ''} in this location — edit in your CRM, changes sync back`}
+          {/* No count here — the toolbar below carries it, and two counts a
+              few pixels apart disagreed the moment a filter was applied. */}
+          Edit in your CRM — changes sync back
         </span>
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') setSearch(q.trim()) }}
-          onBlur={() => setSearch(q.trim())}
-          placeholder="Search name, email, phone or business — press Enter"
-          style={{
-            marginLeft: 'auto',
-            width: 360, height: 36, boxSizing: 'border-box',
-            padding: '0 var(--space-3)',
-            border: '1px solid var(--border-strong)',
-            borderRadius: 'var(--radius-md)',
-            background: '#fff', fontSize: 'var(--text-md)', color: 'var(--text-body)'
-          }}
-        />
       </div>
 
       {/* Filters and saved views — the same toolbar the deals tab uses, so a
@@ -214,11 +199,31 @@ export default function ContactsTab({
           count={loading ? undefined : contacts.length}
           countLabel="contacts"
           filterControl={
-            <ContactFilters
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') setSearch(q.trim()) }}
+          onBlur={() => setSearch(q.trim())}
+          placeholder="Search name, email, phone or business — press Enter"
+          style={{
+            // No marginLeft:auto — that pushed it to the far right of the
+            // page header it used to live in. In the toolbar it leads the row.
+            width: 300, height: 36, boxSizing: 'border-box',
+            padding: '0 var(--space-3)',
+            border: '1px solid var(--border-strong)',
+            borderRadius: 'var(--radius-md)',
+            background: 'var(--surface-card)',
+            fontFamily: 'var(--font-sans)',
+            fontSize: 'var(--text-lg)', color: 'var(--text-body)'
+          }}
+        />
+              <ContactFilters
               filters={filters}
               tags={tagList}
               onChange={(next) => { setFilters(next); setDirtyView(activeViewId) }}
             />
+            </span>
           }
         >
           <ViewSwitch

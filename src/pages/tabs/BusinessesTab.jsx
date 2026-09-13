@@ -217,7 +217,15 @@ function BusinessCard({ business: b, onOpen, view = 'rows' }) {
           : { borderBottom: '1px solid var(--border-default)', background: 'transparent' })
       }}
     >
-      <span style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+      {/* ROW: icon, text, chips on one line. CARD: stacked, because in a
+          360px column the chips and the name compete for the same line and
+          the name loses — "company desc1…" and a clipped URL. */}
+      <span style={{
+        display: 'flex',
+        alignItems: view === 'grid' ? 'flex-start' : 'center',
+        flexDirection: view === 'grid' ? 'column' : 'row',
+        gap: view === 'grid' ? 10 : 11
+      }}>
         <span
           className="ms"
           style={{ fontSize: 'var(--text-xl)', color: `var(--accent-${b.accent})`, flex: 'none' }}
@@ -231,7 +239,12 @@ function BusinessCard({ business: b, onOpen, view = 'rows' }) {
               fontSize: 'var(--text-lg)', fontWeight: 600,
               color: b.hasName ? 'var(--text-heading)' : 'var(--text-faint)',
               fontStyle: b.hasName ? 'normal' : 'italic',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+              // A card has the vertical room to wrap; a row does not, so it
+              // ellipses. Truncating a company name in a card that is mostly
+              // empty below it is the worst of both.
+              ...(view === 'grid'
+                ? { overflowWrap: 'anywhere' }
+                : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' })
             }}
           >
             {b.name}
@@ -241,7 +254,9 @@ function BusinessCard({ business: b, onOpen, view = 'rows' }) {
               style={{
                 display: 'block', marginTop: 2,
                 fontSize: 'var(--text-base)', color: 'var(--text-muted)',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                ...(view === 'grid'
+                  ? { overflowWrap: 'anywhere' }
+                  : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' })
               }}
             >
               {[b.city, b.description].filter(Boolean).join(' · ')}
@@ -273,7 +288,11 @@ function BusinessCard({ business: b, onOpen, view = 'rows' }) {
                   key={icon}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 4,
-                    maxWidth: 260,
+                    // A card is narrower than a row, so the cap follows it —
+                    // 260px inside a 360px column pushed the URL off the edge,
+                    // which is the clipped "https://www.g" in the grid.
+                    maxWidth: view === 'grid' ? '100%' : 260,
+                    minWidth: 0,
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                   }}
                 >
@@ -287,7 +306,13 @@ function BusinessCard({ business: b, onOpen, view = 'rows' }) {
           )}
         </span>
 
-        <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 'none' }}>
+        <span style={{
+          display: 'flex', gap: 6, flexWrap: 'wrap',
+          flex: 'none',
+          // Under the name in a card, so they start from the left like
+          // everything else rather than hanging off the right edge.
+          ...(view === 'grid' ? { width: '100%' } : {})
+        }}>
           <Chip icon="group">
             {b.contactCount} {b.contactCount === 1 ? 'contact' : 'contacts'}
           </Chip>
