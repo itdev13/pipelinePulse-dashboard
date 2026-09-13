@@ -79,7 +79,10 @@ t('an empty exclude list changes nothing', () => {
 console.log('\nthe wiring');
 
 t('the picker fetches before anything is typed', () => {
-  assert.match(picker, /showInitial = false/);
+  // Defaults ON: every picker shows a first page rather than a dead end.
+  // Two callers used to opt in and four did not, so the same control behaved
+  // differently depending on where it was opened.
+  assert.match(picker, /showInitial = true/);
   assert.match(picker, /if \(!q && !showInitial\)/,
     'an empty query must still fetch when showInitial is set');
   // …and the request omits q entirely rather than sending q=''.

@@ -224,7 +224,10 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
           </div>
         }
         accent="rose"
-        meta={loading ? null : `${openCount}${hasMore ? '+' : ''} ${countNoun}`}
+        count={loading ? null : `${openCount}${hasMore ? '+' : ''}`}
+        // The badge is a bare number; this says WHICH number it is, since the
+        // count follows the status filter.
+        countTitle={loading ? undefined : `${openCount} ${countNoun}`}
         // `action`, not `toolbar`: a lone button in the toolbar band drew a
         // full-width grey strip under the title that read as its own section.
         // In the header it sits beside the count, where it belongs.

@@ -4,7 +4,7 @@ import { businessesAPI } from '../../api/businesses'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
 import {
-  Shell, PageHeader, Panel, Row, Chip, SearchInput, StateMessage,
+  Shell, Panel, Row, Chip, SearchInput, PrimaryAction, StateMessage,
   SkeletonStyles, Bar, LoadMore, formatDate
 } from '../shared/ListChrome'
 import { Select } from 'antd'
@@ -85,36 +85,9 @@ export default function BusinessesTab({
 
   return (
     <Shell>
-      <PageHeader
-        title="Businesses"
-        subtitle="The roll-up — every conversation, deal and contact at a business in one view"
-        action={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <button
-            onClick={() => setCreating(true)}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              flex: 'none',
-              height: 34, padding: '0 15px',
-              border: 'none', borderRadius: 'var(--radius-md)',
-              background: 'var(--brand-primary)', color: '#fff',
-              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
-              cursor: 'pointer'
-            }}
-          >
-            <span className="ms" style={{ fontSize: 17 }}>add</span>
-            New business
-          </button>
-          <SearchInput
-            value={q}
-            onChange={setQ}
-            placeholder="Search businesses"
-            width={260}
-          />
-          </div>
-        }
-      />
-
+      {/* No PageHeader — the panel below is the only header, the same shape
+          as Tasks and Notes. It repeated the tab name the nav already shows,
+          with a subtitle explaining what the tab is. */}
       {creating && (
         <BusinessEditor
           onClose={() => setCreating(false)}
@@ -149,18 +122,29 @@ export default function BusinessesTab({
               unfinished beside the others. */}
           <Panel
             icon="domain"
-            title="All businesses"
+            title="Businesses"
             accent="rose"
-            meta={`${items.length}${hasMore ? '+' : ''} ${items.length === 1 ? 'business' : 'businesses'}`}
+            count={`${items.length}${hasMore ? '+' : ''}`}
             action={
-              <ViewSwitch
-                value={view}
-                onChange={setView}
-                options={[
-                  { id: 'rows', icon: 'view_agenda', label: 'Rows' },
-                  { id: 'grid', icon: 'grid_view', label: 'Grid' }
-                ]}
-              />
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                <SearchInput
+                  value={q}
+                  onChange={setQ}
+                  placeholder="Search businesses"
+                  width={260}
+                />
+                <ViewSwitch
+                  value={view}
+                  onChange={setView}
+                  options={[
+                    { id: 'rows', icon: 'view_agenda', label: 'Rows' },
+                    { id: 'grid', icon: 'grid_view', label: 'Grid' }
+                  ]}
+                />
+                <PrimaryAction onClick={() => setCreating(true)} icon="add">
+                  New business
+                </PrimaryAction>
+              </span>
             }
           >
           <div style={view === 'grid' ? {

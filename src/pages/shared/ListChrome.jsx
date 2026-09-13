@@ -38,6 +38,11 @@ export function PageHeader({ title, subtitle, action }) {
 
 export function Panel({
   icon, title, accent, meta, children, toolbar,
+  // A number shown as a pill beside the title. Prefer this to `meta` for a
+  // simple count — see the badge below. `countTitle` is its tooltip, for the
+  // context a bare number loses (Tasks counts only what the status filter
+  // selected, so "10" means "10 open" or "10 completed").
+  count, countTitle,
   // A single primary action, rendered IN the header beside `meta`.
   //
   // Distinct from `toolbar`, which draws its own band below the header —
@@ -72,9 +77,27 @@ export function Panel({
         }}
       >
         <span className="ms" style={{ fontSize: 20, color }}>{icon}</span>
-        <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 600, color, margin: 0, flex: 1 }}>
+        <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 600, color, margin: 0 }}>
           {title}
         </h2>
+        {/* A count BADGE beside the title.
+            `meta` renders as plain text on the far right, which reads as a
+            caption about the panel. A number pressed against the title reads
+            as part of it — "Notes 9" — and does not need the noun repeated. */}
+        {count != null && (
+          <span title={countTitle} style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            minWidth: 24, height: 22, padding: '0 8px', flex: 'none',
+            borderRadius: 'var(--radius-pill)',
+            background: 'var(--gray-100)',
+            fontSize: 'var(--text-base)', fontWeight: 600,
+            fontVariantNumeric: 'tabular-nums',
+            color: 'var(--text-muted)'
+          }}>
+            {count}
+          </span>
+        )}
+        <span style={{ flex: 1 }} />
         {meta != null && (
           <span
             // An error is announced, not just displayed: a screen reader user

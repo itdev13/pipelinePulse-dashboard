@@ -144,11 +144,7 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
         icon="sticky_note_2"
         title="Notes"
         accent="gold"
-        meta={
-          loading
-            ? null
-            : `${notes.length}${hasMore ? '+' : ''} ${notes.length === 1 ? 'note' : 'notes'}`
-        }
+        count={loading ? null : `${notes.length}${hasMore ? '+' : ''}`}
         action={
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <WorkFilters

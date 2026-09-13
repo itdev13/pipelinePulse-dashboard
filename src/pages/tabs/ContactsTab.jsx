@@ -164,13 +164,38 @@ export default function ContactsTab({
         margin: '0 auto', padding: 'var(--space-4) 20px 28px'
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-3)', flexWrap: 'wrap', marginBottom: 14 }}>
-        <h1 style={{ fontSize: 'var(--text-2xl)' }}>Contacts</h1>
-        <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
-          {/* No count here — the toolbar below carries it, and two counts a
-              few pixels apart disagreed the moment a filter was applied. */}
-          Edit in your CRM — changes sync back
+      {/* Title and count only — the same shape as Tasks and Notes.
+          The subtitle explaining that edits sync to the CRM is said by the
+          Details panel on the record itself, where a rep is actually editing.
+
+          Not a Panel: the toolbar below is DealToolbar, which draws its own
+          bordered band, and a Panel around it would be a header above a
+          header. */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+        marginBottom: 10
+      }}>
+        <span className="ms" style={{ fontSize: 20, color: 'var(--accent-sky-text)' }}>
+          group
         </span>
+        <h1 style={{
+          margin: 0, fontSize: 'var(--text-xl)', fontWeight: 600,
+          color: 'var(--accent-sky-text)', letterSpacing: '-0.01em'
+        }}>
+          Contacts
+        </h1>
+        {!loading && (
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            minWidth: 24, height: 22, padding: '0 8px', flex: 'none',
+            borderRadius: 'var(--radius-pill)',
+            background: 'var(--gray-100)',
+            fontSize: 'var(--text-base)', fontWeight: 600,
+            fontVariantNumeric: 'tabular-nums', color: 'var(--text-muted)'
+          }}>
+            {contacts.length}{hasMore ? '+' : ''}
+          </span>
+        )}
       </div>
 
       {/* Filters and saved views — the same toolbar the deals tab uses, so a

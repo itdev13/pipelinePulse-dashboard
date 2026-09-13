@@ -14,7 +14,7 @@ import { useTabState } from '../../hooks/useTabState'
 import DealEditPanel from '../deals/DealEditPanel'
 import DealCreatePanel from '../deals/DealCreatePanel'
 import {
-  Shell, PageHeader, SearchInput, StateMessage, DealCardsSkeleton, LoadMore,
+  Shell, SearchInput, StateMessage, DealCardsSkeleton, LoadMore,
   formatDate, initialsFor, nameFor
 } from '../shared/ListChrome'
 
@@ -310,11 +310,27 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
     // sits empty is the worse problem, and the table scrolls inside its own
     // box rather than stretching its type.
     <Shell maxWidth="none">
-      <PageHeader
-        title="Deals"
-        subtitle="Expand any deal to edit it — changes save straight to your CRM"
-        action={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+      {/* Title and count only — the same shape as Tasks, Notes and Contacts.
+          The subtitle explained what expanding a deal does, which the card
+          itself demonstrates. Not a Panel: DealToolbar below draws its own
+          band, and a Panel around it would be a header above a header. */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+        marginBottom: 10
+      }}>
+        <span className="ms" style={{ fontSize: 20, color: 'var(--accent-pine-text)' }}>
+          sell
+        </span>
+        <h1 style={{
+          margin: 0, fontSize: 'var(--text-xl)', fontWeight: 600,
+          color: 'var(--accent-pine-text)', letterSpacing: '-0.01em'
+        }}>
+          Deals
+        </h1>
+        <span style={{ flex: 1 }} />
+        {/* Search and New deal sit on the title row: the toolbar below is
+            already full, and both act on the whole tab rather than on the
+            current filters. */}
             <SearchInput
               value={q}
               onChange={setQ}
@@ -347,9 +363,7 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
               <span className="ms" style={{ fontSize: 18 }}>add</span>
               New deal
             </button>
-          </div>
-        }
-      />
+      </div>
 
       {creating && (
         <DealCreatePanel

@@ -33,11 +33,16 @@ export default function ContactPicker({
   // was only caught after the click, as an error message, which made the user
   // do the work of remembering who was already there.
   exclude = [],
-  // Load a first page before anything is typed. Without it the dropdown opened
-  // on "Start typing to find a contact", which is a dead end for a rep who
-  // does not know who is in the CRM — most sub-accounts have few enough
-  // contacts that the first page IS the answer.
-  showInitial = false,
+  // Load a first page before anything is typed.
+  //
+  // DEFAULTS ON. Without it the dropdown opens on "Start typing to find a
+  // contact", which is a dead end for a rep who does not know who is in the
+  // CRM — most sub-accounts have few enough contacts that the first page IS
+  // the answer. Two callers were opting in and four were not, so the same
+  // control behaved differently depending on where it was opened.
+  //
+  // Pass false only where an empty list is genuinely the right first screen.
+  showInitial = true,
   disabled,
   invalid,
   autoFocus
@@ -153,11 +158,15 @@ export default function ContactPicker({
           <Empty>Could not search contacts — try again</Empty>
         ) : query.trim() ? (
           <Empty>No contact matches “{query.trim()}”</Empty>
-        ) : showInitial ? (
-          // Reached when every contact returned is already on the deal.
+        ) : exclude.length ? (
+          // Only when the caller is EXCLUDING people — the deal's existing
+          // contacts. Now that showInitial defaults on, this branch was also
+          // reached from the Tasks and Notes filters, where there is no deal
+          // and nothing is excluded, so it told a rep their sub-account had no
+          // contacts left.
           <Empty>Everyone in this account is already on this deal</Empty>
         ) : (
-          <Empty>Start typing to find a contact</Empty>
+          <Empty>No contacts in this sub-account yet</Empty>
         )
       }
     />
