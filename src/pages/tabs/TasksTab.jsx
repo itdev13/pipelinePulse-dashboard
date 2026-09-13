@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { Select } from 'antd'
 import { htmlToText } from '../../utils/sanitiseHtml'
 import ViewSwitch from '../shared/ViewSwitch'
 import WorkFilters from '../shared/WorkFilters'
@@ -11,7 +12,7 @@ import { useLinkTargets } from '../../hooks/useLinkTargets'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import {
   Shell, PageHeader, Panel, ContactChip, DealChip, RowAction,
-  PrimaryAction, FilterChip, NoteChip, StateMessage, LoadMore,
+  PrimaryAction, NoteChip, StateMessage, LoadMore,
   RichBody, formatDue, relativeTime
 } from '../shared/ListChrome'
 
@@ -191,31 +192,35 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
         // panel started with an unexplained header while the controls that
         // governed it sat on the page behind.
         toolbar={
+          // Dropdowns, not pills. Seven pills spent the width of the whole
+          // band on two choices, and the row read as a set of toggles rather
+          // than two questions with one answer each. antd Select, per the
+          // house rule — a native one renders the OS's own menu.
           <div style={{
             display: 'flex', alignItems: 'center',
             gap: 'var(--space-3)', flexWrap: 'wrap'
           }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
               <Label>Status</Label>
-              {STATUS_FILTERS.map(([id, label]) => (
-                <FilterChip
-                  key={id}
-                  label={label}
-                  active={status === id}
-                  onClick={() => setStatus(id)}
-                />
-              ))}
+              <Select
+                value={status}
+                onChange={setStatus}
+                options={STATUS_FILTERS.map(([value, label]) => ({ value, label }))}
+                popupClassName="pp-menu"
+                style={{ width: 150 }}
+                styles={{ root: { height: 34 } }}
+              />
             </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
               <Label>Due</Label>
-              {DUE_FILTERS.map(([id, label]) => (
-                <FilterChip
-                  key={id}
-                  label={label}
-                  active={dueFilter === id}
-                  onClick={() => setDueFilter(id)}
-                />
-              ))}
+              <Select
+                value={dueFilter}
+                onChange={setDueFilter}
+                options={DUE_FILTERS.map(([value, label]) => ({ value, label }))}
+                popupClassName="pp-menu"
+                style={{ width: 180 }}
+                styles={{ root: { height: 34 } }}
+              />
             </span>
           </div>
         }
