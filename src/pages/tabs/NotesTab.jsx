@@ -11,7 +11,7 @@ import { useLinkTargets } from '../../hooks/useLinkTargets'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import { noteColourStyle } from '../../utils/noteColour'
 import {
-  Shell, PageHeader, ContactChip, DealChip, RowAction,
+  Shell, Panel, ContactChip, DealChip, RowAction,
   PrimaryAction, NoteChip, StateMessage, LoadMore, RichBody, relativeTime,
   AttachmentCount
 } from '../shared/ListChrome'
@@ -136,9 +136,19 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
 
   return (
     <Shell>
-      <PageHeader
+      {/* One title, one control row — the same shape as the Tasks tab.
+          There was a PageHeader repeating the tab name with a subtitle
+          explaining what a note is, and the list below it in a second
+          container. */}
+      <Panel
+        icon="sticky_note_2"
         title="Notes"
-        subtitle="Agreed information, saved by you or the AI agent — every note also lands on its deal timeline"
+        accent="gold"
+        meta={
+          loading
+            ? null
+            : `${notes.length}${hasMore ? '+' : ''} ${notes.length === 1 ? 'note' : 'notes'}`
+        }
         action={
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <WorkFilters
@@ -155,25 +165,11 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
               ]}
             />
             <PrimaryAction onClick={() => setEditor({ note: null })} icon="add">
-            Add note
-          </PrimaryAction>
+              Add note
+            </PrimaryAction>
           </span>
         }
-      />
-
-      {/* A plain surface, not a Panel.
-          The Panel added a second header — "All notes" and a count — directly
-          under the page's own title and count, and the tab read as a page
-          inside a page. The controls live in the page header, like Contacts. */}
-      {/* The page IS the surface — no border, no radius, no inner box.
-          A bordered container inside a page that is already a container read
-          as a panel floating on a page; the notes should simply be the page.
-          In ROWS the separation comes from each row's own divider; in the GRID
-          from the cards themselves. */}
-      <div style={{
-        background: view === 'grid' ? 'transparent' : 'var(--surface-card)',
-        borderRadius: view === 'grid' ? 0 : 'var(--radius-lg)'
-      }}>
+      >
         <StateMessage
           loading={loading}
           error={error}
@@ -534,7 +530,7 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
             noun="note"
           />
         )}
-      </div>
+      </Panel>
 
       {editor && (
         <NoteEditor
