@@ -239,20 +239,13 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                       // same line. Without it a card with a description was
                       // taller than one without, and the row below started at
                       // a different depth for every column — the zig-zag.
-                      // MINIMUM height, not fixed.
+// No card min-height any more.
                       //
-                      // A hard 210px with overflow:hidden lined the cards up
-                      // and then CUT THE CONTROLS OFF — a card whose body
-                      // pushed the chips past 210px simply lost its edit and
-                      // delete buttons. RichBody also adds its own "Show plain
-                      // text" toggle on formatted notes, which I had not
-                      // counted.
-                      //
-                      // min-height keeps the row aligned for ordinary cards
-                      // and lets a taller one grow rather than swallow what a
-                      // rep needs to click. The body's 3-line clamp already
-                      // bounds the only part that can grow without limit.
-                      minHeight: 210,
+                      // The two reserved body lines are what align the row now,
+                      // and they do it from the content rather than a magic
+                      // number — a card with no body reserves the same two
+                      // lines as one with a paragraph. A 210px floor on top of
+                      // that only forced empty space onto short cards.
                       borderLeft: col.stripe
                         ? `3px solid ${col.stripe}`
                         : '1px solid var(--border-default)',
@@ -319,7 +312,11 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                     <AttachmentCount count={n.attachmentCount} />
                   </div>
 
-                  {rest && (
+                  {/* The body slot is ALWAYS rendered in a card, even when a
+                      note has none — two reserved lines is what makes every
+                      card the same height, which is the whole point. An empty
+                      note simply shows two lines of nothing. */}
+                  {(rest || view === 'grid') && (
                     <div style={{
                       marginTop: 3,
                       // CLAMPED in a card. The card has a fixed height so its
@@ -327,25 +324,36 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                       // overflowed past the border — visible as text running
                       // out of the bottom of the third card.
                       //
-                      // Three lines, then an ellipsis, then "Read note" to see
-                      // the whole thing. line-clamp needs display:-webkit-box
-                      // with an orientation; every browser we target honours
-                      // the prefixed form.
+                      // TWO lines, then an ellipsis, then "Read more" for the
+                      // rest. Two rather than three because the slot is
+                      // reserved on every card — three lines of reserved
+                      // emptiness on a note with no body is a lot of nothing.
+                      // line-clamp needs display:-webkit-box with an
+                      // orientation; every browser we target honours the
+                      // prefixed form.
                       ...(view === 'grid' ? {
                         display: '-webkit-box',
-                        WebkitLineClamp: 3,
+                        WebkitLineClamp: 2,
+                        // A fixed two-line box, not "up to two lines": a
+                        // one-line note would otherwise sit a line shorter
+                        // than its neighbours and the row would stagger again.
+                        // 1.5 leading x 2 lines, in the body's own size.
+                        minHeight: 'calc(var(--text-lg) * 1.5 * 2)',
                         WebkitBoxOrient: 'vertical',
                         overflow: 'hidden'
                       } : {})
                     }}>
                       {/* 14px body against the 17px heading. At 12px the note
                           text was smaller than the metadata line beneath it. */}
+                      {/* `rest` can be empty now the slot always renders —
+                          RichBody with no html would be an empty box, so the
+                          reserved height above carries it instead. */}
                       <RichBody
-                        html={rest}
+                        html={rest || ''}
                         color="var(--text-body)"
                         size="var(--text-lg)"
                         leading="var(--leading-normal)"
-                        // In a card the body is clamped and "Read note" opens
+                        // In a card the body is clamped and "Read more" opens
                         // the full text, so a second toggle is redundant — and
                         // it took the line that pushed edit and delete out of
                         // the card.
@@ -368,7 +376,9 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                       once formatted — was clamped with no way to read the
                       rest. Better to offer the link a little early than to
                       hide text behind an ellipsis with no way out. */}
-                  {view === 'grid' && htmlToText(rest || '').length > 90 && (
+                  {/* ~60 characters is about two lines at this width, which is
+                      where the clamp now bites. */}
+                  {view === 'grid' && htmlToText(rest || '').length > 60 && (
                     <button
                       onClick={(e) => { e.stopPropagation(); setReading(n) }}
                       style={{
@@ -379,7 +389,7 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                         cursor: 'pointer'
                       }}
                     >
-                      Read note
+                      Read more
                     </button>
                   )}
 

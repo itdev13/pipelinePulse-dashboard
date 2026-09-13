@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { htmlToText } from '../../utils/sanitiseHtml'
 import ViewSwitch from '../shared/ViewSwitch'
 import WorkFilters from '../shared/WorkFilters'
 import { tasksAPI } from '../../api/tasks'
@@ -305,10 +306,8 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                       // same line. Without it a card with a description was
                       // taller than one without, and the row below started at
                       // a different depth for every column — the zig-zag.
-                      // MINIMUM height — see NotesTab. A hard height cut the
-                      // edit and delete buttons off any card whose content ran
-                      // past it.
-                      minHeight: 210,
+                      // No min-height: the two reserved body lines align the
+                      // row from the content itself — see NotesTab.
                       borderRadius: 'var(--radius-md)',
                       background: 'var(--surface-card)'
                     }
@@ -371,15 +370,47 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                   {/* Muted, not near-black. Size alone wasn't enough — the two
                       lines sat at the same colour weight and read as one block
                       of text. */}
-                  {t.body && (
-                    <div style={{ marginTop: 3 }}>
+                  {/* Two reserved lines in a card — see NotesTab. The slot
+                      renders whether or not a task has a description, which is
+                      what makes every card in a row the same height. */}
+                  {(t.body || view === 'grid') && (
+                    <div style={{
+                      marginTop: 3,
+                      ...(view === 'grid' ? {
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        minHeight: 'calc(var(--text-md) * 1.5 * 2)'
+                      } : {})
+                    }}>
                       <RichBody
-                        html={t.body}
+                        html={t.body || ''}
                         size="var(--text-md)"
                         color="var(--text-muted)"
                         maxWidth={680}
+                        showPlainToggle={view !== 'grid'}
                       />
                     </div>
+                  )}
+
+                  {/* Opens the EDITOR, which already shows the whole
+                      description — a read-only modal here would be a second
+                      surface showing the same text, and a task's description
+                      is something a rep usually wants to change anyway. */}
+                  {view === 'grid' && htmlToText(t.body || '').length > 60 && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setEditor({ task: t }) }}
+                      style={{
+                        alignSelf: 'flex-start', marginTop: 2,
+                        border: 'none', background: 'none', padding: 0,
+                        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
+                        fontWeight: 600, color: 'var(--text-link)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Read more
+                    </button>
                   )}
 
                   <div
