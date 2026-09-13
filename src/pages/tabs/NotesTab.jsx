@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { htmlToText } from '../../utils/sanitiseHtml'
 import ViewSwitch from '../shared/ViewSwitch'
 import WorkFilters from '../shared/WorkFilters'
 import { useTabState } from '../../hooks/useTabState'
@@ -30,6 +32,9 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
   // Contact / deal filters. useTabState, not plain state: stepping out to a
   // deal or a contact and back should not discard them.
   const [filters, setFilters] = useTabState('notes', 'filters', {})
+
+  // The note open in the reader. Null = none.
+  const [reading, setReading] = useState(null)
 
   const fetchPage = useCallback(
     ({ cursor }) => notesAPI.list({
@@ -160,11 +165,14 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
           The Panel added a second header — "All notes" and a count — directly
           under the page's own title and count, and the tab read as a page
           inside a page. The controls live in the page header, like Contacts. */}
+      {/* The page IS the surface — no border, no radius, no inner box.
+          A bordered container inside a page that is already a container read
+          as a panel floating on a page; the notes should simply be the page.
+          In ROWS the separation comes from each row's own divider; in the GRID
+          from the cards themselves. */}
       <div style={{
-        background: 'var(--surface-card)',
-        border: '1px solid var(--border-default)',
-        borderRadius: 'var(--radius-lg)',
-        overflow: 'hidden'
+        background: view === 'grid' ? 'transparent' : 'var(--surface-card)',
+        borderRadius: view === 'grid' ? 0 : 'var(--radius-lg)'
       }}>
         <StateMessage
           loading={loading}
@@ -232,6 +240,11 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                       // taller than one without, and the row below started at
                       // a different depth for every column — the zig-zag.
                       height: 210,
+                      // A fixed height WITHOUT this spills: the border stops at
+                      // 210px and the content keeps going, which is the text
+                      // running out of the bottom of a card. The body is
+                      // clamped above; this catches everything else.
+                      overflow: 'hidden',
                       borderLeft: col.stripe
                         ? `3px solid ${col.stripe}`
                         : '1px solid var(--border-default)',
@@ -299,7 +312,24 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                   </div>
 
                   {rest && (
-                    <div style={{ marginTop: 3 }}>
+                    <div style={{
+                      marginTop: 3,
+                      // CLAMPED in a card. The card has a fixed height so its
+                      // row lines up, and without a clamp a long note simply
+                      // overflowed past the border — visible as text running
+                      // out of the bottom of the third card.
+                      //
+                      // Three lines, then an ellipsis, then "Read note" to see
+                      // the whole thing. line-clamp needs display:-webkit-box
+                      // with an orientation; every browser we target honours
+                      // the prefixed form.
+                      ...(view === 'grid' ? {
+                        display: '-webkit-box',
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden'
+                      } : {})
+                    }}>
                       {/* 14px body against the 17px heading. At 12px the note
                           text was smaller than the metadata line beneath it. */}
                       <RichBody
@@ -309,6 +339,29 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                         leading="var(--leading-normal)"
                       />
                     </div>
+                  )}
+
+                  {/* Only when there IS more to read — a two-line note needs
+                      no "read more", and offering one would be a control that
+                      shows what is already on screen. */}
+                  {/* Measured on the TEXT, not the HTML. rest.length counts
+                      markup, so a short note wrapped in tags could cross the
+                      threshold while a long plain one fell under it — the
+                      opposite of what the reader needs. ~3 lines at this width
+                      is roughly 120 characters. */}
+                  {view === 'grid' && htmlToText(rest || '').length > 120 && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setReading(n) }}
+                      style={{
+                        alignSelf: 'flex-start', marginTop: 2,
+                        border: 'none', background: 'none', padding: 0,
+                        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
+                        fontWeight: 600, color: 'var(--text-link)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Read note
+                    </button>
                   )}
 
                   <div style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)', marginTop: 4 }}>
@@ -461,6 +514,15 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
       {toast && (
         <Toast tone={toast.tone}>{toast.message}</Toast>
       )}
+
+      {/* READER — the whole note, rendered as it was written.
+          A clamped card shows three lines; this is where the rest lives.
+          Read-only: editing is the pencil, and a modal that both shows
+          and edits invites a rep to type into what they meant to read. */}
+      {reading && (
+        <NoteReader note={reading} onClose={() => setReading(null)} />
+      )}
+
     </Shell>
   )
 }
@@ -582,4 +644,100 @@ function splitNote(body) {
 function isAIAuthored(note) {
   const author = (note.author || '').toLowerCase()
   return author.includes('ai') || author.includes('deal hub') || author.includes('agent')
+}
+
+
+// A note, full text, in a modal.
+//
+// Portalled for the same reason every other overlay here is: the list sits
+// inside a bordered surface with its own overflow, which would clip this.
+function NoteReader({ note, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const derived = splitNote(note.body)
+  const heading = note.title || derived.title
+  const rest = note.title ? note.body : derived.rest
+
+  return createPortal(
+    // .pp-portal — tokens and the icon font are scoped to [data-dealhub].
+    <div
+      className="pp-portal"
+      role="dialog"
+      aria-modal="true"
+      aria-label={heading || 'Note'}
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(15, 23, 42, 0.32)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 'var(--space-4)'
+      }}
+    >
+      <div style={{
+        width: 'min(720px, 100%)', maxHeight: '80vh',
+        background: 'var(--surface-card)',
+        borderRadius: 'var(--radius-lg)',
+        display: 'flex', flexDirection: 'column',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.18)'
+      }}>
+        <header style={{
+          flex: 'none',
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+          gap: 'var(--space-3)', padding: 'var(--space-4)',
+          borderBottom: '1px solid var(--border-default)'
+        }}>
+          <h2 style={{
+            margin: 0, fontSize: 'var(--text-xl)', fontWeight: 600,
+            color: 'var(--text-heading)', letterSpacing: '-0.01em',
+            overflowWrap: 'anywhere'
+          }}>
+            {heading || 'Note'}
+          </h2>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 30, height: 30, flex: 'none',
+              border: '1px solid var(--border-default)', borderRadius: '50%',
+              background: 'transparent', color: 'var(--text-muted)',
+              cursor: 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 18 }}>close</span>
+          </button>
+        </header>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-4)' }}>
+          {rest
+            ? (
+              <RichBody
+                html={rest}
+                color="var(--text-body)"
+                size="var(--text-lg)"
+                leading="var(--leading-normal)"
+              />
+            )
+            : (
+              <p style={{ margin: 0, color: 'var(--text-faint)', fontSize: 'var(--text-lg)' }}>
+                This note has no body.
+              </p>
+            )}
+        </div>
+
+        <footer style={{
+          flex: 'none', padding: 'var(--space-3) var(--space-4)',
+          borderTop: '1px solid var(--border-default)',
+          fontSize: 'var(--text-base)', color: 'var(--text-muted)'
+        }}>
+          {[note.author, relativeTime(note.createdAt)].filter(Boolean).join(' · ')}
+        </footer>
+      </div>
+    </div>,
+    document.body
+  )
 }

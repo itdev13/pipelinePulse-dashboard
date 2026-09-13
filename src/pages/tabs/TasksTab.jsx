@@ -306,6 +306,11 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                       // taller than one without, and the row below started at
                       // a different depth for every column — the zig-zag.
                       height: 210,
+                      // A fixed height WITHOUT this spills: the border stops at
+                      // 210px and the content keeps going, which is the text
+                      // running out of the bottom of a card. The body is
+                      // clamped above; this catches everything else.
+                      overflow: 'hidden',
                       borderRadius: 'var(--radius-md)',
                       background: 'var(--surface-card)'
                     }
