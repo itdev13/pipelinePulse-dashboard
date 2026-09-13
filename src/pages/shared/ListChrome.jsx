@@ -45,6 +45,10 @@ export function Panel({
   count, countTitle,
   // Let the action slot grow — for an action that is a full control row.
   actionFill = false,
+  // Air between the header and the content. Off by default: a panel whose
+  // children are Rows wants them flush under the header line. A table or a
+  // card grid, whose own first row is another rule, wants the gap.
+  contentPad = false,
   // A single primary action, rendered IN the header beside `meta`.
   //
   // Distinct from `toolbar`, which draws its own band below the header —
@@ -139,7 +143,7 @@ export function Panel({
             // "Add task" button stays hugged to the right.
             flex: actionFill ? 1 : 'none',
             minWidth: 0,
-            display: 'flex', alignItems: 'center'
+            display: 'flex', alignItems: 'center', gap: 'var(--space-2)'
           }}>
             {action}
           </span>
@@ -164,7 +168,9 @@ export function Panel({
         </div>
       )}
 
-      {children}
+      <div style={{ paddingTop: contentPad ? 'var(--space-3)' : 0 }}>
+        {children}
+      </div>
     </section>
   )
 }

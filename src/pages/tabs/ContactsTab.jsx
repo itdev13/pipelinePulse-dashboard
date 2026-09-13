@@ -191,6 +191,7 @@ export default function ContactsTab({
         // and left the switch stranded mid-row. Tasks keeps its band because
         // it has two rows (Status and Due) that genuinely need their own line.
         actionFill
+        contentPad
         action={
           <>
           <DealToolbar
