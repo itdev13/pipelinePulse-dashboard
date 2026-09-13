@@ -4,7 +4,7 @@ import ContactTable from '../contacts/ContactTable'
 import ContactFilters, { activityParams, contactFilterLabels } from '../contacts/ContactFilters'
 import DealToolbar from '../deals/DealToolbar'
 import { savedViewsAPI } from '../../api/deals'
-import { FollowUpChips } from '../shared/ListChrome'
+import { FollowUpChips, Panel } from '../shared/ListChrome'
 import { contactsAPI } from '../../api/contacts'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
@@ -164,44 +164,20 @@ export default function ContactsTab({
         margin: '0 auto', padding: 'var(--space-4) 20px 28px'
       }}
     >
-      {/* Title and count only — the same shape as Tasks and Notes.
-          The subtitle explaining that edits sync to the CRM is said by the
-          Details panel on the record itself, where a rep is actually editing.
 
-          Not a Panel: the toolbar below is DealToolbar, which draws its own
-          bordered band, and a Panel around it would be a header above a
-          header. */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-        marginBottom: 10
-      }}>
-        <span className="ms" style={{ fontSize: 20, color: 'var(--accent-sky-text)' }}>
-          group
-        </span>
-        <h1 style={{
-          margin: 0, fontSize: 'var(--text-xl)', fontWeight: 600,
-          color: 'var(--accent-sky-text)', letterSpacing: '-0.01em'
-        }}>
-          Contacts
-        </h1>
-        {!loading && (
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            minWidth: 24, height: 22, padding: '0 8px', flex: 'none',
-            borderRadius: 'var(--radius-pill)',
-            background: 'var(--gray-100)',
-            fontSize: 'var(--text-base)', fontWeight: 600,
-            fontVariantNumeric: 'tabular-nums', color: 'var(--text-muted)'
-          }}>
-            {contacts.length}{hasMore ? '+' : ''}
-          </span>
-        )}
-      </div>
-
-      {/* Filters and saved views — the same toolbar the deals tab uses, so a
-          saved contacts view behaves identically to a saved deals view. */}
-      <div style={{ marginBottom: 14 }}>
-        <DealToolbar
+      {/* A Panel, like Tasks and Notes — the title, count and controls on one
+          header, with the toolbar in the panel's own band. It used to be a
+          bare heading on the page ground with a separate bordered toolbar
+          below, so Contacts was the one tab that did not look like the rest. */}
+      <Panel
+        icon="group"
+        title="Contacts"
+        accent="sky"
+        count={loading ? null : `${contacts.length}${hasMore ? '+' : ''}`}
+        toolbar={
+          <>
+          <DealToolbar
+            bare
           views={views}
           activeViewId={activeViewId}
           onSelectView={applyView}
@@ -221,8 +197,9 @@ export default function ContactsTab({
             setDirtyView(activeViewId)
           }}
           onClearAll={() => { setFilters({}); setActiveViewId(null); setDirtyView(null) }}
-          count={loading ? undefined : contacts.length}
-          countLabel="contacts"
+          // No count here — the panel's title badge carries it. Two counts a
+          // few pixels apart is one too many, and they disagreed the moment a
+          // filter narrowed the list.
           filterControl={
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
               <input
@@ -260,15 +237,17 @@ export default function ContactsTab({
             ]}
           />
         </DealToolbar>
-        {viewError && (
+          {viewError && (
           <p style={{
             margin: '8px 0 0', fontSize: 'var(--text-md)',
             color: 'var(--status-stuck-text)'
           }}>
             {viewError}
           </p>
-        )}
-      </div>
+          )}
+          </>
+        }
+      >
 
       {error && (
         <div
@@ -349,6 +328,7 @@ export default function ContactsTab({
           noun="contact"
         />
       )}
+      </Panel>
     </div>
   )
 }

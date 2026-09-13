@@ -145,6 +145,9 @@ export default function DealToolbar({
   // narrow the list, so it leads the row.
   // A saved view whose filters have been edited since it was applied.
   dirtyViewId, onUpdateView,
+  // Render without a border or radius — for a caller that already supplies
+  // the surface, such as a Panel's toolbar slot.
+  bare = false,
   filterControl,
   // Sits beside Filters. The pipeline picker lives here: it decides WHICH
   // deals are shown, the same question Filters answers — where the view
@@ -186,9 +189,14 @@ export default function DealToolbar({
       display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
       flexWrap: 'wrap',
       padding: '8px 14px',
-      background: 'var(--surface-card)',
-      border: '1px solid var(--border-default)',
-      borderRadius: 'var(--radius-lg)'
+      // `bare` drops the border and radius for a caller that already provides
+      // a surface — a Panel's toolbar band. Without it the toolbar drew its
+      // own rounded card inside the panel's, a box in a box.
+      ...(bare ? {} : {
+        background: 'var(--surface-card)',
+        border: '1px solid var(--border-default)',
+        borderRadius: 'var(--radius-lg)'
+      })
     }}>
       {/* CONTEXT — which pipeline, and how many deals it holds.
           Its own group, separated by a rule: it is not a control you set to
