@@ -339,7 +339,15 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                   }}
                 />
 
-                <div style={{ minWidth: 0, flex: 1 }}>
+                {/* A column that fills the stretched card — see NotesTab.
+                    Without it the content bunched at the top and left a ragged
+                    gap that differed on every card. */}
+                <div style={{
+                  minWidth: 0, flex: 1,
+                  ...(view === 'grid'
+                    ? { display: 'flex', flexDirection: 'column', alignSelf: 'stretch' }
+                    : {})
+                }}>
                   <button
                     onClick={() => t.deal && onOpenDeal && onOpenDeal(t.deal.id)}
                     title={t.deal ? 'Open this task on the deal hub' : undefined}
@@ -413,10 +421,15 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                     </button>
                   )}
 
+                  {/* Pinned to the card's floor in a grid, so the due date
+                      sits at the same depth on every card in the row — see
+                      NotesTab. */}
                   <div
                     style={{
                       display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-                      marginTop: 3, flexWrap: 'wrap'
+                      marginTop: view === 'grid' ? 'auto' : 3,
+                      paddingTop: view === 'grid' ? 6 : 0,
+                      flexWrap: 'wrap'
                     }}
                   >
                     {/* Overdue is COLOUR on the due date, not a separate pill.

@@ -11,7 +11,7 @@ import { useLinkTargets } from '../../hooks/useLinkTargets'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import { noteColourStyle } from '../../utils/noteColour'
 import {
-  Shell, PageHeader, ContactChip, DealChip, Chip, RowAction,
+  Shell, PageHeader, ContactChip, DealChip, RowAction,
   PrimaryAction, NoteChip, StateMessage, LoadMore, RichBody, relativeTime,
   AttachmentCount
 } from '../shared/ListChrome'
@@ -19,8 +19,8 @@ import {
 // Notes — v5.
 //
 // Changes from v4: "Add note" moves to the page header, the deal chip always
-// renders (showing "No deal" when unattached), "Make task" and Delete join the
-// row actions, and notes linked to this note appear as gold chips beneath.
+// renders (showing "No deal" when unattached), Delete joins the row actions,
+// and notes linked to this note appear as gold chips beneath.
 //
 // No search or sort control here — the v5 design has neither on this page. The
 // spec's "sort controls on list pages" applies elsewhere.
@@ -278,7 +278,18 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                   </span>
                 </span>
 
-                <div style={{ minWidth: 0, flex: 1 }}>
+                {/* In a CARD this is a column that fills the stretched
+                    height, so the metadata line can be pushed to the bottom.
+                    Grid already makes every card in a row as tall as the
+                    tallest; without this the content bunched at the top and
+                    left a ragged gap above the chips — different on every
+                    card, which is the misalignment. */}
+                <div style={{
+                  minWidth: 0, flex: 1,
+                  ...(view === 'grid'
+                    ? { display: 'flex', flexDirection: 'column', alignSelf: 'stretch' }
+                    : {})
+                }}>
                   <div
                     style={{
                       display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap'
@@ -393,7 +404,14 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                     </button>
                   )}
 
-                  <div style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)', marginTop: 4 }}>
+                  {/* marginTop:auto in a card — it sits on the card's floor
+                      whatever the body above it does, so the line is at the
+                      same depth in every card of the row. */}
+                  <div style={{
+                    fontSize: 'var(--text-base)', color: 'var(--text-muted)',
+                    marginTop: view === 'grid' ? 'auto' : 4,
+                    paddingTop: view === 'grid' ? 6 : 0
+                  }}>
                     {[n.author, relativeTime(n.createdAt)].filter(Boolean).join(' · ')}
                   </div>
                 </div>
@@ -428,12 +446,11 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                       n.deal && onOpenDeal ? () => onOpenDeal(n.deal.id) : undefined
                     }
                   />
-                  <Chip
-                    icon="task_alt"
-                    title="Create a task from this note — coming next"
-                  >
-                    Make task
-                  </Chip>
+                  {/* "Make task" removed. It was a chip with no onClick and a
+                      "coming next" tooltip — a control that looked live, sat on
+                      every note, and did nothing when clicked. The CRM has no
+                      equivalent either. If note-to-task is built later it
+                      belongs in the editor, not as a permanent dead chip. */}
                   <RowAction
                     icon="edit"
                     title="Edit this note"
