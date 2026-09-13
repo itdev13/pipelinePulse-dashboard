@@ -345,23 +345,6 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                   e.currentTarget.style.background = 'transparent'
                 }}
               >
-                {/* A tick, not a checkbox.
-                    A bare 17px checkbox says nothing about what ticking it
-                    does, and in a CARD it was a direct child of a column
-                    layout — so it stacked ABOVE the title on its own line and
-                    took a row of height on every card.
-                    In a row it sits where the checkbox did; in a card it moves
-                    to the actions corner, which is why it is rendered there
-                    instead. */}
-                {view !== 'grid' && (
-                  <CompleteToggle
-                    done={done}
-                    busy={saving.has(t.id)}
-                    label={t.title || 'task'}
-                    onToggle={() => toggle(t)}
-                  />
-                )}
-
                 {/* Complete, edit and delete — top-right, the same corner the
                     note cards use. They used to trail the chips at the card's
                     bottom, which put them in a different place depending on
@@ -537,6 +520,23 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                     flex: 'none'
                   }}
                 >
+                  {/* A tick, not a checkbox — a bare 17px box says nothing
+                      about what ticking it does.
+
+                      It sits with the chips on the RIGHT, not at the head of
+                      the row. Leading the row it indented every title behind a
+                      140px control, so no task name started at the row's left
+                      edge and the list lost the column a reader scans down.
+                      The card view already groups it with its actions. */}
+                  {view !== 'grid' && (
+                    <CompleteToggle
+                      done={done}
+                      busy={saving.has(t.id)}
+                      label={t.title || 'task'}
+                      onToggle={() => toggle(t)}
+                    />
+                  )}
+
                   {/* GHL names a new opportunity after its contact, so the
                       contact chip and the deal chip below routinely printed the
                       same string twice — "james stevens" then "James Stevens".
