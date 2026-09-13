@@ -78,12 +78,17 @@ const SEARCH_PAGE = 20
 // Omitting it keeps the old location-wide behaviour, which is what the deals
 // list itself wants.
 export function searchDeals(q, { contactId } = {}) {
-  return dealsAPI.list({ status: 'all', q, limit: SEARCH_PAGE, contactId })
+  // `q` is OMITTED when empty rather than sent as q='' — the picker now
+  // fetches a first page before anything is typed, and an empty param is a
+  // filter the server has to reason about rather than a request for the
+  // unfiltered list.
+  return dealsAPI.list({ status: 'all', ...(q ? { q } : {}), limit: SEARCH_PAGE, contactId })
     .then((r) => (r?.deals || []).map(dealOption))
 }
 
 export function searchBusinesses(q) {
-  return businessesAPI.list({ q, limit: SEARCH_PAGE })
+  // Empty `q` omitted — see searchDeals.
+  return businessesAPI.list({ ...(q ? { q } : {}), limit: SEARCH_PAGE })
     .then((r) => (r?.businesses || []).map(businessOption))
 }
 

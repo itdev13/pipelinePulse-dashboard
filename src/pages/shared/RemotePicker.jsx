@@ -37,6 +37,10 @@ export default function RemotePicker({
   // Options to show before anything is typed: whatever the caller already has
   // loaded. The common case then needs no request at all.
   seed = [],
+  // Load a first page before anything is typed. DEFAULTS ON, matching
+  // ContactPicker — a picker that shows nothing until you guess a search term
+  // is a dead end. Pass false where an empty list is genuinely correct.
+  showInitial = true,
   placeholder,
   disabled = false,
   allowClear = true,
@@ -56,7 +60,12 @@ export default function RemotePicker({
 
   useEffect(() => {
     const q = query.trim()
-    if (!q) {
+    // An empty query still FETCHES when showInitial is set.
+    //
+    // Without it the dropdown opened on "Type to search", which is a dead end
+    // for a rep who does not know what is in the CRM — the same problem the
+    // contact picker had, and the same fix, under the same prop name.
+    if (!q && !showInitial) {
       setResults([])
       setLoading(false)
       setError(false)
@@ -75,7 +84,7 @@ export default function RemotePicker({
         .finally(() => { if (id === reqId.current) setLoading(false) })
     }, DEBOUNCE_MS)
     return () => window.clearTimeout(t)
-  }, [query, search])
+  }, [query, search, showInitial])
 
   const options = useMemo(() => {
     const seen = new Set()
@@ -121,9 +130,10 @@ export default function RemotePicker({
             ? 'Could not search — try again'
             : query.trim()
               ? emptyText
-              // Before anything is typed with no seed, "no matches" would be a
-              // lie: nothing has been searched yet.
-              : 'Type to search'
+              // Reached only when the initial fetch itself came back empty,
+              // since showInitial now loads a first page. "Type to search"
+              // would be a dead end.
+              : showInitial ? 'Nothing to choose from yet' : 'Type to search'
       }
     />
   )
