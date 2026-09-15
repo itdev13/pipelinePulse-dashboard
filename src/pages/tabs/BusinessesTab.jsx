@@ -228,7 +228,10 @@ function BusinessCard({ business: b, onOpen, view = 'rows' }) {
         flexDirection: view === 'grid' ? 'column' : 'row',
         gap: view === 'grid' ? 10 : 11
       }}>
-        {view !== 'grid' && (
+        {/* ROWS only. Down a dense list the glyph is a left rail that marks
+            where each record starts; in a card it just pushes the name right
+            for something the tab, the card and the name have each said. */}
+        {view === 'rows' && (
           <span
             className="ms"
             style={{
@@ -315,33 +318,14 @@ function BusinessCard({ business: b, onOpen, view = 'rows' }) {
           )}
         </span>
 
-        {/* The card wrapper is a COLUMN, so the chips and the affordance are
-            siblings on separate lines unless they share a row of their own —
-            which is why the old arrow floated alone under the chips with
-            nothing beside it. A row puts them on one line and lets "Open"
-            sit hard right. */}
+        {/* No "Open" affordance in a card: the whole card is the button and
+            it hovers, so a label repeating that is chrome on every tile for
+            something the click already does. The ROW keeps its arrow — down a
+            dense list the right edge is where the eye looks for "this goes
+            somewhere". */}
         {view === 'grid' ? (
-          <span style={{
-            display: 'flex', alignItems: 'center', gap: 8, width: '100%'
-          }}>
-            <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', minWidth: 0 }}>
-              {chips}
-            </span>
-            {/* A labelled affordance, not a bare glyph: an arrow on its own
-                says "there is more" without saying where. aria-hidden because
-                the card itself is the button and already announces the name. */}
-            <span
-              aria-hidden="true"
-              style={{
-                marginLeft: 'auto', flex: 'none',
-                display: 'inline-flex', alignItems: 'center', gap: 4,
-                fontSize: 'var(--text-sm)', fontWeight: 600,
-                color: 'var(--accent-sky-text)'
-              }}
-            >
-              Open
-              <span className="ms" style={{ fontSize: 16 }}>arrow_forward</span>
-            </span>
+          <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', width: '100%' }}>
+            {chips}
           </span>
         ) : (
           // Chips and arrow are one group, centred on the TITLE's line rather

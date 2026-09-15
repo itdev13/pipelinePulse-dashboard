@@ -108,7 +108,10 @@ export default function ContactsTab({
     setDirtyView(null)
     const v = views.find((x) => x.id === id)
     const f = { ...(v?.filters || {}) }
-    if (f.view) { setView(f.view); delete f.view }
+    // `view` is NOT restored — it is the layout (cards / table), not a filter,
+    // and forcing it threw a rep out of the view they were working in. Old
+    // views still carry the key, so it is deleted rather than trusted.
+    delete f.view
     setFilters(f)
     if (f.q !== undefined) { setQ(f.q || ''); setSearch(f.q || '') }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -119,7 +122,9 @@ export default function ContactsTab({
       const r = await savedViewsAPI.save({
         scope: 'contacts',
         name,
-        filters: { ...filters, ...(search ? { q: search } : {}), view }
+        // No `view`: a saved view is a set of FILTERS. The layout is a
+        // per-rep preference that outlives any one view — see applyView.
+        filters: { ...filters, ...(search ? { q: search } : {}) }
       })
       // Replace by id so re-saving a name updates its tab rather than adding
       // a second one — the server upserts, and the list must agree.
@@ -130,7 +135,7 @@ export default function ContactsTab({
       setViewError(e.message || 'That view could not be saved')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, search, view])
+  }, [filters, search])
 
   const deleteView = useCallback(async (id) => {
     try {

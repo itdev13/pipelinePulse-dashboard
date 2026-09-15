@@ -184,9 +184,12 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
     setDirtyView(null)
     const v = views.find((x) => x.id === id)
     const f = { ...(v?.filters || {}) }
-    // `view` rides along in a saved view but is the display mode, not a
-    // filter — it is pulled out before the rest reach the query.
-    if (f.view) { setView(f.view); delete f.view }
+    // `view` is NOT restored. It is the layout (board / table / cards), not a
+    // filter, and forcing it threw a rep out of the view they were working in:
+    // saving "Hot deals" from the board and later applying it from the table
+    // snapped them back to the board. Old views still carry the key, so it is
+    // deleted rather than trusted.
+    delete f.view
     setFilters(f)
     if (f.q !== undefined) { setQ(f.q || ''); setSearch(f.q || '') }
     // setQ/setSearch are stable useState setters; React guarantees their
@@ -198,7 +201,9 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
     try {
       const r = await savedViewsAPI.save({
         name,
-        filters: { ...filters, ...(search ? { q: search } : {}), view }
+        // No `view`: a saved view is a set of FILTERS. The layout is a
+        // per-rep preference that outlives any one view — see applyView.
+        filters: { ...filters, ...(search ? { q: search } : {}) }
       })
       // Replace by id so re-saving a name updates its tab rather than adding
       // a second one — the server upserts, and the list must agree.
@@ -211,7 +216,7 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
     } catch (e) {
       setRefError(e.message || 'That view could not be saved')
     }
-  }, [filters, search, view])
+  }, [filters, search])
 
   const deleteView = useCallback(async (id) => {
     try {
