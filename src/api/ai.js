@@ -6,12 +6,15 @@ export const aiAPI = {
   // `images` are a question aid, not evidence — the server states that boundary
   // to the model, and validate.js still requires a message quote for every
   // claim. Each is { mediaType, data } with data as bare base64.
-  ask: (dealId, { question, history = [], channels = null, images = [] }) =>
+  ask: (dealId, {
+    question, history = [], channels = null, images = [], conversationId = null
+  }) =>
     apiClient.post(`/api/ai/deals/${encodeURIComponent(dealId)}/ask`, {
       question,
       history,
       channels,
-      images
+      images,
+      conversationId
     }),
   runMessages: (runId) =>
     apiClient.get(`/api/ai/runs/${encodeURIComponent(runId)}/messages`),

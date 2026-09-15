@@ -113,6 +113,10 @@ export default function AskDeal({
   // panel resumable across reloads.
   const [history, setHistory] = useState([])
   const [activeChatId, setActiveChatId] = useState(null)
+  // The conversation the live transcript belongs to. null = the next question
+  // starts a new one. Sent with every follow-up so the server keeps the turns
+  // together instead of logging each question as its own thread.
+  const [conversationId, setConversationId] = useState(null)
   const [toast, setToast] = useState(null)
   // Per-question channel scope. Transient: narrows this answer only.
   const [channels, setChannels] = useState([])
@@ -379,6 +383,7 @@ export default function AskDeal({
     setError(null)
     setQ('')
     setActiveChatId(null)
+    setConversationId(null)
     setHistory([])
     setChannels([])
     setInspectRunId(null)
@@ -389,24 +394,42 @@ export default function AskDeal({
   // Reopen a past chat into the live transcript. It becomes the conversation,
   // so a follow-up carries its context.
   const reopen = (chat) => {
-    setTurns([
-      { role: 'user', content: chat.question },
-      {
-        role: 'assistant',
-        answerText: chat.answerText,
-        citations: chat.citations || [],
-        confidence: chat.confidence,
-        answered: chat.answered,
-        coverage: chat.coverage,
-        cached: true,
-        runId: chat.id,
-        readMessageIds: chat.readMessageIds || []
-      }
-    ])
-    setActiveChatId(chat.id)
+    const turnsIn = chat.turns?.length ? chat.turns : [chat]
+    setTurns(
+      turnsIn.flatMap((t) => [
+        { role: 'user', content: t.question },
+        {
+          role: 'assistant',
+          answerText: t.answerText,
+          citations: t.citations || [],
+          confidence: t.confidence,
+          answered: t.answered,
+          coverage: t.coverage,
+          cached: true,
+          runId: t.id,
+          readMessageIds: t.readMessageIds || []
+        }
+      ])
+    )
+    setActiveChatId(chat.conversationId || chat.id)
+    // Continue THIS thread: the next question appends to it rather than
+    // starting a third conversation beside it.
+    setConversationId(chat.conversationId || null)
     setError(null)
-    setToast('Chat reopened')
+    setToast(
+      turnsIn.length > 1 ? `Chat reopened — ${turnsIn.length} turns` : 'Chat reopened'
+    )
     window.setTimeout(() => setToast(null), 2200)
+  }
+
+  // Start a fresh conversation. The transcript clears and the next question
+  // opens a new thread — the rail keeps everything that came before.
+  const newChat = () => {
+    setTurns([])
+    setConversationId(null)
+    setActiveChatId(null)
+    setError(null)
+    setQ('')
   }
 
   useEffect(() => {
@@ -456,6 +479,7 @@ export default function AskDeal({
     try {
       const res = await aiAPI.ask(dealId, {
         question: value,
+        conversationId,
         history,
         channels: channels.length ? channels : null
         ,
@@ -477,6 +501,9 @@ export default function AskDeal({
         }
       ])
       setActiveChatId(res.runId)
+      // The server generates one when we send none — hold it so the NEXT
+      // question continues this thread rather than opening another.
+      if (res.conversationId) setConversationId(res.conversationId)
       // The answer is now a resumable chat — pull it into the list.
       loadHistory()
     } catch (err) {
@@ -587,6 +614,29 @@ export default function AskDeal({
           <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
             {history.length} {history.length === 1 ? 'chat' : 'chats'}
           </span>
+          <button
+            onClick={newChat}
+            disabled={turns.length === 0}
+            title={
+              turns.length === 0
+                ? 'Already on a new chat'
+                : 'Start a fresh conversation — this one stays in the history'
+            }
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              height: 28, padding: '0 11px',
+              border: '1px solid var(--border-strong)',
+              borderRadius: 'var(--radius-pill)',
+              background: '#fff',
+              color: turns.length === 0 ? 'var(--text-faint)' : 'var(--text-body)',
+              fontFamily: 'var(--font-sans)',
+              fontSize: 'var(--text-sm)', fontWeight: 600,
+              cursor: turns.length === 0 ? 'default' : 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 15 }}>add</span>
+            New chat
+          </button>
         </header>
 
         {/* flex:1 + minHeight:0 lets the list shrink below its content height.
@@ -1161,12 +1211,23 @@ function ChatHistory({ chats, activeId, onReopen, onInspect }) {
     <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
       <div style={{ display: 'grid', gap: 6 }}>
           {chats.map((c) => {
-            const active = c.id === activeId
+            // A conversation, not a single run. The row still shows one
+            // question and one answer, so derive them: the title is the
+            // opening question, the preview is the LATEST answer — that is
+            // where the thread actually got to.
+            const turns = c.turns || []
+            const last = turns[turns.length - 1] || c
+            const convKey = c.conversationId || c.id
+            const question = c.title || c.question
+            const answerText = last.answerText
+            const askedAt = c.lastAt || last.askedAt || c.askedAt
+            const turnCount = c.turnCount || turns.length || 1
+            const active = convKey === activeId
             return (
               <button
-                key={c.id}
+                key={convKey}
                 onClick={() => onReopen(c)}
-                title={`${c.question} — click to reopen`}
+                title={`${question} — ${turnCount} turn${turnCount === 1 ? '' : 's'} — click to reopen`}
                 style={{
                   display: 'grid', gap: 4,
                   cursor: 'pointer', width: '100%', textAlign: 'left',
@@ -1197,7 +1258,7 @@ function ChatHistory({ chats, activeId, onReopen, onInspect }) {
                     WebkitBoxOrient: 'vertical', overflow: 'hidden'
                   }}
                 >
-                  {c.question}
+                  {question}
                 </span>
 
                 <span
@@ -1207,7 +1268,7 @@ function ChatHistory({ chats, activeId, onReopen, onInspect }) {
                     WebkitBoxOrient: 'vertical', overflow: 'hidden'
                   }}
                 >
-                  {c.answerText}
+                  {answerText}
                 </span>
 
                 {/* Time and message count on one quiet line. These were two
@@ -1220,7 +1281,20 @@ function ChatHistory({ chats, activeId, onReopen, onInspect }) {
                     fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
                   }}
                 >
-                  <span>{askedAtLabel(c.askedAt)}</span>
+                  <span>{askedAtLabel(askedAt)}</span>
+                  {turnCount > 1 && (
+                    <span
+                      title={`${turnCount} questions in this conversation`}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 3,
+                        marginLeft: 6,
+                        fontWeight: 600, color: 'var(--accent-teal-text)'
+                      }}
+                    >
+                      <span className="ms" style={{ fontSize: 13 }}>forum</span>
+                      {turnCount}
+                    </span>
+                  )}
                   {c.readMessageIds?.length > 0 && (
                     <>
                       <span aria-hidden>·</span>
@@ -1228,10 +1302,10 @@ function ChatHistory({ chats, activeId, onReopen, onInspect }) {
                         role="button"
                         tabIndex={0}
                         title="See exactly which messages this answer read"
-                        onClick={(e) => { e.stopPropagation(); onInspect(c.id) }}
+                        onClick={(e) => { e.stopPropagation(); onInspect(last.id) }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault(); e.stopPropagation(); onInspect(c.id)
+                            e.preventDefault(); e.stopPropagation(); onInspect(last.id)
                           }
                         }}
                         style={{
