@@ -695,22 +695,29 @@ export default function AskDeal({
                 textAlign: 'center'
               }}
             >
+              {/* A gradient disc with a soft halo, not a flat tinted circle.
+                  This is the first thing a rep sees on a deal they have not
+                  asked about yet — it should read as a capability, not as an
+                  empty-state placeholder. */}
               <span
                 style={{
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  width: 52, height: 52,
+                  width: 60, height: 60,
                   borderRadius: 'var(--radius-pill)',
-                  background: 'var(--tint-teal)', color: 'var(--accent-teal-text)'
+                  background: 'linear-gradient(135deg, var(--green-500) 0%, var(--accent-teal) 100%)',
+                  color: '#fff',
+                  boxShadow: '0 6px 20px rgba(22, 133, 95, 0.28)'
                 }}
               >
-                <span className="ms" style={{ fontSize: 26 }}>forum</span>
+                <span className="ms" style={{ fontSize: 30 }}>auto_awesome</span>
               </span>
 
               <div>
                 <p
                   style={{
                     margin: 0,
-                    fontSize: 'var(--text-xl)', fontWeight: 600,
+                    fontSize: 'var(--text-2xl)', fontWeight: 600,
+                    letterSpacing: '-0.02em',
                     color: 'var(--text-heading)'
                   }}
                 >
@@ -743,7 +750,11 @@ export default function AskDeal({
                     key={icon}
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: 6,
-                      fontSize: 'var(--text-base)', color: 'var(--text-muted)'
+                      height: 28, padding: '0 12px',
+                      borderRadius: 'var(--radius-pill)',
+                      background: 'var(--gray-50)',
+                      border: '1px solid var(--border-default)',
+                      fontSize: 'var(--text-base)', color: 'var(--text-body)'
                     }}
                   >
                     <span
@@ -872,18 +883,25 @@ export default function AskDeal({
             }}
             style={{
               display: 'grid', gap: 'var(--space-2)',
-              padding: '12px 14px',
-              // 2px and a brand-tinted ring on focus. A 1px hairline round the
-              // most-used control on the panel read as faint — this is the
-              // "bold, vibrant" the client asked for.
+              padding: '14px 16px',
+              // A pill, not a card. The composer is the one control a rep
+              // returns to after every answer, and the square-cornered box
+              // read as a form field among other form fields rather than as
+              // the place you talk to the thing.
               border: dragging
                 ? '2px dashed var(--brand-primary)'
-                : `2px solid ${composerFocused ? 'var(--brand-primary)' : 'var(--border-strong)'}`,
-              borderRadius: 'var(--radius-lg)',
+                : `1.5px solid ${composerFocused ? 'var(--brand-primary)' : 'var(--border-default)'}`,
+              borderRadius: 26,
               background: dragging ? 'var(--tint-pine)' : '#fff',
-              boxShadow: composerFocused || dragging
+              // Lifted on focus rather than ringed. The 4px ring read as an
+              // error state on a green-accented page; a shadow that deepens
+              // says "active" without borrowing a warning colour.
+              boxShadow: dragging
                 ? '0 0 0 4px rgba(22, 133, 95, 0.12)'
-                : 'var(--shadow-card)',
+                : composerFocused
+                  ? '0 4px 18px rgba(31, 36, 48, 0.10), 0 1px 3px rgba(31, 36, 48, 0.06)'
+                  : '0 1px 3px rgba(31, 36, 48, 0.07)',
+              transition: 'box-shadow 160ms ease, border-color 160ms ease',
               cursor: 'text'
             }}
           >
@@ -1091,22 +1109,30 @@ function PromptChip({ prompt, onPick }) {
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6,
         cursor: 'pointer',
-        height: 34, padding: '0 13px 0 10px',
+        height: 36, padding: '0 14px 0 11px',
         border: '1px solid var(--border-strong)',
         borderRadius: 'var(--radius-pill)',
         background: '#fff',
         fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
         fontWeight: 500,
         color: 'var(--text-body)',
-        transition: 'background 0.15s ease-out, border-color 0.15s ease-out'
+        boxShadow: '0 1px 2px rgba(31, 36, 48, 0.05)',
+        transition: 'background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease'
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.background = tint
         e.currentTarget.style.borderColor = accent
+        e.currentTarget.style.boxShadow = '0 3px 10px rgba(31, 36, 48, 0.12)'
+        e.currentTarget.style.transform = 'translateY(-1px)'
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = '#fff'
-        e.currentTarget.style.borderColor = 'var(--border-default)'
+        // --border-strong, matching the initial style. It restored
+        // --border-default, so every chip faded a shade permanently after the
+        // first hover and the row slowly lost its definition.
+        e.currentTarget.style.borderColor = 'var(--border-strong)'
+        e.currentTarget.style.boxShadow = '0 1px 2px rgba(31, 36, 48, 0.05)'
+        e.currentTarget.style.transform = 'none'
       }}
     >
       <span className="ms" style={{ fontSize: 18, color: accent }}>{prompt.icon}</span>
