@@ -2613,3 +2613,17 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* Co-Pilot — the portfolio tab's two-column layout.
+ *
+ * The conversation fills the viewport so the composer pins to the bottom, but
+ * that only works while the two columns sit side by side. Below 900px the
+ * grid collapses to one column and the rail stacks UNDER the conversation —
+ * a fixed viewport height there would squeeze both into a few scrolling
+ * inches. Height goes back to auto and the page scrolls normally. */
+@media (max-width: 900px) {
+  [data-dealhub] .pp-copilot-layout {
+    grid-template-columns: 1fr !important;
+    height: auto !important;
+  }
+}

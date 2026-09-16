@@ -161,15 +161,26 @@ export default function CopilotTab({ onOpenDeal }) {
       >
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(0, 3fr) minmax(280px, 1fr)',
-          gap: 14, padding: 14, alignItems: 'start'
-        }}>
+          gridTemplateColumns: 'minmax(0, 1fr) minmax(280px, 340px)',
+          gap: 14, padding: 14,
+          // Fill what is left of the viewport under the shell's own chrome,
+          // rather than a fixed box with dead space beneath it.
+          height: 'calc(100vh - 210px)', minHeight: 460,
+          alignItems: 'stretch'
+        }}
+        // At narrow widths the rail stacks under the conversation, and a fixed
+        // viewport height would squeeze both into a few scrolling inches.
+        className="pp-copilot-layout"
+        >
           {/* ── the conversation ─────────────────────────────────── */}
-          <div style={{ minWidth: 0, display: 'grid', gap: 12 }}>
+          <div style={{
+            minWidth: 0, display: 'grid', gap: 12,
+            gridTemplateRows: '1fr auto', minHeight: 0
+          }}>
             <div
               ref={scrollRef}
               style={{
-                minHeight: 320, maxHeight: 520, overflowY: 'auto',
+                minHeight: 0, overflowY: 'auto',
                 display: 'grid', gap: 12, alignContent: 'start'
               }}
             >
@@ -177,18 +188,24 @@ export default function CopilotTab({ onOpenDeal }) {
                 <EmptyState onPick={(starter) => submit(starter)} />
               )}
 
-              {turns.map((t, i) => (
-                t.role === 'user'
-                  ? <UserTurn key={i} text={t.content} />
-                  : <AnswerTurn key={i} turn={t} onOpenDeal={onOpenDeal} />
-              ))}
+              <div style={{
+                width: '100%', maxWidth: 760, margin: '0 auto',
+                display: 'grid', gap: 12, alignContent: 'start'
+              }}>
+                {turns.map((t, i) => (
+                  t.role === 'user'
+                    ? <UserTurn key={i} text={t.content} />
+                    : <AnswerTurn key={i} turn={t} onOpenDeal={onOpenDeal} />
+                ))}
 
-              {pending && <Thinking />}
+                {pending && <Thinking />}
+              </div>
             </div>
 
             {error && (
               <p style={{
-                margin: 0, padding: '10px 13px',
+                margin: '0 auto', width: '100%', maxWidth: 760,
+                padding: '10px 13px',
                 borderRadius: 'var(--radius-md)',
                 background: 'var(--tint-rose)', color: 'var(--status-stuck-text)',
                 fontSize: 'var(--text-md)'
@@ -197,19 +214,22 @@ export default function CopilotTab({ onOpenDeal }) {
               </p>
             )}
 
-            <Composer
-              value={q}
-              onChange={setQ}
-              onSubmit={() => submit()}
-              pending={pending}
-            />
+            <div style={{ width: '100%', maxWidth: 760, margin: '0 auto' }}>
+              <Composer
+                value={q}
+                onChange={setQ}
+                onSubmit={() => submit()}
+                pending={pending}
+              />
+            </div>
           </div>
 
           {/* ── chat history ─────────────────────────────────────── */}
           <section style={{
             border: '1px solid var(--border-default)',
             borderRadius: 'var(--radius-md)',
-            background: '#fff', overflow: 'hidden'
+            background: '#fff', overflow: 'hidden',
+            display: 'grid', gridTemplateRows: 'auto 1fr', minHeight: 0
           }}>
             <header style={{
               display: 'flex', alignItems: 'center', gap: 8,
@@ -236,7 +256,7 @@ export default function CopilotTab({ onOpenDeal }) {
                 Questions you ask here are kept, so you can pick a thread back up.
               </p>
             ) : (
-              <div style={{ maxHeight: 460, overflowY: 'auto' }}>
+              <div style={{ minHeight: 0, overflowY: 'auto' }}>
                 {history.map((c) => (
                   <button
                     key={c.conversationId}
@@ -284,7 +304,10 @@ function EmptyState({ onPick }) {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', gap: 12, padding: '40px 16px', textAlign: 'center'
+      justifyContent: 'center', gap: 12, padding: '40px 16px', textAlign: 'center',
+      // Fills the scroller so the invitation sits in the middle of the space
+      // rather than clinging to the top of a now much taller area.
+      minHeight: '100%'
     }}>
       <span style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
