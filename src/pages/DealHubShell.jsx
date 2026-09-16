@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import DealHubTab from './tabs/DealHubTab'
 import DealsTab from './tabs/DealsTab'
+import CopilotTab from './tabs/CopilotTab'
 import BusinessesTab from './tabs/BusinessesTab'
 import ContactsTab from './tabs/ContactsTab'
 import TasksTab from './tabs/TasksTab'
@@ -26,6 +27,7 @@ import { useAuth } from '../context/AuthContext'
 // deals, contacts and conversations that every tab after it shows one slice of.
 const TABS = [
   { id: 'hub',        label: 'Deal hub',     icon: 'space_dashboard' },
+  { id: 'copilot',    label: 'Co-Pilot',     icon: 'auto_awesome' },
   { id: 'businesses', label: 'Businesses',   icon: 'domain' },
   { id: 'deals',      label: 'Deals',        icon: 'sell' },
   { id: 'contacts',   label: 'Contacts',     icon: 'group' },
@@ -426,6 +428,13 @@ export default function DealHubShell() {
             // THIS deal's editor already expanded, rather than making the rep
             // find the row again.
             onEditDealRecord={(id) => { setEditDealId(id); navigate({ tab: 'deals' }) }}
+          />
+        )}
+        {activeTab === 'copilot' && (
+          <CopilotTab
+            // Clicking a deal chip or citation opens it in the hub, which is
+            // where a rep goes to check an answer.
+            onOpenDeal={openDeal}
           />
         )}
         {activeTab === 'deals' && (

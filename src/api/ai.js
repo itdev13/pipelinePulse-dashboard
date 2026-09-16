@@ -16,6 +16,10 @@ export const aiAPI = {
       images,
       conversationId
     }),
+  // Portfolio — one question across every deal in the sub-account.
+  askPortfolio: ({ question, history = [], conversationId = null }) =>
+    apiClient.post('/api/ai/portfolio/ask', { question, history, conversationId }),
+  portfolioHistory: () => apiClient.get('/api/ai/portfolio/ask/history'),
   runMessages: (runId) =>
     apiClient.get(`/api/ai/runs/${encodeURIComponent(runId)}/messages`),
   feedback: (runId, payload) =>
