@@ -161,7 +161,7 @@ export default function CopilotTab({ onOpenDeal }) {
       >
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1fr) minmax(280px, 340px)',
+          gridTemplateColumns: 'minmax(280px, 340px) minmax(0, 1fr)',
           gap: 14, padding: 14,
           // Fill what is left of the viewport under the shell's own chrome,
           // rather than a fixed box with dead space beneath it.
@@ -172,58 +172,6 @@ export default function CopilotTab({ onOpenDeal }) {
         // viewport height would squeeze both into a few scrolling inches.
         className="pp-copilot-layout"
         >
-          {/* ── the conversation ─────────────────────────────────── */}
-          <div style={{
-            minWidth: 0, display: 'grid', gap: 12,
-            gridTemplateRows: '1fr auto', minHeight: 0
-          }}>
-            <div
-              ref={scrollRef}
-              style={{
-                minHeight: 0, overflowY: 'auto',
-                display: 'grid', gap: 12, alignContent: 'start'
-              }}
-            >
-              {empty && !pending && (
-                <EmptyState onPick={(starter) => submit(starter)} />
-              )}
-
-              <div style={{
-                width: '100%', maxWidth: 760, margin: '0 auto',
-                display: 'grid', gap: 12, alignContent: 'start'
-              }}>
-                {turns.map((t, i) => (
-                  t.role === 'user'
-                    ? <UserTurn key={i} text={t.content} />
-                    : <AnswerTurn key={i} turn={t} onOpenDeal={onOpenDeal} />
-                ))}
-
-                {pending && <Thinking />}
-              </div>
-            </div>
-
-            {error && (
-              <p style={{
-                margin: '0 auto', width: '100%', maxWidth: 760,
-                padding: '10px 13px',
-                borderRadius: 'var(--radius-md)',
-                background: 'var(--tint-rose)', color: 'var(--status-stuck-text)',
-                fontSize: 'var(--text-md)'
-              }}>
-                {error}
-              </p>
-            )}
-
-            <div style={{ width: '100%', maxWidth: 760, margin: '0 auto' }}>
-              <Composer
-                value={q}
-                onChange={setQ}
-                onSubmit={() => submit()}
-                pending={pending}
-              />
-            </div>
-          </div>
-
           {/* ── chat history ─────────────────────────────────────── */}
           <section style={{
             border: '1px solid var(--border-default)',
@@ -294,6 +242,58 @@ export default function CopilotTab({ onOpenDeal }) {
               </div>
             )}
           </section>
+
+          {/* ── the conversation ─────────────────────────────────── */}
+          <div style={{
+            minWidth: 0, display: 'grid', gap: 12,
+            gridTemplateRows: '1fr auto', minHeight: 0
+          }}>
+            <div
+              ref={scrollRef}
+              style={{
+                minHeight: 0, overflowY: 'auto',
+                display: 'grid', gap: 12, alignContent: 'start'
+              }}
+            >
+              {empty && !pending && (
+                <EmptyState onPick={(starter) => submit(starter)} />
+              )}
+
+              <div style={{
+                width: '100%', maxWidth: 760, margin: '0 auto',
+                display: 'grid', gap: 12, alignContent: 'start'
+              }}>
+                {turns.map((t, i) => (
+                  t.role === 'user'
+                    ? <UserTurn key={i} text={t.content} />
+                    : <AnswerTurn key={i} turn={t} onOpenDeal={onOpenDeal} />
+                ))}
+
+                {pending && <Thinking />}
+              </div>
+            </div>
+
+            {error && (
+              <p style={{
+                margin: '0 auto', width: '100%', maxWidth: 760,
+                padding: '10px 13px',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--tint-rose)', color: 'var(--status-stuck-text)',
+                fontSize: 'var(--text-md)'
+              }}>
+                {error}
+              </p>
+            )}
+
+            <div style={{ width: '100%', maxWidth: 760, margin: '0 auto' }}>
+              <Composer
+                value={q}
+                onChange={setQ}
+                onSubmit={() => submit()}
+                pending={pending}
+              />
+            </div>
+          </div>
         </div>
       </Panel>
     </Shell>
