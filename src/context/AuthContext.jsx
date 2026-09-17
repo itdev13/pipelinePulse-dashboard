@@ -3,7 +3,7 @@ import { useGHLContext } from '../hooks/useGHLContext'
 import { authAPI } from '../api/auth'
 import { setCurrency } from '../utils/format'
 
-export const AuthContext = createContext(null)
+const AuthContext = createContext(null)
 
 export const useAuth = () => {
   const ctx = useContext(AuthContext)
