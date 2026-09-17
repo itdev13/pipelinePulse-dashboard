@@ -180,16 +180,16 @@ export default function CopilotTab({ onOpenDeal }) {
         matches that rather than sitting in the app's usual padded card.
         DealHubShell's tab-strip <header> is sticky and ~60px tall with its
         own padding, so that (not Panel's now-removed header) is the only
-        offset the height calc needs to clear. */}
-    //
-    // ONE grid, both states: the sidebar is a normal grid column throughout,
-    // and the greeting/composer center in the room actually left beside it
-    // — not on the full window's midpoint. An earlier version made the
-    // sidebar overlay the content so the greeting could center on the true
-    // window width instead, matching the GHL reference more literally, but
-    // that reads as off-center relative to what's actually visible next to
-    // the sidebar. Simpler and correct: same column layout as the populated
-    // state, just with different content on the right.
+        offset the height calc needs to clear.
+
+        ONE grid, both states: the sidebar is a normal grid column throughout,
+        and the greeting/composer center in the room actually left beside it
+        — not on the full window's midpoint. An earlier version made the
+        sidebar overlay the content so the greeting could center on the true
+        window width instead, matching the GHL reference more literally, but
+        that reads as off-center relative to what's actually visible next to
+        the sidebar. Simpler and correct: same column layout as the populated
+        state, just with different content on the right. */}
     <div
       className="pp-copilot-layout"
       style={{
