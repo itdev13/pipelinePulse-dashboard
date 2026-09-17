@@ -335,7 +335,7 @@ function Sidebar({
         </button>
       </header>
 
-      <nav style={{ display: 'grid', gap: 2, padding: '0 8px' }}>
+      <nav style={{ display: 'grid', gap: 6, padding: '0 8px' }}>
         <SidebarButton
           icon="edit_square" label="New chat" collapsed={collapsed}
           disabled={empty} onClick={onNewChat}
@@ -419,13 +419,13 @@ function SidebarButton({ icon, label, collapsed, disabled, onClick, title }) {
       disabled={disabled}
       title={title}
       style={{
-        display: 'flex', alignItems: 'center', gap: 10,
+        display: 'flex', alignItems: 'center', gap: 12,
         justifyContent: collapsed ? 'center' : 'flex-start',
-        height: 34, padding: collapsed ? 0 : '0 10px',
+        height: 40, padding: collapsed ? 0 : '0 10px',
         border: 'none', borderRadius: 'var(--radius-sm)',
         background: 'transparent',
         color: disabled ? 'var(--text-faint)' : 'var(--text-body)',
-        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 500,
+        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
         cursor: disabled ? 'default' : 'pointer'
       }}
     >
