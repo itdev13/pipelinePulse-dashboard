@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { aiAPI } from '../../api/ai'
 import { dealsAPI } from '../../api/deals'
-import { Shell, Panel } from '../shared/ListChrome'
 import { useTabState } from '../../hooks/useTabState'
 import { useAuth } from '../../context/AuthContext'
 
@@ -151,107 +150,101 @@ export default function CopilotTab({ onOpenDeal }) {
   const empty = turns.length === 0
 
   return (
-    <Shell maxWidth="none">
-      <Panel
-        icon="auto_awesome"
-        title="Co-Pilot"
-        accent="plum"
-        meta="Every deal in this sub-account"
-      >
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: `${sidebarCollapsed ? 64 : 280}px minmax(0, 1fr)`,
-          gap: 14, padding: 14,
-          // Fill what is left of the viewport under the shell's own chrome,
-          // rather than a fixed box with dead space beneath it.
-          height: 'calc(100vh - 210px)', minHeight: 460,
-          alignItems: 'stretch',
-          transition: 'grid-template-columns 160ms ease'
-        }}
-        // At narrow widths the rail stacks under the conversation, and a fixed
-        // viewport height would squeeze both into a few scrolling inches.
-        className="pp-copilot-layout"
-        >
-          <Sidebar
-            collapsed={sidebarCollapsed}
-            onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
-            empty={empty}
-            onNewChat={newChat}
-            history={history}
-            conversationId={conversationId}
-            onReopen={reopen}
-          />
+    // Full-bleed, no Shell/Panel margin or card frame — GHL's Co-Pilot runs
+    // flush to the window edges under its own top bar, and this tab now
+    // matches that rather than sitting in the app's usual padded card.
+    // DealHubShell's tab-strip <header> is sticky and ~60px tall with its
+    // own padding, so that (not Panel's now-removed header) is the only
+    // offset the height calc needs to clear.
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: `${sidebarCollapsed ? 64 : 280}px minmax(0, 1fr)`,
+      height: 'calc(100vh - 61px)', minHeight: 460,
+      alignItems: 'stretch',
+      transition: 'grid-template-columns 160ms ease'
+    }}
+    // At narrow widths the rail stacks under the conversation, and a fixed
+    // viewport height would squeeze both into a few scrolling inches.
+    className="pp-copilot-layout"
+    >
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
+        empty={empty}
+        onNewChat={newChat}
+        history={history}
+        conversationId={conversationId}
+        onReopen={reopen}
+      />
 
-          {/* ── the conversation ─────────────────────────────────── */}
+      {/* ── the conversation ─────────────────────────────────── */}
+      <div style={{
+        minWidth: 0, display: 'grid', gap: 12, padding: 14,
+        gridTemplateRows: '1fr auto', minHeight: 0
+      }}>
+        {/* Empty state: the greeting sits directly above the composer as
+            one centered group, not centered independently in the whole
+            scroll area above it — that left it stranded far from the
+            input, with a much bigger gap than the GHL reference's
+            tighter pairing. */}
+        {empty && !pending ? (
           <div style={{
-            minWidth: 0, display: 'grid', gap: 12,
-            gridTemplateRows: '1fr auto', minHeight: 0
+            minHeight: 0, display: 'flex', alignItems: 'flex-end',
+            justifyContent: 'center', paddingBottom: 20
           }}>
-            {/* Empty state: the greeting sits directly above the composer as
-                one centered group, not centered independently in the whole
-                scroll area above it — that left it stranded far from the
-                input, with a much bigger gap than the GHL reference's
-                tighter pairing. */}
-            {empty && !pending ? (
-              <div style={{
-                minHeight: 0, display: 'flex', alignItems: 'flex-end',
-                justifyContent: 'center', paddingBottom: 20
-              }}>
-                <p style={{
-                  margin: 0, textAlign: 'center',
-                  fontSize: 'var(--text-3xl)', fontWeight: 600,
-                  letterSpacing: '-0.02em', color: 'var(--text-heading)'
-                }}>
-                  What's on your mind{firstName ? `, ${firstName}` : ''}?
-                </p>
-              </div>
-            ) : (
-              <div
-                ref={scrollRef}
-                style={{
-                  minHeight: 0, overflowY: 'auto',
-                  display: 'grid', gap: 12, alignContent: 'start'
-                }}
-              >
-                <div style={{
-                  width: '100%', maxWidth: 760, margin: '0 auto',
-                  display: 'grid', gap: 12, alignContent: 'start'
-                }}>
-                  {turns.map((t, i) => (
-                    t.role === 'user'
-                      ? <UserTurn key={i} text={t.content} />
-                      : <AnswerTurn key={i} turn={t} onOpenDeal={onOpenDeal} />
-                  ))}
+            <p style={{
+              margin: 0, textAlign: 'center',
+              fontSize: 'var(--text-3xl)', fontWeight: 600,
+              letterSpacing: '-0.02em', color: 'var(--text-heading)'
+            }}>
+              What's on your mind{firstName ? `, ${firstName}` : ''}?
+            </p>
+          </div>
+        ) : (
+          <div
+            ref={scrollRef}
+            style={{
+              minHeight: 0, overflowY: 'auto',
+              display: 'grid', gap: 12, alignContent: 'start'
+            }}
+          >
+            <div style={{
+              width: '100%', maxWidth: 760, margin: '0 auto',
+              display: 'grid', gap: 12, alignContent: 'start'
+            }}>
+              {turns.map((t, i) => (
+                t.role === 'user'
+                  ? <UserTurn key={i} text={t.content} />
+                  : <AnswerTurn key={i} turn={t} onOpenDeal={onOpenDeal} />
+              ))}
 
-                  {pending && <Thinking />}
-                </div>
-              </div>
-            )}
-
-            {error && (
-              <p style={{
-                margin: '0 auto', width: '100%', maxWidth: 760,
-                padding: '10px 13px',
-                borderRadius: 'var(--radius-md)',
-                background: 'var(--tint-rose)', color: 'var(--status-stuck-text)',
-                fontSize: 'var(--text-md)'
-              }}>
-                {error}
-              </p>
-            )}
-
-            <div style={{ width: '100%', maxWidth: 760, margin: '0 auto' }}>
-              <Composer
-                value={q}
-                onChange={setQ}
-                onSubmit={() => submit()}
-                pending={pending}
-              />
+              {pending && <Thinking />}
             </div>
           </div>
+        )}
+
+        {error && (
+          <p style={{
+            margin: '0 auto', width: '100%', maxWidth: 760,
+            padding: '10px 13px',
+            borderRadius: 'var(--radius-md)',
+            background: 'var(--tint-rose)', color: 'var(--status-stuck-text)',
+            fontSize: 'var(--text-md)'
+          }}>
+            {error}
+          </p>
+        )}
+
+        <div style={{ width: '100%', maxWidth: 760, margin: '0 auto' }}>
+          <Composer
+            value={q}
+            onChange={setQ}
+            onSubmit={() => submit()}
+            pending={pending}
+          />
         </div>
-      </Panel>
-    </Shell>
+      </div>
+    </div>
   )
 }
 
@@ -269,9 +262,11 @@ function Sidebar({
   collapsed, onToggleCollapsed, empty, onNewChat, history, conversationId, onReopen
 }) {
   return (
+    // Flat, flush to the conversation pane — a right-edge divider rather
+    // than a bordered/rounded card, matching the GHL reference's edge-to-edge
+    // look now that the whole tab has dropped its outer card frame too.
     <section style={{
-      border: '1px solid var(--border-default)',
-      borderRadius: 'var(--radius-md)',
+      borderRight: '1px solid var(--border-default)',
       background: 'var(--gray-25)', overflow: 'hidden',
       display: 'grid', gridTemplateRows: 'auto auto auto 1fr', minHeight: 0
     }}>
@@ -592,11 +587,33 @@ function Composer({ value, onChange, onSubmit, pending }) {
         style={{
           flex: 1, minWidth: 0,
           minHeight: 26, maxHeight: 140, resize: 'none',
-          border: 'none', outline: 'none', background: 'transparent', padding: 0,
+          // The pill itself IS the focus ring (its border goes green above).
+          // A bare <textarea> still paints its own native focus ring in
+          // Chrome via box-shadow, which outline:none alone does not touch —
+          // that showed as a second, inner green-ish rectangle. All three
+          // reset explicitly so nothing native survives.
+          appearance: 'none', WebkitAppearance: 'none',
+          border: 'none', outline: 'none', boxShadow: 'none',
+          background: 'transparent', padding: 0,
           fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)',
           lineHeight: 1.45, color: 'var(--text-heading)'
         }}
       />
+      {/* Placeholder, matching the GHL reference — no voice input wired up
+          yet, same status as Search/Templates/Customize in the sidebar. */}
+      <button
+        disabled
+        title="Voice input — coming soon"
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 34, height: 34, flex: 'none',
+          border: 'none', borderRadius: '50%',
+          background: 'transparent', color: 'var(--text-faint)',
+          cursor: 'default'
+        }}
+      >
+        <span className="ms" style={{ fontSize: 19 }}>mic</span>
+      </button>
       <button
         onClick={onSubmit}
         disabled={pending || !value.trim()}
