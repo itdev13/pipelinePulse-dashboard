@@ -171,6 +171,13 @@ export default function CopilotTab({ onOpenDeal }) {
     //    the sidebar rather than running toward/under it.
     <div style={{
       position: 'relative',
+      // The whole tab now sits directly on [data-dealhub]'s page background
+      // (grey — every other tab needs that for its cards to sit on), which
+      // showed through both halves once this tab dropped its own card frame.
+      // White here, under everything: the sidebar's own var(--gray-25)
+      // still paints over its portion, so only the conversation side reads
+      // as white.
+      background: '#fff',
       height: 'calc(100vh - 61px)', minHeight: 460
     }}>
       {showEmpty ? (
