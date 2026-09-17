@@ -159,131 +159,103 @@ export default function CopilotTab({ onOpenDeal }) {
     // own padding, so that (not Panel's now-removed header) is the only
     // offset the height calc needs to clear.
     //
-    // Two different relationships between the sidebar and the content,
-    // deliberately:
-    //  - EMPTY state: the greeting centers on the WHOLE window, matching the
-    //    GHL reference exactly — so the sidebar has to overlay it rather
-    //    than share a grid track, or "centered" would mean centered in the
-    //    leftover space next to the sidebar, which sits visibly off from
-    //    the page's true center.
-    //  - Once a conversation exists: back to a normal two-column grid, so
-    //    turns and the composer sit in the room actually available beside
-    //    the sidebar rather than running toward/under it.
-    <div style={{
-      position: 'relative',
-      // The whole tab now sits directly on [data-dealhub]'s page background
-      // (grey — every other tab needs that for its cards to sit on), which
-      // showed through both halves once this tab dropped its own card frame.
-      // White here, under everything: the sidebar's own var(--gray-25)
-      // still paints over its portion, so only the conversation side reads
-      // as white.
-      background: '#fff',
-      height: 'calc(100vh - 61px)', minHeight: 460
-    }}>
-      {showEmpty ? (
-        <>
-          {/* Overlays the full-width layer below rather than sharing a grid
-              track with it, so the greeting centers on the true page width. */}
-          <Sidebar
-            collapsed={sidebarCollapsed}
-            onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
-            empty={empty}
-            onNewChat={newChat}
-            history={history}
-            conversationId={conversationId}
-            onReopen={reopen}
-            style={{ position: 'absolute', insetBlock: 0, left: 0, zIndex: 1 }}
-          />
+    // ONE grid, both states: the sidebar is a normal grid column throughout,
+    // and the greeting/composer center in the room actually left beside it
+    // — not on the full window's midpoint. An earlier version made the
+    // sidebar overlay the content so the greeting could center on the true
+    // window width instead, matching the GHL reference more literally, but
+    // that reads as off-center relative to what's actually visible next to
+    // the sidebar. Simpler and correct: same column layout as the populated
+    // state, just with different content on the right.
+    <div
+      className="pp-copilot-layout"
+      style={{
+        display: 'grid',
+        gridTemplateColumns: `${sidebarCollapsed ? 64 : 280}px minmax(0, 1fr)`,
+        // The whole tab sits directly on [data-dealhub]'s page background
+        // (grey — every other tab needs that for its cards to sit on), which
+        // showed through once this tab dropped its own card frame. White
+        // here, under everything: the sidebar's own var(--gray-25) still
+        // paints over its own column, so only the conversation side reads
+        // as white.
+        background: '#fff',
+        height: 'calc(100vh - 61px)', minHeight: 460,
+        alignItems: 'stretch',
+        transition: 'grid-template-columns 160ms ease'
+      }}
+    >
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
+        empty={empty}
+        onNewChat={newChat}
+        history={history}
+        conversationId={conversationId}
+        onReopen={reopen}
+      />
+
+      {/* ── the conversation ─────────────────────────────────── */}
+      <div style={{
+        minWidth: 0, display: 'grid', gap: 12, padding: 14,
+        gridTemplateRows: '1fr auto', minHeight: 0
+      }}>
+        {showEmpty ? (
           <div style={{
-            height: '100%', display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center'
+            minHeight: 0, display: 'flex', alignItems: 'flex-end',
+            justifyContent: 'center', paddingBottom: 20
           }}>
             <p style={{
-              margin: '0 0 20px', textAlign: 'center',
+              margin: 0, textAlign: 'center',
               fontSize: 'var(--text-3xl)', fontWeight: 600,
               letterSpacing: '-0.02em', color: 'var(--text-heading)'
             }}>
               What's on your mind{firstName ? `, ${firstName}` : ''}?
             </p>
-            <div style={{ width: '100%', maxWidth: 760, padding: '0 20px' }}>
-              <Composer
-                value={q}
-                onChange={setQ}
-                onSubmit={() => submit()}
-                pending={pending}
-              />
+          </div>
+        ) : (
+          <div
+            ref={scrollRef}
+            style={{
+              minHeight: 0, overflowY: 'auto',
+              display: 'grid', gap: 12, alignContent: 'start'
+            }}
+          >
+            <div style={{
+              width: '100%', maxWidth: 760, margin: '0 auto',
+              display: 'grid', gap: 12, alignContent: 'start'
+            }}>
+              {turns.map((t, i) => (
+                t.role === 'user'
+                  ? <UserTurn key={i} text={t.content} />
+                  : <AnswerTurn key={i} turn={t} onOpenDeal={onOpenDeal} />
+              ))}
+
+              {pending && <Thinking />}
             </div>
           </div>
-        </>
-      ) : (
-        <div
-          className="pp-copilot-layout"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: `${sidebarCollapsed ? 64 : 280}px minmax(0, 1fr)`,
-            height: '100%', alignItems: 'stretch',
-            transition: 'grid-template-columns 160ms ease'
-          }}
-        >
-          <Sidebar
-            collapsed={sidebarCollapsed}
-            onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
-            empty={empty}
-            onNewChat={newChat}
-            history={history}
-            conversationId={conversationId}
-            onReopen={reopen}
-          />
+        )}
 
-          {/* ── the conversation ─────────────────────────────────── */}
-          <div style={{
-            minWidth: 0, display: 'grid', gap: 12, padding: 14,
-            gridTemplateRows: '1fr auto', minHeight: 0
+        {error && (
+          <p style={{
+            margin: '0 auto', width: '100%', maxWidth: 760,
+            padding: '10px 13px',
+            borderRadius: 'var(--radius-md)',
+            background: 'var(--tint-rose)', color: 'var(--status-stuck-text)',
+            fontSize: 'var(--text-md)'
           }}>
-            <div
-              ref={scrollRef}
-              style={{
-                minHeight: 0, overflowY: 'auto',
-                display: 'grid', gap: 12, alignContent: 'start'
-              }}
-            >
-              <div style={{
-                width: '100%', maxWidth: 760, margin: '0 auto',
-                display: 'grid', gap: 12, alignContent: 'start'
-              }}>
-                {turns.map((t, i) => (
-                  t.role === 'user'
-                    ? <UserTurn key={i} text={t.content} />
-                    : <AnswerTurn key={i} turn={t} onOpenDeal={onOpenDeal} />
-                ))}
+            {error}
+          </p>
+        )}
 
-                {pending && <Thinking />}
-              </div>
-            </div>
-
-            {error && (
-              <p style={{
-                margin: '0 auto', width: '100%', maxWidth: 760,
-                padding: '10px 13px',
-                borderRadius: 'var(--radius-md)',
-                background: 'var(--tint-rose)', color: 'var(--status-stuck-text)',
-                fontSize: 'var(--text-md)'
-              }}>
-                {error}
-              </p>
-            )}
-
-            <div style={{ width: '100%', maxWidth: 760, margin: '0 auto' }}>
-              <Composer
-                value={q}
-                onChange={setQ}
-                onSubmit={() => submit()}
-                pending={pending}
-              />
-            </div>
-          </div>
+        <div style={{ width: '100%', maxWidth: 760, margin: '0 auto' }}>
+          <Composer
+            value={q}
+            onChange={setQ}
+            onSubmit={() => submit()}
+            pending={pending}
+          />
         </div>
-      )}
+      </div>
     </div>
   )
 }
