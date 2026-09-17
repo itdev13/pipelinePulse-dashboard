@@ -200,61 +200,78 @@ export default function CopilotTab({ onOpenDeal }) {
         gridTemplateRows: '1fr auto', minHeight: 0
       }}>
         {showEmpty ? (
+          // Spans BOTH rows and centers the greeting + composer as one
+          // group. Splitting them across the 1fr/auto rows (as the
+          // populated state does) put the greeting at the bottom of the
+          // tall 1fr row, with the composer's own row adding further
+          // height below it — landing the pair near the bottom of the
+          // whole column instead of centered in it.
           <div style={{
-            minHeight: 0, display: 'flex', alignItems: 'flex-end',
-            justifyContent: 'center', paddingBottom: 20
+            gridRow: '1 / -1', minHeight: 0,
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center'
           }}>
             <p style={{
-              margin: 0, textAlign: 'center',
+              margin: '0 0 20px', textAlign: 'center',
               fontSize: 'var(--text-3xl)', fontWeight: 600,
               letterSpacing: '-0.02em', color: 'var(--text-heading)'
             }}>
               What's on your mind{firstName ? `, ${firstName}` : ''}?
             </p>
-          </div>
-        ) : (
-          <div
-            ref={scrollRef}
-            style={{
-              minHeight: 0, overflowY: 'auto',
-              display: 'grid', gap: 12, alignContent: 'start'
-            }}
-          >
-            <div style={{
-              width: '100%', maxWidth: 760, margin: '0 auto',
-              display: 'grid', gap: 12, alignContent: 'start'
-            }}>
-              {turns.map((t, i) => (
-                t.role === 'user'
-                  ? <UserTurn key={i} text={t.content} />
-                  : <AnswerTurn key={i} turn={t} onOpenDeal={onOpenDeal} />
-              ))}
-
-              {pending && <Thinking />}
+            <div style={{ width: '100%', maxWidth: 760 }}>
+              <Composer
+                value={q}
+                onChange={setQ}
+                onSubmit={() => submit()}
+                pending={pending}
+              />
             </div>
           </div>
-        )}
+        ) : (
+          <>
+            <div
+              ref={scrollRef}
+              style={{
+                minHeight: 0, overflowY: 'auto',
+                display: 'grid', gap: 12, alignContent: 'start'
+              }}
+            >
+              <div style={{
+                width: '100%', maxWidth: 760, margin: '0 auto',
+                display: 'grid', gap: 12, alignContent: 'start'
+              }}>
+                {turns.map((t, i) => (
+                  t.role === 'user'
+                    ? <UserTurn key={i} text={t.content} />
+                    : <AnswerTurn key={i} turn={t} onOpenDeal={onOpenDeal} />
+                ))}
 
-        {error && (
-          <p style={{
-            margin: '0 auto', width: '100%', maxWidth: 760,
-            padding: '10px 13px',
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--tint-rose)', color: 'var(--status-stuck-text)',
-            fontSize: 'var(--text-md)'
-          }}>
-            {error}
-          </p>
-        )}
+                {pending && <Thinking />}
+              </div>
+            </div>
 
-        <div style={{ width: '100%', maxWidth: 760, margin: '0 auto' }}>
-          <Composer
-            value={q}
-            onChange={setQ}
-            onSubmit={() => submit()}
-            pending={pending}
-          />
-        </div>
+            {error && (
+              <p style={{
+                margin: '0 auto', width: '100%', maxWidth: 760,
+                padding: '10px 13px',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--tint-rose)', color: 'var(--status-stuck-text)',
+                fontSize: 'var(--text-md)'
+              }}>
+                {error}
+              </p>
+            )}
+
+            <div style={{ width: '100%', maxWidth: 760, margin: '0 auto' }}>
+              <Composer
+                value={q}
+                onChange={setQ}
+                onSubmit={() => submit()}
+                pending={pending}
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
