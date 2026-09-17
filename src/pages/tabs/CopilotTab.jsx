@@ -417,7 +417,7 @@ function SidebarButton({ icon, label, collapsed, disabled, onClick, title }) {
       style={{
         display: 'flex', alignItems: 'center', gap: 12,
         justifyContent: collapsed ? 'center' : 'flex-start',
-        height: 40, padding: collapsed ? 0 : '0 10px',
+        height: 32, padding: collapsed ? 0 : '0 10px',
         border: 'none', borderRadius: 'var(--radius-sm)',
         background: 'transparent',
         color: disabled ? 'var(--text-faint)' : 'var(--text-body)',
