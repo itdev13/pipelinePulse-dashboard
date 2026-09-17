@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { aiAPI } from '../../api/ai'
+import { dealsAPI } from '../../api/deals'
 import { Shell, Panel } from '../shared/ListChrome'
 import { useTabState } from '../../hooks/useTabState'
+import { useAuth } from '../../context/AuthContext'
 
 // Co-Pilot — one question across EVERY deal in the sub-account.
 //
@@ -13,18 +15,13 @@ import { useTabState } from '../../hooks/useTabState'
 // matter, then those threads in full — so a claim about what someone SAID
 // still carries a verbatim quote, exactly as it does on a deal.
 
-const STARTERS = [
-  { icon: 'trending_down', label: 'Which deals are stalling?',
-    q: 'Which open deals have been sitting in their current stage the longest, and what should we do about them?' },
-  { icon: 'notifications_off', label: 'Who has gone quiet?',
-    q: 'Which deals have had no inbound reply from the customer recently? Name the deal and when they last replied.' },
-  { icon: 'rule', label: 'Missing qualification',
-    q: 'Which open deals have the most qualification headings still empty?' },
-  { icon: 'payments', label: 'Pipeline by stage',
-    q: 'Break the open pipeline down by stage — how many deals and how much value in each?' },
-  { icon: 'handshake', label: 'Outstanding promises',
-    q: 'Across the open deals, what have we promised the customer that we have not yet delivered?' }
-]
+// GHL stores user names however they were typed — same reasoning as the
+// Deal Hub's own titleCase (src/pages/dealhub/DealSection.jsx): title-case
+// for display only, never for matching.
+function titleCase(v) {
+  if (!v) return v
+  return String(v).replace(/\b[a-z]/g, (ch) => ch.toUpperCase())
+}
 
 export default function CopilotTab({ onOpenDeal }) {
   // Remembered like every other tab's state — stepping into a deal to check an
@@ -37,6 +34,25 @@ export default function CopilotTab({ onOpenDeal }) {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState(null)
   const scrollRef = useRef(null)
+
+  // The greeting's first name. The session only carries the GHL user id
+  // (server/routes/auth.js never resolves a name), so it's looked up against
+  // the same location-wide users list the Owner picker uses — one request,
+  // only on this tab, only for reps who open Co-Pilot.
+  const { session } = useAuth()
+  const [firstName, setFirstName] = useState(null)
+  useEffect(() => {
+    const userId = session?.user?.id
+    if (!userId) return
+    dealsAPI.users()
+      .then((r) => {
+        const match = (r?.users || []).find((u) => u.id === userId)
+        if (match?.name) setFirstName(titleCase(match.name).split(' ')[0])
+      })
+      // No name is a silent fallback to the generic greeting, not an error
+      // worth surfacing — this is cosmetic.
+      .catch(() => {})
+  }, [session?.user?.id])
 
   const loadHistory = useCallback(() => {
     aiAPI.portfolioHistory()
@@ -54,8 +70,8 @@ export default function CopilotTab({ onOpenDeal }) {
 
   // Declared below the state it closes over — `const` is not hoisted, and a
   // callback reading `turns` from above throws on first render.
-  const submit = async (override) => {
-    const value = String(override ?? q).trim()
+  const submit = async () => {
+    const value = q.trim()
     if (!value || pending) return
     setQ('')
     setError(null)
@@ -256,7 +272,7 @@ export default function CopilotTab({ onOpenDeal }) {
               }}
             >
               {empty && !pending && (
-                <EmptyState onPick={(starter) => submit(starter)} />
+                <EmptyState firstName={firstName} />
               )}
 
               <div style={{
@@ -300,63 +316,25 @@ export default function CopilotTab({ onOpenDeal }) {
   )
 }
 
-function EmptyState({ onPick }) {
+// Matches the GHL Copilot new-tab greeting: a single centered line, no icon
+// badge, no description, no starter chips. The composer below it (rendered
+// by the parent, same as the answered state) is the only other element on
+// screen — the whole empty state is just "here's the question box".
+function EmptyState({ firstName }) {
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', gap: 12, padding: '40px 16px', textAlign: 'center',
-      // Fills the scroller so the invitation sits in the middle of the space
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '40px 16px', textAlign: 'center',
+      // Fills the scroller so the greeting sits in the middle of the space
       // rather than clinging to the top of a now much taller area.
       minHeight: '100%'
     }}>
-      <span style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: 60, height: 60, borderRadius: 'var(--radius-pill)',
-        background: 'linear-gradient(135deg, var(--accent-plum) 0%, var(--accent-sky) 100%)',
-        color: '#fff', boxShadow: '0 6px 20px rgba(123, 92, 201, 0.28)'
+      <p style={{
+        margin: 0, fontSize: 'var(--text-3xl)', fontWeight: 600,
+        letterSpacing: '-0.02em', color: 'var(--text-heading)'
       }}>
-        <span className="ms" style={{ fontSize: 30 }}>auto_awesome</span>
-      </span>
-      <div>
-        <p style={{
-          margin: 0, fontSize: 'var(--text-2xl)', fontWeight: 600,
-          letterSpacing: '-0.02em', color: 'var(--text-heading)'
-        }}>
-          Ask across every deal
-        </p>
-        <p style={{
-          margin: '5px auto 0', maxWidth: 430,
-          fontSize: 'var(--text-md)', color: 'var(--text-muted)'
-        }}>
-          Questions about the whole pipeline, not one deal. Start with a
-          suggestion or type your own.
-        </p>
-      </div>
-      <div style={{
-        display: 'flex', flexWrap: 'wrap', gap: 8,
-        justifyContent: 'center', maxWidth: 620
-      }}>
-        {STARTERS.map((s) => (
-          <button
-            key={s.label}
-            onClick={() => onPick(s.q)}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 7,
-              height: 36, padding: '0 14px 0 11px',
-              border: '1px solid var(--border-strong)',
-              borderRadius: 'var(--radius-pill)',
-              background: '#fff', color: 'var(--text-body)',
-              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
-              cursor: 'pointer'
-            }}
-          >
-            <span className="ms" style={{ fontSize: 17, color: 'var(--accent-plum-text)' }}>
-              {s.icon}
-            </span>
-            {s.label}
-          </button>
-        ))}
-      </div>
+        What's on your mind{firstName ? `, ${firstName}` : ''}?
+      </p>
     </div>
   )
 }
