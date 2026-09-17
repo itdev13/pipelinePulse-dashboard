@@ -331,7 +331,7 @@ function Sidebar({
         </button>
       </header>
 
-      <nav style={{ display: 'grid', gap: 6, padding: '0 8px' }}>
+      <nav style={{ display: 'grid', gap: 1, padding: '0 8px' }}>
         <SidebarButton
           icon="edit_square" label="New chat" collapsed={collapsed}
           disabled={empty} onClick={onNewChat}
@@ -438,7 +438,7 @@ function HistoryEmptyState({ onNewChat }) {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center',
-      textAlign: 'center', gap: 8, padding: '24px 16px',
+      textAlign: 'center', gap: 8, padding: '72px 16px 24px',
       borderTop: '1px solid var(--border-default)'
     }}>
       <p style={{
