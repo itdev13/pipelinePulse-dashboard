@@ -149,6 +149,8 @@ export default function CopilotTab({ onOpenDeal }) {
 
   const empty = turns.length === 0
 
+  const showEmpty = empty && !pending
+
   return (
     // Full-bleed, no Shell/Panel margin or card frame — GHL's Co-Pilot runs
     // flush to the window edges under its own top bar, and this tab now
@@ -156,40 +158,37 @@ export default function CopilotTab({ onOpenDeal }) {
     // DealHubShell's tab-strip <header> is sticky and ~60px tall with its
     // own padding, so that (not Panel's now-removed header) is the only
     // offset the height calc needs to clear.
+    //
+    // Two different relationships between the sidebar and the content,
+    // deliberately:
+    //  - EMPTY state: the greeting centers on the WHOLE window, matching the
+    //    GHL reference exactly — so the sidebar has to overlay it rather
+    //    than share a grid track, or "centered" would mean centered in the
+    //    leftover space next to the sidebar, which sits visibly off from
+    //    the page's true center.
+    //  - Once a conversation exists: back to a normal two-column grid, so
+    //    turns and the composer sit in the room actually available beside
+    //    the sidebar rather than running toward/under it.
     <div style={{
-      display: 'grid',
-      gridTemplateColumns: `${sidebarCollapsed ? 64 : 280}px minmax(0, 1fr)`,
-      height: 'calc(100vh - 61px)', minHeight: 460,
-      alignItems: 'stretch',
-      transition: 'grid-template-columns 160ms ease'
-    }}
-    // At narrow widths the rail stacks under the conversation, and a fixed
-    // viewport height would squeeze both into a few scrolling inches.
-    className="pp-copilot-layout"
-    >
-      <Sidebar
-        collapsed={sidebarCollapsed}
-        onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
-        empty={empty}
-        onNewChat={newChat}
-        history={history}
-        conversationId={conversationId}
-        onReopen={reopen}
-      />
-
-      {/* ── the conversation ─────────────────────────────────── */}
-      <div style={{
-        minWidth: 0, display: 'grid', gap: 12, padding: 14,
-        gridTemplateRows: '1fr auto', minHeight: 0
-      }}>
-        {/* Empty state: the greeting sits directly above the composer as
-            one centered group, not centered independently in the whole
-            scroll area above it — that left it stranded far from the
-            input, with a much bigger gap than the GHL reference's
-            tighter pairing. */}
-        {empty && !pending ? (
+      position: 'relative',
+      height: 'calc(100vh - 61px)', minHeight: 460
+    }}>
+      {showEmpty ? (
+        <>
+          {/* Overlays the full-width layer below rather than sharing a grid
+              track with it, so the greeting centers on the true page width. */}
+          <Sidebar
+            collapsed={sidebarCollapsed}
+            onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
+            empty={empty}
+            onNewChat={newChat}
+            history={history}
+            conversationId={conversationId}
+            onReopen={reopen}
+            style={{ position: 'absolute', insetBlock: 0, left: 0, zIndex: 1 }}
+          />
           <div style={{
-            minHeight: 0, display: 'flex', alignItems: 'flex-end',
+            height: '100%', display: 'flex', alignItems: 'flex-end',
             justifyContent: 'center', paddingBottom: 20
           }}>
             <p style={{
@@ -200,50 +199,76 @@ export default function CopilotTab({ onOpenDeal }) {
               What's on your mind{firstName ? `, ${firstName}` : ''}?
             </p>
           </div>
-        ) : (
-          <div
-            ref={scrollRef}
-            style={{
-              minHeight: 0, overflowY: 'auto',
-              display: 'grid', gap: 12, alignContent: 'start'
-            }}
-          >
-            <div style={{
-              width: '100%', maxWidth: 760, margin: '0 auto',
-              display: 'grid', gap: 12, alignContent: 'start'
-            }}>
-              {turns.map((t, i) => (
-                t.role === 'user'
-                  ? <UserTurn key={i} text={t.content} />
-                  : <AnswerTurn key={i} turn={t} onOpenDeal={onOpenDeal} />
-              ))}
+        </>
+      ) : (
+        <div
+          className="pp-copilot-layout"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: `${sidebarCollapsed ? 64 : 280}px minmax(0, 1fr)`,
+            height: '100%', alignItems: 'stretch',
+            transition: 'grid-template-columns 160ms ease'
+          }}
+        >
+          <Sidebar
+            collapsed={sidebarCollapsed}
+            onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
+            empty={empty}
+            onNewChat={newChat}
+            history={history}
+            conversationId={conversationId}
+            onReopen={reopen}
+          />
 
-              {pending && <Thinking />}
+          {/* ── the conversation ─────────────────────────────────── */}
+          <div style={{
+            minWidth: 0, display: 'grid', gap: 12, padding: 14,
+            gridTemplateRows: '1fr auto', minHeight: 0
+          }}>
+            <div
+              ref={scrollRef}
+              style={{
+                minHeight: 0, overflowY: 'auto',
+                display: 'grid', gap: 12, alignContent: 'start'
+              }}
+            >
+              <div style={{
+                width: '100%', maxWidth: 760, margin: '0 auto',
+                display: 'grid', gap: 12, alignContent: 'start'
+              }}>
+                {turns.map((t, i) => (
+                  t.role === 'user'
+                    ? <UserTurn key={i} text={t.content} />
+                    : <AnswerTurn key={i} turn={t} onOpenDeal={onOpenDeal} />
+                ))}
+
+                {pending && <Thinking />}
+              </div>
+            </div>
+
+            {error && (
+              <p style={{
+                margin: '0 auto', width: '100%', maxWidth: 760,
+                padding: '10px 13px',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--tint-rose)', color: 'var(--status-stuck-text)',
+                fontSize: 'var(--text-md)'
+              }}>
+                {error}
+              </p>
+            )}
+
+            <div style={{ width: '100%', maxWidth: 760, margin: '0 auto' }}>
+              <Composer
+                value={q}
+                onChange={setQ}
+                onSubmit={() => submit()}
+                pending={pending}
+              />
             </div>
           </div>
-        )}
-
-        {error && (
-          <p style={{
-            margin: '0 auto', width: '100%', maxWidth: 760,
-            padding: '10px 13px',
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--tint-rose)', color: 'var(--status-stuck-text)',
-            fontSize: 'var(--text-md)'
-          }}>
-            {error}
-          </p>
-        )}
-
-        <div style={{ width: '100%', maxWidth: 760, margin: '0 auto' }}>
-          <Composer
-            value={q}
-            onChange={setQ}
-            onSubmit={() => submit()}
-            pending={pending}
-          />
         </div>
-      </div>
+      )}
     </div>
   )
 }
@@ -259,7 +284,12 @@ const NAV_ITEMS = [
 ]
 
 function Sidebar({
-  collapsed, onToggleCollapsed, empty, onNewChat, history, conversationId, onReopen
+  collapsed, onToggleCollapsed, empty, onNewChat, history, conversationId, onReopen,
+  // Positioning only — everything else about the sidebar's own look is
+  // fixed. Absolute + a width in the empty state (it overlays rather than
+  // sharing a grid track, so the greeting can center on the full page); a
+  // plain grid item once a conversation exists.
+  style
 }) {
   return (
     // Flat, flush to the conversation pane — a right-edge divider rather
@@ -268,7 +298,9 @@ function Sidebar({
     <section style={{
       borderRight: '1px solid var(--border-default)',
       background: 'var(--gray-25)', overflow: 'hidden',
-      display: 'grid', gridTemplateRows: 'auto auto auto 1fr', minHeight: 0
+      display: 'grid', gridTemplateRows: 'auto auto auto 1fr', minHeight: 0,
+      width: collapsed ? 64 : 280,
+      ...style
     }}>
       <header style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
