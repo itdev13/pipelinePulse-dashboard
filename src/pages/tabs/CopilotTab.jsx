@@ -3,6 +3,11 @@ import { aiAPI } from '../../api/ai'
 import { dealsAPI } from '../../api/deals'
 import { useTabState } from '../../hooks/useTabState'
 import { useAuth } from '../../context/AuthContext'
+import { useDictation } from '../shared/useDictation'
+import { useAttachments } from '../shared/useAttachments'
+import {
+  RecordingBar, AttachmentThumbnails, ImagePreview, IconButton
+} from '../shared/ComposerExtras'
 
 // Co-Pilot — one question across EVERY deal in the sub-account.
 //
@@ -37,6 +42,13 @@ export default function CopilotTab({ onOpenDeal }) {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState(null)
   const scrollRef = useRef(null)
+  const inputRef = useRef(null)
+
+  const dictation = useDictation({ q, setQ, onError: setError, inputRef })
+  const {
+    attachments, addFiles, removeAttachment, clear: clearAttachments,
+    preview, setPreview, fileRef, onPaste
+  } = useAttachments({ onError: setError })
 
   // The greeting's first name. The session only carries the GHL user id
   // (server/routes/auth.js never resolves a name), so it's looked up against
@@ -76,9 +88,13 @@ export default function CopilotTab({ onOpenDeal }) {
   const submit = async () => {
     const value = q.trim()
     if (!value || pending) return
+    // Captured before the composer clears — setState is async, so reading
+    // `attachments` after clearing would race and send an empty array.
+    const sentImages = attachments
     setQ('')
     setError(null)
     setPending(true)
+    clearAttachments()
     setTurns((t) => [...t, { role: 'user', content: value }])
 
     // Only ANSWERED turns become context, so a failed attempt does not poison
@@ -94,6 +110,7 @@ export default function CopilotTab({ onOpenDeal }) {
       const res = await aiAPI.askPortfolio({
         question: value,
         history: priorTurns,
+        images: sentImages.map((a) => ({ mediaType: a.mediaType, data: a.data })),
         conversationId
       })
       setTurns((t) => [...t, {
@@ -152,12 +169,18 @@ export default function CopilotTab({ onOpenDeal }) {
   const showEmpty = empty && !pending
 
   return (
-    // Full-bleed, no Shell/Panel margin or card frame — GHL's Co-Pilot runs
-    // flush to the window edges under its own top bar, and this tab now
-    // matches that rather than sitting in the app's usual padded card.
-    // DealHubShell's tab-strip <header> is sticky and ~60px tall with its
-    // own padding, so that (not Panel's now-removed header) is the only
-    // offset the height calc needs to clear.
+    // The fragment's second child is the full-size attachment preview,
+    // shared across the empty/populated composer branches since `preview`
+    // is one piece of state — rendering it once here, not per-branch,
+    // avoids the exact kind of duplication that caused bugs earlier in
+    // this file's history.
+    <>
+    {/* Full-bleed, no Shell/Panel margin or card frame — GHL's Co-Pilot runs
+        flush to the window edges under its own top bar, and this tab now
+        matches that rather than sitting in the app's usual padded card.
+        DealHubShell's tab-strip <header> is sticky and ~60px tall with its
+        own padding, so that (not Panel's now-removed header) is the only
+        offset the height calc needs to clear. */}
     //
     // ONE grid, both states: the sidebar is a normal grid column throughout,
     // and the greeting/composer center in the room actually left beside it
@@ -224,6 +247,14 @@ export default function CopilotTab({ onOpenDeal }) {
                 onChange={setQ}
                 onSubmit={() => submit()}
                 pending={pending}
+                inputRef={inputRef}
+                dictation={dictation}
+                attachments={attachments}
+                onAddFiles={addFiles}
+                onRemoveAttachment={removeAttachment}
+                onViewAttachment={setPreview}
+                fileRef={fileRef}
+                onPaste={onPaste}
               />
             </div>
           </div>
@@ -268,12 +299,22 @@ export default function CopilotTab({ onOpenDeal }) {
                 onChange={setQ}
                 onSubmit={() => submit()}
                 pending={pending}
+                inputRef={inputRef}
+                dictation={dictation}
+                attachments={attachments}
+                onAddFiles={addFiles}
+                onRemoveAttachment={removeAttachment}
+                onViewAttachment={setPreview}
+                fileRef={fileRef}
+                onPaste={onPaste}
               />
             </div>
           </>
         )}
       </div>
     </div>
+    {preview && <ImagePreview attachment={preview} onClose={() => setPreview(null)} />}
+    </>
   )
 }
 
@@ -590,81 +631,151 @@ function Thinking() {
   )
 }
 
-function Composer({ value, onChange, onSubmit, pending }) {
+function Composer({
+  value, onChange, onSubmit, pending, inputRef, dictation,
+  attachments, onAddFiles, onRemoveAttachment, onViewAttachment,
+  fileRef, onPaste
+}) {
   const [focused, setFocused] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  const { supported: speechSupported, listening, heard, elapsed, start, finish, cancel } = dictation
+
+  // While dictating, the composer IS the recorder — the same box, a
+  // different state. A separate floating panel would leave a dead text
+  // field underneath it. Matches AskDeal's own Co-Pilot exactly.
+  if (listening) {
+    return <RecordingBar heard={heard} elapsed={elapsed} onCancel={cancel} onFinish={finish} />
+  }
+
   return (
-    <div style={{
-      display: 'flex', alignItems: 'flex-end', gap: 8,
-      padding: '12px 16px',
-      border: `1.5px solid ${focused ? 'var(--brand-primary)' : 'var(--border-default)'}`,
-      borderRadius: 26,
-      background: '#fff',
-      boxShadow: focused
-        ? '0 4px 18px rgba(31, 36, 48, 0.10), 0 1px 3px rgba(31, 36, 48, 0.06)'
-        : '0 1px 3px rgba(31, 36, 48, 0.07)',
-      transition: 'box-shadow 160ms ease, border-color 160ms ease'
-    }}>
-      <textarea
-        value={value}
-        onChange={(e) => {
-          onChange(e.target.value)
-          const el = e.target
-          el.style.height = 'auto'
-          el.style.height = `${Math.min(el.scrollHeight, 132)}px`
-        }}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSubmit() }
-        }}
-        disabled={pending}
-        placeholder={pending ? 'Reading the pipeline…' : 'Ask anything about your deals…'}
-        rows={1}
-        style={{
-          flex: 1, minWidth: 0,
-          minHeight: 26, maxHeight: 140, resize: 'none',
-          // The pill itself IS the focus ring (its border goes green above).
-          // A bare <textarea> still paints its own native focus ring in
-          // Chrome via box-shadow, which outline:none alone does not touch —
-          // that showed as a second, inner green-ish rectangle. All three
-          // reset explicitly so nothing native survives.
-          appearance: 'none', WebkitAppearance: 'none',
-          border: 'none', outline: 'none', boxShadow: 'none',
-          background: 'transparent', padding: 0,
-          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)',
-          lineHeight: 1.45, color: 'var(--text-heading)'
-        }}
+    <div
+      onClick={() => inputRef?.current?.focus()}
+      // Drag an image onto the composer. Same path as paste and the attach
+      // button — one validation and read routine for all three.
+      onDragOver={(e) => {
+        if (![...(e.dataTransfer?.items || [])].some((it) => it.kind === 'file')) return
+        e.preventDefault()
+        setDragging(true)
+      }}
+      onDragLeave={(e) => {
+        // Fires when crossing into a child too, so ignore anything that
+        // didn't actually leave the wrapper — otherwise the highlight
+        // flickers as the cursor moves over the textarea.
+        if (e.currentTarget.contains(e.relatedTarget)) return
+        setDragging(false)
+      }}
+      onDrop={(e) => {
+        e.preventDefault()
+        setDragging(false)
+        onAddFiles(e.dataTransfer?.files)
+      }}
+      style={{
+        display: 'grid', gap: 8,
+        padding: '12px 16px',
+        border: dragging
+          ? '2px dashed var(--brand-primary)'
+          : `1.5px solid ${focused ? 'var(--brand-primary)' : 'var(--border-default)'}`,
+        borderRadius: 26,
+        background: dragging ? 'var(--tint-pine)' : '#fff',
+        boxShadow: dragging
+          ? '0 0 0 4px rgba(22, 133, 95, 0.12)'
+          : focused
+            ? '0 4px 18px rgba(31, 36, 48, 0.10), 0 1px 3px rgba(31, 36, 48, 0.06)'
+            : '0 1px 3px rgba(31, 36, 48, 0.07)',
+        transition: 'box-shadow 160ms ease, border-color 160ms ease',
+        cursor: 'text'
+      }}
+    >
+      <AttachmentThumbnails
+        attachments={attachments}
+        onView={onViewAttachment}
+        onRemove={onRemoveAttachment}
       />
-      {/* Placeholder, matching the GHL reference — no voice input wired up
-          yet, same status as Search/Templates/Customize in the sidebar. */}
-      <button
-        disabled
-        title="Voice input — coming soon"
-        style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          width: 34, height: 34, flex: 'none',
-          border: 'none', borderRadius: '50%',
-          background: 'transparent', color: 'var(--text-faint)',
-          cursor: 'default'
-        }}
-      >
-        <span className="ms" style={{ fontSize: 19 }}>mic</span>
-      </button>
-      <button
-        onClick={onSubmit}
-        disabled={pending || !value.trim()}
-        title="Ask"
-        style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          width: 34, height: 34, flex: 'none',
-          border: 'none', borderRadius: '50%',
-          background: value.trim() && !pending ? 'var(--brand-primary)' : 'var(--gray-200)',
-          color: value.trim() && !pending ? '#fff' : 'var(--text-faint)',
-          cursor: value.trim() && !pending ? 'pointer' : 'default'
-        }}
-      >
-        <span className="ms" style={{ fontSize: 19 }}>arrow_upward</span>
-      </button>
+
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+        <textarea
+          ref={inputRef}
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value)
+            const el = e.target
+            el.style.height = 'auto'
+            el.style.height = `${Math.min(el.scrollHeight, 132)}px`
+          }}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSubmit() }
+          }}
+          onPaste={onPaste}
+          disabled={pending}
+          placeholder={pending ? 'Reading the pipeline…' : 'Ask anything about your deals…'}
+          rows={1}
+          style={{
+            flex: 1, minWidth: 0,
+            minHeight: 26, maxHeight: 140, resize: 'none',
+            // The pill itself IS the focus ring (its border goes green
+            // above). A bare <textarea> still paints its own native focus
+            // ring in Chrome via box-shadow, which outline:none alone does
+            // not touch — that showed as a second, inner green-ish
+            // rectangle. All three reset explicitly so nothing native
+            // survives.
+            appearance: 'none', WebkitAppearance: 'none',
+            border: 'none', outline: 'none', boxShadow: 'none',
+            background: 'transparent', padding: 0,
+            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)',
+            lineHeight: 1.45, color: 'var(--text-heading)'
+          }}
+        />
+
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          multiple
+          onChange={(e) => { onAddFiles(e.target.files); e.target.value = '' }}
+          style={{ display: 'none' }}
+        />
+        <IconButton
+          icon="attach_file"
+          size={34} iconSize={19}
+          label={
+            attachments.length >= 3
+              ? '3 images is the limit'
+              : 'Attach an image to this question'
+          }
+          onClick={(e) => { e.stopPropagation(); fileRef.current?.click() }}
+          disabled={pending || attachments.length >= 3}
+        />
+
+        <IconButton
+          icon="mic"
+          size={34} iconSize={19}
+          label={
+            speechSupported
+              ? 'Dictate your question'
+              : 'Dictation needs Chrome, Edge or Safari'
+          }
+          onClick={start}
+          disabled={!speechSupported || pending}
+        />
+
+        <button
+          onClick={onSubmit}
+          disabled={pending || !value.trim()}
+          title="Ask"
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 34, height: 34, flex: 'none',
+            border: 'none', borderRadius: '50%',
+            background: value.trim() && !pending ? 'var(--brand-primary)' : 'var(--gray-200)',
+            color: value.trim() && !pending ? '#fff' : 'var(--text-faint)',
+            cursor: value.trim() && !pending ? 'pointer' : 'default'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 19 }}>arrow_upward</span>
+        </button>
+      </div>
     </div>
   )
 }

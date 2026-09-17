@@ -3,6 +3,11 @@ import { aiAPI } from '../../api/ai'
 import NoteEditor from '../shared/NoteEditor'
 import TaskEditor from '../shared/TaskEditor'
 import { SkeletonStyles, Bar } from '../shared/ListChrome'
+import { useDictation } from '../shared/useDictation'
+import { useAttachments, MAX_ATTACHMENTS, ALLOWED_IMAGE_TYPES } from '../shared/useAttachments'
+import {
+  RecordingBar, AttachmentThumbnails, ImagePreview, IconButton
+} from '../shared/ComposerExtras'
 
 // Deal Hub — Co-Pilot panel.
 //
@@ -70,18 +75,6 @@ const PROMPTS = [
     hint: 'Coaching view for the manager'
   }
 ]
-// Mirrors the server's limits in routes/ai.js — validated there too, since a
-// client check is a courtesy and not a guarantee.
-const MAX_ATTACHMENTS = 3
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024
-// Total across all attachments — must match MAX_TOTAL_BYTES in routes/ai.js.
-// Enforced here so an oversized set is refused before it's read and uploaded,
-// rather than after a 5MB round trip.
-const MAX_TOTAL_BYTES = 5 * 1024 * 1024
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-function mbLabel(bytes) {
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-}
 
 export default function AskDeal({
   dealId, onAsk, onJumpToMessage, beforeAsk, messages = [],
@@ -124,198 +117,20 @@ export default function AskDeal({
   const [inspectRunId, setInspectRunId] = useState(null)
   const [composerFocused, setComposerFocused] = useState(false)
   const [dragging, setDragging] = useState(false)
-  // Which attachment is open full-size. Null = closed.
-  const [preview, setPreview] = useState(null)
-  // Monotonic id source for attachments — see the note where they're built.
-  const attachSeq = useRef(0)
-
-  // Attached images — a question aid, not evidence. They help the model
-  // understand what is being asked; every claim still needs a message quote.
-  const [attachments, setAttachments] = useState([])
-  const fileRef = useRef(null)
-
-  const addFiles = async (fileList) => {
-    const picked = Array.from(fileList || [])
-    if (!picked.length) return
-    const room = MAX_ATTACHMENTS - attachments.length
-    if (room <= 0) {
-      setError(`At most ${MAX_ATTACHMENTS} images per question.`)
-      return
-    }
-
-    // Counts what's already attached, so the running total spans both the
-    // existing attachments and the ones being added now.
-    let runningTotal = attachments.reduce((n, a) => n + (a.bytes || 0), 0)
-
-    const next = []
-    for (const file of picked.slice(0, room)) {
-      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-        setError('Images only — JPEG, PNG, GIF or WebP.')
-        continue
-      }
-      if (file.size > MAX_IMAGE_BYTES) {
-        setError(`${file.name} is ${mbLabel(file.size)} — images must be under 5 MB.`)
-        continue
-      }
-      // Refuse before reading: three 4MB images each pass the per-image check
-      // but together exceed what one request can carry.
-      if (runningTotal + file.size > MAX_TOTAL_BYTES) {
-        setError(
-          `${file.name} would take the attachments over 5 MB in total. Remove one first.`
-        )
-        continue
-      }
-      runningTotal += file.size
-      // Strip the data: prefix — the API wants bare base64, and leaving it on
-      // is the mistake the server rejects with a 400.
-      const dataUrl = await new Promise((resolve, reject) => {
-        const r = new FileReader()
-        r.onload = () => resolve(String(r.result))
-        r.onerror = () => reject(r.error)
-        r.readAsDataURL(file)
-      })
-      next.push({
-        // Pasted screenshots all arrive as "image.png" with the same size, so
-        // name+size+index collides across separate paste actions — two pastes
-        // would produce duplicate React keys and the remove button would
-        // delete the wrong thumbnail. attachSeq is monotonic per session.
-        id: `att-${attachSeq.current++}`,
-        // A clipboard image has no meaningful filename. "Pasted image" is
-        // honest; "image.png" three times over is not.
-        name: file.name && file.name !== 'image.png' ? file.name : 'Pasted image',
-        bytes: file.size,
-        mediaType: file.type,
-        previewUrl: dataUrl,
-        data: dataUrl.split(',')[1] || ''
-      })
-    }
-    if (next.length) setAttachments((prev) => [...prev, ...next])
-  }
   const inputRef = useRef(null)
 
-  // ── Dictation ────────────────────────────────────────────────────────
-  //
-  // Web Speech API. Chromium and Safari only — Firefox has never shipped it —
-  // so the mic is disabled with a reason rather than present and dead.
-  //
-  // The composer swaps into a recording state while this runs, the way a
-  // messaging app does: live transcript, elapsed timer, and an explicit
-  // cancel. A mic that silently fills the box gives you no way to abandon a
-  // mis-heard sentence without deleting it by hand.
-  const [listening, setListening] = useState(false)
-  const [heard, setHeard] = useState('')        // live transcript, this session
-  const [elapsed, setElapsed] = useState(0)     // seconds
-  const recognitionRef = useRef(null)
-  const baseTextRef = useRef('')                // what was typed before recording
-  const cancelledRef = useRef(false)
-  const timerRef = useRef(null)
-
-  const speechSupported =
-    typeof window !== 'undefined' &&
-    !!(window.SpeechRecognition || window.webkitSpeechRecognition)
-
-  const stopTimer = () => {
-    if (timerRef.current) {
-      window.clearInterval(timerRef.current)
-      timerRef.current = null
-    }
-  }
-
-  const startDictation = (e) => {
-    e?.stopPropagation()
-    if (!speechSupported || listening) return
-
-    const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition
-    const rec = new Ctor()
-    rec.lang = 'en-GB'
-    rec.interimResults = true
-    // Continuous, because the overlay gives an explicit stop. Without one you
-    // get a single utterance and the mic closes itself mid-thought.
-    rec.continuous = true
-    recognitionRef.current = rec
-
-    // Keep whatever was already typed — tapping the mic part-way through a
-    // question means "carry on", not "start again".
-    baseTextRef.current = q
-    cancelledRef.current = false
-    setHeard('')
-    setElapsed(0)
-
-    rec.onresult = (ev) => {
-      let text = ''
-      for (let i = 0; i < ev.results.length; i++) {
-        text += ev.results[i][0].transcript
-      }
-      setHeard(text.trimStart())
-    }
-    rec.onend = () => {
-      stopTimer()
-      setListening(false)
-      recognitionRef.current = null
-      // Commit unless the user cancelled. Reading the transcript from state
-      // here would be stale inside this closure, so the commit happens in the
-      // effect below, keyed on `listening` going false.
-    }
-    rec.onerror = (ev) => {
-      // 'no-speech' and 'aborted' are ordinary — someone tapped the mic and
-      // said nothing. A permission denial is worth surfacing, since the
-      // control looks broken otherwise.
-      if (ev?.error === 'not-allowed' || ev?.error === 'service-not-allowed') {
-        setError('Microphone access is blocked — allow it in your browser to dictate.')
-        cancelledRef.current = true
-      }
-      stopTimer()
-      setListening(false)
-      recognitionRef.current = null
-    }
-
-    try {
-      rec.start()
-      setListening(true)
-      timerRef.current = window.setInterval(() => setElapsed((n) => n + 1), 1000)
-    } catch {
-      stopTimer()
-      setListening(false)
-    }
-  }
-
-  // Finish and keep what was heard.
-  const finishDictation = (e) => {
-    e?.stopPropagation()
-    cancelledRef.current = false
-    recognitionRef.current?.stop()
-  }
-
-  // Abandon: the mic closes and nothing reaches the composer.
-  const cancelDictation = (e) => {
-    e?.stopPropagation()
-    cancelledRef.current = true
-    recognitionRef.current?.abort?.() ?? recognitionRef.current?.stop()
-    setHeard('')
-  }
-
-  // Commit the transcript once recording actually stops. Doing this in
-  // rec.onend would read a stale `heard` from the closure that created the
-  // recogniser.
-  useEffect(() => {
-    if (listening) return
-    if (cancelledRef.current) { setHeard(''); return }
-    const text = heard.trim()
-    if (!text) return
-    const base = baseTextRef.current
-    setQ((base ? `${base.replace(/\s+$/, '')} ` : '') + text)
-    setHeard('')
-    inputRef.current?.focus()
-    // `heard` is intentionally the only trigger alongside `listening`.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listening])
-
-  // Leaving the deal mid-dictation must release the microphone, or the browser
-  // keeps its recording indicator on after the panel is gone.
-  useEffect(() => () => {
-    stopTimer()
-    recognitionRef.current?.abort?.() ?? recognitionRef.current?.stop()
-  }, [])
+  // Attached images and voice dictation — shared with the portfolio-wide
+  // Co-Pilot tab (CopilotTab.jsx) via src/pages/shared/useAttachments.js and
+  // useDictation.js, so a fix to either only has to happen once.
+  const {
+    attachments, addFiles, removeAttachment, clear: clearAttachments,
+    preview, setPreview, fileRef, onPaste
+  } = useAttachments({ onError: setError })
+  const dictation = useDictation({ q, setQ, onError: setError, inputRef })
+  const {
+    supported: speechSupported, listening, heard, elapsed,
+    start: startDictation, finish: finishDictation, cancel: cancelDictation
+  } = dictation
 
   // Per-channel counts of what the AI would read right now, derived from the
   // live timeline rows rather than fetched — the server count would lag a
@@ -452,7 +267,7 @@ export default function AskDeal({
     // into a local first: setState is async, so referencing `attachments`
     // inside the request below would race with the clear.
     const sentImages = attachments
-    setAttachments([])
+    clearAttachments()
     // The thumbnails are gone, so a preview of one has nothing behind it.
     setPreview(null)
     setError(null)
@@ -955,68 +770,11 @@ export default function AskDeal({
               cursor: 'text'
             }}
           >
-            {/* Thumbnails, above the text — you see what's attached before you
-                finish typing the question about it. */}
-            {attachments.length > 0 && (
-              <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                {attachments.map((a) => (
-                  <span
-                    key={a.id}
-                    style={{ position: 'relative', display: 'inline-flex', flex: 'none' }}
-                  >
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setPreview(a) }}
-                      aria-label={`View ${a.name}`}
-                      style={{
-                        display: 'inline-flex', padding: 0,
-                        border: '1px solid var(--border-strong)',
-                        borderRadius: 'var(--radius-sm)',
-                        background: 'var(--gray-50)',
-                        cursor: 'zoom-in', overflow: 'hidden'
-                      }}
-                    >
-                      <img
-                        src={a.previewUrl}
-                        alt={a.name}
-                        // A blank square gives no clue whether the file failed
-                        // to read or the image just can't render. Swap in an
-                        // icon so the state is legible.
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none'
-                          const box = e.currentTarget.parentElement
-                          if (box) box.dataset.failed = 'true'
-                        }}
-                        style={{
-                          display: 'block',
-                          width: 56, height: 56, objectFit: 'cover'
-                        }}
-                      />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setAttachments((prev) => prev.filter((x) => x.id !== a.id))
-                        // Close the preview if it's showing the one being
-                        // removed — otherwise the modal keeps displaying an
-                        // attachment that no longer exists.
-                        setPreview((cur) => (cur?.id === a.id ? null : cur))
-                      }}
-                      aria-label={`Remove ${a.name}`}
-                      style={{
-                        position: 'absolute', top: -6, right: -6,
-                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        width: 20, height: 20, padding: 0,
-                        border: 'none', borderRadius: '50%',
-                        background: 'var(--gray-800)', color: '#fff',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <span className="ms" style={{ fontSize: 14 }}>close</span>
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
+            <AttachmentThumbnails
+              attachments={attachments}
+              onView={setPreview}
+              onRemove={removeAttachment}
+            />
 
             <textarea
               ref={inputRef}
@@ -1034,22 +792,9 @@ export default function AskDeal({
                 el.style.height = `${Math.min(el.scrollHeight, 132)}px`
               }}
               // Paste an image straight into the box — screenshot, then ⌘V.
-              // Clipboard items expose .getAsFile(), which yields a real File,
-              // so this reuses addFiles rather than duplicating the read,
-              // validation and base64 path.
-              onPaste={(e) => {
-                const files = [...(e.clipboardData?.items || [])]
-                  .filter((it) => it.kind === 'file' && it.type.startsWith('image/'))
-                  .map((it) => it.getAsFile())
-                  .filter(Boolean)
-                if (!files.length) return   // plain text — let it paste normally
-                // Copying from Word or a browser puts BOTH text and an image on
-                // the clipboard. Attach the image and let the text paste too,
-                // rather than silently dropping half of what was copied.
-                const hasText = !!e.clipboardData?.getData('text/plain')
-                if (!hasText) e.preventDefault()
-                addFiles(files)
-              }}
+              // See useAttachments.onPaste for the read/validate path this
+              // shares with the attach button and drag-and-drop.
+              onPaste={onPaste}
               onFocus={() => setComposerFocused(true)}
               onBlur={() => setComposerFocused(false)}
               onKeyDown={(e) => {
@@ -1711,298 +1456,6 @@ const SCOPE_CHANNELS = [
   // agent doesn't read them, and there was no way to scope a question to them.
   ['task', 'Tasks', 'task_alt']
 ]
-
-// A composer control: square, quiet, and icon-only. Sized to sit level with the
-// send button without competing with it — the send button is the primary action,
-// these are secondary.
-// The composer while dictating — WhatsApp's recording state, in our palette.
-//
-// A pulsing dot and a timer say it's live, the transcript appears as it's
-// heard, and there are exactly two ways out: bin it or keep it. The bin
-// matters — without it a mis-heard sentence has to be deleted by hand, which
-// is worse than not offering dictation at all.
-function RecordingBar({ heard, elapsed, onCancel, onFinish }) {
-  return (
-    <div
-      style={{
-        display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
-        padding: '12px 14px',
-        border: '2px solid var(--status-stuck)',
-        borderRadius: 'var(--radius-lg)',
-        background: 'var(--tint-rose)',
-        boxShadow: '0 0 0 4px rgba(220, 38, 38, 0.10)'
-      }}
-    >
-      <style>{RECORDING_CSS}</style>
-
-      {/* Discard. Left, away from the send button, so the two are hard to
-          confuse under a moving cursor. */}
-      <button
-        onClick={onCancel}
-        aria-label="Discard this recording"
-        style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          flex: 'none', width: 38, height: 38, padding: 0,
-          border: 'none', borderRadius: 'var(--radius-sm)',
-          background: 'transparent', color: 'var(--status-stuck)',
-          cursor: 'pointer'
-        }}
-      >
-        <span className="ms" style={{ fontSize: 22 }}>delete</span>
-      </button>
-
-      <span
-        aria-hidden
-        className="pp-rec-dot"
-        style={{
-          width: 10, height: 10, flex: 'none',
-          borderRadius: '50%', background: 'var(--status-stuck)'
-        }}
-      />
-
-      <span
-        style={{
-          flex: 'none',
-          fontFamily: 'var(--font-mono)', fontSize: 'var(--text-lg)',
-          fontWeight: 600, color: 'var(--status-stuck)',
-          fontVariantNumeric: 'tabular-nums'
-        }}
-      >
-        {formatElapsed(elapsed)}
-      </span>
-
-      {/* Waveform. Decorative — the Web Speech API gives no amplitude, so
-          animating to real levels would need a parallel getUserMedia stream
-          and an analyser node for no functional gain. It signals "listening",
-          which is its whole job. */}
-      <span aria-hidden style={{ display: 'flex', alignItems: 'center', gap: 3, flex: 'none' }}>
-        {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-          <span
-            key={i}
-            className="pp-rec-bar"
-            style={{
-              width: 3, borderRadius: 2,
-              background: 'var(--status-stuck)',
-              animationDelay: `${i * 0.09}s`
-            }}
-          />
-        ))}
-      </span>
-
-      {/* What's been heard so far. Scrolls rather than growing the bar, so a
-          long dictation doesn't push the buttons off-screen. */}
-      <span
-        style={{
-          flex: 1, minWidth: 0, maxHeight: 46, overflowY: 'auto',
-          fontSize: 'var(--text-md)', lineHeight: 'var(--leading-snug)',
-          color: heard ? 'var(--text-heading)' : 'var(--text-muted)',
-          fontStyle: heard ? 'normal' : 'italic'
-        }}
-      >
-        {heard || 'Listening…'}
-      </span>
-
-      <button
-        onClick={onFinish}
-        aria-label="Stop recording and keep the text"
-        style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          flex: 'none', width: 38, height: 38, padding: 0,
-          border: 'none', borderRadius: 'var(--radius-pill)',
-          background: 'var(--brand-primary)', color: '#fff',
-          boxShadow: '0 2px 6px rgba(13, 91, 64, 0.32)',
-          cursor: 'pointer'
-        }}
-      >
-        <span className="ms" style={{ fontSize: 21 }}>check</span>
-      </button>
-    </div>
-  )
-}
-
-const RECORDING_CSS = `
-@keyframes pp-rec-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%      { opacity: 0.35; transform: scale(0.82); }
-}
-@keyframes pp-rec-wave {
-  0%, 100% { height: 7px; }
-  50%      { height: 20px; }
-}
-.pp-rec-dot { animation: pp-rec-pulse 1.1s ease-in-out infinite; }
-.pp-rec-bar { height: 7px; animation: pp-rec-wave 0.9s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) {
-  .pp-rec-dot, .pp-rec-bar { animation: none; }
-  .pp-rec-bar { height: 13px; }
-}
-`
-
-// "0:07" / "1:24".
-function formatElapsed(seconds) {
-  const m = Math.floor(seconds / 60)
-  const s = seconds % 60
-  return `${m}:${String(s).padStart(2, '0')}`
-}
-
-// Full-size view of an attached image.
-//
-// Rendered inside the panel rather than as a portal — the Deal Hub lives in a
-// GHL iframe, so a fixed overlay is bounded by the iframe anyway and a portal
-// buys nothing.
-function ImagePreview({ attachment, onClose }) {
-  // Escape closes, and focus moves to the dialog so a keyboard user isn't left
-  // tabbing through the composer behind it.
-  const ref = useRef(null)
-  useEffect(() => {
-    ref.current?.focus()
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={attachment.name}
-      ref={ref}
-      tabIndex={-1}
-      // Click the backdrop to dismiss. The check keeps a click INSIDE the
-      // image from closing it — otherwise you couldn't select or right-click
-      // the picture you opened.
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 60,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 'var(--space-5)',
-        background: 'rgba(20, 25, 34, 0.72)',
-        outline: 'none'
-      }}
-    >
-      <div
-        style={{
-          display: 'grid', gap: 0,
-          maxWidth: 'min(920px, 100%)', maxHeight: '100%',
-          borderRadius: 'var(--radius-lg)',
-          background: '#fff',
-          boxShadow: 'var(--shadow-overlay)',
-          overflow: 'hidden'
-        }}
-      >
-        <div
-          style={{
-            display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
-            padding: 'var(--space-3) var(--space-4)',
-            borderBottom: '1px solid var(--border-default)'
-          }}
-        >
-          <span
-            style={{
-              flex: 1, minWidth: 0,
-              fontSize: 'var(--text-lg)', fontWeight: 600,
-              color: 'var(--text-heading)',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-            }}
-          >
-            {attachment.name}
-          </span>
-          <span style={{ flex: 'none', fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
-            {formatBytes(attachment.bytes)}
-          </span>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              flex: 'none', width: 32, height: 32, padding: 0,
-              border: 'none', borderRadius: 'var(--radius-sm)',
-              background: 'transparent', color: 'var(--text-muted)',
-              cursor: 'pointer'
-            }}
-          >
-            <span className="ms" style={{ fontSize: 20 }}>close</span>
-          </button>
-        </div>
-
-        {/* The image scrolls inside its own box rather than growing the dialog
-            past the viewport — a tall screenshot would otherwise push the
-            header off-screen. */}
-        <div style={{ overflow: 'auto', background: 'var(--gray-50)', minHeight: 0 }}>
-          <img
-            src={attachment.previewUrl}
-            alt={attachment.name}
-            style={{ display: 'block', maxWidth: '100%', margin: '0 auto' }}
-          />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function formatBytes(bytes) {
-  if (!bytes) return ''
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-}
-
-function IconButton({ icon, label, onClick, disabled, active }) {
-  // Our own tooltip, not the browser's `title`. A native title renders as a
-  // dark OS-styled box that ignores the design and takes ~1s to appear — it
-  // read as a bug in the middle of the composer.
-  const [hint, setHint] = useState(false)
-
-  return (
-    <span style={{ position: 'relative', display: 'inline-flex', flex: 'none' }}>
-      {hint && (
-        <span
-          role="tooltip"
-          style={{
-            position: 'absolute', bottom: 'calc(100% + 8px)', left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 3, whiteSpace: 'nowrap', pointerEvents: 'none',
-            padding: '5px 10px',
-            borderRadius: 'var(--radius-sm)',
-            background: 'var(--gray-800)', color: '#fff',
-            fontSize: 'var(--text-sm)', fontWeight: 500,
-            boxShadow: 'var(--shadow-raised)'
-          }}
-        >
-          {label}
-        </span>
-      )}
-      <button
-        onClick={onClick}
-        disabled={disabled}
-        aria-label={label}
-        aria-pressed={active ? true : undefined}
-        onMouseEnter={() => setHint(true)}
-        onMouseLeave={() => setHint(false)}
-        onFocus={() => setHint(true)}
-        onBlur={() => setHint(false)}
-        style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          width: 38, height: 38, padding: 0,
-          border: 'none',
-          borderRadius: 'var(--radius-sm)',
-          background: active ? 'var(--status-stuck)' : 'transparent',
-          color: active
-            ? '#fff'
-            : disabled ? 'var(--gray-400)' : 'var(--text-muted)',
-          cursor: disabled ? 'not-allowed' : 'pointer'
-        }}
-        onMouseOver={(e) => {
-          if (!disabled && !active) e.currentTarget.style.background = 'var(--gray-100)'
-        }}
-        onMouseOut={(e) => {
-          if (!active) e.currentTarget.style.background = 'transparent'
-        }}
-      >
-        <span className="ms" style={{ fontSize: 21 }}>{icon}</span>
-      </button>
-    </span>
-  )
-}
 
 function ChannelScope({ value, onChange, scope }) {
   const toggle = (key) =>
