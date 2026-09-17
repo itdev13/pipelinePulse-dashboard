@@ -188,16 +188,24 @@ export default function CopilotTab({ onOpenDeal }) {
             style={{ position: 'absolute', insetBlock: 0, left: 0, zIndex: 1 }}
           />
           <div style={{
-            height: '100%', display: 'flex', alignItems: 'flex-end',
-            justifyContent: 'center', paddingBottom: 20
+            height: '100%', display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center'
           }}>
             <p style={{
-              margin: 0, textAlign: 'center',
+              margin: '0 0 20px', textAlign: 'center',
               fontSize: 'var(--text-3xl)', fontWeight: 600,
               letterSpacing: '-0.02em', color: 'var(--text-heading)'
             }}>
               What's on your mind{firstName ? `, ${firstName}` : ''}?
             </p>
+            <div style={{ width: '100%', maxWidth: 760, padding: '0 20px' }}>
+              <Composer
+                value={q}
+                onChange={setQ}
+                onSubmit={() => submit()}
+                pending={pending}
+              />
+            </div>
           </div>
         </>
       ) : (
