@@ -29,6 +29,10 @@ export default function CopilotTab({ onOpenDeal }) {
   const [turns, setTurns] = useTabState('copilot', 'turns', [])
   const [conversationId, setConversationId] = useTabState('copilot', 'conversationId', null)
   const [q, setQ] = useTabState('copilot', 'q', '')
+  // Sidebar width, not visibility — collapsed still shows the icon rail (New
+  // chat, Search, Templates, Customize), it just drops the labels and the
+  // history list, matching the GHL reference's collapse toggle.
+  const [sidebarCollapsed, setSidebarCollapsed] = useTabState('copilot', 'sidebarCollapsed', false)
 
   const [history, setHistory] = useState([])
   const [pending, setPending] = useState(false)
@@ -153,111 +157,30 @@ export default function CopilotTab({ onOpenDeal }) {
         title="Co-Pilot"
         accent="plum"
         meta="Every deal in this sub-account"
-        action={
-          <button
-            onClick={newChat}
-            disabled={empty}
-            title={empty ? 'Already on a new chat' : 'Start a fresh conversation'}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              height: 32, padding: '0 13px',
-              border: '1px solid var(--border-strong)',
-              borderRadius: 'var(--radius-pill)',
-              background: '#fff',
-              color: empty ? 'var(--text-faint)' : 'var(--text-body)',
-              fontFamily: 'var(--font-sans)',
-              fontSize: 'var(--text-base)', fontWeight: 600,
-              cursor: empty ? 'default' : 'pointer'
-            }}
-          >
-            <span className="ms" style={{ fontSize: 16 }}>add</span>
-            New chat
-          </button>
-        }
       >
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(280px, 340px) minmax(0, 1fr)',
+          gridTemplateColumns: `${sidebarCollapsed ? 64 : 280}px minmax(0, 1fr)`,
           gap: 14, padding: 14,
           // Fill what is left of the viewport under the shell's own chrome,
           // rather than a fixed box with dead space beneath it.
           height: 'calc(100vh - 210px)', minHeight: 460,
-          alignItems: 'stretch'
+          alignItems: 'stretch',
+          transition: 'grid-template-columns 160ms ease'
         }}
         // At narrow widths the rail stacks under the conversation, and a fixed
         // viewport height would squeeze both into a few scrolling inches.
         className="pp-copilot-layout"
         >
-          {/* ── chat history ─────────────────────────────────────── */}
-          <section style={{
-            border: '1px solid var(--border-default)',
-            borderRadius: 'var(--radius-md)',
-            background: '#fff', overflow: 'hidden',
-            display: 'grid', gridTemplateRows: 'auto 1fr', minHeight: 0
-          }}>
-            <header style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '10px 13px',
-              borderBottom: '1px solid var(--border-default)',
-              background: 'var(--gray-25)'
-            }}>
-              <span className="ms" style={{ fontSize: 17, color: 'var(--text-muted)' }}>history</span>
-              <h3 style={{
-                margin: 0, flex: 1,
-                fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)'
-              }}>
-                Chat history
-              </h3>
-              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-                {history.length}
-              </span>
-            </header>
-            {history.length === 0 ? (
-              <p style={{
-                margin: 0, padding: 14,
-                fontSize: 'var(--text-base)', color: 'var(--text-faint)'
-              }}>
-                Questions you ask here are kept, so you can pick a thread back up.
-              </p>
-            ) : (
-              <div style={{ minHeight: 0, overflowY: 'auto' }}>
-                {history.map((c) => (
-                  <button
-                    key={c.conversationId}
-                    onClick={() => reopen(c)}
-                    style={{
-                      display: 'block', width: '100%', textAlign: 'left',
-                      padding: '11px 13px',
-                      border: 'none',
-                      borderBottom: '1px solid var(--border-default)',
-                      background: c.conversationId === conversationId
-                        ? 'var(--tint-plum)' : '#fff',
-                      cursor: 'pointer', fontFamily: 'var(--font-sans)'
-                    }}
-                  >
-                    <span style={{
-                      display: 'block',
-                      fontSize: 'var(--text-base)', fontWeight: 600,
-                      color: 'var(--text-heading)'
-                    }}>
-                      {c.title}
-                    </span>
-                    <span style={{
-                      display: 'flex', alignItems: 'center', gap: 6, marginTop: 3,
-                      fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
-                    }}>
-                      {c.turnCount > 1 && (
-                        <>
-                          <span className="ms" style={{ fontSize: 13 }}>forum</span>
-                          {c.turnCount}
-                        </>
-                      )}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </section>
+          <Sidebar
+            collapsed={sidebarCollapsed}
+            onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
+            empty={empty}
+            onNewChat={newChat}
+            history={history}
+            conversationId={conversationId}
+            onReopen={reopen}
+          />
 
           {/* ── the conversation ─────────────────────────────────── */}
           <div style={{
@@ -329,6 +252,190 @@ export default function CopilotTab({ onOpenDeal }) {
         </div>
       </Panel>
     </Shell>
+  )
+}
+
+// The nav items above the history list. Only New chat does anything today —
+// Search, Templates and Customize are visual placeholders matching the GHL
+// reference's layout, with no feature behind them yet. Disabled rather than
+// silently inert, so a click doesn't look like a missed bug.
+const NAV_ITEMS = [
+  { key: 'search',    icon: 'search',       label: 'Search' },
+  { key: 'templates', icon: 'auto_stories', label: 'Templates' },
+  { key: 'customize', icon: 'grid_view',    label: 'Customize' }
+]
+
+function Sidebar({
+  collapsed, onToggleCollapsed, empty, onNewChat, history, conversationId, onReopen
+}) {
+  return (
+    <section style={{
+      border: '1px solid var(--border-default)',
+      borderRadius: 'var(--radius-md)',
+      background: 'var(--gray-25)', overflow: 'hidden',
+      display: 'grid', gridTemplateRows: 'auto auto auto 1fr', minHeight: 0
+    }}>
+      <header style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '11px 13px'
+      }}>
+        {!collapsed && (
+          <span className="ms" style={{ fontSize: 20, color: 'var(--accent-plum-text)' }}>
+            auto_awesome
+          </span>
+        )}
+        <button
+          onClick={onToggleCollapsed}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 28, height: 28, marginLeft: collapsed ? 'auto' : 0,
+            border: 'none', borderRadius: 'var(--radius-sm)',
+            background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 19 }}>
+            {collapsed ? 'dock_to_right' : 'dock_to_left'}
+          </span>
+        </button>
+      </header>
+
+      <nav style={{ display: 'grid', gap: 2, padding: '0 8px' }}>
+        <SidebarButton
+          icon="edit_square" label="New chat" collapsed={collapsed}
+          disabled={empty} onClick={onNewChat}
+          title={empty ? 'Already on a new chat' : 'Start a fresh conversation'}
+        />
+        {NAV_ITEMS.map((item) => (
+          <SidebarButton
+            key={item.key} icon={item.icon} label={item.label}
+            collapsed={collapsed} disabled
+            title={`${item.label} — coming soon`}
+          />
+        ))}
+      </nav>
+
+      <div style={{ height: 8 }} />
+
+      {/* ── chat history ─────────────────────────────────────── */}
+      {collapsed ? null : history.length === 0 ? (
+        <HistoryEmptyState onNewChat={onNewChat} />
+      ) : (
+        <div style={{
+          minHeight: 0, overflowY: 'auto', borderTop: '1px solid var(--border-default)'
+        }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '10px 13px'
+          }}>
+            <span className="ms" style={{ fontSize: 15, color: 'var(--text-muted)' }}>history</span>
+            <h3 style={{
+              margin: 0, flex: 1,
+              fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-muted)'
+            }}>
+              Chat history
+            </h3>
+            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
+              {history.length}
+            </span>
+          </div>
+          {history.map((c) => (
+            <button
+              key={c.conversationId}
+              onClick={() => onReopen(c)}
+              style={{
+                display: 'block', width: '100%', textAlign: 'left',
+                padding: '9px 13px',
+                border: 'none',
+                background: c.conversationId === conversationId
+                  ? 'var(--tint-plum)' : 'transparent',
+                cursor: 'pointer', fontFamily: 'var(--font-sans)'
+              }}
+            >
+              <span style={{
+                display: 'block',
+                fontSize: 'var(--text-base)', fontWeight: 600,
+                color: 'var(--text-heading)',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+              }}>
+                {c.title}
+              </span>
+              {c.turnCount > 1 && (
+                <span style={{
+                  display: 'flex', alignItems: 'center', gap: 6, marginTop: 3,
+                  fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
+                }}>
+                  <span className="ms" style={{ fontSize: 13 }}>forum</span>
+                  {c.turnCount}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function SidebarButton({ icon, label, collapsed, disabled, onClick, title }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        justifyContent: collapsed ? 'center' : 'flex-start',
+        height: 34, padding: collapsed ? 0 : '0 10px',
+        border: 'none', borderRadius: 'var(--radius-sm)',
+        background: 'transparent',
+        color: disabled ? 'var(--text-faint)' : 'var(--text-body)',
+        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 500,
+        cursor: disabled ? 'default' : 'pointer'
+      }}
+    >
+      <span className="ms" style={{ fontSize: 18, flex: 'none' }}>{icon}</span>
+      {!collapsed && label}
+    </button>
+  )
+}
+
+// Shown in place of the history list until the rep's first question. Matches
+// the GHL reference's "Start your first AI chat" callout rather than the
+// plain sentence this used to be — same information, a clearer call to act.
+function HistoryEmptyState({ onNewChat }) {
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      textAlign: 'center', gap: 8, padding: '24px 16px',
+      borderTop: '1px solid var(--border-default)'
+    }}>
+      <p style={{
+        margin: 0, fontSize: 'var(--text-base)', fontWeight: 600,
+        color: 'var(--text-heading)'
+      }}>
+        Start your first AI chat
+      </p>
+      <p style={{
+        margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)'
+      }}>
+        Ask for insights, create content, or solve problems faster with AI.
+      </p>
+      <button
+        onClick={onNewChat}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 7,
+          marginTop: 4, height: 34, padding: '0 14px',
+          border: 'none', borderRadius: 'var(--radius-pill)',
+          background: 'var(--text-heading)', color: '#fff',
+          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 600,
+          cursor: 'pointer'
+        }}
+      >
+        <span className="ms" style={{ fontSize: 16 }}>add_comment</span>
+        Start a new chat
+      </button>
+    </div>
   )
 }
 
