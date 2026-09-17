@@ -264,30 +264,46 @@ export default function CopilotTab({ onOpenDeal }) {
             minWidth: 0, display: 'grid', gap: 12,
             gridTemplateRows: '1fr auto', minHeight: 0
           }}>
-            <div
-              ref={scrollRef}
-              style={{
-                minHeight: 0, overflowY: 'auto',
-                display: 'grid', gap: 12, alignContent: 'start'
-              }}
-            >
-              {empty && !pending && (
-                <EmptyState firstName={firstName} />
-              )}
-
+            {/* Empty state: the greeting sits directly above the composer as
+                one centered group, not centered independently in the whole
+                scroll area above it — that left it stranded far from the
+                input, with a much bigger gap than the GHL reference's
+                tighter pairing. */}
+            {empty && !pending ? (
               <div style={{
-                width: '100%', maxWidth: 760, margin: '0 auto',
-                display: 'grid', gap: 12, alignContent: 'start'
+                minHeight: 0, display: 'flex', alignItems: 'flex-end',
+                justifyContent: 'center', paddingBottom: 20
               }}>
-                {turns.map((t, i) => (
-                  t.role === 'user'
-                    ? <UserTurn key={i} text={t.content} />
-                    : <AnswerTurn key={i} turn={t} onOpenDeal={onOpenDeal} />
-                ))}
-
-                {pending && <Thinking />}
+                <p style={{
+                  margin: 0, textAlign: 'center',
+                  fontSize: 'var(--text-3xl)', fontWeight: 600,
+                  letterSpacing: '-0.02em', color: 'var(--text-heading)'
+                }}>
+                  What's on your mind{firstName ? `, ${firstName}` : ''}?
+                </p>
               </div>
-            </div>
+            ) : (
+              <div
+                ref={scrollRef}
+                style={{
+                  minHeight: 0, overflowY: 'auto',
+                  display: 'grid', gap: 12, alignContent: 'start'
+                }}
+              >
+                <div style={{
+                  width: '100%', maxWidth: 760, margin: '0 auto',
+                  display: 'grid', gap: 12, alignContent: 'start'
+                }}>
+                  {turns.map((t, i) => (
+                    t.role === 'user'
+                      ? <UserTurn key={i} text={t.content} />
+                      : <AnswerTurn key={i} turn={t} onOpenDeal={onOpenDeal} />
+                  ))}
+
+                  {pending && <Thinking />}
+                </div>
+              </div>
+            )}
 
             {error && (
               <p style={{
@@ -313,29 +329,6 @@ export default function CopilotTab({ onOpenDeal }) {
         </div>
       </Panel>
     </Shell>
-  )
-}
-
-// Matches the GHL Copilot new-tab greeting: a single centered line, no icon
-// badge, no description, no starter chips. The composer below it (rendered
-// by the parent, same as the answered state) is the only other element on
-// screen — the whole empty state is just "here's the question box".
-function EmptyState({ firstName }) {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '40px 16px', textAlign: 'center',
-      // Fills the scroller so the greeting sits in the middle of the space
-      // rather than clinging to the top of a now much taller area.
-      minHeight: '100%'
-    }}>
-      <p style={{
-        margin: 0, fontSize: 'var(--text-3xl)', fontWeight: 600,
-        letterSpacing: '-0.02em', color: 'var(--text-heading)'
-      }}>
-        What's on your mind{firstName ? `, ${firstName}` : ''}?
-      </p>
-    </div>
   )
 }
 
