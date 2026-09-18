@@ -23,6 +23,8 @@ export const aiAPI = {
   portfolioHistory: () => apiClient.get('/api/ai/portfolio/ask/history'),
   rateRun: (runId, { rating, reason }) =>
     apiClient.post(`/api/ai/runs/${encodeURIComponent(runId)}/rating`, { rating, reason }),
+  deleteConversation: (conversationId) =>
+    apiClient.delete(`/api/ai/conversations/${encodeURIComponent(conversationId)}`),
   runMessages: (runId) =>
     apiClient.get(`/api/ai/runs/${encodeURIComponent(runId)}/messages`),
   feedback: (runId, payload) =>

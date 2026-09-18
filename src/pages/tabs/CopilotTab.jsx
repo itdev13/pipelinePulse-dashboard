@@ -237,6 +237,10 @@ export default function CopilotTab({ onOpenDeal }) {
         history={history}
         conversationId={conversationId}
         onReopen={reopen}
+        onDeleted={(deletedId) => {
+          if (deletedId === conversationId) { setTurns([]); setConversationId(null) }
+          loadHistory()
+        }}
       />
 
       {/* ── the conversation ─────────────────────────────────── */}
@@ -369,12 +373,37 @@ const NAV_ITEMS = [
 
 function Sidebar({
   collapsed, onToggleCollapsed, empty, onNewChat, history, conversationId, onReopen,
+  onDeleted,
   // Positioning only — everything else about the sidebar's own look is
   // fixed. Absolute + a width in the empty state (it overlays rather than
   // sharing a grid track, so the greeting can center on the full page); a
   // plain grid item once a conversation exists.
   style
 }) {
+  // Recents row menu / delete — GHL's own pattern (hover reveals a three-dot
+  // button; click opens a small menu; Delete opens a confirmation before
+  // anything is removed). Owned here, not in CopilotTab, because nothing
+  // outside the rail needs to know a menu is open — only the eventual DELETE
+  // needs to reach back up, via onDeleted.
+  const [openMenuFor, setOpenMenuFor] = useState(null)          // conversationId | null
+  const [confirmDeleteFor, setConfirmDeleteFor] = useState(null) // {conversationId, title} | null
+  const [deletingConv, setDeletingConv] = useState(false)
+
+  const confirmDelete = async () => {
+    if (!confirmDeleteFor || deletingConv) return
+    setDeletingConv(true)
+    try {
+      await aiAPI.deleteConversation(confirmDeleteFor.conversationId)
+      onDeleted?.(confirmDeleteFor.conversationId)
+      setConfirmDeleteFor(null)
+    } catch {
+      // Modal stays open on failure — closing it here would look like the
+      // delete succeeded when it did not.
+    } finally {
+      setDeletingConv(false)
+    }
+  }
+
   return (
     // Flat, flush to the conversation pane — a right-edge divider rather
     // than a bordered/rounded card, matching the GHL reference's edge-to-edge
@@ -452,42 +481,228 @@ function Sidebar({
             </span>
           </div>
           {history.map((c) => (
-            <button
+            <RecentRow
               key={c.conversationId}
-              onClick={() => onReopen(c)}
-              style={{
-                display: 'block', width: '100%', textAlign: 'left',
-                padding: '8px 10px',
-                border: 'none',
-                borderRadius: 'var(--radius-md)',
-                marginBottom: 1,
-                background: c.conversationId === conversationId
-                  ? 'var(--tint-plum)' : 'transparent',
-                cursor: 'pointer', fontFamily: 'var(--font-sans)'
+              conv={c}
+              active={c.conversationId === conversationId}
+              menuOpen={openMenuFor === c.conversationId}
+              onSelect={() => onReopen(c)}
+              onToggleMenu={() =>
+                setOpenMenuFor((cur) => (cur === c.conversationId ? null : c.conversationId))
+              }
+              onDelete={() => {
+                setOpenMenuFor(null)
+                setConfirmDeleteFor({ conversationId: c.conversationId, title: c.title })
               }}
-            >
-              <span style={{
-                display: 'block',
-                fontSize: 'var(--text-base)', fontWeight: 600,
-                color: 'var(--text-heading)',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-              }}>
-                {c.title}
-              </span>
-              {c.turnCount > 1 && (
-                <span style={{
-                  display: 'flex', alignItems: 'center', gap: 6, marginTop: 3,
-                  fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
-                }}>
-                  <span className="ms" style={{ fontSize: 13 }}>forum</span>
-                  {c.turnCount}
-                </span>
-              )}
-            </button>
+            />
           ))}
+
+          {confirmDeleteFor && (
+            <DeleteConfirmModal
+              title={confirmDeleteFor.title}
+              busy={deletingConv}
+              onCancel={() => setConfirmDeleteFor(null)}
+              onConfirm={confirmDelete}
+            />
+          )}
         </div>
       )}
     </section>
+  )
+}
+
+// One Recents row — matches GHL's AskAiSidebarSessionRow.vue measurements:
+// row padding 8px 10px, 36px tall, 10px radius; the three-dot button is
+// 24×24px sitting at the row's right edge, invisible until the row is
+// hovered or its own menu is open (opacity 0 -> 1, not display:none, so it
+// animates rather than popping in).
+//
+// The click target is split into two SIBLING elements — the title button and
+// the menu button — rather than one wrapping button with a nested one. A
+// button cannot contain a button; GHL's own component has this exact
+// comment/structure for the same reason.
+function RecentRow({ conv, active, menuOpen, onSelect, onToggleMenu, onDelete }) {
+  const [hovered, setHovered] = useState(false)
+  const showMenuButton = hovered || menuOpen
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        position: 'relative', display: 'flex', alignItems: 'center',
+        width: '100%', minWidth: 0,
+        borderRadius: 10,
+        marginBottom: 1,
+        background: active || menuOpen ? 'var(--tint-plum)' : 'transparent'
+      }}
+    >
+      <button
+        onClick={onSelect}
+        style={{
+          display: 'block', flex: '1 1 auto', width: '100%', minWidth: 0,
+          textAlign: 'left',
+          padding: '8px 10px',
+          // Room for the menu button so long titles don't run under it.
+          paddingRight: 30,
+          height: 36,
+          border: 'none', background: 'transparent', borderRadius: 10,
+          cursor: 'pointer', fontFamily: 'var(--font-sans)'
+        }}
+      >
+        <span style={{
+          display: 'block',
+          fontSize: 'var(--text-base)', fontWeight: 600,
+          color: 'var(--text-heading)',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+        }}>
+          {conv.title}
+        </span>
+        {conv.turnCount > 1 && (
+          <span style={{
+            display: 'flex', alignItems: 'center', gap: 6, marginTop: 3,
+            fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
+          }}>
+            <span className="ms" style={{ fontSize: 13 }}>forum</span>
+            {conv.turnCount}
+          </span>
+        )}
+      </button>
+
+      <span style={{
+        position: 'absolute', top: '50%', right: 4, transform: 'translateY(-50%)'
+      }}>
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleMenu() }}
+          aria-label="Chat actions"
+          aria-expanded={menuOpen}
+          aria-haspopup="menu"
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 24, height: 24,
+            border: 'none', borderRadius: 6,
+            background: menuOpen ? 'var(--gray-100)' : 'transparent',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+            opacity: showMenuButton ? 1 : 0,
+            pointerEvents: showMenuButton ? 'auto' : 'none',
+            transition: 'opacity 120ms ease, background 120ms ease'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 16 }}>more_horiz</span>
+        </button>
+
+        {menuOpen && (
+          <div
+            role="menu"
+            style={{
+              position: 'absolute', top: '100%', right: 0, marginTop: 4,
+              minWidth: 140, zIndex: 5,
+              background: '#fff',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-md)',
+              boxShadow: '0 4px 16px rgba(31, 36, 48, 0.14)',
+              padding: 4
+            }}
+          >
+            <button
+              role="menuitem"
+              onClick={onDelete}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                width: '100%', padding: '7px 9px',
+                border: 'none', borderRadius: 'var(--radius-sm)',
+                background: 'transparent', color: 'var(--status-stuck-text)',
+                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
+                cursor: 'pointer', textAlign: 'left'
+              }}
+            >
+              <span className="ms" style={{ fontSize: 16 }}>delete</span>
+              Delete chat
+            </button>
+          </div>
+        )}
+      </span>
+    </div>
+  )
+}
+
+// The confirmation before a chat is actually removed — matching GHL's
+// deleteConfirmTitle/deleteConfirmBody pattern: name the chat being deleted,
+// so a rep who opened the wrong row's menu sees which one they are about to
+// lose before it happens.
+function DeleteConfirmModal({ title, busy, onCancel, onConfirm }) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onCancel}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 50,
+        background: 'rgba(15, 18, 24, 0.4)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center'
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: 420, maxWidth: 'calc(100vw - 32px)',
+          background: '#fff', borderRadius: 'var(--radius-lg)',
+          boxShadow: '0 12px 40px rgba(15, 18, 24, 0.25)',
+          padding: 20
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
+          <span
+            className="ms"
+            style={{ fontSize: 20, color: 'var(--status-stuck-text)', marginTop: 1 }}
+          >
+            warning
+          </span>
+          <h3 style={{
+            margin: 0, fontSize: 'var(--text-lg)', fontWeight: 600,
+            color: 'var(--text-heading)'
+          }}>
+            Delete this chat?
+          </h3>
+        </div>
+        <p style={{
+          margin: '0 0 18px 30px', fontSize: 'var(--text-md)', lineHeight: 1.55,
+          color: 'var(--text-muted)'
+        }}>
+          "{title}" will be permanently deleted. This cannot be undone.
+        </p>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button
+            onClick={onCancel}
+            disabled={busy}
+            style={{
+              height: 36, padding: '0 15px',
+              border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-md)',
+              background: '#fff', color: 'var(--text-body)',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
+              cursor: busy ? 'default' : 'pointer'
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={busy}
+            style={{
+              height: 36, padding: '0 15px',
+              border: 'none', borderRadius: 'var(--radius-md)',
+              background: 'var(--status-stuck)', color: '#fff',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
+              cursor: busy ? 'default' : 'pointer',
+              opacity: busy ? 0.7 : 1
+            }}
+          >
+            {busy ? 'Deleting…' : 'Delete'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
