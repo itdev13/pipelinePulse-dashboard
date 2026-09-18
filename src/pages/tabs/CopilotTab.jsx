@@ -4,6 +4,7 @@ import { dealsAPI } from '../../api/deals'
 import { useTabState } from '../../hooks/useTabState'
 import { useAuth } from '../../context/AuthContext'
 import { useDictation } from '../shared/useDictation'
+import MarkdownAnswer from '../dealhub/MarkdownAnswer'
 import { useAttachments } from '../shared/useAttachments'
 import {
   RecordingBar, AttachmentThumbnails, ImagePreview, IconButton
@@ -549,29 +550,6 @@ function HistoryEmptyState({ onNewChat }) {
   )
 }
 
-// The prompt tells the model to write plain prose, but "highest value" and a
-// figure naturally come out as **bold** — the model reaches for markdown
-// whether asked to or not. The answer was rendering the asterisks literally
-// rather than as emphasis.
-//
-// A full markdown library is more than one inline rule needs; this handles
-// exactly what the model actually produces (**bold**, and *italic* as a
-// smaller, less greedy fallback) and nothing else — no headings, no lists, no
-// links, so it can't half-render a bullet the model was not asked to make.
-function renderInlineMarkdown(text) {
-  if (!text) return text
-  const parts = String(text).split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g)
-  return parts.map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
-      return <strong key={i}>{part.slice(2, -2)}</strong>
-    }
-    if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
-      return <em key={i}>{part.slice(1, -1)}</em>
-    }
-    return part
-  })
-}
-
 function UserTurn({ text }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -600,12 +578,7 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
       )}
 
       <div>
-        <p style={{
-          margin: 0, fontSize: 'var(--text-md)', lineHeight: 1.6,
-          color: 'var(--text-body)', whiteSpace: 'pre-wrap'
-        }}>
-          {renderInlineMarkdown(turn.answerText)}
-        </p>
+        <MarkdownAnswer text={turn.answerText} />
 
         {turn.scopeNote && (
           <p style={{
