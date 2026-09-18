@@ -974,42 +974,47 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
           </p>
         )}
 
+        {/* Which deals the answer rests on, ABOVE the reaction row — a
+            manager checks what was actually read before deciding whether to
+            rate the answer, not after. A portfolio answer names several, so
+            these are the way through to check one — the equivalent of
+            clicking a citation on a single deal. */}
+        {turn.dealsRead?.length > 0 && (
+          <div style={{
+            display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center',
+            margin: '9px 0 0'
+          }}>
+            <span style={{
+              fontSize: 'var(--text-xs)', fontWeight: 600,
+              letterSpacing: '0.05em', textTransform: 'uppercase',
+              color: 'var(--text-faint)'
+            }}>
+              {turn.fromFactsOnly ? 'Based on' : 'Read'}
+            </span>
+            {turn.dealsRead.map((d) => (
+              <button
+                key={d.id}
+                onClick={() => onOpenDeal && onOpenDeal(d.id)}
+                title="Open this deal"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  height: 26, padding: '0 10px',
+                  border: '1px solid var(--green-300)',
+                  borderRadius: 'var(--radius-pill)',
+                  background: 'var(--tint-pine)', color: 'var(--accent-pine-text)',
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 'var(--text-sm)', fontWeight: 600, cursor: 'pointer'
+                }}
+              >
+                <span className="ms" style={{ fontSize: 13 }}>sell</span>
+                {d.name}
+              </button>
+            ))}
+          </div>
+        )}
+
         <ReactionRow runId={turn.runId} answerText={turn.answerText} />
       </div>
-
-      {/* Which deals the answer rests on. A portfolio answer names several, so
-          these are the way through to check one — the equivalent of clicking a
-          citation on a single deal. */}
-      {turn.dealsRead?.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-          <span style={{
-            fontSize: 'var(--text-xs)', fontWeight: 600,
-            letterSpacing: '0.05em', textTransform: 'uppercase',
-            color: 'var(--text-faint)'
-          }}>
-            {turn.fromFactsOnly ? 'Based on' : 'Read'}
-          </span>
-          {turn.dealsRead.map((d) => (
-            <button
-              key={d.id}
-              onClick={() => onOpenDeal && onOpenDeal(d.id)}
-              title="Open this deal"
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                height: 26, padding: '0 10px',
-                border: '1px solid var(--green-300)',
-                borderRadius: 'var(--radius-pill)',
-                background: 'var(--tint-pine)', color: 'var(--accent-pine-text)',
-                fontFamily: 'var(--font-sans)',
-                fontSize: 'var(--text-sm)', fontWeight: 600, cursor: 'pointer'
-              }}
-            >
-              <span className="ms" style={{ fontSize: 13 }}>sell</span>
-              {d.name}
-            </button>
-          ))}
-        </div>
-      )}
 
       {turn.citations?.length > 0 && (
         <div style={{ display: 'grid', gap: 6 }}>

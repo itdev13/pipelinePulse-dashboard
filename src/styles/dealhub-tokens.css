@@ -2664,7 +2664,7 @@
   margin: 4px 0 10px;
   padding-left: 22px;
 }
-[data-dealhub] .pp-md li { margin: 3px 0; }
+[data-dealhub] .pp-md li { margin: 6px 0; }
 [data-dealhub] .pp-md li::marker { color: var(--text-faint); }
 [data-dealhub] .pp-md h1,
 [data-dealhub] .pp-md h2,
