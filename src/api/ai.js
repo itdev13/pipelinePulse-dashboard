@@ -21,8 +21,12 @@ export const aiAPI = {
   askPortfolio: ({ question, history = [], images = [], conversationId = null }) =>
     apiClient.post('/api/ai/portfolio/ask', { question, history, images, conversationId }),
   portfolioHistory: () => apiClient.get('/api/ai/portfolio/ask/history'),
-  rateRun: (runId, { rating, reason }) =>
-    apiClient.post(`/api/ai/runs/${encodeURIComponent(runId)}/rating`, { rating, reason }),
+  // `reasons` are chip ids from the negative-feedback modal (see
+  // NEGATIVE_FEEDBACK_CHIPS in CopilotTab.jsx) — matching GHL's own
+  // NegativeFeedbackModal.vue set, validated server-side against the same
+  // list. `reason` is that modal's free-text "Share details" field.
+  rateRun: (runId, { rating, reasons = [], reason }) =>
+    apiClient.post(`/api/ai/runs/${encodeURIComponent(runId)}/rating`, { rating, reasons, reason }),
   deleteConversation: (conversationId) =>
     apiClient.delete(`/api/ai/conversations/${encodeURIComponent(conversationId)}`),
   runMessages: (runId) =>

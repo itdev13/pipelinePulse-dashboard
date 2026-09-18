@@ -10,6 +10,7 @@ import { useAttachments } from '../shared/useAttachments'
 import {
   RecordingBar, AttachmentThumbnails, ImagePreview, IconButton
 } from '../shared/ComposerExtras'
+import NegativeFeedbackModal from '../shared/NegativeFeedbackModal'
 
 // Co-Pilot — one question across EVERY deal in the sub-account.
 //
@@ -1255,17 +1256,19 @@ function ReactionRow({ runId, answerText }) {
   const [rated, setRated] = useState(null)   // 'up' | 'down' | null
   const [copied, setCopied] = useState(false)
   const [savingRating, setSavingRating] = useState(false)
+  // Thumbs-down does not save on click — it asks why first, matching GHL's
+  // own Ask AI (handleFeedback in ChatView.vue). Clicking thumbs-down again
+  // to CLEAR an existing down-rating is the one case that saves immediately
+  // with no modal, same as GHL: there is nothing left to explain about an
+  // opinion being withdrawn.
+  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false)
 
-  const rate = async (value) => {
+  const save = async (value, { reasons = [], reason = null } = {}) => {
     if (!runId || savingRating) return
-    // Optimistic: a rating is low-stakes feedback, not a record the rep needs
-    // to see confirmed before moving on. Toggling — clicking the same one
-    // again clears it — matches "I changed my mind" without a third button.
-    const next = rated === value ? null : value
-    setRated(next)
+    setRated(value)
     setSavingRating(true)
     try {
-      if (next) await aiAPI.rateRun(runId, { rating: next })
+      if (value) await aiAPI.rateRun(runId, { rating: value, reasons, reason })
       // Clearing a rating has no "un-rate" endpoint — the row underneath is
       // upserted by run_id, so the last non-null rating a rep sent is what
       // persists. Good enough: nothing currently reads "no opinion" as a
@@ -1277,6 +1280,22 @@ function ReactionRow({ runId, answerText }) {
     } finally {
       setSavingRating(false)
     }
+  }
+
+  const clickUp = () => {
+    if (!runId || savingRating) return
+    save(rated === 'up' ? null : 'up')
+  }
+
+  const clickDown = () => {
+    if (!runId || savingRating) return
+    if (rated === 'down') { save(null); return }
+    setFeedbackModalOpen(true)
+  }
+
+  const submitFeedback = ({ reasons, comment }) => {
+    setFeedbackModalOpen(false)
+    save('down', { reasons, reason: comment || null })
   }
 
   const copy = async () => {
@@ -1302,33 +1321,43 @@ function ReactionRow({ runId, answerText }) {
   })
 
   return (
-    <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
-      <button
-        title={runId ? 'Good answer' : undefined}
-        disabled={!runId}
-        onClick={() => rate('up')}
-        style={btnStyle(rated === 'up')}
-      >
-        <span className="ms" style={{ fontSize: 17 }}>thumb_up</span>
-      </button>
-      <button
-        title={runId ? 'Bad answer' : undefined}
-        disabled={!runId}
-        onClick={() => rate('down')}
-        style={btnStyle(rated === 'down')}
-      >
-        <span className="ms" style={{ fontSize: 17 }}>thumb_down</span>
-      </button>
-      <button
-        title="Copy"
-        onClick={copy}
-        style={btnStyle(copied)}
-      >
-        <span className="ms" style={{ fontSize: 17 }}>
-          {copied ? 'check' : 'content_copy'}
-        </span>
-      </button>
-    </div>
+    <>
+      <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
+        <button
+          title={runId ? 'Good answer' : undefined}
+          disabled={!runId}
+          onClick={clickUp}
+          style={btnStyle(rated === 'up')}
+        >
+          <span className="ms" style={{ fontSize: 17 }}>thumb_up</span>
+        </button>
+        <button
+          title={runId ? 'Bad answer' : undefined}
+          disabled={!runId}
+          onClick={clickDown}
+          style={btnStyle(rated === 'down')}
+        >
+          <span className="ms" style={{ fontSize: 17 }}>thumb_down</span>
+        </button>
+        <button
+          title="Copy"
+          onClick={copy}
+          style={btnStyle(copied)}
+        >
+          <span className="ms" style={{ fontSize: 17 }}>
+            {copied ? 'check' : 'content_copy'}
+          </span>
+        </button>
+      </div>
+
+      {feedbackModalOpen && (
+        <NegativeFeedbackModal
+          busy={savingRating}
+          onCancel={() => setFeedbackModalOpen(false)}
+          onSubmit={submitFeedback}
+        />
+      )}
+    </>
   )
 }
 
