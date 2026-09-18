@@ -1463,6 +1463,19 @@ function Composer({
   const [dragging, setDragging] = useState(false)
   const { supported: speechSupported, listening, heard, elapsed, start, finish, cancel } = dictation
 
+  // Re-measure whenever `value` changes for ANY reason, not just typing.
+  // The onChange handler below resizes on a keystroke, but `value` also
+  // changes from OUTSIDE this component — submit clears it, dictation fills
+  // it — and none of those fire onChange. Without this the box could grow
+  // tall for a long question, then stay stuck tall after the text was
+  // cleared or replaced by a short one.
+  useLayoutEffect(() => {
+    const el = inputRef?.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 132)}px`
+  }, [value, inputRef])
+
   // While dictating, the composer IS the recorder — the same box, a
   // different state. A separate floating panel would leave a dead text
   // field underneath it. Matches AskDeal's own Co-Pilot exactly.
@@ -1519,12 +1532,7 @@ function Composer({
         <textarea
           ref={inputRef}
           value={value}
-          onChange={(e) => {
-            onChange(e.target.value)
-            const el = e.target
-            el.style.height = 'auto'
-            el.style.height = `${Math.min(el.scrollHeight, 132)}px`
-          }}
+          onChange={(e) => onChange(e.target.value)}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           onKeyDown={(e) => {
@@ -1537,6 +1545,13 @@ function Composer({
           style={{
             flex: 1, minWidth: 0,
             minHeight: 26, maxHeight: 140, resize: 'none',
+            // Never scrolls internally — it grows with the text instead (see
+            // the height-sync effect and onChange below), so the native
+            // scrollbar a plain textarea gets once content exceeds its
+            // inline height never has anything to render. That bar showing
+            // up beside the send button was exactly this: content height
+            // and the inline style briefly disagreeing.
+            overflow: 'hidden',
             // The pill itself IS the focus ring (its border goes green
             // above). A bare <textarea> still paints its own native focus
             // ring in Chrome via box-shadow, which outline:none alone does
