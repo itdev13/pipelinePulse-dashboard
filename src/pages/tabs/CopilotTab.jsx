@@ -98,6 +98,10 @@ export default function CopilotTab({ onOpenDeal }) {
     setQ('')
     setError(null)
     setPending(true)
+    // Open the panel immediately, before the answer exists — this is what
+    // "open by default while thinking" means: the rep sees it working, not
+    // just an inline label, from the moment the question is sent.
+    setOpenThoughtsFor('live')
     clearAttachments()
     setTurns((t) => [...t, { role: 'user', content: value }])
 
@@ -117,20 +121,27 @@ export default function CopilotTab({ onOpenDeal }) {
         images: sentImages.map((a) => ({ mediaType: a.mediaType, data: a.data })),
         conversationId
       })
-      setTurns((t) => [...t, {
-        role: 'assistant',
-        answerText: res.answerText,
-        citations: res.citations || [],
-        confidence: res.confidence,
-        answered: res.answered !== false,
-        dealsRead: res.dealsRead || [],
-        toolCalls: res.toolCalls || [],
-        scopeNote: res.scopeNote || null,
-        fromFactsOnly: res.fromFactsOnly === true
-      }])
+      setTurns((t) => {
+        // t.length is the array BEFORE this push — exactly the index the
+        // assistant turn is about to occupy, so the panel hands over to the
+        // SAME slot rather than closing and a different one opening.
+        setOpenThoughtsFor(t.length)
+        return [...t, {
+          role: 'assistant',
+          answerText: res.answerText,
+          citations: res.citations || [],
+          confidence: res.confidence,
+          answered: res.answered !== false,
+          dealsRead: res.dealsRead || [],
+          toolCalls: res.toolCalls || [],
+          scopeNote: res.scopeNote || null,
+          fromFactsOnly: res.fromFactsOnly === true
+        }]
+      })
       if (res.conversationId) setConversationId(res.conversationId)
       loadHistory()
     } catch (err) {
+      setOpenThoughtsFor(null)
       const code = err?.code
       setError(
         code === 'AI_NOT_CONFIGURED'
@@ -327,7 +338,10 @@ export default function CopilotTab({ onOpenDeal }) {
           </>
         )}
       </div>
-      {openThoughtsFor != null && turns[openThoughtsFor] && (
+      {openThoughtsFor === 'live' && (
+        <ThoughtsPanel live onClose={() => setOpenThoughtsFor(null)} />
+      )}
+      {typeof openThoughtsFor === 'number' && turns[openThoughtsFor] && (
         <ThoughtsPanel
           turn={turns[openThoughtsFor]}
           onClose={() => setOpenThoughtsFor(null)}
@@ -535,6 +549,29 @@ function HistoryEmptyState({ onNewChat }) {
   )
 }
 
+// The prompt tells the model to write plain prose, but "highest value" and a
+// figure naturally come out as **bold** — the model reaches for markdown
+// whether asked to or not. The answer was rendering the asterisks literally
+// rather than as emphasis.
+//
+// A full markdown library is more than one inline rule needs; this handles
+// exactly what the model actually produces (**bold**, and *italic* as a
+// smaller, less greedy fallback) and nothing else — no headings, no lists, no
+// links, so it can't half-render a bullet the model was not asked to make.
+function renderInlineMarkdown(text) {
+  if (!text) return text
+  const parts = String(text).split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g)
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>
+    }
+    if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+      return <em key={i}>{part.slice(1, -1)}</em>
+    }
+    return part
+  })
+}
+
 function UserTurn({ text }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -567,7 +604,7 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
           margin: 0, fontSize: 'var(--text-md)', lineHeight: 1.6,
           color: 'var(--text-body)', whiteSpace: 'pre-wrap'
         }}>
-          {turn.answerText}
+          {renderInlineMarkdown(turn.answerText)}
         </p>
 
         {turn.scopeNote && (
@@ -716,9 +753,9 @@ function ThoughtProcess({ steps = [], live = false, open = false, onToggle }) {
 // framing line at each end. Opened by clicking "Thought process"; GHL keeps
 // this as a slide-in panel rather than inline detail, which is why it is a
 // grid column here rather than a popover glued to the row that opened it.
-function ThoughtsPanel({ turn, onClose }) {
-  const steps = turn.toolCalls || []
-  const seconds = turn.latencyMs ? Math.round(turn.latencyMs / 1000) : null
+function ThoughtsPanel({ turn = null, onClose, live = false }) {
+  const steps = turn?.toolCalls || []
+  const seconds = turn?.latencyMs ? Math.round(turn.latencyMs / 1000) : null
 
   return (
     <div style={{
@@ -732,14 +769,20 @@ function ThoughtsPanel({ turn, onClose }) {
         padding: '14px 16px',
         borderBottom: '1px solid var(--border-default)'
       }}>
-        <span className="ms" style={{ fontSize: 17, color: 'var(--text-muted)' }}>
+        <span
+          className="ms"
+          style={{
+            fontSize: 17, color: 'var(--text-muted)',
+            animation: live ? 'pp-think 1.4s ease-in-out infinite' : 'none'
+          }}
+        >
           hourglass_top
         </span>
         <h3 style={{
           margin: 0, flex: 1,
           fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)'
         }}>
-          {seconds != null ? `Thought for ${seconds}s` : 'Thought process'}
+          {live ? 'Thinking…' : seconds != null ? `Thought for ${seconds}s` : 'Thought process'}
         </h3>
         <button
           onClick={onClose}
@@ -755,17 +798,22 @@ function ThoughtsPanel({ turn, onClose }) {
       </header>
 
       <div style={{ overflowY: 'auto', padding: '14px 16px' }}>
-        {/* A framing line first: what the model decided to do, before the
-            timeline of what it actually ran — matching the opening reasoning
-            sentence in the reference before its first tool step. */}
-        <ThoughtStep
-          done
-          text={
-            steps.length > 0
-              ? `Looking into this needs real data, so I'll check ${steps.length === 1 ? 'the CRM' : 'a few things in the CRM'}.`
-              : 'Answered directly — no lookup was needed for this one.'
-          }
-        />
+        {/* LIVE: one in-progress step. We don't stream individual tool calls
+            today, so this can't yet say WHICH lookup is running — only that
+            one is. Still true, and still the point: the panel is open and
+            working, not just an inline label. */}
+        {live ? (
+          <ThoughtStep done={false} text="Checking the CRM for this…" last />
+        ) : (
+          <ThoughtStep
+            done
+            text={
+              steps.length > 0
+                ? `Looking into this needs real data, so I'll check ${steps.length === 1 ? 'the CRM' : 'a few things in the CRM'}.`
+                : 'Answered directly — no lookup was needed for this one.'
+            }
+          />
+        )}
         {steps.map((st, i) => (
           <ThoughtStep
             key={`${st.name}-${i}`}
@@ -787,8 +835,8 @@ function ThoughtsPanel({ turn, onClose }) {
 
 // One line in the timeline: a status glyph, a connecting rule, the sentence.
 // `done` vs in-progress mirrors the clock/check distinction in the reference —
-// every step we show is already complete by the time the panel can be opened,
-// since it only appears once the answer has landed.
+// in-progress only happens on the LIVE panel's single placeholder step;
+// every step in a completed turn's panel is done by definition.
 function ThoughtStep({ text, done = true, last = false }) {
   return (
     <div style={{ display: 'flex', gap: 10, position: 'relative' }}>
