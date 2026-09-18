@@ -294,14 +294,25 @@ export function ImagePreview({ attachment, onClose }) {
   )
 }
 
-export function IconButton({ icon, label, onClick, disabled, active, size = 38, iconSize = 21 }) {
-  // Our own tooltip, not the browser's `title`. A native title renders as a
-  // dark OS-styled box that ignores the design and takes ~1s to appear — it
-  // read as a bug in the middle of the composer.
+// Our own tooltip, not the browser's `title`. A native title renders as a
+// dark OS-styled box that ignores the design and takes ~1s to appear — it
+// read as a bug in the middle of the composer. Wraps any single child
+// (typically one icon button) and shows `label` above it on hover/focus —
+// used by IconButton below and by the plain reaction icons in
+// CopilotTab.jsx's ReactionRow, which need this exact tooltip without
+// IconButton's own background/active styling.
+export function HoverTooltip({ label, children }) {
   const [hint, setHint] = useState(false)
+  if (!label) return children
 
   return (
-    <span style={{ position: 'relative', display: 'inline-flex', flex: 'none' }}>
+    <span
+      style={{ position: 'relative', display: 'inline-flex', flex: 'none' }}
+      onMouseEnter={() => setHint(true)}
+      onMouseLeave={() => setHint(false)}
+      onFocus={() => setHint(true)}
+      onBlur={() => setHint(false)}
+    >
       {hint && (
         <span
           role="tooltip"
@@ -319,15 +330,19 @@ export function IconButton({ icon, label, onClick, disabled, active, size = 38, 
           {label}
         </span>
       )}
+      {children}
+    </span>
+  )
+}
+
+export function IconButton({ icon, label, onClick, disabled, active, size = 38, iconSize = 21 }) {
+  return (
+    <HoverTooltip label={label}>
       <button
         onClick={onClick}
         disabled={disabled}
         aria-label={label}
         aria-pressed={active ? true : undefined}
-        onMouseEnter={() => setHint(true)}
-        onMouseLeave={() => setHint(false)}
-        onFocus={() => setHint(true)}
-        onBlur={() => setHint(false)}
         style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           width: size, height: size, padding: 0,
@@ -348,6 +363,6 @@ export function IconButton({ icon, label, onClick, disabled, active, size = 38, 
       >
         <span className="ms" style={{ fontSize: iconSize }}>{icon}</span>
       </button>
-    </span>
+    </HoverTooltip>
   )
 }

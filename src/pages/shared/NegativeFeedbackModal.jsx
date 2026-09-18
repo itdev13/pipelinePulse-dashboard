@@ -44,7 +44,11 @@ export default function NegativeFeedbackModal({ onCancel, onSubmit, busy }) {
       style={{
         position: 'fixed', inset: 0, zIndex: 1000,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'rgba(15, 23, 42, 0.32)', padding: 16
+        // GHL's own modal blurs the whole page behind it, not just a dark
+        // scrim — a plain tint left the sidebar and chat sharp underneath.
+        background: 'rgba(15, 23, 42, 0.32)',
+        backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+        padding: 16
       }}
     >
       <div

@@ -8,7 +8,7 @@ import { useDictation } from '../shared/useDictation'
 import MarkdownAnswer from '../dealhub/MarkdownAnswer'
 import { useAttachments } from '../shared/useAttachments'
 import {
-  RecordingBar, AttachmentThumbnails, ImagePreview, IconButton
+  RecordingBar, AttachmentThumbnails, ImagePreview, IconButton, HoverTooltip
 } from '../shared/ComposerExtras'
 import NegativeFeedbackModal from '../shared/NegativeFeedbackModal'
 
@@ -1323,31 +1323,37 @@ function ReactionRow({ runId, answerText }) {
   return (
     <>
       <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
-        <button
-          title={runId ? 'Good answer' : undefined}
-          disabled={!runId}
-          onClick={clickUp}
-          style={btnStyle(rated === 'up')}
-        >
-          <span className="ms" style={{ fontSize: 17 }}>thumb_up</span>
-        </button>
-        <button
-          title={runId ? 'Bad answer' : undefined}
-          disabled={!runId}
-          onClick={clickDown}
-          style={btnStyle(rated === 'down')}
-        >
-          <span className="ms" style={{ fontSize: 17 }}>thumb_down</span>
-        </button>
-        <button
-          title="Copy"
-          onClick={copy}
-          style={btnStyle(copied)}
-        >
-          <span className="ms" style={{ fontSize: 17 }}>
-            {copied ? 'check' : 'content_copy'}
-          </span>
-        </button>
+        {/* Labels match GHL's own Ask AI (MessageBubble.vue) verbatim —
+            "Helpful" / "Not helpful" / "Copy assistant message", the copy
+            one swapping to "Copied!" once clicked. */}
+        <HoverTooltip label={runId ? 'Helpful' : null}>
+          <button
+            disabled={!runId}
+            onClick={clickUp}
+            style={btnStyle(rated === 'up')}
+          >
+            <span className="ms" style={{ fontSize: 17 }}>thumb_up</span>
+          </button>
+        </HoverTooltip>
+        <HoverTooltip label={runId ? 'Not helpful' : null}>
+          <button
+            disabled={!runId}
+            onClick={clickDown}
+            style={btnStyle(rated === 'down')}
+          >
+            <span className="ms" style={{ fontSize: 17 }}>thumb_down</span>
+          </button>
+        </HoverTooltip>
+        <HoverTooltip label={copied ? 'Copied!' : 'Copy assistant message'}>
+          <button
+            onClick={copy}
+            style={btnStyle(copied)}
+          >
+            <span className="ms" style={{ fontSize: 17 }}>
+              {copied ? 'check' : 'content_copy'}
+            </span>
+          </button>
+        </HoverTooltip>
       </div>
 
       {feedbackModalOpen && (
