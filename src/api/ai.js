@@ -21,6 +21,8 @@ export const aiAPI = {
   askPortfolio: ({ question, history = [], images = [], conversationId = null }) =>
     apiClient.post('/api/ai/portfolio/ask', { question, history, images, conversationId }),
   portfolioHistory: () => apiClient.get('/api/ai/portfolio/ask/history'),
+  rateRun: (runId, { rating, reason }) =>
+    apiClient.post(`/api/ai/runs/${encodeURIComponent(runId)}/rating`, { rating, reason }),
   runMessages: (runId) =>
     apiClient.get(`/api/ai/runs/${encodeURIComponent(runId)}/messages`),
   feedback: (runId, payload) =>

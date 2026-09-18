@@ -136,7 +136,10 @@ export default function CopilotTab({ onOpenDeal }) {
           dealsRead: res.dealsRead || [],
           toolCalls: res.toolCalls || [],
           scopeNote: res.scopeNote || null,
-          fromFactsOnly: res.fromFactsOnly === true
+          fromFactsOnly: res.fromFactsOnly === true,
+          // Needed to rate the answer. Dropped before — the server always
+          // sent it, the client just never carried it onto the turn.
+          runId: res.runId || null
         }]
       })
       if (res.conversationId) setConversationId(res.conversationId)
@@ -591,7 +594,7 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
           </p>
         )}
 
-        <ReactionRow />
+        <ReactionRow runId={turn.runId} answerText={turn.answerText} />
       </div>
 
       {/* Which deals the answer rests on. A portfolio answer names several, so
@@ -853,23 +856,93 @@ function stepNarrative(step) {
 // Thumbs up/down + copy, under the answer text — GHL shows these without a
 // card around them, so they read as acting on the text above rather than as
 // controls on a separate panel.
-function ReactionRow() {
-  const icons = ['thumb_up', 'thumb_down', 'content_copy']
+// Thumbs up/down + copy, under the answer text. These rendered before but
+// did nothing — three buttons with a tooltip and no onClick, the exact "dead
+// control" shape flagged earlier in this tab's own history (the Make-task
+// chip). Now real:
+//
+//   * up/down    POST /api/ai/runs/:runId/rating — a run with no runId (the
+//                facts-only path can have one; a failed turn never reaches
+//                this component at all) still degrades to disabled rather
+//                than silently eating the click.
+//   * copy       clipboard only, no server round trip needed for it.
+function ReactionRow({ runId, answerText }) {
+  const [rated, setRated] = useState(null)   // 'up' | 'down' | null
+  const [copied, setCopied] = useState(false)
+  const [savingRating, setSavingRating] = useState(false)
+
+  const rate = async (value) => {
+    if (!runId || savingRating) return
+    // Optimistic: a rating is low-stakes feedback, not a record the rep needs
+    // to see confirmed before moving on. Toggling — clicking the same one
+    // again clears it — matches "I changed my mind" without a third button.
+    const next = rated === value ? null : value
+    setRated(next)
+    setSavingRating(true)
+    try {
+      if (next) await aiAPI.rateRun(runId, { rating: next })
+      // Clearing a rating has no "un-rate" endpoint — the row underneath is
+      // upserted by run_id, so the last non-null rating a rep sent is what
+      // persists. Good enough: nothing currently reads "no opinion" as a
+      // distinct signal from "never asked".
+    } catch {
+      // A failed rating is not worth interrupting the rep over — the answer
+      // is still fully usable without it having saved.
+      setRated(rated)
+    } finally {
+      setSavingRating(false)
+    }
+  }
+
+  const copy = async () => {
+    if (!answerText) return
+    try {
+      await navigator.clipboard.writeText(answerText)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1600)
+    } catch {
+      // Clipboard access can be denied (permissions, non-HTTPS, an iframe
+      // without the clipboard-write policy — this tab runs inside one).
+      // Failing quietly is right here: there is nothing actionable to tell a
+      // rep beyond "try selecting the text yourself".
+    }
+  }
+
+  const btnStyle = (active) => ({
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    width: 28, height: 28, border: 'none', borderRadius: 'var(--radius-sm)',
+    background: active ? 'var(--tint-pine)' : 'transparent',
+    color: active ? 'var(--accent-pine-text)' : 'var(--text-faint)',
+    cursor: runId || false ? 'pointer' : 'default'
+  })
+
   return (
     <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
-      {icons.map((icon) => (
-        <button
-          key={icon}
-          title={icon === 'content_copy' ? 'Copy' : undefined}
-          style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 28, height: 28, border: 'none', borderRadius: 'var(--radius-sm)',
-            background: 'transparent', color: 'var(--text-faint)', cursor: 'pointer'
-          }}
-        >
-          <span className="ms" style={{ fontSize: 17 }}>{icon}</span>
-        </button>
-      ))}
+      <button
+        title={runId ? 'Good answer' : undefined}
+        disabled={!runId}
+        onClick={() => rate('up')}
+        style={btnStyle(rated === 'up')}
+      >
+        <span className="ms" style={{ fontSize: 17 }}>thumb_up</span>
+      </button>
+      <button
+        title={runId ? 'Bad answer' : undefined}
+        disabled={!runId}
+        onClick={() => rate('down')}
+        style={btnStyle(rated === 'down')}
+      >
+        <span className="ms" style={{ fontSize: 17 }}>thumb_down</span>
+      </button>
+      <button
+        title="Copy"
+        onClick={copy}
+        style={btnStyle(copied)}
+      >
+        <span className="ms" style={{ fontSize: 17 }}>
+          {copied ? 'check' : 'content_copy'}
+        </span>
+      </button>
     </div>
   )
 }
