@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { aiAPI } from '../../api/ai'
 import { dealsAPI } from '../../api/deals'
 import { useTabState } from '../../hooks/useTabState'
@@ -388,6 +389,13 @@ function Sidebar({
   const [openMenuFor, setOpenMenuFor] = useState(null)          // conversationId | null
   const [confirmDeleteFor, setConfirmDeleteFor] = useState(null) // {conversationId, title} | null
   const [deletingConv, setDeletingConv] = useState(false)
+  // One ref per row's three-dot button, keyed by conversationId. The menu
+  // portals to document.body (see the note by RecentRow's menu), so it needs
+  // a way to find the button it opened from — a getter, not the element
+  // itself, since the map is only populated by ref callbacks during the same
+  // commit that mounts each row; reading it during THIS render would still
+  // be empty. Matches TaskDealsPopover's getAnchor convention.
+  const anchorRefs = useRef({})
 
   const confirmDelete = async () => {
     if (!confirmDeleteFor || deletingConv) return
@@ -486,6 +494,8 @@ function Sidebar({
               conv={c}
               active={c.conversationId === conversationId}
               menuOpen={openMenuFor === c.conversationId}
+              menuButtonRef={(el) => { anchorRefs.current[c.conversationId] = el }}
+              getAnchor={() => anchorRefs.current[c.conversationId]}
               onSelect={() => onReopen(c)}
               onToggleMenu={() =>
                 setOpenMenuFor((cur) => (cur === c.conversationId ? null : c.conversationId))
@@ -521,7 +531,9 @@ function Sidebar({
 // the menu button — rather than one wrapping button with a nested one. A
 // button cannot contain a button; GHL's own component has this exact
 // comment/structure for the same reason.
-function RecentRow({ conv, active, menuOpen, onSelect, onToggleMenu, onDelete }) {
+function RecentRow({
+  conv, active, menuOpen, menuButtonRef, getAnchor, onSelect, onToggleMenu, onDelete
+}) {
   const [hovered, setHovered] = useState(false)
   const showMenuButton = hovered || menuOpen
 
@@ -565,6 +577,7 @@ function RecentRow({ conv, active, menuOpen, onSelect, onToggleMenu, onDelete })
         position: 'absolute', top: '50%', right: 4, transform: 'translateY(-50%)'
       }}>
         <button
+          ref={menuButtonRef}
           onClick={(e) => { e.stopPropagation(); onToggleMenu() }}
           aria-label="Chat actions"
           aria-expanded={menuOpen}
@@ -583,39 +596,102 @@ function RecentRow({ conv, active, menuOpen, onSelect, onToggleMenu, onDelete })
         >
           <span className="ms" style={{ fontSize: 16 }}>more_horiz</span>
         </button>
-
-        {menuOpen && (
-          <div
-            role="menu"
-            style={{
-              position: 'absolute', top: '100%', right: 0, marginTop: 4,
-              minWidth: 140, zIndex: 5,
-              background: '#fff',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-md)',
-              boxShadow: '0 4px 16px rgba(31, 36, 48, 0.14)',
-              padding: 4
-            }}
-          >
-            <button
-              role="menuitem"
-              onClick={onDelete}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                width: '100%', padding: '7px 9px',
-                border: 'none', borderRadius: 'var(--radius-sm)',
-                background: 'transparent', color: 'var(--status-stuck-text)',
-                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
-                cursor: 'pointer', textAlign: 'left'
-              }}
-            >
-              <span className="ms" style={{ fontSize: 16 }}>delete</span>
-              Delete chat
-            </button>
-          </div>
-        )}
       </span>
+
+      {/* Portalled — see RecentMenu below. The row sits in a list with
+          overflowY: auto, which CLIPS any absolutely-positioned descendant
+          to its own bounds no matter the z-index. The menu was rendering
+          submerged into the next row instead of floating above it. */}
+      {menuOpen && (
+        <RecentMenu getAnchor={getAnchor} onClose={onToggleMenu} onDelete={onDelete} />
+      )}
     </div>
+  )
+}
+
+// The Recents row's "..." menu, portalled to the body and measured against
+// its trigger button — same convention as TaskDealsPopover (see its own
+// header comment for the full rationale).
+function RecentMenu({ getAnchor, onClose, onDelete }) {
+  const boxRef = useRef(null)
+  const [pos, setPos] = useState(null)
+
+  useLayoutEffect(() => {
+    const place = () => {
+      const el = getAnchor?.()
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      const W = 140
+      const GAP = 4
+      setPos({
+        left: Math.max(8, Math.min(r.right - W, window.innerWidth - W - 8)),
+        top: r.bottom + GAP
+      })
+    }
+    place()
+    window.addEventListener('scroll', place, true)
+    window.addEventListener('resize', place)
+    return () => {
+      window.removeEventListener('scroll', place, true)
+      window.removeEventListener('resize', place)
+    }
+  }, [getAnchor])
+
+  useEffect(() => {
+    const onDown = (e) => {
+      if (boxRef.current?.contains(e.target)) return
+      // The trigger toggles on its own click; without this the menu would
+      // close here and reopen from the toggle in the same gesture.
+      if (getAnchor?.()?.contains(e.target)) return
+      onClose()
+    }
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [onClose, getAnchor])
+
+  if (!pos) return null
+
+  return createPortal(
+    <div
+      ref={boxRef}
+      role="menu"
+      // .pp-portal — the design tokens and the icon font are scoped to
+      // [data-dealhub], which a body portal escapes.
+      className="pp-portal"
+      style={{
+        position: 'fixed',
+        left: pos.left, top: pos.top,
+        minWidth: 140, zIndex: 50,
+        background: '#fff',
+        border: '1px solid var(--border-default)',
+        borderRadius: 'var(--radius-md)',
+        boxShadow: '0 4px 16px rgba(31, 36, 48, 0.14)',
+        padding: 4
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        role="menuitem"
+        onClick={onDelete}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          width: '100%', padding: '7px 9px',
+          border: 'none', borderRadius: 'var(--radius-sm)',
+          background: 'transparent', color: 'var(--status-stuck-text)',
+          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
+          cursor: 'pointer', textAlign: 'left'
+        }}
+      >
+        <span className="ms" style={{ fontSize: 16 }}>delete</span>
+        Delete chat
+      </button>
+    </div>,
+    document.body
   )
 }
 
