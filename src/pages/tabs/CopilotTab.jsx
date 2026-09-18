@@ -39,6 +39,10 @@ export default function CopilotTab({ onOpenDeal }) {
   // chat, Search, Templates, Customize), it just drops the labels and the
   // history list, matching the GHL reference's collapse toggle.
   const [sidebarCollapsed, setSidebarCollapsed] = useTabState('copilot', 'sidebarCollapsed', false)
+  // Separate from the sidebar's own collapse above: this just hides the
+  // Recents LIST under its header (a chevron toggle, matching the GHL
+  // reference), while the sidebar itself stays full width.
+  const [recentsCollapsed, setRecentsCollapsed] = useTabState('copilot', 'recentsCollapsed', false)
 
   const [history, setHistory] = useState([])
   const [pending, setPending] = useState(false)
@@ -233,6 +237,8 @@ export default function CopilotTab({ onOpenDeal }) {
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
+        recentsCollapsed={recentsCollapsed}
+        onToggleRecentsCollapsed={() => setRecentsCollapsed((c) => !c)}
         empty={empty}
         onNewChat={newChat}
         history={history}
@@ -375,6 +381,10 @@ const NAV_ITEMS = [
 function Sidebar({
   collapsed, onToggleCollapsed, empty, onNewChat, history, conversationId, onReopen,
   onDeleted,
+  // The Recents LIST's own show/hide, separate from `collapsed` above (which
+  // shrinks the whole sidebar to an icon rail). Matches the GHL reference's
+  // chevron on the "Recents" header.
+  recentsCollapsed, onToggleRecentsCollapsed,
   // Positioning only — everything else about the sidebar's own look is
   // fixed. Absolute + a width in the empty state (it overlays rather than
   // sharing a grid track, so the greeting can center on the full page); a
@@ -470,42 +480,64 @@ function Sidebar({
         <HistoryEmptyState onNewChat={onNewChat} />
       ) : (
         <div style={{
-          minHeight: 0, overflowY: 'auto', padding: '0 6px 6px',
+          minHeight: 0,
+          // Only the ROW LIST scrolls/hides on the chevron toggle; the
+          // header stays put so there's always something to click back on.
+          display: 'grid', gridTemplateRows: 'auto 1fr',
           borderTop: '1px solid var(--border-default)'
         }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '10px 10px 6px'
-          }}>
-            <span className="ms" style={{ fontSize: 15, color: 'var(--text-faint)' }}>history</span>
+          <button
+            onClick={onToggleRecentsCollapsed}
+            aria-expanded={!recentsCollapsed}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              width: '100%', padding: '10px 10px 6px',
+              border: 'none', background: 'transparent', cursor: 'pointer',
+              fontFamily: 'var(--font-sans)'
+            }}
+          >
             <h3 style={{
-              margin: 0, flex: 1,
+              margin: 0, flex: 1, textAlign: 'left',
               fontSize: 'var(--text-base)', fontWeight: 500, color: 'var(--text-muted)'
             }}>
               Recents
             </h3>
-            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
-              {history.length}
-            </span>
-          </div>
-          {history.map((c) => (
-            <RecentRow
-              key={c.conversationId}
-              conv={c}
-              active={c.conversationId === conversationId}
-              menuOpen={openMenuFor === c.conversationId}
-              menuButtonRef={(el) => { anchorRefs.current[c.conversationId] = el }}
-              getAnchor={() => anchorRefs.current[c.conversationId]}
-              onSelect={() => onReopen(c)}
-              onToggleMenu={() =>
-                setOpenMenuFor((cur) => (cur === c.conversationId ? null : c.conversationId))
-              }
-              onDelete={() => {
-                setOpenMenuFor(null)
-                setConfirmDeleteFor({ conversationId: c.conversationId, title: c.title })
+            <span
+              className="ms"
+              style={{
+                fontSize: 18, color: 'var(--text-faint)',
+                transition: 'transform 120ms ease',
+                // Right when collapsed, down when open — same chevron,
+                // rotated, rather than swapping icon glyphs.
+                transform: recentsCollapsed ? 'rotate(-90deg)' : 'none'
               }}
-            />
-          ))}
+            >
+              expand_more
+            </span>
+          </button>
+
+          {!recentsCollapsed && (
+            <div style={{ minHeight: 0, overflowY: 'auto', padding: '0 6px 6px' }}>
+              {history.map((c) => (
+                <RecentRow
+                  key={c.conversationId}
+                  conv={c}
+                  active={c.conversationId === conversationId}
+                  menuOpen={openMenuFor === c.conversationId}
+                  menuButtonRef={(el) => { anchorRefs.current[c.conversationId] = el }}
+                  getAnchor={() => anchorRefs.current[c.conversationId]}
+                  onSelect={() => onReopen(c)}
+                  onToggleMenu={() =>
+                    setOpenMenuFor((cur) => (cur === c.conversationId ? null : c.conversationId))
+                  }
+                  onDelete={() => {
+                    setOpenMenuFor(null)
+                    setConfirmDeleteFor({ conversationId: c.conversationId, title: c.title })
+                  }}
+                />
+              ))}
+            </div>
+          )}
 
           {confirmDeleteFor && (
             <DeleteConfirmModal
