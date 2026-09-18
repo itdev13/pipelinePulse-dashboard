@@ -536,6 +536,7 @@ function RecentRow({
 }) {
   const [hovered, setHovered] = useState(false)
   const showMenuButton = hovered || menuOpen
+  const titleBtnRef = useRef(null)
 
   return (
     <div
@@ -550,6 +551,7 @@ function RecentRow({
       }}
     >
       <button
+        ref={titleBtnRef}
         onClick={onSelect}
         style={{
           display: 'block', flex: '1 1 auto', width: '100%', minWidth: 0,
@@ -572,6 +574,15 @@ function RecentRow({
         </span>
 
       </button>
+
+      {/* The full title on hover — the row itself is clipped to a single
+          line, so anything past the ellipsis is otherwise unreadable.
+          Portalled for the same reason as RecentMenu: this row sits in a
+          list with overflowY: auto, which clips any absolutely-positioned
+          child instead of letting it float freely above the row below. */}
+      {hovered && !menuOpen && (
+        <RowTooltip anchorRef={titleBtnRef} text={conv.title} />
+      )}
 
       <span style={{
         position: 'absolute', top: '50%', right: 4, transform: 'translateY(-50%)'
@@ -606,6 +617,54 @@ function RecentRow({
         <RecentMenu getAnchor={getAnchor} onClose={onToggleMenu} onDelete={onDelete} />
       )}
     </div>
+  )
+}
+
+// The full conversation title, shown beside a truncated Recents row on
+// hover. Portalled to the body for the same reason as RecentMenu below —
+// the row sits inside an overflowY:auto list, which clips an
+// absolutely-positioned child to its own bounds rather than letting it
+// float freely over whatever comes after it.
+function RowTooltip({ anchorRef, text }) {
+  const [pos, setPos] = useState(null)
+
+  useLayoutEffect(() => {
+    const el = anchorRef?.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    // To the right of the row, vertically centered on it — matching the
+    // GHL reference rather than the above-the-trigger placement IconButton
+    // uses, since this row runs the full sidebar width and a tooltip
+    // ABOVE it would sit over the row before it instead of beside this one.
+    setPos({ left: r.right + 8, top: r.top + r.height / 2 })
+  }, [anchorRef])
+
+  if (!pos) return null
+
+  return createPortal(
+    <span
+      role="tooltip"
+      className="pp-portal"
+      style={{
+        position: 'fixed',
+        left: pos.left, top: pos.top, transform: 'translateY(-50%)',
+        zIndex: 50,
+        // The FULL title, unclipped — that is this tooltip's whole job, so
+        // it must not re-truncate what the row already ellipsized. It can
+        // run off the right edge of a narrow viewport; that is an acceptable
+        // trade against silently hiding part of the title again.
+        whiteSpace: 'nowrap',
+        pointerEvents: 'none',
+        padding: '6px 12px',
+        borderRadius: 'var(--radius-pill)',
+        background: 'var(--gray-800)', color: '#fff',
+        fontSize: 'var(--text-base)', fontWeight: 500,
+        boxShadow: 'var(--shadow-raised)'
+      }}
+    >
+      {text}
+    </span>,
+    document.body
   )
 }
 
