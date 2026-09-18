@@ -40,6 +40,10 @@ export default function CopilotTab({ onOpenDeal }) {
 
   const [history, setHistory] = useState([])
   const [pending, setPending] = useState(false)
+  // Which turn's reasoning panel is open on the right, or null. Index into
+  // `turns`, not the turn object itself — turns are replaced wholesale on
+  // every setTurns call, so holding a reference would go stale.
+  const [openThoughtsFor, setOpenThoughtsFor] = useState(null)
   const [error, setError] = useState(null)
   const scrollRef = useRef(null)
   const inputRef = useRef(null)
@@ -120,6 +124,7 @@ export default function CopilotTab({ onOpenDeal }) {
         confidence: res.confidence,
         answered: res.answered !== false,
         dealsRead: res.dealsRead || [],
+        toolCalls: res.toolCalls || [],
         scopeNote: res.scopeNote || null,
         fromFactsOnly: res.fromFactsOnly === true
       }])
@@ -194,7 +199,9 @@ export default function CopilotTab({ onOpenDeal }) {
       className="pp-copilot-layout"
       style={{
         display: 'grid',
-        gridTemplateColumns: `${sidebarCollapsed ? 64 : 280}px minmax(0, 1fr)`,
+        gridTemplateColumns:
+          `${sidebarCollapsed ? 64 : 280}px minmax(0, 1fr)`
+          + (openThoughtsFor != null ? ' 360px' : ''),
         // The whole tab sits directly on [data-dealhub]'s page background
         // (grey — every other tab needs that for its cards to sit on), which
         // showed through once this tab dropped its own card frame. White
@@ -274,10 +281,18 @@ export default function CopilotTab({ onOpenDeal }) {
                 {turns.map((t, i) => (
                   t.role === 'user'
                     ? <UserTurn key={i} text={t.content} />
-                    : <AnswerTurn key={i} turn={t} onOpenDeal={onOpenDeal} />
+                    : (
+                      <AnswerTurn
+                        key={i}
+                        turn={t}
+                        onOpenDeal={onOpenDeal}
+                        thoughtsOpen={openThoughtsFor === i}
+                        onToggleThoughts={() => setOpenThoughtsFor((cur) => (cur === i ? null : i))}
+                      />
+                    )
                 ))}
 
-                {pending && <Thinking />}
+                {pending && <ThoughtProcess live steps={[]} />}
               </div>
             </div>
 
@@ -312,6 +327,12 @@ export default function CopilotTab({ onOpenDeal }) {
           </>
         )}
       </div>
+      {openThoughtsFor != null && turns[openThoughtsFor] && (
+        <ThoughtsPanel
+          turn={turns[openThoughtsFor]}
+          onClose={() => setOpenThoughtsFor(null)}
+        />
+      )}
     </div>
     {preview && <ImagePreview attachment={preview} onClose={() => setPreview(null)} />}
     </>
@@ -394,18 +415,19 @@ function Sidebar({
         <HistoryEmptyState onNewChat={onNewChat} />
       ) : (
         <div style={{
-          minHeight: 0, overflowY: 'auto', borderTop: '1px solid var(--border-default)'
+          minHeight: 0, overflowY: 'auto', padding: '0 6px 6px',
+          borderTop: '1px solid var(--border-default)'
         }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8,
-            padding: '10px 13px'
+            padding: '10px 10px 6px'
           }}>
-            <span className="ms" style={{ fontSize: 15, color: 'var(--text-muted)' }}>history</span>
+            <span className="ms" style={{ fontSize: 15, color: 'var(--text-faint)' }}>history</span>
             <h3 style={{
               margin: 0, flex: 1,
-              fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-muted)'
+              fontSize: 'var(--text-base)', fontWeight: 500, color: 'var(--text-muted)'
             }}>
-              Chat history
+              Recents
             </h3>
             <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
               {history.length}
@@ -417,8 +439,10 @@ function Sidebar({
               onClick={() => onReopen(c)}
               style={{
                 display: 'block', width: '100%', textAlign: 'left',
-                padding: '9px 13px',
+                padding: '8px 10px',
                 border: 'none',
+                borderRadius: 'var(--radius-md)',
+                marginBottom: 1,
                 background: c.conversationId === conversationId
                   ? 'var(--tint-plum)' : 'transparent',
                 cursor: 'pointer', fontFamily: 'var(--font-sans)'
@@ -527,15 +551,18 @@ function UserTurn({ text }) {
   )
 }
 
-function AnswerTurn({ turn, onOpenDeal }) {
+function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
   return (
-    <div style={{ display: 'grid', gap: 8 }}>
-      <div style={{
-        padding: '12px 14px',
-        border: '1px solid var(--border-default)',
-        borderRadius: '16px 16px 16px 4px',
-        background: '#fff'
-      }}>
+    <div style={{ display: 'grid', gap: 10 }}>
+      {turn.toolCalls?.length > 0 && (
+        <ThoughtProcess
+          steps={turn.toolCalls}
+          open={thoughtsOpen}
+          onToggle={onToggleThoughts}
+        />
+      )}
+
+      <div>
         <p style={{
           margin: 0, fontSize: 'var(--text-md)', lineHeight: 1.6,
           color: 'var(--text-body)', whiteSpace: 'pre-wrap'
@@ -553,6 +580,8 @@ function AnswerTurn({ turn, onOpenDeal }) {
             {turn.scopeNote}
           </p>
         )}
+
+        <ReactionRow />
       </div>
 
       {/* Which deals the answer rests on. A portfolio answer names several, so
@@ -618,17 +647,245 @@ function AnswerTurn({ turn, onOpenDeal }) {
   )
 }
 
-function Thinking() {
+// What the AI actually did to answer — the tools it called and what came
+// back, mirrored on GHL's Ask AI:
+//
+//   1. While streaming: "Thinking" then "Generating…" — two plain inline
+//      labels, no card, nothing to click yet.
+//   2. Once the answer lands: an inline row reading "Thought process", which
+//      OPENS THE RIGHT-SIDE PANEL on click rather than expanding in place —
+//      GHL never shows the reasoning inline, only a chevron promising detail
+//      elsewhere.
+//
+// It is not decoration. Our tool answers carry no message citations, so the
+// call log IS the audit trail: a rep who reads "three deals have stalled" can
+// open the panel and see it ran search_deals with stalledDays:14 and got
+// three rows back. Without it the answer is unverifiable.
+function ThoughtProcess({ steps = [], live = false, open = false, onToggle }) {
+  // "Thinking" first, then "Generating…" once a tool call has actually
+  // landed — matching the two-label sequence in the reference.
+  const genPhase = live && steps.length > 0
+
+  if (live) {
+    return (
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', gap: 8,
+        fontSize: 'var(--text-md)', color: 'var(--text-muted)'
+      }}>
+        <span
+          className="ms"
+          style={{ fontSize: 17, animation: 'pp-think 1.4s ease-in-out infinite' }}
+        >
+          {genPhase ? 'auto_awesome' : 'hourglass_top'}
+        </span>
+        {genPhase ? 'Generating…' : 'Thinking'}
+      </span>
+    )
+  }
+
+  if (steps.length === 0) return null
+
   return (
-    <p style={{
-      margin: 0, display: 'flex', alignItems: 'center', gap: 8,
-      padding: '12px 14px',
-      fontSize: 'var(--text-md)', color: 'var(--text-muted)'
-    }}>
-      <span className="ms" style={{ fontSize: 18 }}>hourglass_top</span>
-      Reading the pipeline…
-    </p>
+    <button
+      onClick={onToggle}
+      aria-expanded={open}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 8,
+        alignSelf: 'flex-start',
+        padding: 0, border: 'none', background: 'transparent',
+        fontFamily: 'var(--font-sans)', cursor: 'pointer'
+      }}
+    >
+      <span className="ms" style={{ fontSize: 17, color: 'var(--text-faint)' }}>
+        hourglass_top
+      </span>
+      <span style={{
+        fontSize: 'var(--text-md)',
+        color: open ? 'var(--text-heading)' : 'var(--text-muted)'
+      }}>
+        Thought process
+      </span>
+      <span className="ms" style={{ fontSize: 18, color: 'var(--text-faint)' }}>
+        {open ? 'expand_less' : 'expand_more'}
+      </span>
+    </button>
   )
+}
+
+// The right-side panel — the actual reasoning steps, one per tool call plus a
+// framing line at each end. Opened by clicking "Thought process"; GHL keeps
+// this as a slide-in panel rather than inline detail, which is why it is a
+// grid column here rather than a popover glued to the row that opened it.
+function ThoughtsPanel({ turn, onClose }) {
+  const steps = turn.toolCalls || []
+  const seconds = turn.latencyMs ? Math.round(turn.latencyMs / 1000) : null
+
+  return (
+    <div style={{
+      borderLeft: '1px solid var(--border-default)',
+      background: '#fff',
+      display: 'grid', gridTemplateRows: 'auto 1fr',
+      minHeight: 0, overflow: 'hidden'
+    }}>
+      <header style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '14px 16px',
+        borderBottom: '1px solid var(--border-default)'
+      }}>
+        <span className="ms" style={{ fontSize: 17, color: 'var(--text-muted)' }}>
+          hourglass_top
+        </span>
+        <h3 style={{
+          margin: 0, flex: 1,
+          fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)'
+        }}>
+          {seconds != null ? `Thought for ${seconds}s` : 'Thought process'}
+        </h3>
+        <button
+          onClick={onClose}
+          title="Close"
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 26, height: 26, border: 'none', borderRadius: 'var(--radius-sm)',
+            background: 'transparent', color: 'var(--text-faint)', cursor: 'pointer'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 18 }}>close</span>
+        </button>
+      </header>
+
+      <div style={{ overflowY: 'auto', padding: '14px 16px' }}>
+        {/* A framing line first: what the model decided to do, before the
+            timeline of what it actually ran — matching the opening reasoning
+            sentence in the reference before its first tool step. */}
+        <ThoughtStep
+          done
+          text={
+            steps.length > 0
+              ? `Looking into this needs real data, so I'll check ${steps.length === 1 ? 'the CRM' : 'a few things in the CRM'}.`
+              : 'Answered directly — no lookup was needed for this one.'
+          }
+        />
+        {steps.map((st, i) => (
+          <ThoughtStep
+            key={`${st.name}-${i}`}
+            done
+            text={stepNarrative(st)}
+          />
+        ))}
+        {steps.length > 0 && (
+          <ThoughtStep
+            done
+            last
+            text="Got what I needed, so I'll answer now."
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+// One line in the timeline: a status glyph, a connecting rule, the sentence.
+// `done` vs in-progress mirrors the clock/check distinction in the reference —
+// every step we show is already complete by the time the panel can be opened,
+// since it only appears once the answer has landed.
+function ThoughtStep({ text, done = true, last = false }) {
+  return (
+    <div style={{ display: 'flex', gap: 10, position: 'relative' }}>
+      <span style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        flex: 'none'
+      }}>
+        <span className="ms" style={{
+          fontSize: 15,
+          color: done ? 'var(--accent-pine-text)' : 'var(--text-faint)'
+        }}>
+          {done ? 'check_circle' : 'schedule'}
+        </span>
+        {!last && (
+          <span style={{
+            width: 1, flex: 1, minHeight: 20,
+            background: 'var(--border-default)', marginTop: 2
+          }} />
+        )}
+      </span>
+      <p style={{
+        margin: '0 0 16px', fontSize: 'var(--text-base)', lineHeight: 1.55,
+        color: 'var(--text-body)'
+      }}>
+        {text}
+      </p>
+    </div>
+  )
+}
+
+// One readable sentence per tool call — the panel reads as prose, the way
+// GHL's reasoning steps do, not as a raw log of function names and JSON.
+function stepNarrative(step) {
+  const args = describeArgs(step.input)
+  const base = `${labelForTool(step.name)}${args ? ` (${args})` : ''}.`
+  if (step.rows == null) return base
+  if (step.rows === 0) return `${base} Nothing matched.`
+  return `${base} Found ${step.rows} ${step.rows === 1 ? 'result' : 'results'}.`
+}
+
+// Thumbs up/down + copy, under the answer text — GHL shows these without a
+// card around them, so they read as acting on the text above rather than as
+// controls on a separate panel.
+function ReactionRow() {
+  const icons = ['thumb_up', 'thumb_down', 'content_copy']
+  return (
+    <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
+      {icons.map((icon) => (
+        <button
+          key={icon}
+          title={icon === 'content_copy' ? 'Copy' : undefined}
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 28, height: 28, border: 'none', borderRadius: 'var(--radius-sm)',
+            background: 'transparent', color: 'var(--text-faint)', cursor: 'pointer'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 17 }}>{icon}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// Tool names are snake_case identifiers the model reads; a rep should see what
+// it MEANT. An unknown name degrades to a readable form rather than vanishing.
+function labelForTool(name) {
+  const known = {
+    search_deals: 'Searched deals',
+    get_deal_messages: 'Read a deal\'s messages',
+    search_contacts: 'Searched contacts',
+    get_deal_history: 'Checked what changed on a deal',
+    get_pipeline_summary: 'Summarised the pipeline',
+    get_deal_tasks_and_notes: 'Read tasks and notes'
+  }
+  return known[name] || name.replace(/_/g, ' ')
+}
+
+// The arguments, as a short phrase. Only the ones a rep would recognise —
+// dumping raw JSON here would be noise rather than evidence.
+function describeArgs(input) {
+  if (!input || typeof input !== 'object') return null
+  const bits = []
+  if (input.status) bits.push(input.status)
+  if (input.stage) bits.push(`stage "${input.stage}"`)
+  if (input.owner) bits.push(`owner "${input.owner}"`)
+  if (input.tag) bits.push(`tagged "${input.tag}"`)
+  if (input.stalledDays != null) bits.push(`stalled ${input.stalledDays}+ days`)
+  if (input.quietDays != null) bits.push(`quiet ${input.quietDays}+ days`)
+  if (input.minValue != null) bits.push(`over ${input.minValue}`)
+  if (input.maxValue != null) bits.push(`under ${input.maxValue}`)
+  if (input.unassigned) bits.push('unassigned')
+  if (input.contactType) bits.push(input.contactType)
+  if (input.query) bits.push(`"${input.query}"`)
+  if (input.pipeline) bits.push(`pipeline "${input.pipeline}"`)
+  if (input.field) bits.push(input.field)
+  return bits.join(' · ') || null
 }
 
 function Composer({

@@ -2627,3 +2627,19 @@
     height: auto !important;
   }
 }
+
+/* Co-Pilot "Thinking…" pulse.
+ *
+ * On the sparkle glyph only, while a question is running. Opacity rather than
+ * a spinner: the card already says "Thinking", and a spinner beside a word
+ * that means the same thing is two controls for one state.
+ *
+ * The reduced-motion block above damps transitions, not animations, so this
+ * one opts out explicitly. */
+@keyframes pp-think {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-dealhub] .ms { animation: none !important; }
+}
