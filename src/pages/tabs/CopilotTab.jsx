@@ -547,7 +547,10 @@ function RecentRow({
         width: '100%', minWidth: 0,
         borderRadius: 10,
         marginBottom: 1,
-        background: active || menuOpen ? 'var(--tint-plum)' : 'transparent'
+        // Neutral grey, matching GHL — not the app's plum accent. This row
+        // means "which chat you're on", not "AI-branded", so it takes the
+        // same quiet grey a hovered/selected row gets everywhere else.
+        background: active || menuOpen ? 'var(--gray-100)' : 'transparent'
       }}
     >
       <button
@@ -567,7 +570,10 @@ function RecentRow({
         <span style={{
           display: 'block',
           fontSize: 'var(--text-base)', fontWeight: 600,
-          color: 'var(--text-heading)',
+          // Selected reads as committed-to-black, matching GHL; an
+          // unselected row stays a muted body grey so the active chat is
+          // the one thing that visually jumps out of the list.
+          color: active ? 'var(--text-heading)' : 'var(--text-muted)',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
         }}>
           {conv.title}
