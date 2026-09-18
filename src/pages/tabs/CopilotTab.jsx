@@ -558,15 +558,7 @@ function RecentRow({ conv, active, menuOpen, onSelect, onToggleMenu, onDelete })
         }}>
           {conv.title}
         </span>
-        {conv.turnCount > 1 && (
-          <span style={{
-            display: 'flex', alignItems: 'center', gap: 6, marginTop: 3,
-            fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
-          }}>
-            <span className="ms" style={{ fontSize: 13 }}>forum</span>
-            {conv.turnCount}
-          </span>
-        )}
+
       </button>
 
       <span style={{
