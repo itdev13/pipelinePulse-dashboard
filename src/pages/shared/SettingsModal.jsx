@@ -38,7 +38,7 @@ export default function SettingsModal({ onClose }) {
             background: '#fff',
             borderRadius: 'var(--radius-lg)',
             boxShadow: 'var(--shadow-overlay)',
-            display: 'grid', gridTemplateColumns: '220px 1fr',
+            display: 'grid', gridTemplateColumns: '260px 1fr',
             overflow: 'hidden'
           }}
         >
@@ -75,7 +75,12 @@ export default function SettingsModal({ onClose }) {
                     boxShadow: active ? '0 1px 2px rgba(31, 36, 48, 0.08)' : 'none',
                     color: 'var(--text-heading)',
                     fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
-                    textAlign: 'left', cursor: 'pointer'
+                    textAlign: 'left', cursor: 'pointer',
+                    // The wider column above should already stop this
+                    // wrapping, but pin it explicitly — a fixed-height
+                    // button with wrapped two-line text looks cramped and
+                    // pushes against its own edges rather than growing.
+                    whiteSpace: 'nowrap'
                   }}
                 >
                   <span className="ms" style={{ fontSize: 18, color: 'var(--text-muted)' }}>
