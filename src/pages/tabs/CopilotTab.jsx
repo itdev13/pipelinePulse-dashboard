@@ -11,6 +11,7 @@ import {
   RecordingBar, AttachmentThumbnails, ImagePreview, IconButton, HoverTooltip
 } from '../shared/ComposerExtras'
 import NegativeFeedbackModal from '../shared/NegativeFeedbackModal'
+import SettingsModal from '../shared/SettingsModal'
 
 // Co-Pilot — one question across EVERY deal in the sub-account.
 //
@@ -61,19 +62,24 @@ export default function CopilotTab({ onOpenDeal }) {
     preview, setPreview, fileRef, onPaste
   } = useAttachments({ onError: setError })
 
-  // The greeting's first name. The session only carries the GHL user id
-  // (server/routes/auth.js never resolves a name), so it's looked up against
-  // the same location-wide users list the Owner picker uses — one request,
-  // only on this tab, only for reps who open Co-Pilot.
+  // The greeting's first name, and the full name for the Account avatar's
+  // initials. The session only carries the GHL user id (server/routes/
+  // auth.js never resolves a name), so it's looked up against the same
+  // location-wide users list the Owner picker uses — one request, only on
+  // this tab, only for reps who open Co-Pilot.
   const { session } = useAuth()
   const [firstName, setFirstName] = useState(null)
+  const [fullName, setFullName] = useState(null)
   useEffect(() => {
     const userId = session?.user?.id
     if (!userId) return
     dealsAPI.users()
       .then((r) => {
         const match = (r?.users || []).find((u) => u.id === userId)
-        if (match?.name) setFirstName(titleCase(match.name).split(' ')[0])
+        if (!match?.name) return
+        const name = titleCase(match.name)
+        setFullName(name)
+        setFirstName(name.split(' ')[0])
       })
       // No name is a silent fallback to the generic greeting, not an error
       // worth surfacing — this is cosmetic.
@@ -245,6 +251,7 @@ export default function CopilotTab({ onOpenDeal }) {
         history={history}
         conversationId={conversationId}
         onReopen={reopen}
+        fullName={fullName}
         onDeleted={(deletedId) => {
           if (deletedId === conversationId) { setTurns([]); setConversationId(null) }
           loadHistory()
@@ -381,7 +388,7 @@ const NAV_ITEMS = [
 
 function Sidebar({
   collapsed, onToggleCollapsed, empty, onNewChat, history, conversationId, onReopen,
-  onDeleted,
+  onDeleted, fullName,
   // The Recents LIST's own show/hide, separate from `collapsed` above (which
   // shrinks the whole sidebar to an icon rail). Matches the GHL reference's
   // chevron on the "Recents" header.
@@ -400,6 +407,7 @@ function Sidebar({
   const [openMenuFor, setOpenMenuFor] = useState(null)          // conversationId | null
   const [confirmDeleteFor, setConfirmDeleteFor] = useState(null) // {conversationId, title} | null
   const [deletingConv, setDeletingConv] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   // One ref per row's three-dot button, keyed by conversationId. The menu
   // portals to document.body (see the note by RecentRow's menu), so it needs
   // a way to find the button it opened from — a getter, not the element
@@ -424,13 +432,14 @@ function Sidebar({
   }
 
   return (
-    // Flat, flush to the conversation pane — a right-edge divider rather
-    // than a bordered/rounded card, matching the GHL reference's edge-to-edge
-    // look now that the whole tab has dropped its outer card frame too.
+    <>
+    {/* Flat, flush to the conversation pane — a right-edge divider rather
+        than a bordered/rounded card, matching the GHL reference's edge-to-edge
+        look now that the whole tab has dropped its outer card frame too. */}
     <section style={{
       borderRight: '1px solid var(--border-default)',
       background: 'var(--gray-25)', overflow: 'hidden',
-      display: 'grid', gridTemplateRows: 'auto auto auto 1fr', minHeight: 0,
+      display: 'grid', gridTemplateRows: 'auto auto auto 1fr auto', minHeight: 0,
       width: collapsed ? 64 : 280,
       ...style
     }}>
@@ -550,8 +559,51 @@ function Sidebar({
           )}
         </div>
       )}
+
+      {/* Account — opens Personalization (memory management) and Keyboard
+          shortcuts, matching the GHL reference's bottom-of-sidebar entry. */}
+      <button
+        onClick={() => setSettingsOpen(true)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          width: '100%', padding: collapsed ? '10px 0' : '10px 13px',
+          justifyContent: collapsed ? 'center' : 'flex-start',
+          border: 'none', borderTop: '1px solid var(--border-default)',
+          background: 'transparent', cursor: 'pointer',
+          fontFamily: 'var(--font-sans)'
+        }}
+      >
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 26, height: 26, flex: 'none',
+          borderRadius: 'var(--radius-pill)',
+          background: 'var(--accent-plum)', color: '#fff',
+          fontSize: 'var(--text-sm)', fontWeight: 600
+        }}>
+          {initialsOf(fullName)}
+        </span>
+        {!collapsed && (
+          <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-body)', fontWeight: 500 }}>
+            Account
+          </span>
+        )}
+      </button>
     </section>
+
+    {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+    </>
   )
+}
+
+// "JS" from "James Smith" — first + last initial, matching the GHL
+// reference's avatar. Falls back to a generic mark when the name hasn't
+// resolved yet (the same lookup CopilotTab uses for the greeting).
+function initialsOf(name) {
+  if (!name) return '·'
+  const parts = name.trim().split(/\s+/)
+  const first = parts[0]?.[0] || ''
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : ''
+  return (first + last).toUpperCase()
 }
 
 // One Recents row — matches GHL's AskAiSidebarSessionRow.vue measurements:

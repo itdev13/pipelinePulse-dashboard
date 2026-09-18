@@ -43,5 +43,14 @@ export const aiAPI = {
     apiClient.put(
       `/api/ai/deals/${encodeURIComponent(dealId)}/messages/${encodeURIComponent(messageId)}/inclusion`,
       { included, reason }
-    )
+    ),
+  // Co-Pilot "Personalization" — facts a rep has asked it to remember
+  // across every future chat. Explicit save + bulk import only; see
+  // server/migrations/075_ai_memories.sql for why there's no automatic
+  // mid-chat extraction.
+  listMemories: () => apiClient.get('/api/ai/memory'),
+  createMemory: (content) => apiClient.post('/api/ai/memory', { content }),
+  importMemories: (memories) => apiClient.post('/api/ai/memory/import', { memories }),
+  deleteMemory: (memoryId) => apiClient.delete(`/api/ai/memory/${encodeURIComponent(memoryId)}`),
+  deleteAllMemories: () => apiClient.delete('/api/ai/memory')
 }
