@@ -18,8 +18,13 @@ export const aiAPI = {
     }),
   // Portfolio — one question across every deal in the sub-account. Same
   // `images` contract as `ask` above.
-  askPortfolio: ({ question, history = [], images = [], conversationId = null }) =>
-    apiClient.post('/api/ai/portfolio/ask', { question, history, images, conversationId }),
+  // `signal` lets the Co-Pilot's stop button abandon the request client-side
+  // — the server keeps working (there's no cheap way to cancel an in-flight
+  // Claude tool-call loop from here), but the rep gets their composer back
+  // immediately instead of waiting out a question they no longer want
+  // answered.
+  askPortfolio: ({ question, history = [], images = [], conversationId = null, signal }) =>
+    apiClient.post('/api/ai/portfolio/ask', { question, history, images, conversationId }, { signal }),
   portfolioHistory: () => apiClient.get('/api/ai/portfolio/ask/history'),
   // `reasons` are chip ids from the negative-feedback modal (see
   // NEGATIVE_FEEDBACK_CHIPS in CopilotTab.jsx) — matching GHL's own
@@ -29,6 +34,8 @@ export const aiAPI = {
     apiClient.post(`/api/ai/runs/${encodeURIComponent(runId)}/rating`, { rating, reasons, reason }),
   deleteConversation: (conversationId) =>
     apiClient.delete(`/api/ai/conversations/${encodeURIComponent(conversationId)}`),
+  renameConversation: (conversationId, title) =>
+    apiClient.patch(`/api/ai/conversations/${encodeURIComponent(conversationId)}`, { title }),
   runMessages: (runId) =>
     apiClient.get(`/api/ai/runs/${encodeURIComponent(runId)}/messages`),
   feedback: (runId, payload) =>

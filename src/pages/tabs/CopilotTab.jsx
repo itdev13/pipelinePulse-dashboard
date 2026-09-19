@@ -55,6 +55,11 @@ export default function CopilotTab({ onOpenDeal }) {
   const [error, setError] = useState(null)
   const scrollRef = useRef(null)
   const inputRef = useRef(null)
+  // The in-flight request's abort handle, so the composer's stop button can
+  // abandon it. There's no server-side cancellation — answers aren't
+  // streamed, so the Claude tool-call loop keeps running either way — this
+  // only stops the REP from waiting on it.
+  const abortRef = useRef(null)
 
   const dictation = useDictation({ q, setQ, onError: setError, inputRef })
   const {
@@ -127,12 +132,16 @@ export default function CopilotTab({ onOpenDeal }) {
         content: t.role === 'user' ? t.content : t.answerText
       }))
 
+    const controller = new AbortController()
+    abortRef.current = controller
+
     try {
       const res = await aiAPI.askPortfolio({
         question: value,
         history: priorTurns,
         images: sentImages.map((a) => ({ mediaType: a.mediaType, data: a.data })),
-        conversationId
+        conversationId,
+        signal: controller.signal
       })
       setTurns((t) => {
         // t.length is the array BEFORE this push — exactly the index the
@@ -158,17 +167,29 @@ export default function CopilotTab({ onOpenDeal }) {
       loadHistory()
     } catch (err) {
       setOpenThoughtsFor(null)
-      const code = err?.code
-      setError(
-        code === 'AI_NOT_CONFIGURED'
-          ? 'The AI layer is not configured on the server yet.'
-          : code === 'TIMEOUT'
-          ? 'The model took too long. Try a narrower question.'
-          : err?.message || 'Could not get an answer.'
-      )
+      // A rep-initiated stop, not a failure — the question the rep abandoned
+      // just quietly disappears rather than surfacing as an error banner.
+      // The user turn stays in the transcript so it's clear what was asked.
+      if (err?.code === 'ERR_CANCELED') {
+        // no-op
+      } else {
+        const code = err?.code
+        setError(
+          code === 'AI_NOT_CONFIGURED'
+            ? 'The AI layer is not configured on the server yet.'
+            : code === 'TIMEOUT'
+            ? 'The model took too long. Try a narrower question.'
+            : err?.message || 'Could not get an answer.'
+        )
+      }
     } finally {
+      abortRef.current = null
       setPending(false)
     }
+  }
+
+  const stopAsking = () => {
+    abortRef.current?.abort()
   }
 
   const newChat = () => {
@@ -256,6 +277,7 @@ export default function CopilotTab({ onOpenDeal }) {
           if (deletedId === conversationId) { setTurns([]); setConversationId(null) }
           loadHistory()
         }}
+        onRenamed={() => loadHistory()}
       />
 
       {/* ── the conversation ─────────────────────────────────── */}
@@ -287,6 +309,7 @@ export default function CopilotTab({ onOpenDeal }) {
                 value={q}
                 onChange={setQ}
                 onSubmit={() => submit()}
+                onStop={stopAsking}
                 pending={pending}
                 inputRef={inputRef}
                 dictation={dictation}
@@ -347,6 +370,7 @@ export default function CopilotTab({ onOpenDeal }) {
                 value={q}
                 onChange={setQ}
                 onSubmit={() => submit()}
+                onStop={stopAsking}
                 pending={pending}
                 inputRef={inputRef}
                 dictation={dictation}
@@ -376,19 +400,19 @@ export default function CopilotTab({ onOpenDeal }) {
   )
 }
 
-// The nav items above the history list. Only New chat does anything today —
-// Search, Templates and Customize are visual placeholders matching the GHL
-// reference's layout, with no feature behind them yet. Disabled rather than
-// silently inert, so a click doesn't look like a missed bug.
+// Templates and Customize are bigger builds in GHL (a template picker, a
+// whole customization surface) — genuinely not yet built here, so they stay
+// disabled placeholders. Search is different: in GHL it's a real, working
+// live-filter over Recents, not a preview of a future feature, so it gets
+// real behavior below instead of living in this disabled list.
 const NAV_ITEMS = [
-  { key: 'search',    icon: 'search',       label: 'Search' },
   { key: 'templates', icon: 'auto_stories', label: 'Templates' },
   { key: 'customize', icon: 'grid_view',    label: 'Customize' }
 ]
 
 function Sidebar({
   collapsed, onToggleCollapsed, empty, onNewChat, history, conversationId, onReopen,
-  onDeleted, fullName,
+  onDeleted, onRenamed, fullName,
   // The Recents LIST's own show/hide, separate from `collapsed` above (which
   // shrinks the whole sidebar to an icon rail). Matches the GHL reference's
   // chevron on the "Recents" header.
@@ -408,6 +432,39 @@ function Sidebar({
   const [confirmDeleteFor, setConfirmDeleteFor] = useState(null) // {conversationId, title} | null
   const [deletingConv, setDeletingConv] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [renamingFor, setRenamingFor] = useState(null)          // conversationId | null
+
+  const commitRename = async (conversationId, title) => {
+    setRenamingFor(null)
+    const trimmed = title.trim()
+    const current = history.find((c) => c.conversationId === conversationId)
+    // Blank, or unchanged — nothing to save, and an empty title would just
+    // fall back to the original question server-side anyway.
+    if (!trimmed || !current || trimmed === current.title) return
+    try {
+      await aiAPI.renameConversation(conversationId, trimmed)
+      onRenamed?.(conversationId, trimmed)
+    } catch {
+      // Rail keeps the old title on failure — silently applying a rename
+      // that didn't actually persist would be worse than a no-op.
+    }
+  }
+  // Search — a real live-filter over Recents (matching GHL), not a
+  // placeholder. Client-side only: it filters the same `history` array
+  // already loaded for the rail, no extra request needed.
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const searchInputRef = useRef(null)
+
+  const closeSearch = () => { setSearchOpen(false); setSearchQuery('') }
+
+  const filteredHistory = searchOpen && searchQuery.trim()
+    ? history.filter((c) => (c.title || '').toLowerCase().includes(searchQuery.trim().toLowerCase()))
+    : history
+
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus()
+  }, [searchOpen])
   // One ref per row's three-dot button, keyed by conversationId. The menu
   // portals to document.body (see the note by RecentRow's menu), so it needs
   // a way to find the button it opened from — a getter, not the element
@@ -474,6 +531,18 @@ function Sidebar({
           disabled={empty} onClick={onNewChat}
           title={empty ? 'Already on a new chat' : 'Start a fresh conversation'}
         />
+        <SidebarButton
+          icon="search" label="Search" collapsed={collapsed}
+          disabled={collapsed || history.length === 0}
+          title={collapsed ? 'Expand the sidebar to search' : 'Search chats'}
+          onClick={() => {
+            setSearchOpen((open) => {
+              const next = !open
+              if (!next) setSearchQuery('')
+              return next
+            })
+          }}
+        />
         {NAV_ITEMS.map((item) => (
           <SidebarButton
             key={item.key} icon={item.icon} label={item.label}
@@ -526,9 +595,53 @@ function Sidebar({
             </span>
           </button>
 
+          {searchOpen && (
+            <div style={{ padding: '0 10px 6px', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{
+                flex: 1, display: 'flex', alignItems: 'center', gap: 6,
+                height: 30, padding: '0 8px',
+                border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)',
+                background: '#fff'
+              }}>
+                <span className="ms" style={{ fontSize: 15, color: 'var(--text-faint)' }}>search</span>
+                <input
+                  ref={searchInputRef}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Escape') closeSearch() }}
+                  placeholder="Search chats"
+                  style={{
+                    flex: 1, minWidth: 0, border: 'none', outline: 'none',
+                    fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', color: 'var(--text-body)'
+                  }}
+                />
+              </div>
+              <button
+                onClick={closeSearch}
+                title="Close search"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  width: 24, height: 24, flex: 'none',
+                  border: 'none', borderRadius: 'var(--radius-sm)',
+                  background: 'transparent', color: 'var(--text-faint)', cursor: 'pointer'
+                }}
+              >
+                <span className="ms" style={{ fontSize: 16 }}>close</span>
+              </button>
+            </div>
+          )}
+
           {!recentsCollapsed && (
             <div style={{ minHeight: 0, overflowY: 'auto', padding: '0 6px 6px' }}>
-              {history.map((c) => (
+              {searchOpen && searchQuery.trim() && filteredHistory.length === 0 && (
+                <p style={{
+                  margin: '8px 4px', fontSize: 'var(--text-sm)', color: 'var(--text-faint)',
+                  textAlign: 'center'
+                }}>
+                  No chats match "{searchQuery.trim()}"
+                </p>
+              )}
+              {filteredHistory.map((c) => (
                 <RecentRow
                   key={c.conversationId}
                   conv={c}
@@ -540,6 +653,10 @@ function Sidebar({
                   onToggleMenu={() =>
                     setOpenMenuFor((cur) => (cur === c.conversationId ? null : c.conversationId))
                   }
+                  renaming={renamingFor === c.conversationId}
+                  onStartRename={() => setRenamingFor(c.conversationId)}
+                  onCommitRename={(title) => commitRename(c.conversationId, title)}
+                  onCancelRename={() => setRenamingFor(null)}
                   onDelete={() => {
                     setOpenMenuFor(null)
                     setConfirmDeleteFor({ conversationId: c.conversationId, title: c.title })
@@ -617,11 +734,48 @@ function initialsOf(name) {
 // button cannot contain a button; GHL's own component has this exact
 // comment/structure for the same reason.
 function RecentRow({
-  conv, active, menuOpen, menuButtonRef, getAnchor, onSelect, onToggleMenu, onDelete
+  conv, active, menuOpen, menuButtonRef, getAnchor, onSelect, onToggleMenu,
+  renaming, onStartRename, onCommitRename, onCancelRename, onDelete
 }) {
   const [hovered, setHovered] = useState(false)
   const showMenuButton = hovered || menuOpen
   const titleBtnRef = useRef(null)
+  const [draftTitle, setDraftTitle] = useState(conv.title)
+  const renameInputRef = useRef(null)
+
+  useEffect(() => {
+    if (renaming) setDraftTitle(conv.title)
+  }, [renaming, conv.title])
+
+  useEffect(() => {
+    if (renaming) {
+      renameInputRef.current?.focus()
+      renameInputRef.current?.select()
+    }
+  }, [renaming])
+
+  if (renaming) {
+    return (
+      <div style={{ padding: '8px 10px', marginBottom: 1 }}>
+        <input
+          ref={renameInputRef}
+          value={draftTitle}
+          onChange={(e) => setDraftTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') onCommitRename(draftTitle)
+            if (e.key === 'Escape') onCancelRename()
+          }}
+          onBlur={() => onCommitRename(draftTitle)}
+          style={{
+            width: '100%', height: 28, padding: '0 8px',
+            border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-sm)',
+            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 600,
+            color: 'var(--text-heading)', outline: 'none'
+          }}
+        />
+      </div>
+    )
+  }
 
   return (
     <div
@@ -705,7 +859,12 @@ function RecentRow({
           to its own bounds no matter the z-index. The menu was rendering
           submerged into the next row instead of floating above it. */}
       {menuOpen && (
-        <RecentMenu getAnchor={getAnchor} onClose={onToggleMenu} onDelete={onDelete} />
+        <RecentMenu
+          getAnchor={getAnchor}
+          onClose={onToggleMenu}
+          onRename={() => { onToggleMenu(); onStartRename() }}
+          onDelete={onDelete}
+        />
       )}
     </div>
   )
@@ -762,7 +921,7 @@ function RowTooltip({ anchorRef, text }) {
 // The Recents row's "..." menu, portalled to the body and measured against
 // its trigger button — same convention as TaskDealsPopover (see its own
 // header comment for the full rationale).
-function RecentMenu({ getAnchor, onClose, onDelete }) {
+function RecentMenu({ getAnchor, onClose, onRename, onDelete }) {
   const boxRef = useRef(null)
   const [pos, setPos] = useState(null)
 
@@ -825,6 +984,21 @@ function RecentMenu({ getAnchor, onClose, onDelete }) {
       }}
       onClick={(e) => e.stopPropagation()}
     >
+      <button
+        role="menuitem"
+        onClick={onRename}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          width: '100%', padding: '7px 9px',
+          border: 'none', borderRadius: 'var(--radius-sm)',
+          background: 'transparent', color: 'var(--text-body)',
+          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
+          cursor: 'pointer', textAlign: 'left'
+        }}
+      >
+        <span className="ms" style={{ fontSize: 16 }}>edit</span>
+        Rename
+      </button>
       <button
         role="menuitem"
         onClick={onDelete}
@@ -1377,25 +1551,35 @@ function ReactionRow({ runId, answerText }) {
       <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
         {/* Labels match GHL's own Ask AI (MessageBubble.vue) verbatim —
             "Helpful" / "Not helpful" / "Copy assistant message", the copy
-            one swapping to "Copied!" once clicked. */}
-        <HoverTooltip label={runId ? 'Helpful' : null}>
-          <button
-            disabled={!runId}
-            onClick={clickUp}
-            style={btnStyle(rated === 'up')}
-          >
-            <span className="ms" style={{ fontSize: 17 }}>thumb_up</span>
-          </button>
-        </HoverTooltip>
-        <HoverTooltip label={runId ? 'Not helpful' : null}>
-          <button
-            disabled={!runId}
-            onClick={clickDown}
-            style={btnStyle(rated === 'down')}
-          >
-            <span className="ms" style={{ fontSize: 17 }}>thumb_down</span>
-          </button>
-        </HoverTooltip>
+            one swapping to "Copied!" once clicked.
+            Mutually exclusive by REMOVAL, not just recolouring — matching
+            MessageBubble.vue's v-if="feedback !== THUMBS_DOWN" / v-if=
+            "feedback !== THUMBS_UP". Greying out the other button still
+            leaves it clickable; a rep could rate an answer both helpful
+            and not helpful at once. Once rated, only the chosen thumb (now
+            clickable again to clear it) stays on screen. */}
+        {rated !== 'down' && (
+          <HoverTooltip label={runId ? 'Helpful' : null}>
+            <button
+              disabled={!runId}
+              onClick={clickUp}
+              style={btnStyle(rated === 'up')}
+            >
+              <span className="ms" style={{ fontSize: 17 }}>thumb_up</span>
+            </button>
+          </HoverTooltip>
+        )}
+        {rated !== 'up' && (
+          <HoverTooltip label={runId ? 'Not helpful' : null}>
+            <button
+              disabled={!runId}
+              onClick={clickDown}
+              style={btnStyle(rated === 'down')}
+            >
+              <span className="ms" style={{ fontSize: 17 }}>thumb_down</span>
+            </button>
+          </HoverTooltip>
+        )}
         <HoverTooltip label={copied ? 'Copied!' : 'Copy assistant message'}>
           <button
             onClick={copy}
@@ -1455,7 +1639,7 @@ function describeArgs(input) {
 }
 
 function Composer({
-  value, onChange, onSubmit, pending, inputRef, dictation,
+  value, onChange, onSubmit, onStop, pending, inputRef, dictation,
   attachments, onAddFiles, onRemoveAttachment, onViewAttachment,
   fileRef, onPaste
 }) {
@@ -1598,21 +1782,41 @@ function Composer({
           disabled={!speechSupported || pending}
         />
 
-        <button
-          onClick={onSubmit}
-          disabled={pending || !value.trim()}
-          title="Ask"
-          style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 34, height: 34, flex: 'none',
-            border: 'none', borderRadius: '50%',
-            background: value.trim() && !pending ? 'var(--brand-primary)' : 'var(--gray-200)',
-            color: value.trim() && !pending ? '#fff' : 'var(--text-faint)',
-            cursor: value.trim() && !pending ? 'pointer' : 'default'
-          }}
-        >
-          <span className="ms" style={{ fontSize: 19 }}>arrow_upward</span>
-        </button>
+        {pending ? (
+          // GHL swaps its send control for a stop button while a question is
+          // in flight; we don't stream an answer back, so this doesn't halt
+          // generation server-side — it abandons the wait client-side, same
+          // as closing the tab would, just without losing the composer.
+          <button
+            onClick={onStop}
+            title="Stop"
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 34, height: 34, flex: 'none',
+              border: 'none', borderRadius: '50%',
+              background: 'var(--gray-800)', color: '#fff',
+              cursor: 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 16 }}>stop</span>
+          </button>
+        ) : (
+          <button
+            onClick={onSubmit}
+            disabled={!value.trim()}
+            title="Ask"
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 34, height: 34, flex: 'none',
+              border: 'none', borderRadius: '50%',
+              background: value.trim() ? 'var(--brand-primary)' : 'var(--gray-200)',
+              color: value.trim() ? '#fff' : 'var(--text-faint)',
+              cursor: value.trim() ? 'pointer' : 'default'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 19 }}>arrow_upward</span>
+          </button>
+        )}
       </div>
     </div>
   )
