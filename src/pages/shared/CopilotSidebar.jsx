@@ -66,6 +66,7 @@ export default function CopilotSidebar({
   // chevron's own collapsed/expanded state.
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchFocused, setSearchFocused] = useState(false)
   const searchInputRef = useRef(null)
 
   const closeSearch = () => { setSearchOpen(false); setSearchQuery('') }
@@ -175,38 +176,29 @@ export default function CopilotSidebar({
         </nav>
 
         {!collapsed && searchOpen && (
-          <div style={{ padding: '8px 10px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{
-              flex: 1, display: 'flex', alignItems: 'center', gap: 6,
-              height: 30, padding: '0 8px',
-              border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)',
-              background: '#fff'
-            }}>
-              <span className="ms" style={{ fontSize: 15, color: 'var(--text-faint)' }}>search</span>
-              <input
-                ref={searchInputRef}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Escape') closeSearch() }}
-                placeholder="Search chats"
-                style={{
-                  flex: 1, minWidth: 0, border: 'none', outline: 'none',
-                  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', color: 'var(--text-body)'
-                }}
-              />
-            </div>
-            <button
-              onClick={closeSearch}
-              title="Close search"
+          <div style={{ padding: '8px 10px' }}>
+            {/* Matches the GHL reference exactly: a single plain input, no
+                icon inside it and no separate close button — Escape or
+                clicking Search again closes it, same as before. */}
+            <input
+              ref={searchInputRef}
+              className="pp-focus-inherit"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') closeSearch() }}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              placeholder="Search chats..."
               style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                width: 24, height: 24, flex: 'none',
-                border: 'none', borderRadius: 'var(--radius-sm)',
-                background: 'transparent', color: 'var(--text-faint)', cursor: 'pointer'
+                width: '100%', boxSizing: 'border-box',
+                height: 38, padding: '0 12px',
+                border: `1px solid ${searchFocused ? 'var(--brand-primary)' : 'var(--border-default)'}`,
+                borderRadius: 'var(--radius-md)',
+                background: '#fff', outline: 'none',
+                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', color: 'var(--text-body)',
+                transition: 'border-color 120ms ease'
               }}
-            >
-              <span className="ms" style={{ fontSize: 16 }}>close</span>
-            </button>
+            />
           </div>
         )}
       </div>
