@@ -66,7 +66,6 @@ export default function CopilotSidebar({
   // chevron's own collapsed/expanded state.
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchFocused, setSearchFocused] = useState(false)
   const searchInputRef = useRef(null)
 
   const closeSearch = () => { setSearchOpen(false); setSearchQuery('') }
@@ -177,29 +176,30 @@ export default function CopilotSidebar({
 
         {!collapsed && searchOpen && (
           <div style={{ padding: '8px 10px' }}>
-            {/* Matches the GHL reference: a near-invisible hairline border
-                (gray-100, not the app's usual border-default/gray-200 — GHL's
-                own field barely separates from the sidebar's own background),
+            {/* Matches the GHL reference: no visible border at all — the
+                field is set off from the sidebar purely by its white fill,
                 no icon inside it, no separate close button. Placeholder and
                 typed text both read at the same light weight the nav items
                 use, not the app's default darker text-body/input styling. */}
             <input
               ref={searchInputRef}
-              className="pp-copilot-search pp-focus-inherit"
+              // No pp-focus-inherit here — that class suppresses the
+              // element's OWN focus ring for cases where a wrapper already
+              // draws one. This field has no wrapper border any more (see
+              // above), so it needs the global :focus-visible ring to still
+              // show something for keyboard users tabbing back to it.
+              className="pp-copilot-search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Escape') closeSearch() }}
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
               placeholder="Search chats..."
               style={{
                 width: '100%', boxSizing: 'border-box',
                 height: 38, padding: '0 12px',
-                border: `1px solid ${searchFocused ? 'var(--border-strong)' : 'var(--gray-100)'}`,
+                border: 'none',
                 borderRadius: 'var(--radius-md)',
                 background: '#fff', outline: 'none',
-                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', color: 'var(--text-muted)',
-                transition: 'border-color 120ms ease'
+                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', color: 'var(--text-muted)'
               }}
             />
           </div>
