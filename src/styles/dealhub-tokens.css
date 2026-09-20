@@ -2644,6 +2644,26 @@
   [data-dealhub] .ms { animation: none !important; }
 }
 
+/* Co-Pilot transcript — the scrolling list of turns (AskDeal.jsx).
+ *
+ * Every turn keeps its natural height. A flex child shrinks below its content
+ * by default, and because an answer card clips its own overflow, that shrink
+ * showed up as prose cut off mid-sentence — while the container, never
+ * exceeding its own height, showed no scrollbar at all. Pinning shrink to 0
+ * makes the turns sum past the container, which is what puts the scrollbar
+ * there and lets the full answer render.
+ *
+ * Scoped to the container's children rather than set on the shared UserTurn,
+ * which the portfolio Co-Pilot tab renders too.
+ *
+ * Also under .pp-portal — the expand arrow portals the whole panel to
+ * document.body, outside [data-dealhub], and the full view is exactly where
+ * a long transcript most needs to scroll. */
+[data-dealhub] .pp-transcript > *,
+.pp-portal .pp-transcript > * {
+  flex: none;
+}
+
 /* Co-Pilot answer text — rendered markdown (MarkdownAnswer.jsx).
  *
  * Matches the type scale already used for the answer bubble (--text-md,

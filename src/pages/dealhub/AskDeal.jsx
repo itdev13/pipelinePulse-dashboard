@@ -566,11 +566,19 @@ export default function AskDeal({
             <div
               ref={scrollRef}
               style={{
-                display: 'grid', gap: 'var(--space-3)',
+                // A COLUMN, not a grid. As a grid, the implicit rows shared the
+                // container's fixed height between them: every turn was squeezed
+                // to a fraction of it and, because a card clips its own overflow,
+                // each answer was cut off mid-sentence — and the container never
+                // exceeded its height, so no scrollbar ever appeared. A flex
+                // column lets each turn keep its natural height, which is what
+                // makes the sum overflow and the scrollbar show up.
+                display: 'flex', flexDirection: 'column', gap: 'var(--space-3)',
                 // Takes whatever height is going and scrolls inside itself, so
                 // a long conversation never pushes the composer off-panel.
                 flex: 1, minHeight: 0, overflowY: 'auto'
               }}
+              className="pp-transcript"
             >
               {turns.map((t, i) =>
                 t.role === 'user' ? (
