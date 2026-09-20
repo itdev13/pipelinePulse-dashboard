@@ -1260,7 +1260,7 @@ function ContactMessageCard({ m, last, selected, onToggle, deals, onFile, onMove
           <span style={{
             fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)'
           }}>
-            {m.senderName || (inbound ? 'Customer' : 'Us')}
+            {m.senderName || (inbound ? 'Customer' : 'Team member')}
           </span>
           <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
             {m.channel}

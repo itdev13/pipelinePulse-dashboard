@@ -230,7 +230,7 @@ function ThreadMessage({ m, index, total, open, onToggle, onOpenAttachment }) {
 
         <span className="pp-thread-lines">
           <span className="pp-thread-who">
-            <span className="pp-thread-name">{m.senderName || (inbound ? 'Contact' : 'Us')}</span>
+            <span className="pp-thread-name">{m.senderName || (inbound ? 'Contact' : 'Team member')}</span>
             <span className="pp-thread-time">{fullClock(m.ts)}</span>
           </span>
           {!open && preview && <span className="pp-thread-prev">{preview}</span>}
