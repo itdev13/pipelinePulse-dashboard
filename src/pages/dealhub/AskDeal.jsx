@@ -6,8 +6,9 @@ import { SkeletonStyles, Bar } from '../shared/ListChrome'
 import { useDictation } from '../shared/useDictation'
 import { useAttachments, MAX_ATTACHMENTS, ALLOWED_IMAGE_TYPES } from '../shared/useAttachments'
 import {
-  RecordingBar, AttachmentThumbnails, ImagePreview, IconButton
+  RecordingBar, AttachmentThumbnails, ImagePreview, IconButton, HoverTooltip
 } from '../shared/ComposerExtras'
+import MemoryManageModal from '../shared/MemoryManageModal'
 
 // Deal Hub — Co-Pilot panel.
 //
@@ -118,6 +119,14 @@ export default function AskDeal({
   const [composerFocused, setComposerFocused] = useState(false)
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef(null)
+  // Memory management — same ai_memories store the portfolio Co-Pilot tab
+  // reads from and writes to (scoped by rep + location, not by deal), so a
+  // fact saved here personalizes answers everywhere. Real GHL's own
+  // per-record Ask AI has no UI for this at all (memory still applies
+  // silently); we add a lightweight entry point here on purpose so a
+  // manager working a single deal never has to leave it to teach Co-Pilot
+  // something.
+  const [memoryOpen, setMemoryOpen] = useState(false)
 
   // Attached images and voice dictation — shared with the portfolio-wide
   // Co-Pilot tab (CopilotTab.jsx) via src/pages/shared/useAttachments.js and
@@ -372,6 +381,8 @@ export default function AskDeal({
         />
       )}
 
+      {memoryOpen && <MemoryManageModal onClose={() => setMemoryOpen(false)} />}
+
       {toast && (
         <div
           role="status"
@@ -509,6 +520,21 @@ export default function AskDeal({
           >
             Co-Pilot
           </h3>
+          <HoverTooltip label="Manage what Co-Pilot remembers about you">
+            <button
+              onClick={() => setMemoryOpen(true)}
+              aria-label="Manage memory"
+              style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 28, height: 28,
+                border: 'none', borderRadius: 'var(--radius-sm)',
+                background: 'transparent', color: 'var(--accent-teal)',
+                cursor: 'pointer'
+              }}
+            >
+              <span className="ms" style={{ fontSize: 19 }}>psychology_alt</span>
+            </button>
+          </HoverTooltip>
         </header>
 
         {/* Starter chips. Moved out of the left rail — as full cards they took
