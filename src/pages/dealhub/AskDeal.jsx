@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { aiAPI } from '../../api/ai'
 import { dealsAPI } from '../../api/deals'
 import { useAuth } from '../../context/AuthContext'
@@ -139,6 +140,12 @@ export default function AskDeal({
   // collapse toggle, since that's presentation this panel's layout cares
   // about.
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  // Full-view — the same transcript/state, just rendered as a full-screen
+  // overlay instead of the embedded 560px panel. A longer conversation on
+  // one deal deserves the same room the portfolio Co-Pilot tab always has;
+  // this is a portal, not a second component, so nothing about the live
+  // question, history, or in-flight request resets when a rep toggles it.
+  const [fullView, setFullView] = useState(false)
 
   // The rep's display name, for the sidebar's Account avatar initials — same
   // lookup the portfolio Co-Pilot tab uses. The session only carries the GHL
@@ -381,20 +388,22 @@ export default function AskDeal({
     }
   }
 
-  return (
+  const body = (
     // Same shell as the portfolio Co-Pilot tab — sidebar (New chat, Search,
     // Recents, Account/Memory) beside the conversation — just scoped to
     // this one deal: `history` here is askHistory(dealId), never the whole
     // pipeline, so Recents/Search only ever show this deal's own chats.
+    //
+    // Embedded and full-view share this exact tree — only the OUTER
+    // wrapper's own size/position differs (see the two return branches
+    // below) — so toggling never resets the live transcript, in-flight
+    // question, or which chat is open.
     <div
       style={{
         position: 'relative',
         display: 'grid',
         gridTemplateColumns: `${sidebarCollapsed ? 64 : 280}px minmax(0, 1fr)`,
-        height: 560,
-        border: '1px solid var(--border-default)',
-        borderRadius: 'var(--radius-md)',
-        overflow: 'hidden',
+        height: '100%',
         background: '#fff'
       }}
     >
@@ -432,12 +441,21 @@ export default function AskDeal({
         style={{ height: '100%' }}
       />
 
-      {/* Co-Pilot — flat content column, no card frame of its own. */}
+      {/* Co-Pilot — flat content column, no card frame of its own.
+          minHeight: 0 is required here, not just further down: a CSS GRID
+          ITEM (this section, a child of the outer `display: grid`) defaults
+          to min-height: auto, which refuses to shrink below its content's
+          natural height. Without it, the transcript below could grow the
+          whole section past the panel's fixed 560px row instead of
+          scrolling inside it — pushing the composer below the visible
+          panel entirely, which is what "composer not visible, not sticky"
+          was: the section had no cap, so the browser just kept extending it
+          downward past the frame. */}
       <section
         style={{
           background: '#fff',
           display: 'flex', flexDirection: 'column',
-          minWidth: 0, padding: '0 16px 16px'
+          minWidth: 0, minHeight: 0, padding: '0 16px 16px'
         }}
       >
         {toast && (
@@ -461,25 +479,44 @@ export default function AskDeal({
           </div>
         )}
 
-        {/* Starter chips — sit where the question actually gets asked. */}
+        {/* Starter chips — sit where the question actually gets asked. The
+            expand toggle sits at the row's far end rather than floating
+            absolutely, so it never overlaps a wrapped second row of chips. */}
         <div
           style={{
-            display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap',
+            display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)',
             padding: '11px 0'
           }}
         >
-          {PROMPTS.map((p) => (
-            <PromptChip
-              key={p.id}
-              prompt={p}
-              onPick={() => {
-                setQ(p.label)
-                // Land the cursor in the composer so the chip is a starting
-                // point you can edit, not a committed question.
-                inputRef.current?.focus()
-              }}
-            />
-          ))}
+          <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', flex: 1 }}>
+            {PROMPTS.map((p) => (
+              <PromptChip
+                key={p.id}
+                prompt={p}
+                onPick={() => {
+                  setQ(p.label)
+                  // Land the cursor in the composer so the chip is a starting
+                  // point you can edit, not a committed question.
+                  inputRef.current?.focus()
+                }}
+              />
+            ))}
+          </div>
+
+          <button
+            onClick={() => setFullView((v) => !v)}
+            title={fullView ? 'Exit full view' : 'Open in full view'}
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 32, height: 32, flex: 'none',
+              border: 'none', borderRadius: 'var(--radius-sm)',
+              background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 19 }}>
+              {fullView ? 'close_fullscreen' : 'open_in_full'}
+            </span>
+          </button>
         </div>
 
         <div
@@ -757,6 +794,37 @@ export default function AskDeal({
         </div>
       </section>
 
+    </div>
+  )
+
+  if (fullView) {
+    return createPortal(
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Co-Pilot — full view"
+        className="pp-portal"
+        style={{
+          position: 'fixed', inset: 0, zIndex: 900,
+          background: '#fff'
+        }}
+      >
+        {body}
+      </div>,
+      document.body
+    )
+  }
+
+  return (
+    <div
+      style={{
+        border: '1px solid var(--border-default)',
+        borderRadius: 'var(--radius-md)',
+        overflow: 'hidden',
+        height: 560
+      }}
+    >
+      {body}
     </div>
   )
 }
