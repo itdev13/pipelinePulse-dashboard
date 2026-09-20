@@ -60,16 +60,23 @@ export default function CopilotSidebar({
   // placeholder. Client-side only: it filters the same `history` array
   // already loaded for the rail, no extra request needed.
   //
-  // Matches GHL's own shape: clicking "Search" does not expand an inline
-  // input in the same column — it opens a separate, narrower panel that
-  // overlays the page (dimmed backdrop), with the input at its top and the
-  // filtered Recents list below. See SearchPanel.
+  // Inline, above Recents — not a separate overlay panel. Clicking "Search"
+  // reveals the input right here in the sidebar column, ahead of the
+  // Recents header, and it stays visible regardless of the Recents
+  // chevron's own collapsed/expanded state.
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const searchInputRef = useRef(null)
 
-  const filteredHistory = searchQuery.trim()
+  const closeSearch = () => { setSearchOpen(false); setSearchQuery('') }
+
+  const filteredHistory = searchOpen && searchQuery.trim()
     ? history.filter((c) => (c.title || '').toLowerCase().includes(searchQuery.trim().toLowerCase()))
     : history
+
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus()
+  }, [searchOpen])
   // One ref per row's three-dot button, keyed by conversationId. The menu
   // portals to document.body (see the note by RecentRow's menu), so it needs
   // a way to find the button it opened from — a getter, not the element
@@ -138,14 +145,14 @@ export default function CopilotSidebar({
         />
         <SidebarButton
           icon="search" label="Search" collapsed={collapsed}
-          disabled={history.length === 0}
-          title={history.length === 0 ? 'No chats to search yet' : 'Search chats'}
+          disabled={collapsed || history.length === 0}
+          title={collapsed ? 'Expand the sidebar to search' : 'Search chats'}
           onClick={() => {
-            // Opening the overlay starts clean — a row's "..." menu left open
-            // in the MAIN list (now hidden behind the overlay) must not also
-            // read as open for the same conversationId's row inside the panel.
-            setOpenMenuFor(null)
-            setSearchOpen(true)
+            setSearchOpen((open) => {
+              const next = !open
+              if (!next) setSearchQuery('')
+              return next
+            })
           }}
         />
         {NAV_ITEMS.map((item) => (
@@ -156,6 +163,42 @@ export default function CopilotSidebar({
           />
         ))}
       </nav>
+
+      {!collapsed && searchOpen && (
+        <div style={{ padding: '8px 10px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{
+            flex: 1, display: 'flex', alignItems: 'center', gap: 6,
+            height: 30, padding: '0 8px',
+            border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)',
+            background: '#fff'
+          }}>
+            <span className="ms" style={{ fontSize: 15, color: 'var(--text-faint)' }}>search</span>
+            <input
+              ref={searchInputRef}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') closeSearch() }}
+              placeholder="Search chats"
+              style={{
+                flex: 1, minWidth: 0, border: 'none', outline: 'none',
+                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', color: 'var(--text-body)'
+              }}
+            />
+          </div>
+          <button
+            onClick={closeSearch}
+            title="Close search"
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 24, height: 24, flex: 'none',
+              border: 'none', borderRadius: 'var(--radius-sm)',
+              background: 'transparent', color: 'var(--text-faint)', cursor: 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 16 }}>close</span>
+          </button>
+        </div>
+      )}
 
       <div style={{ height: 8 }} />
 
@@ -202,7 +245,15 @@ export default function CopilotSidebar({
 
           {!recentsCollapsed && (
             <div style={{ minHeight: 0, overflowY: 'auto', padding: '0 6px 6px' }}>
-              {history.map((c) => (
+              {searchOpen && searchQuery.trim() && filteredHistory.length === 0 && (
+                <p style={{
+                  margin: '8px 4px', fontSize: 'var(--text-sm)', color: 'var(--text-faint)',
+                  textAlign: 'center'
+                }}>
+                  No chats match "{searchQuery.trim()}"
+                </p>
+              )}
+              {filteredHistory.map((c) => (
                 <RecentRow
                   key={c.conversationId}
                   conv={c}
@@ -269,154 +320,7 @@ export default function CopilotSidebar({
     </section>
 
     {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
-
-    {searchOpen && (
-      <SearchPanel
-        query={searchQuery}
-        onQueryChange={setSearchQuery}
-        results={filteredHistory}
-        activeId={conversationId}
-        onReopen={(c) => { onReopen(c); setSearchOpen(false); setSearchQuery(''); setOpenMenuFor(null) }}
-        onClose={() => { setSearchOpen(false); setSearchQuery(''); setOpenMenuFor(null) }}
-        menuOpen={openMenuFor}
-        onToggleMenu={(id) => setOpenMenuFor((cur) => (cur === id ? null : id))}
-        getAnchor={(id) => () => anchorRefs.current[`search-${id}`]}
-        setAnchorRef={(id) => (el) => { anchorRefs.current[`search-${id}`] = el }}
-        renamingFor={renamingFor}
-        onStartRename={setRenamingFor}
-        onCommitRename={commitRename}
-        onCancelRename={() => setRenamingFor(null)}
-        onDelete={(c) => {
-          setOpenMenuFor(null)
-          setConfirmDeleteFor({ conversationId: c.conversationId, title: c.title })
-        }}
-      />
-    )}
     </>
-  )
-}
-
-// GHL's own Search: not an inline input in the sidebar column, but a
-// separate, narrower panel that overlays the page — dimmed backdrop, input
-// pinned at the top, live-filtered Recents below. Portalled to document.body
-// (design tokens and the .ms icon font are scoped to [data-dealhub], which a
-// body portal escapes — see the CopilotSidebar module comment / pp-portal
-// convention used by every other floating surface in this file).
-function SearchPanel({
-  query, onQueryChange, results, activeId, onReopen, onClose,
-  menuOpen, onToggleMenu, getAnchor, setAnchorRef,
-  renamingFor, onStartRename, onCommitRename, onCancelRename, onDelete
-}) {
-  const inputRef = useRef(null)
-
-  useEffect(() => {
-    inputRef.current?.focus()
-  }, [])
-
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  return createPortal(
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Search chats"
-      className="pp-portal"
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 900,
-        display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start',
-        background: 'rgba(15, 23, 42, 0.32)',
-        backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)'
-      }}
-    >
-      <div
-        style={{
-          width: 320, height: '100%', maxHeight: '100vh',
-          background: '#fff',
-          borderRight: '1px solid var(--border-default)',
-          boxShadow: 'var(--shadow-overlay)',
-          display: 'grid', gridTemplateRows: 'auto auto 1fr', minHeight: 0
-        }}
-      >
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '13px 13px 0'
-        }}>
-          <h2 style={{
-            margin: 0, flex: 1,
-            fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)'
-          }}>
-            Search chats
-          </h2>
-          <button
-            onClick={onClose}
-            aria-label="Close search"
-            style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 28, height: 28,
-              border: 'none', borderRadius: 'var(--radius-sm)',
-              background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer'
-            }}
-          >
-            <span className="ms" style={{ fontSize: 19 }}>close</span>
-          </button>
-        </div>
-
-        <div style={{ padding: 13 }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            height: 36, padding: '0 10px',
-            border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)',
-            background: 'var(--gray-25)'
-          }}>
-            <span className="ms" style={{ fontSize: 17, color: 'var(--text-faint)' }}>search</span>
-            <input
-              ref={inputRef}
-              value={query}
-              onChange={(e) => onQueryChange(e.target.value)}
-              placeholder="Search chats..."
-              style={{
-                flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent',
-                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', color: 'var(--text-body)'
-              }}
-            />
-          </div>
-        </div>
-
-        <div style={{ minHeight: 0, overflowY: 'auto', padding: '0 6px 10px' }}>
-          {query.trim() && results.length === 0 && (
-            <p style={{
-              margin: '8px 4px', fontSize: 'var(--text-sm)', color: 'var(--text-faint)',
-              textAlign: 'center'
-            }}>
-              No chats match "{query.trim()}"
-            </p>
-          )}
-          {results.map((c) => (
-            <RecentRow
-              key={c.conversationId}
-              conv={c}
-              active={c.conversationId === activeId}
-              menuOpen={menuOpen === c.conversationId}
-              menuButtonRef={setAnchorRef(c.conversationId)}
-              getAnchor={getAnchor(c.conversationId)}
-              onSelect={() => onReopen(c)}
-              onToggleMenu={() => onToggleMenu(c.conversationId)}
-              renaming={renamingFor === c.conversationId}
-              onStartRename={() => onStartRename(c.conversationId)}
-              onCommitRename={(title) => onCommitRename(c.conversationId, title)}
-              onCancelRename={onCancelRename}
-              onDelete={() => onDelete(c)}
-            />
-          ))}
-        </div>
-      </div>
-    </div>,
-    document.body
   )
 }
 
@@ -606,11 +510,7 @@ function RowTooltip({ anchorRef, text }) {
       style={{
         position: 'fixed',
         left: pos.left, top: pos.top, transform: 'translateY(-50%)',
-        // Above SearchPanel's own overlay (zIndex 900) — a row rendered
-        // inside the search panel is still hosted under document.body like
-        // every other floating surface here, so without this its tooltip
-        // would sit BEHIND the panel's dim backdrop instead of over the row.
-        zIndex: 950,
+        zIndex: 50,
         // The FULL title, unclipped — that is this tooltip's whole job, so
         // it must not re-truncate what the row already ellipsized. It can
         // run off the right edge of a narrow viewport; that is an acceptable
@@ -687,10 +587,7 @@ function RecentMenu({ getAnchor, onClose, onRename, onDelete }) {
       style={{
         position: 'fixed',
         left: pos.left, top: pos.top,
-        // Above SearchPanel's overlay (zIndex 900) — same reasoning as
-        // RowTooltip above: a row inside the search panel still needs its
-        // own menu to float over that panel's backdrop, not under it.
-        minWidth: 140, zIndex: 950,
+        minWidth: 140, zIndex: 50,
         background: '#fff',
         border: '1px solid var(--border-default)',
         borderRadius: 'var(--radius-md)',
@@ -745,10 +642,7 @@ function DeleteConfirmModal({ title, busy, onCancel, onConfirm }) {
       aria-modal="true"
       onClick={onCancel}
       style={{
-        position: 'fixed', inset: 0,
-        // Above SearchPanel's overlay (zIndex 900) — a delete confirmed from
-        // a row inside the search panel must still appear on top of it.
-        zIndex: 950,
+        position: 'fixed', inset: 0, zIndex: 50,
         background: 'rgba(15, 18, 24, 0.4)',
         display: 'flex', alignItems: 'center', justifyContent: 'center'
       }}
