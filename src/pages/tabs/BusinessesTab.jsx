@@ -216,34 +216,15 @@ function BusinessCard({ business: b, onOpen, view = 'rows' }) {
           : { borderBottom: '1px solid var(--border-default)', background: 'transparent' })
       }}
     >
-      {/* ROW: icon, text, chips on one line. CARD: stacked, because in a
+      {/* ROW: text and chips on one line. CARD: stacked, because in a
           360px column the chips and the name compete for the same line and
           the name loses — "company desc1…" and a clipped URL. */}
       <span style={{
         display: 'flex',
-        // flex-start in BOTH views. Centring against a three-line block put
-        // the icon beside the SECOND line — the description — while the name
-        // it belongs to started a line above it, so nothing shared a top edge.
         alignItems: 'flex-start',
         flexDirection: view === 'grid' ? 'column' : 'row',
         gap: view === 'grid' ? 10 : 11
       }}>
-        {/* ROWS only. Down a dense list the glyph is a left rail that marks
-            where each record starts; in a card it just pushes the name right
-            for something the tab, the card and the name have each said. */}
-        {view === 'rows' && (
-          <span
-            className="ms"
-            style={{
-              fontSize: 'var(--text-xl)', color: `var(--accent-${b.accent})`, flex: 'none',
-              // Matches the title's line box, so the glyph sits ON the name's
-              // line rather than flush with the top of its own box.
-              lineHeight: 1.45
-            }}
-          >
-            domain
-          </span>
-        )}
         <span style={{ minWidth: 0, flex: 1 }}>
           <span
             style={{
