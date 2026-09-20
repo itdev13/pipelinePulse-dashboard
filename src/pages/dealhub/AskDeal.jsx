@@ -434,7 +434,7 @@ export default function AskDeal({
         style={{
           background: '#fff',
           display: 'flex', flexDirection: 'column',
-          minWidth: 0, padding: '0 16px'
+          minWidth: 0, padding: '0 16px 16px'
         }}
       >
         {toast && (
