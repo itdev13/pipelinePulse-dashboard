@@ -551,7 +551,7 @@ export default function AskDeal({
               >
                 {[
                   ['task_alt', 'Every claim carries a quote you can click'],
-                  ['visibility', "Reads only this deal's messages"]
+                  ['visibility', 'Reads only what’s in this deal']
                 ].map(([icon, text]) => (
                   <span
                     key={icon}
@@ -718,50 +718,64 @@ export default function AskDeal({
               onRemove={removeAttachment}
             />
 
-            <textarea
-              ref={inputRef}
-              // The wrapper draws the focus border and ring; without this the
-              // global :focus-visible rule adds a second one around the text.
-              className="pp-focus-inherit"
-              rows={1}
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value)
-                // Grow with the content to a cap, so a long question stays
-                // visible while typing instead of scrolling inside one line.
-                const el = e.target
-                el.style.height = 'auto'
-                el.style.height = `${Math.min(el.scrollHeight, 132)}px`
-              }}
-              // Paste an image straight into the box — screenshot, then ⌘V.
-              // See useAttachments.onPaste for the read/validate path this
-              // shares with the attach button and drag-and-drop.
-              onPaste={onPaste}
-              onFocus={() => setComposerFocused(true)}
-              onBlur={() => setComposerFocused(false)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  submit()
-                }
-              }}
-              disabled={pending || available === false}
-              placeholder={pending ? 'Reading the thread…' : 'Ask anything about this deal…'}
-              style={{
-                width: '100%', boxSizing: 'border-box',
-                minHeight: 28, maxHeight: 140, resize: 'none',
-                border: 'none', outline: 'none', background: 'transparent',
-                padding: 0,
-                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-xl)',
-                lineHeight: 1.45, color: 'var(--text-heading)'
-              }}
-            />
+            {/* One row — textarea, attach, mic, send — matching the GHL
+                reference and the portfolio Co-Pilot's own composer exactly.
+                Attach used to sit alone on a second row below the text box;
+                real Ask AI keeps every control on the same line as the
+                input, attach and mic together immediately before send. */}
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-1)' }}>
+              <textarea
+                ref={inputRef}
+                // The wrapper draws the focus border and ring; without this the
+                // global :focus-visible rule adds a second one around the text.
+                className="pp-focus-inherit"
+                rows={1}
+                value={q}
+                onChange={(e) => {
+                  setQ(e.target.value)
+                  // Grow with the content to a cap, so a long question stays
+                  // visible while typing instead of scrolling inside one line.
+                  const el = e.target
+                  el.style.height = 'auto'
+                  el.style.height = `${Math.min(el.scrollHeight, 132)}px`
+                }}
+                // Paste an image straight into the box — screenshot, then ⌘V.
+                // See useAttachments.onPaste for the read/validate path this
+                // shares with the attach button and drag-and-drop.
+                onPaste={onPaste}
+                onFocus={() => setComposerFocused(true)}
+                onBlur={() => setComposerFocused(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    submit()
+                  }
+                }}
+                disabled={pending || available === false}
+                placeholder={pending ? 'Reading the thread…' : 'Ask anything about this deal…'}
+                style={{
+                  flex: 1, minWidth: 0, boxSizing: 'border-box',
+                  minHeight: 28, maxHeight: 140, resize: 'none',
+                  border: 'none', outline: 'none', background: 'transparent',
+                  padding: 0,
+                  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-xl)',
+                  lineHeight: 1.45, color: 'var(--text-heading)'
+                }}
+              />
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+              <input
+                ref={fileRef}
+                type="file"
+                accept={ALLOWED_IMAGE_TYPES.join(',')}
+                multiple
+                onChange={(e) => { addFiles(e.target.files); e.target.value = '' }}
+                style={{ display: 'none' }}
+              />
               {/* Attach an image. A question AID — it tells the model what
                   you're asking about; claims still have to quote the thread. */}
               <IconButton
-                icon="add"
+                icon="attach_file"
+                size={34} iconSize={19}
                 label={
                   attachments.length >= MAX_ATTACHMENTS
                     ? `${MAX_ATTACHMENTS} images is the limit`
@@ -772,19 +786,10 @@ export default function AskDeal({
                   pending || available === false || attachments.length >= MAX_ATTACHMENTS
                 }
               />
-              <input
-                ref={fileRef}
-                type="file"
-                accept={ALLOWED_IMAGE_TYPES.join(',')}
-                multiple
-                onChange={(e) => { addFiles(e.target.files); e.target.value = '' }}
-                style={{ display: 'none' }}
-              />
-
-              <span style={{ flex: 1 }} />
 
               <IconButton
                 icon="mic"
+                size={34} iconSize={19}
                 label={
                   speechSupported
                     ? 'Dictate your question'
@@ -806,7 +811,7 @@ export default function AskDeal({
                     style={{
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       flex: 'none',
-                      width: 38, height: 38, padding: 0,
+                      width: 34, height: 34, padding: 0,
                       border: 'none', borderRadius: 'var(--radius-pill)',
                       background: ready ? 'var(--brand-primary)' : 'var(--gray-200)',
                       color: '#fff',
@@ -814,7 +819,7 @@ export default function AskDeal({
                       cursor: ready ? 'pointer' : 'not-allowed'
                     }}
                   >
-                    <span className="ms" style={{ fontSize: 21 }}>
+                    <span className="ms" style={{ fontSize: 19 }}>
                       {pending ? 'more_horiz' : 'arrow_upward'}
                     </span>
                   </button>
