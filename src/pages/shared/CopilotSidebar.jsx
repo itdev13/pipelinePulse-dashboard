@@ -137,68 +137,79 @@ export default function CopilotSidebar({
         </button>
       </header>
 
-      <nav style={{ display: 'grid', gap: 1, padding: '0 8px' }}>
-        <SidebarButton
-          icon="edit_square" label="New chat" collapsed={collapsed}
-          disabled={empty} onClick={onNewChat}
-          title={empty ? 'Already on a new chat' : 'Start a fresh conversation'}
-        />
-        <SidebarButton
-          icon="search" label="Search" collapsed={collapsed}
-          disabled={collapsed || history.length === 0}
-          title={collapsed ? 'Expand the sidebar to search' : 'Search chats'}
-          onClick={() => {
-            setSearchOpen((open) => {
-              const next = !open
-              if (!next) setSearchQuery('')
-              return next
-            })
-          }}
-        />
-        {NAV_ITEMS.map((item) => (
+      {/* nav + the (conditional) search input share ONE grid row on the
+          outer section — gridTemplateRows below has a fixed track count, and
+          the search input used to be a sibling row of its own, which threw
+          off which track everything after it landed on: the Recents block's
+          `1fr` track ended up sized to the search input's row instead, and
+          Recents itself got squeezed into whatever was left (the empty gap
+          bug). Wrapping both in one div keeps the section's child count,
+          and therefore its row tracks, unchanged regardless of whether
+          search is open. */}
+      <div>
+        <nav style={{ display: 'grid', gap: 1, padding: '0 8px' }}>
           <SidebarButton
-            key={item.key} icon={item.icon} label={item.label}
-            collapsed={collapsed} disabled
-            title={`${item.label} — coming soon`}
+            icon="edit_square" label="New chat" collapsed={collapsed}
+            disabled={empty} onClick={onNewChat}
+            title={empty ? 'Already on a new chat' : 'Start a fresh conversation'}
           />
-        ))}
-      </nav>
-
-      {!collapsed && searchOpen && (
-        <div style={{ padding: '8px 10px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{
-            flex: 1, display: 'flex', alignItems: 'center', gap: 6,
-            height: 30, padding: '0 8px',
-            border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)',
-            background: '#fff'
-          }}>
-            <span className="ms" style={{ fontSize: 15, color: 'var(--text-faint)' }}>search</span>
-            <input
-              ref={searchInputRef}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Escape') closeSearch() }}
-              placeholder="Search chats"
-              style={{
-                flex: 1, minWidth: 0, border: 'none', outline: 'none',
-                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', color: 'var(--text-body)'
-              }}
-            />
-          </div>
-          <button
-            onClick={closeSearch}
-            title="Close search"
-            style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 24, height: 24, flex: 'none',
-              border: 'none', borderRadius: 'var(--radius-sm)',
-              background: 'transparent', color: 'var(--text-faint)', cursor: 'pointer'
+          <SidebarButton
+            icon="search" label="Search" collapsed={collapsed}
+            disabled={collapsed || history.length === 0}
+            title={collapsed ? 'Expand the sidebar to search' : 'Search chats'}
+            onClick={() => {
+              setSearchOpen((open) => {
+                const next = !open
+                if (!next) setSearchQuery('')
+                return next
+              })
             }}
-          >
-            <span className="ms" style={{ fontSize: 16 }}>close</span>
-          </button>
-        </div>
-      )}
+          />
+          {NAV_ITEMS.map((item) => (
+            <SidebarButton
+              key={item.key} icon={item.icon} label={item.label}
+              collapsed={collapsed} disabled
+              title={`${item.label} — coming soon`}
+            />
+          ))}
+        </nav>
+
+        {!collapsed && searchOpen && (
+          <div style={{ padding: '8px 10px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{
+              flex: 1, display: 'flex', alignItems: 'center', gap: 6,
+              height: 30, padding: '0 8px',
+              border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)',
+              background: '#fff'
+            }}>
+              <span className="ms" style={{ fontSize: 15, color: 'var(--text-faint)' }}>search</span>
+              <input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Escape') closeSearch() }}
+                placeholder="Search chats"
+                style={{
+                  flex: 1, minWidth: 0, border: 'none', outline: 'none',
+                  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', color: 'var(--text-body)'
+                }}
+              />
+            </div>
+            <button
+              onClick={closeSearch}
+              title="Close search"
+              style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 24, height: 24, flex: 'none',
+                border: 'none', borderRadius: 'var(--radius-sm)',
+                background: 'transparent', color: 'var(--text-faint)', cursor: 'pointer'
+              }}
+            >
+              <span className="ms" style={{ fontSize: 16 }}>close</span>
+            </button>
+          </div>
+        )}
+      </div>
 
       <div style={{ height: 8 }} />
 
