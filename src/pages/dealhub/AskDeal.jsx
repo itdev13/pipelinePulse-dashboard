@@ -1,15 +1,24 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { aiAPI } from '../../api/ai'
+import { dealsAPI } from '../../api/deals'
+import { useAuth } from '../../context/AuthContext'
 import NoteEditor from '../shared/NoteEditor'
 import TaskEditor from '../shared/TaskEditor'
 import { SkeletonStyles, Bar } from '../shared/ListChrome'
 import { useDictation } from '../shared/useDictation'
 import { useAttachments, MAX_ATTACHMENTS, ALLOWED_IMAGE_TYPES } from '../shared/useAttachments'
 import {
-  RecordingBar, AttachmentThumbnails, ImagePreview, IconButton, HoverTooltip
+  RecordingBar, AttachmentThumbnails, ImagePreview, IconButton
 } from '../shared/ComposerExtras'
-import MemoryManageModal from '../shared/MemoryManageModal'
+import CopilotSidebar from '../shared/CopilotSidebar'
+
+// GHL stores user names however they were typed — same reasoning as the
+// Deal Hub's own titleCase (DealSection.jsx) and the portfolio Co-Pilot's
+// own copy (CopilotTab.jsx): title-case for display only, never for matching.
+function titleCase(v) {
+  if (!v) return v
+  return String(v).replace(/\b[a-z]/g, (ch) => ch.toUpperCase())
+}
 
 // Deal Hub — Co-Pilot panel.
 //
@@ -120,21 +129,30 @@ export default function AskDeal({
   const [composerFocused, setComposerFocused] = useState(false)
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef(null)
-  // Memory management — same ai_memories store the portfolio Co-Pilot tab
-  // reads from and writes to (scoped by rep + location, not by deal), so a
-  // fact saved here personalizes answers everywhere. Real GHL's own
-  // per-record Ask AI has no UI for this at all (memory still applies
-  // silently); we add a lightweight entry point here on purpose so a
-  // manager working a single deal never has to leave it to teach Co-Pilot
-  // something.
-  const [memoryOpen, setMemoryOpen] = useState(false)
-  // The chat-history rail used to be its own bordered card beside Co-Pilot.
-  // Matching CopilotTab's flat, single-panel look means folding it into a
-  // small popover off the header instead — same content (ChatHistory), just
-  // hidden until asked for, since this panel now has no room of its own for
-  // a permanently-visible rail.
-  const [historyOpen, setHistoryOpen] = useState(false)
-  const historyBtnRef = useRef(null)
+  // Sidebar chrome — same shell as the portfolio Co-Pilot tab (New chat,
+  // Search, Recents, Account/Memory), shared via CopilotSidebar so a future
+  // tweak to that UI only has to happen once. Its own state (menus, rename,
+  // settings modal) lives inside CopilotSidebar; this only needs the
+  // collapse toggle, since that's presentation this panel's layout cares
+  // about.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  // The rep's display name, for the sidebar's Account avatar initials — same
+  // lookup the portfolio Co-Pilot tab uses. The session only carries the GHL
+  // user id, so it's resolved against the location's users list once per
+  // mount.
+  const { session } = useAuth()
+  const [fullName, setFullName] = useState(null)
+  useEffect(() => {
+    const userId = session?.user?.id
+    if (!userId) return
+    dealsAPI.users()
+      .then((r) => {
+        const match = (r?.users || []).find((u) => u.id === userId)
+        if (match?.name) setFullName(titleCase(match.name))
+      })
+      .catch(() => {})
+  }, [session?.user?.id])
 
   // Attached images and voice dictation — shared with the portfolio-wide
   // Co-Pilot tab (CopilotTab.jsx) via src/pages/shared/useAttachments.js and
@@ -332,10 +350,13 @@ export default function AskDeal({
           channelScope: res.channelScope || null
         }
       ])
-      setActiveChatId(res.runId)
       // The server generates one when we send none — hold it so the NEXT
       // question continues this thread rather than opening another.
       if (res.conversationId) setConversationId(res.conversationId)
+      // activeChatId is compared against history rows' `conversationId`
+      // (see CopilotSidebar's active-row highlight) — res.runId would never
+      // match, since history is keyed by conversation, not by run.
+      setActiveChatId(res.conversationId || res.runId)
       // The answer is now a resumable chat — pull it into the list.
       loadHistory()
     } catch (err) {
@@ -358,11 +379,22 @@ export default function AskDeal({
   }
 
   return (
-    // One flat panel — no bordered/shadowed card, no separate history rail
-    // beside it. Matches CopilotTab.jsx's own look: this is meant to read as
-    // "the same Co-Pilot", just scoped to one deal, not as a different,
-    // more boxed-in feature living inside Deal Hub.
-    <div style={{ position: 'relative' }}>
+    // Same shell as the portfolio Co-Pilot tab — sidebar (New chat, Search,
+    // Recents, Account/Memory) beside the conversation — just scoped to
+    // this one deal: `history` here is askHistory(dealId), never the whole
+    // pipeline, so Recents/Search only ever show this deal's own chats.
+    <div
+      style={{
+        position: 'relative',
+        display: 'grid',
+        gridTemplateColumns: `${sidebarCollapsed ? 64 : 280}px minmax(0, 1fr)`,
+        height: 560,
+        border: '1px solid var(--border-default)',
+        borderRadius: 'var(--radius-md)',
+        overflow: 'hidden',
+        background: '#fff'
+      }}
+    >
       {preview && (
         <ImagePreview
           attachment={preview}
@@ -378,109 +410,59 @@ export default function AskDeal({
         />
       )}
 
-      {memoryOpen && <MemoryManageModal onClose={() => setMemoryOpen(false)} />}
+      <CopilotSidebar
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
+        recentsCollapsed={false}
+        onToggleRecentsCollapsed={() => {}}
+        empty={turns.length === 0}
+        onNewChat={newChat}
+        history={history}
+        conversationId={activeChatId}
+        onReopen={reopen}
+        fullName={fullName}
+        onDeleted={(deletedId) => {
+          if (deletedId === activeChatId) { setTurns([]); setActiveChatId(null); setConversationId(null) }
+          loadHistory()
+        }}
+        onRenamed={() => loadHistory()}
+        style={{ height: '100%' }}
+      />
 
-      {toast && (
-        <div
-          role="status"
-          style={{
-            position: 'absolute', right: 0, bottom: -6,
-            zIndex: 5,
-            display: 'flex', alignItems: 'center', gap: 7,
-            padding: '9px 14px',
-            borderRadius: 'var(--radius-md)',
-            background: '#fff',
-            boxShadow: 'var(--shadow-overlay)',
-            fontSize: 'var(--text-md)', color: 'var(--text-heading)'
-          }}
-        >
-          <span className="ms" style={{ fontSize: 17, color: 'var(--status-done)' }}>
-            check_circle
-          </span>
-          {toast}
-        </div>
-      )}
-      {/* One flat panel, flush like CopilotTab — no border/shadow card frame. */}
+      {/* Co-Pilot — flat content column, no card frame of its own. */}
       <section
         style={{
           background: '#fff',
           display: 'flex', flexDirection: 'column',
-          height: 560
+          minWidth: 0, padding: '0 16px'
         }}
       >
-        <header
-          style={{
-            display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-            padding: '11px 4px'
-          }}
-        >
-          <span className="ms" style={{ fontSize: 20, color: 'var(--accent-plum-text)' }}>
-            auto_awesome
-          </span>
-          <h3
+        {toast && (
+          <div
+            role="status"
             style={{
-              fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--text-heading)',
-              margin: 0, flex: 1
+              position: 'absolute', right: 16, bottom: 8,
+              zIndex: 5,
+              display: 'flex', alignItems: 'center', gap: 7,
+              padding: '9px 14px',
+              borderRadius: 'var(--radius-md)',
+              background: '#fff',
+              boxShadow: 'var(--shadow-overlay)',
+              fontSize: 'var(--text-md)', color: 'var(--text-heading)'
             }}
           >
-            Co-Pilot
-          </h3>
-
-          <div style={{ position: 'relative' }}>
-            <HoverTooltip label={`Chat history${history.length ? ` (${history.length})` : ''}`}>
-              <button
-                ref={historyBtnRef}
-                onClick={() => setHistoryOpen((o) => !o)}
-                aria-label="Chat history"
-                aria-expanded={historyOpen}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  width: 28, height: 28,
-                  border: 'none', borderRadius: 'var(--radius-sm)',
-                  background: historyOpen ? 'var(--gray-100)' : 'transparent',
-                  color: 'var(--text-muted)',
-                  cursor: 'pointer'
-                }}
-              >
-                <span className="ms" style={{ fontSize: 19 }}>history</span>
-              </button>
-            </HoverTooltip>
-            {historyOpen && (
-              <HistoryPopover
-                anchorRef={historyBtnRef}
-                chats={history}
-                activeId={activeChatId}
-                canStartNew={turns.length > 0}
-                onNewChat={() => { newChat(); setHistoryOpen(false) }}
-                onReopen={(c) => { reopen(c); setHistoryOpen(false) }}
-                onInspect={setInspectRunId}
-                onClose={() => setHistoryOpen(false)}
-              />
-            )}
+            <span className="ms" style={{ fontSize: 17, color: 'var(--status-done)' }}>
+              check_circle
+            </span>
+            {toast}
           </div>
-
-          <HoverTooltip label="Manage what Co-Pilot remembers about you">
-            <button
-              onClick={() => setMemoryOpen(true)}
-              aria-label="Manage memory"
-              style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                width: 28, height: 28,
-                border: 'none', borderRadius: 'var(--radius-sm)',
-                background: 'transparent', color: 'var(--text-muted)',
-                cursor: 'pointer'
-              }}
-            >
-              <span className="ms" style={{ fontSize: 19 }}>psychology_alt</span>
-            </button>
-          </HoverTooltip>
-        </header>
+        )}
 
         {/* Starter chips — sit where the question actually gets asked. */}
         <div
           style={{
             display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap',
-            padding: '4px 4px 11px'
+            padding: '11px 0'
           }}
         >
           {PROMPTS.map((p) => (
@@ -894,261 +876,6 @@ function PromptChip({ prompt, onPick }) {
       {prompt.chipLabel || prompt.label}
     </button>
   )
-}
-
-// The history rail, folded into a popover off the header's history icon —
-// portalled to the body and measured against its trigger, same convention
-// as CopilotTab's RecentMenu. Only this DEAL's own conversations ever show
-// here; there is no cross-deal search or "recents across the pipeline" the
-// way the portfolio Co-Pilot has, matching real GHL's per-record Ask AI.
-function HistoryPopover({
-  anchorRef, chats, activeId, canStartNew, onNewChat, onReopen, onInspect, onClose
-}) {
-  const boxRef = useRef(null)
-  const [pos, setPos] = useState(null)
-
-  useLayoutEffect(() => {
-    const place = () => {
-      const el = anchorRef?.current
-      if (!el) return
-      const r = el.getBoundingClientRect()
-      const W = 360
-      setPos({
-        left: Math.max(8, Math.min(r.right - W, window.innerWidth - W - 8)),
-        top: r.bottom + 6
-      })
-    }
-    place()
-    window.addEventListener('scroll', place, true)
-    window.addEventListener('resize', place)
-    return () => {
-      window.removeEventListener('scroll', place, true)
-      window.removeEventListener('resize', place)
-    }
-  }, [anchorRef])
-
-  useEffect(() => {
-    const onDown = (e) => {
-      if (boxRef.current?.contains(e.target)) return
-      if (anchorRef?.current?.contains(e.target)) return
-      onClose()
-    }
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [onClose, anchorRef])
-
-  if (!pos) return null
-
-  return createPortal(
-    <div
-      ref={boxRef}
-      role="menu"
-      className="pp-portal"
-      style={{
-        position: 'fixed',
-        left: pos.left, top: pos.top,
-        width: 360, maxHeight: 420, zIndex: 50,
-        display: 'flex', flexDirection: 'column',
-        background: '#fff',
-        border: '1px solid var(--border-default)',
-        borderRadius: 'var(--radius-md)',
-        boxShadow: '0 4px 16px rgba(31, 36, 48, 0.14)',
-        overflow: 'hidden'
-      }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '10px 12px', borderBottom: '1px solid var(--border-default)'
-      }}>
-        <h4 style={{
-          margin: 0, flex: 1, fontSize: 'var(--text-md)', fontWeight: 600,
-          color: 'var(--text-heading)'
-        }}>
-          Chat history — this deal
-        </h4>
-        <button
-          onClick={onNewChat}
-          disabled={!canStartNew}
-          title={canStartNew ? 'Start a fresh conversation' : 'Already on a new chat'}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5,
-            height: 26, padding: '0 10px',
-            border: '1px solid var(--border-strong)',
-            borderRadius: 'var(--radius-pill)',
-            background: '#fff',
-            color: canStartNew ? 'var(--text-body)' : 'var(--text-faint)',
-            fontFamily: 'var(--font-sans)',
-            fontSize: 'var(--text-sm)', fontWeight: 600,
-            cursor: canStartNew ? 'pointer' : 'default'
-          }}
-        >
-          <span className="ms" style={{ fontSize: 14 }}>add</span>
-          New chat
-        </button>
-      </div>
-      <div style={{ minHeight: 0, overflowY: 'auto', padding: 10 }}>
-        <ChatHistory chats={chats} activeId={activeId} onReopen={onReopen} onInspect={onInspect} />
-      </div>
-    </div>,
-    document.body
-  )
-}
-
-function ChatHistory({ chats, activeId, onReopen, onInspect }) {
-  if (!chats || chats.length === 0) {
-    return (
-      <p
-        style={{
-          margin: 0, padding: '10px var(--space-3)',
-          background: 'var(--surface-sunken)',
-          borderRadius: 'var(--radius-sm)',
-          fontSize: 'var(--text-base)', lineHeight: 1.5, color: 'var(--text-muted)'
-        }}
-      >
-        No chats yet. Questions you ask are kept here, so you can pick the
-        thread back up later.
-      </p>
-    )
-  }
-  return (
-    <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
-      <div style={{ display: 'grid', gap: 6 }}>
-          {chats.map((c) => {
-            // A conversation, not a single run. The row still shows one
-            // question and one answer, so derive them: the title is the
-            // opening question, the preview is the LATEST answer — that is
-            // where the thread actually got to.
-            const turns = c.turns || []
-            const last = turns[turns.length - 1] || c
-            const convKey = c.conversationId || c.id
-            const question = c.title || c.question
-            const answerText = last.answerText
-            const askedAt = c.lastAt || last.askedAt || c.askedAt
-            const turnCount = c.turnCount || turns.length || 1
-            const active = convKey === activeId
-            return (
-              <button
-                key={convKey}
-                onClick={() => onReopen(c)}
-                title={`${question} — ${turnCount} turn${turnCount === 1 ? '' : 's'} — click to reopen`}
-                style={{
-                  display: 'grid', gap: 4,
-                  cursor: 'pointer', width: '100%', textAlign: 'left',
-                  padding: '10px var(--space-3)',
-                  border: active
-                    ? '1px solid var(--brand-primary)'
-                    : '1px solid var(--border-default)',
-                  borderLeft: active
-                    ? '3px solid var(--brand-primary)'
-                    : '3px solid transparent',
-                  borderRadius: 'var(--radius-sm)',
-                  // A solid brand fill made the question and answer text
-                  // unreadable. The selected row is marked by a left rail and a
-                  // tint instead.
-                  background: active ? 'var(--tint-pine)' : '#fff',
-                  fontFamily: 'var(--font-sans)'
-                }}
-              >
-                {/* The question wraps to two lines instead of truncating on one.
-                    Six chats all asking "What is the biggest risk here?" were
-                    clipped to "What is the biggest risk her…" — identical and
-                    unreadable, which made the whole rail useless. */}
-                <span
-                  style={{
-                    fontSize: 'var(--text-md)', fontWeight: 600,
-                    lineHeight: 1.35, color: 'var(--text-heading)',
-                    display: '-webkit-box', WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical', overflow: 'hidden'
-                  }}
-                >
-                  {question}
-                </span>
-
-                <span
-                  style={{
-                    fontSize: 'var(--text-base)', lineHeight: 1.45, color: 'var(--text-muted)',
-                    display: '-webkit-box', WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical', overflow: 'hidden'
-                  }}
-                >
-                  {answerText}
-                </span>
-
-                {/* Time and message count on one quiet line. These were two
-                    separate rows, and "5 messages considered · show more"
-                    repeated verbatim on every card — three lines of chrome per
-                    entry for a rail that only needs to say which chat is which. */}
-                <span
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-                    fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
-                  }}
-                >
-                  <span>{askedAtLabel(askedAt)}</span>
-                  {turnCount > 1 && (
-                    <span
-                      title={`${turnCount} questions in this conversation`}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 3,
-                        marginLeft: 6,
-                        fontWeight: 600, color: 'var(--accent-teal-text)'
-                      }}
-                    >
-                      <span className="ms" style={{ fontSize: 13 }}>forum</span>
-                      {turnCount}
-                    </span>
-                  )}
-                  {c.readMessageIds?.length > 0 && (
-                    <>
-                      <span aria-hidden>·</span>
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        title="See exactly which messages this answer read"
-                        onClick={(e) => { e.stopPropagation(); onInspect(last.id) }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault(); e.stopPropagation(); onInspect(last.id)
-                          }
-                        }}
-                        style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 3,
-                          cursor: 'pointer', color: 'var(--text-link)'
-                        }}
-                      >
-                        <span className="ms" style={{ fontSize: 13 }}>visibility</span>
-                        {c.readMessageIds.length}
-                      </span>
-                    </>
-                  )}
-                </span>
-              </button>
-            )
-          })}
-      </div>
-    </div>
-  )
-}
-
-// "Yesterday · 16:20" near now, an absolute date further back — matching how
-// the design words it.
-function askedAtLabel(ts) {
-  if (!ts) return ''
-  const d = new Date(ts)
-  if (Number.isNaN(d.getTime())) return ''
-  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-  const startOfToday = new Date()
-  startOfToday.setHours(0, 0, 0, 0)
-  const days = Math.round((startOfToday - new Date(d).setHours(0, 0, 0, 0)) / 86400000)
-  if (days === 0) return time
-  if (days === 1) return `Yesterday · ${time}`
-  return `${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · ${time}`
 }
 
 // One answer turn: prose, the coverage stamp, and clickable citations.
