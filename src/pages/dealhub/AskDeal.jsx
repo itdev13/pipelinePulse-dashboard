@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { aiAPI } from '../../api/ai'
 import NoteEditor from '../shared/NoteEditor'
 import TaskEditor from '../shared/TaskEditor'
@@ -127,6 +128,13 @@ export default function AskDeal({
   // manager working a single deal never has to leave it to teach Co-Pilot
   // something.
   const [memoryOpen, setMemoryOpen] = useState(false)
+  // The chat-history rail used to be its own bordered card beside Co-Pilot.
+  // Matching CopilotTab's flat, single-panel look means folding it into a
+  // small popover off the header instead — same content (ChatHistory), just
+  // hidden until asked for, since this panel now has no room of its own for
+  // a permanently-visible rail.
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const historyBtnRef = useRef(null)
 
   // Attached images and voice dictation — shared with the portfolio-wide
   // Co-Pilot tab (CopilotTab.jsx) via src/pages/shared/useAttachments.js and
@@ -350,22 +358,11 @@ export default function AskDeal({
   }
 
   return (
-    <div
-      style={{
-        position: 'relative',
-        display: 'grid',
-        // Chat history is the narrow rail, Co-Pilot the wide panel — the
-        // conversation is the work, the history is navigation.
-        gridTemplateColumns: 'minmax(300px, 1.15fr) minmax(0, 3fr)',
-        gap: 14,
-        // Each panel owns its height and they align to the top. `stretch` (the
-        // grid default) tied them together — whichever panel was taller drove
-        // the row, so a long chat history stretched Co-Pilot and left it with a
-        // blank middle. They now set their own height: 410 for the rail, 560 for
-        // Co-Pilot, which needs the room for the transcript and composer.
-        alignItems: 'start'
-      }}
-    >
+    // One flat panel — no bordered/shadowed card, no separate history rail
+    // beside it. Matches CopilotTab.jsx's own look: this is meant to read as
+    // "the same Co-Pilot", just scoped to one deal, not as a different,
+    // more boxed-in feature living inside Deal Hub.
+    <div style={{ position: 'relative' }}>
       {preview && (
         <ImagePreview
           attachment={preview}
@@ -403,123 +400,65 @@ export default function AskDeal({
           {toast}
         </div>
       )}
-      {/* Left rail — Chat history. Server-backed (ai_runs), so a rep who
-          reloads or comes back tomorrow still has the thread of what was
-          asked. */}
+      {/* One flat panel, flush like CopilotTab — no border/shadow card frame. */}
       <section
         style={{
-          border: '2px solid var(--brand-primary)',
-          borderRadius: 'var(--radius-md)',
           background: '#fff',
           display: 'flex', flexDirection: 'column',
-          overflow: 'hidden',
-          // Its own height, independent of Co-Pilot. 410 = the previous shared
-          // 560 less the 150 asked for.
-          height: 410
-        }}
-      >
-        <header
-          style={{
-            display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-            padding: '13px var(--space-4)',
-            borderBottom: '1px solid var(--border-default)',
-            background: 'var(--panel-tint, var(--gray-25))'
-          }}
-        >
-          <span className="ms" style={{ fontSize: 19, color: 'var(--brand-primary)' }}>
-            history
-          </span>
-          <h3
-            style={{
-              fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--brand-primary)',
-              margin: 0, flex: 1
-            }}
-          >
-            Chat history
-          </h3>
-          <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
-            {history.length} {history.length === 1 ? 'chat' : 'chats'}
-          </span>
-          <button
-            onClick={newChat}
-            disabled={turns.length === 0}
-            title={
-              turns.length === 0
-                ? 'Already on a new chat'
-                : 'Start a fresh conversation — this one stays in the history'
-            }
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              height: 28, padding: '0 11px',
-              border: '1px solid var(--border-strong)',
-              borderRadius: 'var(--radius-pill)',
-              background: '#fff',
-              color: turns.length === 0 ? 'var(--text-faint)' : 'var(--text-body)',
-              fontFamily: 'var(--font-sans)',
-              fontSize: 'var(--text-sm)', fontWeight: 600,
-              cursor: turns.length === 0 ? 'default' : 'pointer'
-            }}
-          >
-            <span className="ms" style={{ fontSize: 15 }}>add</span>
-            New chat
-          </button>
-        </header>
-
-        {/* flex:1 + minHeight:0 lets the list shrink below its content height.
-            Without the minHeight override a flex item refuses to shrink past
-            its content and the overflow silently never engages. */}
-        <div
-          style={{
-            // The whole rail is the history now that the starters have moved
-            // into Co-Pilot's header as chips.
-            flex: 1, minHeight: 0, overflowY: 'auto',
-            padding: 12
-          }}
-        >
-          <ChatHistory
-            chats={history}
-            activeId={activeChatId}
-            onReopen={reopen}
-            onInspect={setInspectRunId}
-          />
-        </div>
-
-      </section>
-
-      {/* Co-Pilot — the wide panel. */}
-      <section
-        style={{
-          border: '1px solid var(--border-default)',
-        boxShadow: 'var(--shadow-card)',
-        ['--panel-accent']: 'var(--accent-teal-text)',
-        ['--panel-tint']: 'var(--tint-teal)',
-          borderRadius: 'var(--radius-md)',
-          background: '#fff',
-          display: 'flex', flexDirection: 'column',
-          // Taller than the history rail: this panel holds the transcript and
-          // the composer, so it needs the room. Sized independently now.
           height: 560
         }}
       >
         <header
           style={{
             display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-            padding: '13px var(--space-4)',
-            borderBottom: '1px solid var(--border-default)',
-            background: 'var(--panel-tint, var(--gray-25))'
+            padding: '11px 4px'
           }}
         >
-          <span className="ms" style={{ fontSize: 20, color: 'var(--accent-teal)' }}>
-            forum
+          <span className="ms" style={{ fontSize: 20, color: 'var(--accent-plum-text)' }}>
+            auto_awesome
           </span>
           <h3
             style={{
-              fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--accent-teal)',
+              fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--text-heading)',
               margin: 0, flex: 1
             }}
           >
             Co-Pilot
           </h3>
+
+          <div style={{ position: 'relative' }}>
+            <HoverTooltip label={`Chat history${history.length ? ` (${history.length})` : ''}`}>
+              <button
+                ref={historyBtnRef}
+                onClick={() => setHistoryOpen((o) => !o)}
+                aria-label="Chat history"
+                aria-expanded={historyOpen}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  width: 28, height: 28,
+                  border: 'none', borderRadius: 'var(--radius-sm)',
+                  background: historyOpen ? 'var(--gray-100)' : 'transparent',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer'
+                }}
+              >
+                <span className="ms" style={{ fontSize: 19 }}>history</span>
+              </button>
+            </HoverTooltip>
+            {historyOpen && (
+              <HistoryPopover
+                anchorRef={historyBtnRef}
+                chats={history}
+                activeId={activeChatId}
+                canStartNew={turns.length > 0}
+                onNewChat={() => { newChat(); setHistoryOpen(false) }}
+                onReopen={(c) => { reopen(c); setHistoryOpen(false) }}
+                onInspect={setInspectRunId}
+                onClose={() => setHistoryOpen(false)}
+              />
+            )}
+          </div>
+
           <HoverTooltip label="Manage what Co-Pilot remembers about you">
             <button
               onClick={() => setMemoryOpen(true)}
@@ -528,7 +467,7 @@ export default function AskDeal({
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 width: 28, height: 28,
                 border: 'none', borderRadius: 'var(--radius-sm)',
-                background: 'transparent', color: 'var(--accent-teal)',
+                background: 'transparent', color: 'var(--text-muted)',
                 cursor: 'pointer'
               }}
             >
@@ -537,16 +476,11 @@ export default function AskDeal({
           </HoverTooltip>
         </header>
 
-        {/* Starter chips. Moved out of the left rail — as full cards they took
-            ~600px there and left the chat history one row tall. As chips they
-            sit where the question gets asked, which is also where you'd reach
-            for one. */}
+        {/* Starter chips — sit where the question actually gets asked. */}
         <div
           style={{
             display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap',
-            padding: '11px var(--space-4)',
-            borderBottom: '1px solid var(--border-default)',
-            background: 'var(--gray-25)'
+            padding: '4px 4px 11px'
           }}
         >
           {PROMPTS.map((p) => (
@@ -565,7 +499,7 @@ export default function AskDeal({
 
         <div
           style={{
-            padding: 16, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)',
+            padding: '0 4px', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)',
             // Fill the panel: the transcript takes the slack (min-height 0 so
             // it can shrink and scroll), the composer is pinned below it.
             flex: 1, minHeight: 0
@@ -959,6 +893,110 @@ function PromptChip({ prompt, onPick }) {
       <span className="ms" style={{ fontSize: 18, color: accent }}>{prompt.icon}</span>
       {prompt.chipLabel || prompt.label}
     </button>
+  )
+}
+
+// The history rail, folded into a popover off the header's history icon —
+// portalled to the body and measured against its trigger, same convention
+// as CopilotTab's RecentMenu. Only this DEAL's own conversations ever show
+// here; there is no cross-deal search or "recents across the pipeline" the
+// way the portfolio Co-Pilot has, matching real GHL's per-record Ask AI.
+function HistoryPopover({
+  anchorRef, chats, activeId, canStartNew, onNewChat, onReopen, onInspect, onClose
+}) {
+  const boxRef = useRef(null)
+  const [pos, setPos] = useState(null)
+
+  useLayoutEffect(() => {
+    const place = () => {
+      const el = anchorRef?.current
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      const W = 360
+      setPos({
+        left: Math.max(8, Math.min(r.right - W, window.innerWidth - W - 8)),
+        top: r.bottom + 6
+      })
+    }
+    place()
+    window.addEventListener('scroll', place, true)
+    window.addEventListener('resize', place)
+    return () => {
+      window.removeEventListener('scroll', place, true)
+      window.removeEventListener('resize', place)
+    }
+  }, [anchorRef])
+
+  useEffect(() => {
+    const onDown = (e) => {
+      if (boxRef.current?.contains(e.target)) return
+      if (anchorRef?.current?.contains(e.target)) return
+      onClose()
+    }
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [onClose, anchorRef])
+
+  if (!pos) return null
+
+  return createPortal(
+    <div
+      ref={boxRef}
+      role="menu"
+      className="pp-portal"
+      style={{
+        position: 'fixed',
+        left: pos.left, top: pos.top,
+        width: 360, maxHeight: 420, zIndex: 50,
+        display: 'flex', flexDirection: 'column',
+        background: '#fff',
+        border: '1px solid var(--border-default)',
+        borderRadius: 'var(--radius-md)',
+        boxShadow: '0 4px 16px rgba(31, 36, 48, 0.14)',
+        overflow: 'hidden'
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '10px 12px', borderBottom: '1px solid var(--border-default)'
+      }}>
+        <h4 style={{
+          margin: 0, flex: 1, fontSize: 'var(--text-md)', fontWeight: 600,
+          color: 'var(--text-heading)'
+        }}>
+          Chat history — this deal
+        </h4>
+        <button
+          onClick={onNewChat}
+          disabled={!canStartNew}
+          title={canStartNew ? 'Start a fresh conversation' : 'Already on a new chat'}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            height: 26, padding: '0 10px',
+            border: '1px solid var(--border-strong)',
+            borderRadius: 'var(--radius-pill)',
+            background: '#fff',
+            color: canStartNew ? 'var(--text-body)' : 'var(--text-faint)',
+            fontFamily: 'var(--font-sans)',
+            fontSize: 'var(--text-sm)', fontWeight: 600,
+            cursor: canStartNew ? 'pointer' : 'default'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 14 }}>add</span>
+          New chat
+        </button>
+      </div>
+      <div style={{ minHeight: 0, overflowY: 'auto', padding: 10 }}>
+        <ChatHistory chats={chats} activeId={activeId} onReopen={onReopen} onInspect={onInspect} />
+      </div>
+    </div>,
+    document.body
   )
 }
 
