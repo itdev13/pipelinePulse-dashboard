@@ -11,6 +11,9 @@ import {
   RecordingBar, AttachmentThumbnails, ImagePreview, IconButton
 } from '../shared/ComposerExtras'
 import CopilotSidebar from '../shared/CopilotSidebar'
+import UserTurn from '../shared/UserTurn'
+import ReactionRow from '../shared/ReactionRow'
+import MarkdownAnswer from './MarkdownAnswer'
 
 // GHL stores user names however they were typed — same reasoning as the
 // Deal Hub's own titleCase (DealSection.jsx) and the portfolio Co-Pilot's
@@ -535,19 +538,9 @@ export default function AskDeal({
             >
               {turns.map((t, i) =>
                 t.role === 'user' ? (
-                  <p
-                    key={i}
-                    style={{
-                      margin: 0, justifySelf: 'end', maxWidth: '85%',
-                      padding: '9px 13px',
-                      borderRadius: 'var(--radius-md)',
-                      background: 'var(--surface-selected)',
-                      color: 'var(--text-heading)',
-                      fontSize: 'var(--text-md)', lineHeight: 1.5
-                    }}
-                  >
-                    {t.content}
-                  </p>
+                  // Shared with the portfolio Co-Pilot tab — same bubble,
+                  // same product, just scoped to one deal.
+                  <UserTurn key={i} text={t.content} />
                 ) : (
                   <Answer
                     key={i}
@@ -849,15 +842,9 @@ function Answer({ turn, onJumpToMessage, onInspect, people = [] }) {
         />
       )}
 
-      <p
-        style={{
-          margin: 0, padding: 'var(--space-3) 14px',
-          fontSize: 'var(--text-md)', lineHeight: 1.6, color: 'var(--text-body)',
-          whiteSpace: 'pre-line'
-        }}
-      >
-        {turn.answerText}
-      </p>
+      <div style={{ padding: 'var(--space-3) 14px' }}>
+        <MarkdownAnswer text={turn.answerText} />
+      </div>
 
       {/* Quote attributions, inline under the prose — the mockup reads them
           as part of the answer, not as a separate evidence list. */}
@@ -942,6 +929,13 @@ function Answer({ turn, onJumpToMessage, onInspect, people = [] }) {
           No verifiable quote was attached to this answer — treat it with care.
         </p>
       )}
+
+      {/* Same rating/copy row as the portfolio Co-Pilot — this answer never
+          had one before, which meant a rep had no way to flag a bad Deal Hub
+          answer at all. */}
+      <div style={{ padding: '0 14px' }}>
+        <ReactionRow runId={turn.runId} answerText={turn.answerText} />
+      </div>
 
       {/* Actions. Both write to the CRM, and both are now live.
           The answer text is pre-filled but editable — an agent's wording is a
