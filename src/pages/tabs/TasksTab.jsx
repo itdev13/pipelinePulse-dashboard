@@ -609,26 +609,16 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                       />
                     )}
                   </span>
-                  )}                </div>
-              </div>
-
-              {hasChips && (
-                <div
-                  style={{
-                    display: 'flex', flexWrap: 'wrap', gap: 5,
-                    // Indented past the checkbox so the chips read as
-                    // belonging to the task above.
-                    padding: '0 var(--space-4) var(--space-3) 44px',
-                    borderBottom: '1px solid var(--border-default)'
-                  }}
-                >
-                  {t.noteChips.map((c) => (
-                    <NoteChip key={c.id} label={c.label} />
-                  ))}
-
-                  {/* ROW view keeps them at the end of the chips, where the eye
-                      already finishes the line. In a card they sit in the
-                      top-right corner instead. */}
+                  )}
+                  {/* Edit/delete belong to the ROW, not to whether it happens to
+                      have chips. This used to live inside the `hasChips` block
+                      below, which only renders when a task has a note chip — so
+                      a task with a deal but no linked note (the common case)
+                      silently lost its edit/delete controls in rows view, while
+                      grid view (which renders them unconditionally, see above)
+                      kept them. Moved up here, into the row's own
+                      always-rendered chip line, so both views behave the same
+                      regardless of what the task happens to be linked to. */}
                   {view !== 'grid' && (
                     <>
                       <RowAction
@@ -644,6 +634,22 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                       />
                     </>
                   )}
+                </div>
+              </div>
+
+              {hasChips && (
+                <div
+                  style={{
+                    display: 'flex', flexWrap: 'wrap', gap: 5,
+                    // Indented past the checkbox so the chips read as
+                    // belonging to the task above.
+                    padding: '0 var(--space-4) var(--space-3) 44px',
+                    borderBottom: '1px solid var(--border-default)'
+                  }}
+                >
+                  {t.noteChips.map((c) => (
+                    <NoteChip key={c.id} label={c.label} />
+                  ))}
                 </div>
               )}
             </div>

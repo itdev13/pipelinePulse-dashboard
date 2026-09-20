@@ -132,6 +132,24 @@ export default function TaskEditor({
   const [dueDate, setDueDate] = useState(
     task?.dueAt ? dayjs(task.dueAt) : null
   )
+  // A new task's due date is a commitment being made now — it can't be in
+  // the past. Kept as `useMemo` (not a plain function) only so the identity
+  // is stable across renders; antd re-invokes disabledDate on every open
+  // day either way.
+  //
+  // The task's OWN original due date is exempt: editing an already-overdue
+  // task (title, body, contact — anything but bumping the date itself) must
+  // not be blocked by the very date it's already carrying. Only picking a
+  // DIFFERENT past date is refused.
+  const originalDueDate = useMemo(
+    () => (task?.dueAt ? dayjs(task.dueAt).startOf('day') : null),
+    [task?.dueAt]
+  )
+  const disabledDate = (d) => {
+    if (!d) return false
+    if (originalDueDate && d.isSame(originalDueDate, 'day')) return false
+    return d.startOf('day').isBefore(dayjs().startOf('day'))
+  }
   const [contactId, setContactId] = useState(
     task?.contact?.id || defaultContactId || (contacts.length === 1 ? contacts[0].id : null)
   )
@@ -412,6 +430,7 @@ export default function TaskEditor({
                 placeholder="Pick a date"
                 style={{ width: '100%' }}
                 status={errorField === 'dueDate' ? 'error' : undefined}
+                disabledDate={disabledDate}
               />
             </Field>
 

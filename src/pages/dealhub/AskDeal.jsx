@@ -13,6 +13,7 @@ import {
 import CopilotSidebar from '../shared/CopilotSidebar'
 import UserTurn from '../shared/UserTurn'
 import ReactionRow from '../shared/ReactionRow'
+import ActionCard from '../shared/ActionCard'
 import MarkdownAnswer from './MarkdownAnswer'
 
 // GHL stores user names however they were typed — same reasoning as the
@@ -356,7 +357,11 @@ export default function AskDeal({
           cached: res.cached,
           runId: res.runId,
           readMessageIds: res.readMessageIds || [],
-          channelScope: res.channelScope || null
+          channelScope: res.channelScope || null,
+          // A write the question also asked for, detected separately from
+          // the citation-verified answer above — see server's
+          // dealActionDetector.js. Nothing has happened to the CRM yet.
+          proposedActions: res.proposedActions || []
         }
       ])
       // The server generates one when we send none — hold it so the NEXT
@@ -1003,6 +1008,22 @@ function Answer({ turn, onJumpToMessage, onInspect, people = [] }) {
         >
           No verifiable quote was attached to this answer — treat it with care.
         </p>
+      )}
+
+      {/* A write the question also asked for — "attach this contact",
+          "mark it lost", etc. Same ActionCard the portfolio Co-Pilot uses;
+          nothing has reached GHL until a rep confirms this specific card. */}
+      {turn.proposedActions?.length > 0 && (
+        <div style={{ padding: '0 14px', display: 'grid', gap: 8 }}>
+          {turn.proposedActions.map((a) => (
+            <ActionCard
+              key={a.actionId}
+              actionId={a.actionId}
+              actionType={a.actionType}
+              proposed={a.proposed}
+            />
+          ))}
+        </div>
       )}
 
       {/* Same rating/copy row as the portfolio Co-Pilot — this answer never

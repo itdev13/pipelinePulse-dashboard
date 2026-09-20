@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
+import { formatMoney } from '../../utils/money'
 import Timeline from '../dealhub/Timeline'
 import StageStepper from '../dealhub/StageStepper'
 import PeopleSection from '../dealhub/PeopleSection'
@@ -306,6 +307,17 @@ export default function DealHubTab({
     setSavingField(field === 'customField' ? value.id : field)
     setSaveError(null)
     const before = deal
+    const beforeStages = stages
+    // Paint the picked stage immediately, before the request — same
+    // reasoning as the customField branch below: the round trip + the
+    // delayed reconcile (see the setTimeout further down) together take
+    // ~2.5s+, and without this the stepper showed the OLD stage that whole
+    // time even though the picker's own dropdown already reflected the
+    // pick. A side effect ahead of the try/save, not its own branch, so it
+    // doesn't short-circuit the actual dealsAPI.update call below.
+    if (field === 'pipelineStageId') {
+      setStages((prev) => (prev || []).map((s) => ({ ...s, isCurrent: s.id === value })))
+    }
     try {
       let res
       if (field === 'customField') {
@@ -374,21 +386,69 @@ export default function DealHubTab({
           ...(field === 'pipelineStageId' && o?.pipelineStageId
             ? { stageId: o.pipelineStageId }
             : {}),
-          ...(o?.name != null ? { dealTag: o.name } : {}),
-          ...(o?.monetaryValue != null ? { monetaryValueRaw: o.monetaryValue } : {}),
+          // Two different properties read the deal's name: dealTag (the
+          // tab's own header/breadcrumb) and opportunityName (DealSection's
+          // big heading, dealName in DealSection.jsx). Only dealTag was
+          // being updated here — renaming a deal updated the breadcrumb but
+          // left the DealSection heading showing the old name until a full
+          // page reload re-fetched the deal from scratch.
+          ...(o?.name != null ? { dealTag: o.name, opportunityName: o.name } : {}),
+          // Same bug as the name above: DealSection.jsx's Value field reads
+          // deal.monetaryValue (the raw number) and deal.value (the
+          // server-pre-formatted "£1,250" string) — this used to write
+          // neither, only a monetaryValueRaw key nothing reads, so an edited
+          // value kept showing the old figure until a full reload. formatMoney
+          // mirrors the server's own Intl call (see money.js) so the two never
+          // disagree.
+          ...(o?.monetaryValue != null
+            ? { monetaryValue: o.monetaryValue, value: formatMoney(o.monetaryValue, d?.currency) }
+            : {}),
           ...(o?.forecastExpectedCloseDate !== undefined
             ? { forecastCloseDate: o.forecastExpectedCloseDate }
+            : {}),
+          // OwnerRow's collapsed view reads deal.owner (a NAME); the picker
+          // itself reads deal.assignedTo (a USER ID). GHL's echoed opportunity
+          // only carries assignedTo — it has no resolved name to give back —
+          // so this used to update neither, leaving the old owner's name on
+          // screen until a reload. `users` (loaded for the picker) is the one
+          // place a name for that id is already available client-side.
+          ...(field === 'assignedTo'
+            ? {
+                assignedTo: o?.assignedTo ?? value,
+                owner: users?.find((u) => u.id === (o?.assignedTo ?? value))?.name ?? d.owner
+              }
             : {})
         })
       }
-      // Stage moves change the stepper, which is driven by a separate fetch.
+      // Stage moves change the stepper, which is driven by a SEPARATE fetch
+      // (dealsAPI.stages, not dealsAPI.get) — reloading only `deal` left the
+      // stepper/current-stage picker showing the old stage forever, since
+      // nothing ever re-ran dealsAPI.stages after the first page load.
+      //
+      // Delayed, not immediate — same race the customField branch above
+      // already avoids: our PUT goes to GHL, GHL fires a webhook, the
+      // handler fetches the opportunity back and only THEN writes our row.
+      // A GET issued microseconds after the PUT resolves returns the OLD
+      // stage/status and would silently revert the optimistic UI that was
+      // already correct.
       if (field === 'pipelineStageId' || field === 'status') {
-        dealsAPI.get(dealId).then(setDeal).catch(() => {})
+        window.setTimeout(() => {
+          Promise.all([dealsAPI.get(dealId), dealsAPI.stages(dealId)])
+            .then(([d, s]) => {
+              setDeal(d)
+              setStages(s.stages || [])
+            })
+            .catch(() => {})
+        }, 2500)
       }
       setSavedField(field)
       window.setTimeout(() => setSavedField((f) => (f === field ? null : f)), 2200)
     } catch (err) {
       setDeal(before)
+      // Only pipelineStageId ever repaints `stages` optimistically (above) —
+      // restoring it unconditionally on every other field's failure would be
+      // a same-value no-op, so this is safe to run for all of them.
+      setStages(beforeStages)
       setSaveError(err.message || 'Could not save that — try again')
       window.setTimeout(() => setSaveError(null), 5000)
     } finally {

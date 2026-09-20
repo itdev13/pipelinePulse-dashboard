@@ -12,6 +12,7 @@ import {
 import CopilotSidebar from '../shared/CopilotSidebar'
 import UserTurn from '../shared/UserTurn'
 import ReactionRow from '../shared/ReactionRow'
+import ActionCard from '../shared/ActionCard'
 
 // Co-Pilot — one question across EVERY deal in the sub-account.
 //
@@ -156,6 +157,10 @@ export default function CopilotTab({ onOpenDeal }) {
           answered: res.answered !== false,
           dealsRead: res.dealsRead || [],
           toolCalls: res.toolCalls || [],
+          // Writes the model proposed this turn — create/attach a contact,
+          // change an owner or status. Nothing has happened to the CRM yet;
+          // each renders its own ActionCard, confirmed independently.
+          proposedActions: res.proposedActions || [],
           scopeNote: res.scopeNote || null,
           fromFactsOnly: res.fromFactsOnly === true,
           // Needed to rate the answer. Dropped before — the server always
@@ -460,6 +465,23 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
                 <span className="ms" style={{ fontSize: 13 }}>sell</span>
                 {d.name}
               </button>
+            ))}
+          </div>
+        )}
+
+        {/* Proposed writes — one ActionCard per action, ABOVE the reaction
+            row for the same reason dealsRead sits above it: a rep decides
+            whether to confirm a proposed action before rating the answer
+            that surfaced it, not after. */}
+        {turn.proposedActions?.length > 0 && (
+          <div style={{ display: 'grid', gap: 8, margin: '9px 0 0' }}>
+            {turn.proposedActions.map((a) => (
+              <ActionCard
+                key={a.actionId}
+                actionId={a.actionId}
+                actionType={a.actionType}
+                proposed={a.proposed}
+              />
             ))}
           </div>
         )}

@@ -59,5 +59,16 @@ export const aiAPI = {
   createMemory: (content) => apiClient.post('/api/ai/memory', { content }),
   importMemories: (memories) => apiClient.post('/api/ai/memory/import', { memories }),
   deleteMemory: (memoryId) => apiClient.delete(`/api/ai/memory/${encodeURIComponent(memoryId)}`),
-  deleteAllMemories: () => apiClient.delete('/api/ai/memory')
+  deleteAllMemories: () => apiClient.delete('/api/ai/memory'),
+  // Proposed CRM writes — create contact / attach contact / change owner /
+  // change status. A propose tool only ever inserts a pending row server-
+  // side (server/migrations/077_ai_actions.sql); these are the only calls
+  // that turn one into a real GHL write. `edits` carries just the fields a
+  // rep changed in the ActionCard, merged server-side over what the model
+  // proposed.
+  getAction: (actionId) => apiClient.get(`/api/ai/actions/${encodeURIComponent(actionId)}`),
+  confirmAction: (actionId, edits) =>
+    apiClient.post(`/api/ai/actions/${encodeURIComponent(actionId)}/confirm`, { edits }),
+  rejectAction: (actionId) =>
+    apiClient.post(`/api/ai/actions/${encodeURIComponent(actionId)}/reject`)
 }
