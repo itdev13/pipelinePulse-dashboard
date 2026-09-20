@@ -487,93 +487,25 @@ export default function AskDeal({
             flex: 1, minHeight: 0
           }}
         >
-          {/* Empty state.
-              Was a one-line grey note pinned to the top, leaving ~600px of
-              blank panel below it — the composer sat at the bottom and nothing
-              occupied the middle. Now it fills the space and explains the two
-              things worth knowing before you ask. */}
+          {/* Empty state — a bare centered heading, matching the portfolio
+              Co-Pilot's own greeting and the real GHL reference exactly. No
+              icon disc, no subtitle, no trust chips: those read as a
+              marketing card next to Ask AI's plain "What's on your mind?". */}
           {turns.length === 0 && (
             <div
               style={{
                 flex: 1, minHeight: 0,
                 display: 'flex', flexDirection: 'column',
-                alignItems: 'center', justifyContent: 'center',
-                gap: 'var(--space-3)', padding: 'var(--space-5)',
-                textAlign: 'center'
+                alignItems: 'center', justifyContent: 'center'
               }}
             >
-              {/* A gradient disc with a soft halo, not a flat tinted circle.
-                  This is the first thing a rep sees on a deal they have not
-                  asked about yet — it should read as a capability, not as an
-                  empty-state placeholder. */}
-              <span
-                style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  width: 60, height: 60,
-                  borderRadius: 'var(--radius-pill)',
-                  background: 'linear-gradient(135deg, var(--green-500) 0%, var(--accent-teal) 100%)',
-                  color: '#fff',
-                  boxShadow: '0 6px 20px rgba(22, 133, 95, 0.28)'
-                }}
-              >
-                <span className="ms" style={{ fontSize: 30 }}>auto_awesome</span>
-              </span>
-
-              <div>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 'var(--text-2xl)', fontWeight: 600,
-                    letterSpacing: '-0.02em',
-                    color: 'var(--text-heading)'
-                  }}
-                >
-                  Ask anything about this deal
-                </p>
-                <p
-                  style={{
-                    margin: '5px auto 0', maxWidth: 380,
-                    fontSize: 'var(--text-md)', lineHeight: 'var(--leading-normal)',
-                    color: 'var(--text-muted)'
-                  }}
-                >
-                  Start with a chip above, or type your own question below.
-                </p>
-              </div>
-
-              {/* The two guarantees worth stating up front — they're what makes
-                  an answer trustworthy, and they were buried in a grey line. */}
-              <div
-                style={{
-                  display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap',
-                  justifyContent: 'center', marginTop: 'var(--space-1)'
-                }}
-              >
-                {[
-                  ['task_alt', 'Every claim carries a quote you can click'],
-                  ['visibility', 'Reads only what’s in this deal']
-                ].map(([icon, text]) => (
-                  <span
-                    key={icon}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 6,
-                      height: 28, padding: '0 12px',
-                      borderRadius: 'var(--radius-pill)',
-                      background: 'var(--gray-50)',
-                      border: '1px solid var(--border-default)',
-                      fontSize: 'var(--text-base)', color: 'var(--text-body)'
-                    }}
-                  >
-                    <span
-                      className="ms"
-                      style={{ fontSize: 16, color: 'var(--accent-pine-text)' }}
-                    >
-                      {icon}
-                    </span>
-                    {text}
-                  </span>
-                ))}
-              </div>
+              <p style={{
+                margin: 0, textAlign: 'center',
+                fontSize: 'var(--text-3xl)', fontWeight: 600,
+                letterSpacing: '-0.02em', color: 'var(--text-heading)'
+              }}>
+                Ask anything about this deal
+              </p>
             </div>
           )}
 
