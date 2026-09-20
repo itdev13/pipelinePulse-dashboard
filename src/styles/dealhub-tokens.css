@@ -1163,6 +1163,14 @@
   color: var(--text-faint);
 }
 
+/* Co-Pilot sidebar's Search field (CopilotSidebar.jsx) — GHL's own field
+   reads noticeably lighter than this app's usual input placeholder, so it
+   needs its own rule rather than the default browser placeholder colour
+   (which inherits from the input's own --text-muted and read too dark). */
+[data-dealhub] .pp-copilot-search::placeholder {
+  color: var(--text-faint);
+}
+
 /* A quieter footer. It was --surface-sunken, which put a grey band under every
    dialog; a hairline rule separates it just as well without the weight. */
 .pp-modal-foot {

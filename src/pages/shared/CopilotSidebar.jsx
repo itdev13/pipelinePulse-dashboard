@@ -177,12 +177,15 @@ export default function CopilotSidebar({
 
         {!collapsed && searchOpen && (
           <div style={{ padding: '8px 10px' }}>
-            {/* Matches the GHL reference exactly: a single plain input, no
-                icon inside it and no separate close button — Escape or
-                clicking Search again closes it, same as before. */}
+            {/* Matches the GHL reference: a near-invisible hairline border
+                (gray-100, not the app's usual border-default/gray-200 — GHL's
+                own field barely separates from the sidebar's own background),
+                no icon inside it, no separate close button. Placeholder and
+                typed text both read at the same light weight the nav items
+                use, not the app's default darker text-body/input styling. */}
             <input
               ref={searchInputRef}
-              className="pp-focus-inherit"
+              className="pp-copilot-search pp-focus-inherit"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Escape') closeSearch() }}
@@ -192,10 +195,10 @@ export default function CopilotSidebar({
               style={{
                 width: '100%', boxSizing: 'border-box',
                 height: 38, padding: '0 12px',
-                border: `1px solid ${searchFocused ? 'var(--brand-primary)' : 'var(--border-default)'}`,
+                border: `1px solid ${searchFocused ? 'var(--border-strong)' : 'var(--gray-100)'}`,
                 borderRadius: 'var(--radius-md)',
                 background: '#fff', outline: 'none',
-                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', color: 'var(--text-body)',
+                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', color: 'var(--text-muted)',
                 transition: 'border-color 120ms ease'
               }}
             />
