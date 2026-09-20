@@ -106,6 +106,11 @@ export default function AskDeal({
   const [error, setError] = useState(null)
   const [available, setAvailable] = useState(null)
   const scrollRef = useRef(null)
+  // The in-flight request's abort handle — same stop/cancel control the
+  // portfolio Co-Pilot tab has. There's no server-side cancellation (the
+  // model call keeps running either way), this only stops the REP from
+  // waiting on it.
+  const abortRef = useRef(null)
 
   // Is the AI layer configured at all? Without this the panel would offer a
   // button that always 503s.
@@ -336,14 +341,17 @@ export default function AskDeal({
         content: t.role === 'user' ? t.content : t.answerText
       }))
 
+    const controller = new AbortController()
+    abortRef.current = controller
+
     try {
       const res = await aiAPI.ask(dealId, {
         question: value,
         conversationId,
         history,
-        channels: channels.length ? channels : null
-        ,
-        images: sentImages.map(({ mediaType, data }) => ({ mediaType, data }))
+        channels: channels.length ? channels : null,
+        images: sentImages.map(({ mediaType, data }) => ({ mediaType, data })),
+        signal: controller.signal
       })
       setTurns((t) => [
         ...t,
@@ -374,22 +382,35 @@ export default function AskDeal({
       // The answer is now a resumable chat — pull it into the list.
       loadHistory()
     } catch (err) {
-      // Named failure states, never a permanent spinner (spec §5).
-      const code = err.code
-      setError(
-        code === 'AI_NOT_CONFIGURED'
-          ? 'The AI layer is not configured on the server yet.'
-          : code === 'TIMEOUT'
-          ? 'The model took too long. Try again — long threads can be slow.'
-          : code === 'MALFORMED'
-          ? 'The model returned something unreadable. Try rephrasing the question.'
-          : code === 'RATE_LIMITED'
-          ? 'Rate limited. Wait a moment and try again.'
-          : err.message || 'Could not get an answer.'
-      )
+      // A rep-initiated stop, not a failure — the question they abandoned
+      // just quietly disappears rather than surfacing as an error banner.
+      // The user turn stays in the transcript so it's clear what was asked.
+      // Same handling as the portfolio Co-Pilot tab's own stop button.
+      if (err?.code === 'ERR_CANCELED') {
+        // no-op
+      } else {
+        // Named failure states, never a permanent spinner (spec §5).
+        const code = err.code
+        setError(
+          code === 'AI_NOT_CONFIGURED'
+            ? 'The AI layer is not configured on the server yet.'
+            : code === 'TIMEOUT'
+            ? 'The model took too long. Try again — long threads can be slow.'
+            : code === 'MALFORMED'
+            ? 'The model returned something unreadable. Try rephrasing the question.'
+            : code === 'RATE_LIMITED'
+            ? 'Rate limited. Wait a moment and try again.'
+            : err.message || 'Could not get an answer.'
+        )
+      }
     } finally {
+      abortRef.current = null
       setPending(false)
     }
+  }
+
+  const stopAsking = () => {
+    abortRef.current?.abort()
   }
 
   const body = (
@@ -732,7 +753,9 @@ export default function AskDeal({
                   minHeight: 28, maxHeight: 140, resize: 'none',
                   border: 'none', outline: 'none', background: 'transparent',
                   padding: 0,
-                  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-xl)',
+                  // text-lg, not text-xl — matches the portfolio Co-Pilot's
+                  // own composer exactly; this one ran visibly larger.
+                  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)',
                   lineHeight: 1.45, color: 'var(--text-heading)'
                 }}
               />
@@ -773,32 +796,44 @@ export default function AskDeal({
                 disabled={!speechSupported || pending || available === false}
               />
 
-              {(() => {
-                const ready = !!q.trim() && !pending && available !== false
-                return (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); submit() }}
-                    disabled={!ready}
-                    // aria-label, not title: a native tooltip here would pop
-                    // the same dark OS box beside the mic.
-                    aria-label={pending ? 'Reading the thread' : 'Ask'}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      flex: 'none',
-                      width: 34, height: 34, padding: 0,
-                      border: 'none', borderRadius: 'var(--radius-pill)',
-                      background: ready ? 'var(--brand-primary)' : 'var(--gray-200)',
-                      color: '#fff',
-                      boxShadow: ready ? '0 2px 6px rgba(13, 91, 64, 0.32)' : 'none',
-                      cursor: ready ? 'pointer' : 'not-allowed'
-                    }}
-                  >
-                    <span className="ms" style={{ fontSize: 19 }}>
-                      {pending ? 'more_horiz' : 'arrow_upward'}
-                    </span>
-                  </button>
-                )
-              })()}
+              {pending ? (
+                // Same stop control as the portfolio Co-Pilot tab — GHL swaps
+                // its send button for a stop button while a question is in
+                // flight; this doesn't halt generation server-side (no
+                // streaming), it abandons the wait client-side.
+                <button
+                  onClick={(e) => { e.stopPropagation(); stopAsking() }}
+                  title="Stop"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: 34, height: 34, flex: 'none',
+                    border: 'none', borderRadius: '50%',
+                    background: 'var(--gray-800)', color: '#fff',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <span className="ms" style={{ fontSize: 16 }}>stop</span>
+                </button>
+              ) : (
+                <button
+                  onClick={(e) => { e.stopPropagation(); submit() }}
+                  disabled={!q.trim() || available === false}
+                  // aria-label, not title: a native tooltip here would pop
+                  // the same dark OS box beside the mic.
+                  aria-label="Ask"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    flex: 'none',
+                    width: 34, height: 34, padding: 0,
+                    border: 'none', borderRadius: '50%',
+                    background: q.trim() && available !== false ? 'var(--brand-primary)' : 'var(--gray-200)',
+                    color: q.trim() && available !== false ? '#fff' : 'var(--text-faint)',
+                    cursor: q.trim() && available !== false ? 'pointer' : 'default'
+                  }}
+                >
+                  <span className="ms" style={{ fontSize: 19 }}>arrow_upward</span>
+                </button>
+              )}
             </div>
           </div>
           )}
@@ -888,12 +923,26 @@ function PromptChip({ prompt, onPick }) {
   )
 }
 
-// One answer turn: prose, the coverage stamp, and clickable citations.
+// One answer turn: coverage stamp, prose, clickable citations. Deliberately
+// BORDERLESS — matching the portfolio Co-Pilot's AnswerTurn (CopilotTab.jsx)
+// exactly, down to citation styling and where ReactionRow/ActionCard sit.
+// This used to be its own bordered/left-accented card, which read as a
+// different, boxed-in product sitting inside the shared embedded panel —
+// the panel itself still keeps its own frame (Deal Hub's page layout,
+// unrelated to this), but the ANSWER inside it is now identical to the
+// portfolio tab's, with only the deal-specific additions (coverage stamp,
+// Save as note/task) layered on in the same flat style rather than a
+// separate card language.
 //
 // The coverage stamp is rendered above every AI output per spec §1F — it is
 // computed server-side in app code, never asked of the model, so it cannot be
 // hallucinated. It's also what makes a thin answer trustworthy: "read 6 of 8,
-// 2 calls not transcribed" tells the rep why the answer is thin.
+// 2 calls not transcribed" tells the rep why the answer is thin. It's Deal
+// Hub's real equivalent of the portfolio tab's "Thought process" panel —
+// askDeal.js has no tool-calling loop to narrate, so there are no tool
+// steps to show, but there IS real coverage data, and it's now styled as
+// the same kind of bare inline row ThoughtProcess uses rather than a
+// tinted banner.
 function Answer({ turn, onJumpToMessage, onInspect, people = [] }) {
   // 'note' | 'task' | null — which editor is open over this answer.
   const [saveAs, setSaveAs] = useState(null)
@@ -902,15 +951,7 @@ function Answer({ turn, onJumpToMessage, onInspect, people = [] }) {
     people.find((p) => p.primary)?.id || people[0]?.id || null
   const cov = turn.coverage
   return (
-    <div
-      style={{
-        border: '1px solid var(--border-default)',
-        borderLeft: '3px solid var(--accent-teal)',
-        borderRadius: 'var(--radius-md)',
-        background: '#fff',
-        overflow: 'hidden'
-      }}
-    >
+    <div style={{ display: 'grid', gap: 10 }}>
       {cov && (
         <CoverageStamp
           coverage={cov}
@@ -922,130 +963,48 @@ function Answer({ turn, onJumpToMessage, onInspect, people = [] }) {
         />
       )}
 
-      <div style={{ padding: 'var(--space-3) 14px' }}>
+      <div>
         <MarkdownAnswer text={turn.answerText} />
-      </div>
 
-      {/* Quote attributions, inline under the prose — the mockup reads them
-          as part of the answer, not as a separate evidence list. */}
-      {turn.citations?.length > 0 && (
-        <div style={{ padding: '0 14px 10px', display: 'grid', gap: 6 }}>
-          {turn.citations.map((c, i) => (
-            <button
-              key={`${c.messageId}-${i}`}
-              onClick={() => onJumpToMessage && onJumpToMessage(c.messageId)}
-              title={onJumpToMessage ? 'Jump to this message in the timeline' : undefined}
-              style={{
-                display: 'block', textAlign: 'left', width: '100%',
-                padding: 0, border: 'none', background: 'none',
-                cursor: onJumpToMessage ? 'pointer' : 'default',
-                fontFamily: 'var(--font-sans)',
-                fontSize: 'var(--text-md)', lineHeight: 1.55, color: 'var(--text-body)'
-              }}
-            >
-              <span style={{ fontStyle: 'italic' }}>&ldquo;{c.quoteText}&rdquo;</span>
-              {c.sourceLabel && (
-                <span style={{ color: 'var(--text-muted)' }}> — {c.sourceLabel}</span>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
+        {/* An answer with no citations is either "the thread doesn't say" —
+            a valid answer — or a claim we could not verify. Say which. */}
+        {turn.citations?.length === 0 && turn.answered && (
+          <p style={{
+            margin: '9px 0 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)'
+          }}>
+            No verifiable quote was attached to this answer — treat it with care.
+          </p>
+        )}
 
-      {/* BASED ON — which messages the answer came from, and the verification
-          line. The verification is a code-level guarantee, not a claim the
-          model makes: each quote is checked character-exact against its source
-          before the answer is shown, and anything unquotable is dropped. */}
-      {turn.citations?.length > 0 && (
-        <div
-          style={{
-            padding: '10px 14px var(--space-3)',
-            borderTop: '1px solid var(--border-default)'
-          }}
-        >
-          <span
-            style={{
-              display: 'block', marginBottom: 6,
-              fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
-              textTransform: 'uppercase', color: 'var(--text-muted)'
-            }}
-          >
-            Based on
-          </span>
-          <div style={{ display: 'grid', gap: 3 }}>
-            {sourceLines(turn.citations).map((line) => (
-              <span key={line} style={{ fontSize: 'var(--text-base)', color: 'var(--text-body)' }}>
-                {line}
-              </span>
+        {/* A write the question also asked for — "attach this contact",
+            "mark it lost", etc. Same ActionCard the portfolio Co-Pilot uses,
+            same position relative to the reaction row (above it — a rep
+            decides whether to confirm a proposal before rating the answer
+            that surfaced it, not after). Nothing has reached GHL until a
+            rep confirms this specific card. */}
+        {turn.proposedActions?.length > 0 && (
+          <div style={{ display: 'grid', gap: 8, margin: '9px 0 0' }}>
+            {turn.proposedActions.map((a) => (
+              <ActionCard
+                key={a.actionId}
+                actionId={a.actionId}
+                actionType={a.actionType}
+                proposed={a.proposed}
+              />
             ))}
           </div>
-          <span
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              marginTop: 7,
-              fontSize: 'var(--text-sm)', color: 'var(--text-muted)'
-            }}
-          >
-            <span className="ms" style={{ fontSize: 14, color: 'var(--status-done)' }}>
-              verified
-            </span>
-            {turn.citations.length}{' '}
-            {turn.citations.length === 1 ? 'quote' : 'quotes'} verified
-            character-exact against{' '}
-            {turn.citations.length === 1 ? 'its source message' : 'their source messages'}
-          </span>
-        </div>
-      )}
+        )}
 
-      {/* An answer with no citations is either "the thread doesn't say" — a
-          valid answer — or a claim we could not verify. Say which. */}
-      {turn.citations?.length === 0 && turn.answered && (
-        <p
-          style={{
-            margin: 0, padding: 'var(--space-2) 14px var(--space-3)',
-            fontSize: 'var(--text-sm)', color: 'var(--text-muted)'
-          }}
-        >
-          No verifiable quote was attached to this answer — treat it with care.
-        </p>
-      )}
-
-      {/* A write the question also asked for — "attach this contact",
-          "mark it lost", etc. Same ActionCard the portfolio Co-Pilot uses;
-          nothing has reached GHL until a rep confirms this specific card. */}
-      {turn.proposedActions?.length > 0 && (
-        <div style={{ padding: '0 14px', display: 'grid', gap: 8 }}>
-          {turn.proposedActions.map((a) => (
-            <ActionCard
-              key={a.actionId}
-              actionId={a.actionId}
-              actionType={a.actionType}
-              proposed={a.proposed}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Same rating/copy row as the portfolio Co-Pilot — this answer never
-          had one before, which meant a rep had no way to flag a bad Deal Hub
-          answer at all. */}
-      <div style={{ padding: '0 14px' }}>
         <ReactionRow runId={turn.runId} answerText={turn.answerText} />
-      </div>
 
-      {/* Actions. Both write to the CRM, and both are now live.
-          The answer text is pre-filled but editable — an agent's wording is a
-          draft, and a rep saving it under their own name should be able to
-          change it first. */}
-      {turn.answered && (
-        <>
-          <div
-            style={{
-              display: 'flex', gap: 6, flexWrap: 'wrap',
-              padding: '10px 14px var(--space-3)',
-              borderTop: '1px solid var(--border-default)'
-            }}
-          >
+        {/* Actions. Both write to the CRM, and both are now live.
+            The answer text is pre-filled but editable — an agent's wording
+            is a draft, and a rep saving it under their own name should be
+            able to change it first. Deal-specific (a portfolio answer has
+            no single deal to file a note/task against), styled as the same
+            plain pill-button row PromptChip/ChannelScope already use. */}
+        {turn.answered && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 9 }}>
             <AnswerAction
               icon="sticky_note_2"
               label="Save as note"
@@ -1063,29 +1022,78 @@ function Answer({ turn, onJumpToMessage, onInspect, people = [] }) {
               }
             />
           </div>
+        )}
 
-          {/* CREATE, not edit — so no `note`/`task` prop. Passing one would put
-              the editor in edit mode and PATCH a record that doesn't exist.
-              initialBody seeds the text instead. */}
-          {saveAs === 'note' && (
-            <NoteEditor
-              contacts={people}
-              defaultContactId={defaultContactId}
-              initialBody={draftFrom(turn)}
-              onClose={() => setSaveAs(null)}
-              onSaved={() => setSaveAs(null)}
-            />
-          )}
-          {saveAs === 'task' && (
-            <TaskEditor
-              contacts={people}
-              defaultContactId={defaultContactId}
-              initialBody={draftFrom(turn)}
-              onClose={() => setSaveAs(null)}
-              onSaved={() => setSaveAs(null)}
-            />
-          )}
-        </>
+        {/* CREATE, not edit — so no `note`/`task` prop. Passing one would put
+            the editor in edit mode and PATCH a record that doesn't exist.
+            initialBody seeds the text instead. */}
+        {saveAs === 'note' && (
+          <NoteEditor
+            contacts={people}
+            defaultContactId={defaultContactId}
+            initialBody={draftFrom(turn)}
+            onClose={() => setSaveAs(null)}
+            onSaved={() => setSaveAs(null)}
+          />
+        )}
+        {saveAs === 'task' && (
+          <TaskEditor
+            contacts={people}
+            defaultContactId={defaultContactId}
+            initialBody={draftFrom(turn)}
+            onClose={() => setSaveAs(null)}
+            onSaved={() => setSaveAs(null)}
+          />
+        )}
+      </div>
+
+      {/* Citations — same quote-pill style as the portfolio Co-Pilot's
+          AnswerTurn: a left accent stripe on a quiet fill, not plain text.
+          Also carries the character-exact verification line inline, since
+          Deal Hub's citations are the one thing the portfolio tab's
+          equivalent doesn't need to say (portfolio answers cite whole
+          deals, not verbatim quotes). */}
+      {turn.citations?.length > 0 && (
+        <div style={{ display: 'grid', gap: 6 }}>
+          {turn.citations.map((c, i) => (
+            <button
+              key={`${c.messageId}-${i}`}
+              onClick={() => onJumpToMessage && onJumpToMessage(c.messageId)}
+              title={onJumpToMessage ? 'Jump to this message in the timeline' : undefined}
+              style={{
+                display: 'block', width: '100%', textAlign: 'left',
+                padding: '8px 12px',
+                border: 'none',
+                borderLeft: '3px solid var(--accent-teal)',
+                borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
+                background: 'var(--gray-50)',
+                fontFamily: 'var(--font-sans)',
+                fontSize: 'var(--text-base)', color: 'var(--text-muted)',
+                fontStyle: 'italic',
+                cursor: onJumpToMessage ? 'pointer' : 'default'
+              }}
+            >
+              &ldquo;{c.quoteText}&rdquo;
+              {c.sourceLabel && (
+                <span style={{ fontStyle: 'normal' }}> — {c.sourceLabel}</span>
+              )}
+            </button>
+          ))}
+          <span
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 14, color: 'var(--status-done)' }}>
+              verified
+            </span>
+            {turn.citations.length}{' '}
+            {turn.citations.length === 1 ? 'quote' : 'quotes'} verified
+            character-exact against{' '}
+            {turn.citations.length === 1 ? 'its source message' : 'their source messages'}
+          </span>
+        </div>
       )}
     </div>
   )
@@ -1161,16 +1169,20 @@ function CoverageStamp({ coverage, cached, confidence, readMessageIds, channelSc
     coverage.messagesRead < coverage.messagesTotal
 
   return (
+    // Bare inline row — no banner background, no border — matching the
+    // portfolio Co-Pilot's ThoughtProcess trigger row (same font weight,
+    // same "just an icon and some text" treatment), rather than the tinted
+    // full-bleed bar this used to be when it lived inside the Answer card.
+    // The partial/unread signal still shows — as the eye icon and the
+    // "N of M" count going gold-ish via unreadReasons below — just without
+    // painting the whole row a different colour.
     <div
       style={{
         display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap',
-        padding: '7px 14px',
-        borderBottom: '1px solid var(--border-default)',
-        background: partial ? 'var(--tint-gold)' : 'var(--gray-50)',
-        fontSize: 'var(--text-sm)', color: 'var(--text-muted)'
+        fontSize: 'var(--text-md)', color: 'var(--text-muted)'
       }}
     >
-      <span className="ms" style={{ fontSize: 14 }}>
+      <span className="ms" style={{ fontSize: 17, color: 'var(--text-faint)' }}>
         {partial ? 'visibility_off' : 'visibility'}
       </span>
       <span

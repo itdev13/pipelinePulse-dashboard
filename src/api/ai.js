@@ -6,8 +6,11 @@ export const aiAPI = {
   // `images` are a question aid, not evidence — the server states that boundary
   // to the model, and validate.js still requires a message quote for every
   // claim. Each is { mediaType, data } with data as bare base64.
+  // `signal` — see askPortfolio's own note below; same client-side abandon,
+  // now available on both Co-Pilot surfaces rather than just the portfolio
+  // one.
   ask: (dealId, {
-    question, history = [], channels = null, images = [], conversationId = null
+    question, history = [], channels = null, images = [], conversationId = null, signal
   }) =>
     apiClient.post(`/api/ai/deals/${encodeURIComponent(dealId)}/ask`, {
       question,
@@ -15,7 +18,7 @@ export const aiAPI = {
       channels,
       images,
       conversationId
-    }),
+    }, { signal }),
   // Portfolio — one question across every deal in the sub-account. Same
   // `images` contract as `ask` above.
   // `signal` lets the Co-Pilot's stop button abandon the request client-side
