@@ -5,7 +5,6 @@ import { dealsAPI } from '../../api/deals'
 import { useAuth } from '../../context/AuthContext'
 import NoteEditor from '../shared/NoteEditor'
 import TaskEditor from '../shared/TaskEditor'
-import { SkeletonStyles, Bar } from '../shared/ListChrome'
 import { useDictation } from '../shared/useDictation'
 import { useAttachments, MAX_ATTACHMENTS, ALLOWED_IMAGE_TYPES } from '../shared/useAttachments'
 import {
@@ -1207,25 +1206,26 @@ function CoverageStamp({ coverage, cached, confidence, readMessageIds, channelSc
   )
 }
 
+// Same loading language as the portfolio Co-Pilot tab — an animated icon and
+// a plain inline label, not a bordered skeleton card. Deal Hub's askDeal.js
+// has no tool-calling loop to narrate (no "Generating…" second phase to
+// distinguish, unlike the portfolio's ThoughtProcess), so this only ever
+// shows the single "Reading the thread…" phase — still true the whole time
+// a question is in flight here, and honest about not knowing more than that.
 function Thinking() {
   return (
-    <div
-      style={{
-        border: '1px solid var(--border-default)',
-        borderLeft: '3px solid var(--accent-teal)',
-        borderRadius: 'var(--radius-md)',
-        background: '#fff',
-        padding: 'var(--space-3) 14px', display: 'grid', gap: 'var(--space-2)'
-      }}
-    >
-      <SkeletonStyles />
-      <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-        Reading the thread…
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 8,
+      fontSize: 'var(--text-md)', color: 'var(--text-muted)'
+    }}>
+      <span
+        className="ms"
+        style={{ fontSize: 17, animation: 'pp-think 1.4s ease-in-out infinite' }}
+      >
+        hourglass_top
       </span>
-      <Bar w="88%" h={11} />
-      <Bar w="72%" h={11} />
-      <Bar w="54%" h={11} />
-    </div>
+      Reading the thread…
+    </span>
   )
 }
 
