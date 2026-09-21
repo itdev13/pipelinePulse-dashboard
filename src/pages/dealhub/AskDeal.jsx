@@ -323,7 +323,10 @@ export default function AskDeal({
     setError(null)
     setPending(true)
     // Show the question immediately; the answer lands under it.
-    setTurns((t) => [...t, { role: 'user', content: value }])
+    // sentImages carries previewUrl/name for the transcript's own thumbnail
+    // — separate from the mediaType/data pair sent to the model below, which
+    // is all Claude needs and all the request should carry.
+    setTurns((t) => [...t, { role: 'user', content: value, images: sentImages }])
 
     // Flush any pending include/exclude ticks first. The server derives the
     // message set itself, so an unsaved checkbox would silently not apply to
@@ -610,7 +613,10 @@ export default function AskDeal({
                 t.role === 'user' ? (
                   // Shared with the portfolio Co-Pilot tab — same bubble,
                   // same product, just scoped to one deal.
-                  <UserTurn key={i} text={t.content} />
+                  <UserTurn
+                    key={i} text={t.content}
+                    images={t.images} onViewImage={setPreview}
+                  />
                 ) : (
                   <Answer
                     key={i}

@@ -122,7 +122,10 @@ export default function CopilotTab({ onOpenDeal }) {
     // just an inline label, from the moment the question is sent.
     setOpenThoughtsFor('live')
     clearAttachments()
-    setTurns((t) => [...t, { role: 'user', content: value }])
+    // sentImages carries previewUrl/name for the transcript's own thumbnail
+    // — separate from the mediaType/data pair sent to the model below, which
+    // is all Claude needs and all the request should carry.
+    setTurns((t) => [...t, { role: 'user', content: value, images: sentImages }])
 
     // Only ANSWERED turns become context, so a failed attempt does not poison
     // the follow-up.
@@ -342,7 +345,12 @@ export default function CopilotTab({ onOpenDeal }) {
               }}>
                 {turns.map((t, i) => (
                   t.role === 'user'
-                    ? <UserTurn key={i} text={t.content} />
+                    ? (
+                      <UserTurn
+                        key={i} text={t.content}
+                        images={t.images} onViewImage={setPreview}
+                      />
+                    )
                     : (
                       <AnswerTurn
                         key={i}
