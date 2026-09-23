@@ -217,8 +217,11 @@ export default function CopilotTab({ onOpenDeal }) {
         citations: t.citations || [],
         confidence: t.confidence,
         answered: t.answered,
-        dealsRead: [],
-        fromFactsOnly: false
+        dealsRead: t.dealsRead || [],
+        fromFactsOnly: false,
+        // Without this, thumbs up/down disable on every reopened turn —
+        // ReactionRow treats a missing runId as "no run to rate".
+        runId: t.runId || null
       }
     ]))
     setConversationId(chat.conversationId || null)
