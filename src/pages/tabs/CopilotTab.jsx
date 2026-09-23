@@ -13,6 +13,7 @@ import CopilotSidebar from '../shared/CopilotSidebar'
 import UserTurn from '../shared/UserTurn'
 import ReactionRow from '../shared/ReactionRow'
 import ActionCard from '../shared/ActionCard'
+import AnswerDealsTable from '../shared/AnswerDealsTable'
 
 // Co-Pilot — one question across EVERY deal in the sub-account.
 //
@@ -159,6 +160,7 @@ export default function CopilotTab({ onOpenDeal }) {
           confidence: res.confidence,
           answered: res.answered !== false,
           dealsRead: res.dealsRead || [],
+          dealsTable: res.dealsTable || null,
           toolCalls: res.toolCalls || [],
           // Writes the model proposed this turn — create/attach a contact,
           // change an owner or status. Nothing has happened to the CRM yet;
@@ -218,6 +220,7 @@ export default function CopilotTab({ onOpenDeal }) {
         confidence: t.confidence,
         answered: t.answered,
         dealsRead: t.dealsRead || [],
+        dealsTable: t.dealsTable || null,
         fromFactsOnly: false,
         // Without this, thumbs up/down disable on every reopened turn —
         // ReactionRow treats a missing runId as "no run to rate".
@@ -429,6 +432,13 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
 
       <div>
         <MarkdownAnswer text={turn.answerText} />
+
+        {/* The row data behind a "list of deals" answer, rendered as a real
+            table — see AnswerDealsTable's own header comment for why this
+            exists rather than trusting the model to format one in prose. */}
+        {turn.dealsTable?.length > 0 && (
+          <AnswerDealsTable deals={turn.dealsTable} onOpenDeal={onOpenDeal} />
+        )}
 
         {turn.scopeNote && (
           <p style={{
