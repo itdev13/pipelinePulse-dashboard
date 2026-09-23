@@ -455,39 +455,20 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
             manager checks what was actually read before deciding whether to
             rate the answer, not after. A portfolio answer names several, so
             these are the way through to check one — the equivalent of
-            clicking a citation on a single deal. */}
-        {turn.dealsRead?.length > 0 && (
-          <div style={{
-            display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center',
-            margin: '9px 0 0'
-          }}>
-            <span style={{
-              fontSize: 'var(--text-xs)', fontWeight: 600,
-              letterSpacing: '0.05em', textTransform: 'uppercase',
-              color: 'var(--text-faint)'
-            }}>
-              {turn.fromFactsOnly ? 'Based on' : 'Read'}
-            </span>
-            {turn.dealsRead.map((d) => (
-              <button
-                key={d.id}
-                onClick={() => onOpenDeal && onOpenDeal(d.id)}
-                title="Open this deal"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                  height: 26, padding: '0 10px',
-                  border: '1px solid var(--green-300)',
-                  borderRadius: 'var(--radius-pill)',
-                  background: 'var(--tint-pine)', color: 'var(--accent-pine-text)',
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: 'var(--text-sm)', fontWeight: 600, cursor: 'pointer'
-                }}
-              >
-                <span className="ms" style={{ fontSize: 13 }}>sell</span>
-                {d.name}
-              </button>
-            ))}
-          </div>
+            clicking a citation on a single deal.
+
+            Hidden when AnswerDealsTable is already showing (below): the
+            table lists the same deals with a click-through of its own, so
+            the chip row would just repeat it. Without this a big
+            search_deals answer produced BOTH the table AND a wall of one
+            chip per deal — dozens of pills, most of the reply's real
+            estate, for information already on screen once. */}
+        {turn.dealsRead?.length > 0 && !(turn.dealsTable?.length > 0) && (
+          <DealsReadChips
+            deals={turn.dealsRead}
+            label={turn.fromFactsOnly ? 'Based on' : 'Read'}
+            onOpenDeal={onOpenDeal}
+          />
         )}
 
         {/* Proposed writes — one ActionCard per action, ABOVE the reaction
@@ -534,6 +515,80 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
             </button>
           ))}
         </div>
+      )}
+    </div>
+  )
+}
+
+// The "Read"/"Based on" deal chip row, capped rather than one pill per deal.
+// A message-reading answer that touches many deals (no AnswerDealsTable to
+// fall back on, since there's no search_deals result behind it) used to
+// render every single one — dozens of pills swallowing most of the reply.
+// Shows the first few plus a "+N more" toggle instead.
+const DEALS_READ_VISIBLE = 3
+
+function DealsReadChips({ deals, label, onOpenDeal }) {
+  const [expanded, setExpanded] = useState(false)
+  const shown = expanded ? deals : deals.slice(0, DEALS_READ_VISIBLE)
+  const hiddenCount = deals.length - shown.length
+
+  return (
+    <div style={{
+      display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center',
+      margin: '9px 0 0'
+    }}>
+      <span style={{
+        fontSize: 'var(--text-xs)', fontWeight: 600,
+        letterSpacing: '0.05em', textTransform: 'uppercase',
+        color: 'var(--text-faint)'
+      }}>
+        {label}
+      </span>
+      {shown.map((d) => (
+        <button
+          key={d.id}
+          onClick={() => onOpenDeal && onOpenDeal(d.id)}
+          title="Open this deal"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            height: 26, padding: '0 10px',
+            border: '1px solid var(--green-300)',
+            borderRadius: 'var(--radius-pill)',
+            background: 'var(--tint-pine)', color: 'var(--accent-pine-text)',
+            fontFamily: 'var(--font-sans)',
+            fontSize: 'var(--text-sm)', fontWeight: 600, cursor: 'pointer'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 13 }}>sell</span>
+          {d.name}
+        </button>
+      ))}
+      {hiddenCount > 0 && (
+        <button
+          onClick={() => setExpanded(true)}
+          style={{
+            height: 26, padding: '0 10px',
+            border: '1px dashed var(--border-strong)',
+            borderRadius: 'var(--radius-pill)',
+            background: 'transparent', color: 'var(--text-muted)',
+            fontFamily: 'var(--font-sans)',
+            fontSize: 'var(--text-sm)', fontWeight: 600, cursor: 'pointer'
+          }}
+        >
+          +{hiddenCount} more
+        </button>
+      )}
+      {expanded && deals.length > DEALS_READ_VISIBLE && (
+        <button
+          onClick={() => setExpanded(false)}
+          style={{
+            height: 26, padding: '0 10px', border: 'none', background: 'transparent',
+            color: 'var(--text-faint)', fontFamily: 'var(--font-sans)',
+            fontSize: 'var(--text-sm)', cursor: 'pointer', textDecoration: 'underline'
+          }}
+        >
+          Show less
+        </button>
       )}
     </div>
   )
