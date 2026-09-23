@@ -209,7 +209,11 @@ export default function CopilotSidebar({
       <div style={{ height: 8 }} />
 
       {/* ── chat history ─────────────────────────────────────── */}
-      {collapsed ? null : history.length === 0 ? (
+      {/* Collapsed still renders an (empty) div in this grid row rather than
+          nothing at all — an absent child leaves the 1fr track with no box
+          to stretch, so the track collapses to 0 and Account rides up right
+          under the nav icons instead of sitting at the rail's bottom. */}
+      {collapsed ? <div /> : history.length === 0 ? (
         <HistoryEmptyState onNewChat={onNewChat} />
       ) : (
         <div style={{
