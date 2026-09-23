@@ -520,16 +520,17 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
   )
 }
 
-// The "Read"/"Based on" deal chip row, capped rather than one pill per deal.
-// A message-reading answer that touches many deals (no AnswerDealsTable to
-// fall back on, since there's no search_deals result behind it) used to
-// render every single one — dozens of pills swallowing most of the reply.
-// Shows the first few plus a "+N more" toggle instead.
+// The "Read"/"Based on" deal chip row, capped at a fixed few rather than one
+// pill per deal — and no expand affordance. A message-reading answer that
+// touches many deals (no AnswerDealsTable to fall back on, since there's no
+// search_deals result behind it) used to render every single one, dozens of
+// pills swallowing most of the reply; a "+N more" toggle just moved that
+// wall one click away instead of removing it — nobody actually wants to
+// expand 63 more pills in a chat answer. Just the first few, permanently.
 const DEALS_READ_VISIBLE = 3
 
 function DealsReadChips({ deals, label, onOpenDeal }) {
-  const [expanded, setExpanded] = useState(false)
-  const shown = expanded ? deals : deals.slice(0, DEALS_READ_VISIBLE)
+  const shown = deals.slice(0, DEALS_READ_VISIBLE)
   const hiddenCount = deals.length - shown.length
 
   return (
@@ -564,31 +565,11 @@ function DealsReadChips({ deals, label, onOpenDeal }) {
         </button>
       ))}
       {hiddenCount > 0 && (
-        <button
-          onClick={() => setExpanded(true)}
-          style={{
-            height: 26, padding: '0 10px',
-            border: '1px dashed var(--border-strong)',
-            borderRadius: 'var(--radius-pill)',
-            background: 'transparent', color: 'var(--text-muted)',
-            fontFamily: 'var(--font-sans)',
-            fontSize: 'var(--text-sm)', fontWeight: 600, cursor: 'pointer'
-          }}
-        >
+        <span style={{
+          fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
+        }}>
           +{hiddenCount} more
-        </button>
-      )}
-      {expanded && deals.length > DEALS_READ_VISIBLE && (
-        <button
-          onClick={() => setExpanded(false)}
-          style={{
-            height: 26, padding: '0 10px', border: 'none', background: 'transparent',
-            color: 'var(--text-faint)', fontFamily: 'var(--font-sans)',
-            fontSize: 'var(--text-sm)', cursor: 'pointer', textDecoration: 'underline'
-          }}
-        >
-          Show less
-        </button>
+        </span>
       )}
     </div>
   )
