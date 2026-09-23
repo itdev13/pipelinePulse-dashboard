@@ -113,8 +113,14 @@ export default function CopilotSidebar({
       ...style
     }}>
       <header style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '11px 13px'
+        display: 'flex', alignItems: 'center',
+        // Collapsed: same 8px padding + centered layout the nav icons below
+        // use, so the toggle lines up in the same column as New chat/Search/
+        // etc. instead of sitting right-aligned in the wider 13px-padded
+        // expanded-state box — that mismatch was what made it look shifted
+        // right of the rest of the icon rail.
+        justifyContent: collapsed ? 'center' : 'space-between',
+        padding: collapsed ? '11px 8px' : '11px 13px'
       }}>
         {!collapsed && (
           <span className="ms" style={{ fontSize: 20, color: 'var(--accent-plum-text)' }}>
@@ -126,7 +132,7 @@ export default function CopilotSidebar({
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 28, height: 28, marginLeft: collapsed ? 'auto' : 0,
+            width: 28, height: 28,
             border: 'none', borderRadius: 'var(--radius-sm)',
             background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer'
           }}
