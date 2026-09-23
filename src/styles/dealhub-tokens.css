@@ -2683,8 +2683,6 @@
   line-height: 1.6;
   color: var(--text-body);
 }
-[data-dealhub] .pp-md > :first-child { margin-top: 0; }
-[data-dealhub] .pp-md > :last-child { margin-bottom: 0; }
 [data-dealhub] .pp-md p { margin: 0 0 10px; }
 [data-dealhub] .pp-md strong { font-weight: 600; color: var(--text-heading); }
 [data-dealhub] .pp-md ul,
@@ -2692,6 +2690,16 @@
   margin: 4px 0 10px;
   padding-left: 22px;
 }
+/* Declared AFTER the type-specific p/ul/ol margins above, not before: this
+   selector and those all tie on specificity (one class + one
+   element/universal each), so whichever comes LAST in the stylesheet wins
+   regardless of which element actually ends up first/last in a given
+   answer. Declaring these first let a trailing <ul>'s own 10px
+   margin-bottom silently win over "zero the last child" — stacking with
+   the dealsRead chip row's own top margin below it into a visibly wider
+   gap than every other answer, whose last child happens to be a <p>. */
+[data-dealhub] .pp-md > :first-child { margin-top: 0; }
+[data-dealhub] .pp-md > :last-child { margin-bottom: 0; }
 [data-dealhub] .pp-md li { margin: 6px 0; }
 [data-dealhub] .pp-md li::marker { color: var(--text-faint); }
 [data-dealhub] .pp-md h1,
