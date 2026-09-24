@@ -167,6 +167,7 @@ export default function CopilotTab({ onOpenDeal }) {
           // each renders its own ActionCard, confirmed independently.
           proposedActions: res.proposedActions || [],
           scopeNote: res.scopeNote || null,
+          groundingWarning: res.groundingWarning || null,
           fromFactsOnly: res.fromFactsOnly === true,
           // Needed to rate the answer. Dropped before — the server always
           // sent it, the client just never carried it onto the turn.
@@ -221,6 +222,7 @@ export default function CopilotTab({ onOpenDeal }) {
         answered: t.answered,
         dealsRead: t.dealsRead || [],
         dealsTable: t.dealsTable || null,
+        groundingWarning: t.groundingWarning || null,
         fromFactsOnly: false,
         // Without this, thumbs up/down disable on every reopened turn —
         // ReactionRow treats a missing runId as "no run to rate".
@@ -448,6 +450,24 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
             fontSize: 'var(--text-base)'
           }}>
             {turn.scopeNote}
+          </p>
+        )}
+
+        {/* A deal-specific figure the model stated that no lookup this turn
+            actually backs — see groundingCheck.js on the server. Rose, not
+            gold: this is "possibly fabricated", a stronger caution than
+            scopeNote's "ran out of budget", so the two read as different
+            severities rather than the same shade of caution twice. */}
+        {turn.groundingWarning && (
+          <p style={{
+            display: 'flex', alignItems: 'flex-start', gap: 7,
+            margin: '9px 0 0', padding: '7px 10px',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--tint-rose)', color: 'var(--status-stuck-text)',
+            fontSize: 'var(--text-base)'
+          }}>
+            <span className="ms" style={{ fontSize: 16, flex: 'none', marginTop: 1 }}>warning</span>
+            {turn.groundingWarning}
           </p>
         )}
 
