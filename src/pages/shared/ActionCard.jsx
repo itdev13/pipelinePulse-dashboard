@@ -147,13 +147,16 @@ export default function ActionCard({ actionId, actionType, proposed, onResolved 
             style={{
               height: 32, padding: '0 13px',
               border: 'none', borderRadius: 'var(--radius-md)',
-              background: 'var(--brand-primary)', color: '#fff',
+              background: DESTRUCTIVE.has(actionType) ? 'var(--status-stuck)' : 'var(--brand-primary)',
+              color: '#fff',
               fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', fontWeight: 600,
               cursor: busy ? 'default' : 'pointer',
               opacity: busy ? 0.7 : 1
             }}
           >
-            {busy ? 'Confirming…' : 'Confirm'}
+            {busy
+              ? (DESTRUCTIVE.has(actionType) ? 'Deleting…' : 'Confirming…')
+              : (DESTRUCTIVE.has(actionType) ? 'Delete' : 'Confirm')}
           </button>
         </div>
       </div>
@@ -164,10 +167,34 @@ export default function ActionCard({ actionId, actionType, proposed, onResolved 
 const ACTION_LABEL = {
   create_contact: 'Create contact',
   attach_contact: 'Attach contact to this deal',
+  remove_contact: 'Remove contact from this deal',
+  create_deal: 'Create deal',
+  update_deal: 'Edit deal',
   change_owner: 'Change deal owner',
   change_status: 'Change deal status',
-  send_message: 'Send message'
+  send_message: 'Send message',
+  create_task: 'Create task',
+  complete_task: 'Update task',
+  update_task: 'Edit task',
+  delete_task: 'Delete task',
+  create_note: 'Add note',
+  update_note: 'Edit note',
+  delete_note: 'Delete note',
+  add_tags: 'Add tags',
+  remove_tags: 'Remove tags',
+  update_contact: 'Update contact',
+  delete_deal: 'Delete deal',
+  create_business: 'Create business',
+  update_business: 'Update business',
+  delete_business: 'Delete business',
+  add_followers: 'Add followers',
+  remove_followers: 'Remove followers'
 }
+
+// action types whose confirm button should read differently — a delete is
+// not "Confirm", it's "Delete", and looks it: same red the rest of this
+// codebase uses for a destructive action (ConfirmDialog, RowAction).
+const DESTRUCTIVE = new Set(['delete_task', 'delete_note', 'delete_deal', 'delete_business'])
 
 // Editable-field layout, one per action type. Kept as plain inputs matching
 // the composer/editor style elsewhere in this codebase rather than a form
@@ -235,6 +262,61 @@ function ActionFields({ actionType, fields, setField }) {
     )
   }
 
+  if (actionType === 'remove_contact') {
+    return (
+      <p style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--text-body)' }}>
+        Remove <strong>{fields.contactName || 'this contact'}</strong> from this deal.
+      </p>
+    )
+  }
+
+  if (actionType === 'create_deal') {
+    return (
+      <>
+        <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+          For <strong>{fields.contactName || 'this contact'}</strong> · {fields.pipelineName}
+          {fields.stageName ? ` · ${fields.stageName}` : ''}
+        </p>
+        <label>
+          <span style={labelStyle}>Deal name</span>
+          <input style={inputStyle} value={fields.name || ''}
+            onChange={(e) => setField('name', e.target.value)} />
+        </label>
+        <label>
+          <span style={labelStyle}>Value</span>
+          <input style={inputStyle} type="number" value={fields.value ?? ''}
+            onChange={(e) => setField('value', e.target.value === '' ? null : Number(e.target.value))} />
+        </label>
+      </>
+    )
+  }
+
+  if (actionType === 'update_deal') {
+    return (
+      <>
+        <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+          Editing <strong>{fields.dealName || 'this deal'}</strong>
+        </p>
+        <label>
+          <span style={labelStyle}>New name</span>
+          <input style={inputStyle} placeholder="Leave blank to keep the current name"
+            value={fields.name || ''} onChange={(e) => setField('name', e.target.value)} />
+        </label>
+        <label>
+          <span style={labelStyle}>New value</span>
+          <input style={inputStyle} type="number" placeholder="Leave blank to keep the current value"
+            value={fields.value ?? ''}
+            onChange={(e) => setField('value', e.target.value === '' ? null : Number(e.target.value))} />
+        </label>
+        {fields.stageName && (
+          <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+            New stage: <strong>{fields.stageName}</strong>
+          </p>
+        )}
+      </>
+    )
+  }
+
   if (actionType === 'change_owner') {
     return (
       <p style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--text-body)' }}>
@@ -298,6 +380,293 @@ function ActionFields({ actionType, fields, setField }) {
           />
         </label>
       </>
+    )
+  }
+
+  if (actionType === 'create_task') {
+    return (
+      <>
+        <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+          For <strong>{fields.contactName || 'this contact'}</strong>
+        </p>
+        <label>
+          <span style={labelStyle}>Title</span>
+          <input
+            style={inputStyle}
+            value={fields.title || ''}
+            onChange={(e) => setField('title', e.target.value)}
+          />
+        </label>
+        <label>
+          <span style={labelStyle}>Details</span>
+          <textarea
+            style={{
+              ...inputStyle, height: 'auto', minHeight: 70, padding: '8px 10px',
+              resize: 'vertical', fontFamily: 'var(--font-sans)'
+            }}
+            value={fields.body || ''}
+            onChange={(e) => setField('body', e.target.value)}
+          />
+        </label>
+        <label>
+          <span style={labelStyle}>Due date</span>
+          <input
+            style={inputStyle}
+            type="date"
+            value={(fields.dueDate || '').slice(0, 10)}
+            onChange={(e) => setField('dueDate', e.target.value)}
+          />
+        </label>
+      </>
+    )
+  }
+
+  if (actionType === 'complete_task') {
+    return (
+      <p style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--text-body)' }}>
+        {fields.completed === false ? 'Reopen' : 'Mark done'}: <strong>{fields.taskTitle || 'this task'}</strong>
+      </p>
+    )
+  }
+
+  if (actionType === 'update_task') {
+    return (
+      <>
+        <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+          Editing <strong>{fields.taskTitle || 'this task'}</strong>
+        </p>
+        <label>
+          <span style={labelStyle}>New title</span>
+          <input
+            style={inputStyle}
+            placeholder="Leave blank to keep the current title"
+            value={fields.title || ''}
+            onChange={(e) => setField('title', e.target.value)}
+          />
+        </label>
+        <label>
+          <span style={labelStyle}>New details</span>
+          <textarea
+            style={{
+              ...inputStyle, height: 'auto', minHeight: 70, padding: '8px 10px',
+              resize: 'vertical', fontFamily: 'var(--font-sans)'
+            }}
+            value={fields.body || ''}
+            onChange={(e) => setField('body', e.target.value)}
+          />
+        </label>
+        <label>
+          <span style={labelStyle}>New due date</span>
+          <input
+            style={inputStyle}
+            type="date"
+            value={(fields.dueDate || '').slice(0, 10)}
+            onChange={(e) => setField('dueDate', e.target.value)}
+          />
+        </label>
+      </>
+    )
+  }
+
+  if (actionType === 'delete_task') {
+    return (
+      <p style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--text-body)' }}>
+        Permanently delete <strong>{fields.taskTitle || 'this task'}</strong>. This cannot be undone.
+      </p>
+    )
+  }
+
+  if (actionType === 'create_note') {
+    return (
+      <>
+        <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+          For <strong>{fields.contactName || 'this contact'}</strong>
+        </p>
+        <label>
+          <span style={labelStyle}>Note</span>
+          <textarea
+            style={{
+              ...inputStyle, height: 'auto', minHeight: 90, padding: '8px 10px',
+              resize: 'vertical', fontFamily: 'var(--font-sans)'
+            }}
+            value={fields.body || ''}
+            onChange={(e) => setField('body', e.target.value)}
+          />
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <input
+            type="checkbox"
+            checked={fields.pinned === true}
+            onChange={(e) => setField('pinned', e.target.checked)}
+          />
+          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-body)' }}>Pin this note</span>
+        </label>
+      </>
+    )
+  }
+
+  if (actionType === 'update_note') {
+    return (
+      <>
+        <label>
+          <span style={labelStyle}>New text</span>
+          <textarea
+            style={{
+              ...inputStyle, height: 'auto', minHeight: 90, padding: '8px 10px',
+              resize: 'vertical', fontFamily: 'var(--font-sans)'
+            }}
+            placeholder="Leave blank to keep the current text"
+            value={fields.body || ''}
+            onChange={(e) => setField('body', e.target.value)}
+          />
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <input
+            type="checkbox"
+            checked={fields.pinned === true}
+            onChange={(e) => setField('pinned', e.target.checked)}
+          />
+          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-body)' }}>Pinned</span>
+        </label>
+      </>
+    )
+  }
+
+  if (actionType === 'delete_note') {
+    return (
+      <p style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--text-body)' }}>
+        Permanently delete this note. This cannot be undone.
+      </p>
+    )
+  }
+
+  if (actionType === 'add_tags' || actionType === 'remove_tags') {
+    const verb = actionType === 'add_tags' ? 'Add' : 'Remove'
+    return (
+      <p style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--text-body)' }}>
+        {verb} {(fields.tags || []).map((t) => `"${t}"`).join(', ') || 'these tags'} {actionType === 'add_tags' ? 'to' : 'from'}{' '}
+        <strong>{fields.contactName || 'this contact'}</strong>
+      </p>
+    )
+  }
+
+  if (actionType === 'update_contact') {
+    return (
+      <>
+        <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+          Editing <strong>{fields.contactName || 'this contact'}</strong>
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <label>
+            <span style={labelStyle}>First name</span>
+            <input style={inputStyle} value={fields.firstName || ''}
+              onChange={(e) => setField('firstName', e.target.value)} />
+          </label>
+          <label>
+            <span style={labelStyle}>Last name</span>
+            <input style={inputStyle} value={fields.lastName || ''}
+              onChange={(e) => setField('lastName', e.target.value)} />
+          </label>
+        </div>
+        <label>
+          <span style={labelStyle}>Email</span>
+          <input style={inputStyle} type="email" value={fields.email || ''}
+            onChange={(e) => setField('email', e.target.value)} />
+        </label>
+        <label>
+          <span style={labelStyle}>Phone</span>
+          <input style={inputStyle} value={fields.phone || ''}
+            onChange={(e) => setField('phone', e.target.value)} />
+        </label>
+        <label>
+          <span style={labelStyle}>Address</span>
+          <input style={inputStyle} value={fields.address || ''}
+            onChange={(e) => setField('address', e.target.value)} />
+        </label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <label>
+            <span style={labelStyle}>City</span>
+            <input style={inputStyle} value={fields.city || ''}
+              onChange={(e) => setField('city', e.target.value)} />
+          </label>
+          <label>
+            <span style={labelStyle}>Company</span>
+            <input style={inputStyle} value={fields.companyName || ''}
+              onChange={(e) => setField('companyName', e.target.value)} />
+          </label>
+        </div>
+      </>
+    )
+  }
+
+  if (actionType === 'delete_deal') {
+    return (
+      <p style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--text-body)' }}>
+        Permanently delete <strong>{fields.dealName || 'this deal'}</strong>. GHL has no restore for a deleted deal.
+      </p>
+    )
+  }
+
+  if (actionType === 'create_business' || actionType === 'update_business') {
+    return (
+      <>
+        {actionType === 'update_business' && (
+          <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+            Editing <strong>{fields.businessName || 'this business'}</strong>
+          </p>
+        )}
+        <label>
+          <span style={labelStyle}>Name</span>
+          <input style={inputStyle} value={fields.name || ''}
+            onChange={(e) => setField('name', e.target.value)} />
+        </label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <label>
+            <span style={labelStyle}>Email</span>
+            <input style={inputStyle} type="email" value={fields.email || ''}
+              onChange={(e) => setField('email', e.target.value)} />
+          </label>
+          <label>
+            <span style={labelStyle}>Phone</span>
+            <input style={inputStyle} value={fields.phone || ''}
+              onChange={(e) => setField('phone', e.target.value)} />
+          </label>
+        </div>
+        <label>
+          <span style={labelStyle}>Website</span>
+          <input style={inputStyle} value={fields.website || ''}
+            onChange={(e) => setField('website', e.target.value)} />
+        </label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <label>
+            <span style={labelStyle}>Address</span>
+            <input style={inputStyle} value={fields.address || ''}
+              onChange={(e) => setField('address', e.target.value)} />
+          </label>
+          <label>
+            <span style={labelStyle}>City</span>
+            <input style={inputStyle} value={fields.city || ''}
+              onChange={(e) => setField('city', e.target.value)} />
+          </label>
+        </div>
+      </>
+    )
+  }
+
+  if (actionType === 'delete_business') {
+    return (
+      <p style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--text-body)' }}>
+        Permanently delete <strong>{fields.businessName || 'this business'}</strong>.
+      </p>
+    )
+  }
+
+  if (actionType === 'add_followers' || actionType === 'remove_followers') {
+    const verb = actionType === 'add_followers' ? 'Add' : 'Remove'
+    return (
+      <p style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--text-body)' }}>
+        {verb} <strong>{fields.followerNames || 'these team members'}</strong> {actionType === 'add_followers' ? 'as followers on' : 'from'} this deal.
+      </p>
     )
   }
 
