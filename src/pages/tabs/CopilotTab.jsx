@@ -230,6 +230,19 @@ export default function CopilotTab({ onOpenDeal }) {
     setConversationId(null)
     setQ('')
     setError(null)
+
+    // Focus the composer: a new chat exists to be typed into, and the click
+    // landed on the sidebar button, so focus is sitting there rather than
+    // where the rep now wants to type.
+    //
+    // Unconditional, unlike the focus restore after an answer. That one guards
+    // on focus being idle because the rep may have deliberately clicked
+    // something else while waiting. Here the click IS the intent to start
+    // typing, so there is no competing intent to respect.
+    //
+    // rAF so it runs after the cleared, re-enabled textarea has rendered —
+    // focusing a disabled element silently does nothing.
+    requestAnimationFrame(() => inputRef.current?.focus())
   }
 
   const reopen = (chat) => {
