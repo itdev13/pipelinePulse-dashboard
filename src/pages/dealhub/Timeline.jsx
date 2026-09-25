@@ -789,7 +789,7 @@ export default function Timeline({
           }}
         />
         <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-          Ticked messages are the ones Co-Pilot reads
+          Ticked messages are the ones Deal AI reads
         </span>
       </div>
       )}

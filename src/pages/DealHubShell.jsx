@@ -27,7 +27,7 @@ import { useAuth } from '../context/AuthContext'
 // deals, contacts and conversations that every tab after it shows one slice of.
 const TABS = [
   { id: 'hub',        label: 'Deal hub',     icon: 'space_dashboard' },
-  { id: 'copilot',    label: 'Co-Pilot',     icon: 'auto_awesome' },
+  { id: 'copilot',    label: 'Insights AI',  icon: 'auto_awesome' },
   { id: 'businesses', label: 'Businesses',   icon: 'domain' },
   { id: 'deals',      label: 'Deals',        icon: 'sell' },
   { id: 'contacts',   label: 'Contacts',     icon: 'group' },

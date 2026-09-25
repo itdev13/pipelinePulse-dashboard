@@ -877,7 +877,7 @@ export default function AskDeal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Co-Pilot — full view"
+        aria-label="Deal AI — full view"
         className="pp-portal"
         style={{
           position: 'fixed', inset: 0, zIndex: 900,
