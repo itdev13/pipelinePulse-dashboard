@@ -150,11 +150,11 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
   // hoisted, and an effect reading them from above throws on first render.
   useEffect(() => {
     let alive = true
-    // The board always counts ONE pipeline (its columns are that pipeline's
-    // stages). Elsewhere an empty picker means "all", so no filter is sent.
-    const pipelineId = view === 'board'
-      ? (boardPipelineId || (refData?.pipelines || [])[0]?.id || undefined)
-      : (boardPipelineId || undefined)
+    // An empty picker means "all" in EVERY view now, board included — the
+    // board stacks one section per pipeline rather than picking the first.
+    // This count and the tab badge therefore agree instead of differing by
+    // whatever the unshown pipelines held.
+    const pipelineId = boardPipelineId || undefined
     dealsAPI.list({
       status: filters.status || 'open',
       q: search || undefined,
@@ -168,7 +168,10 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
       .then((r) => { if (alive) setPipelineCount(typeof r?.totalCount === 'number' ? r.totalCount : null) })
       .catch(() => { if (alive) setPipelineCount(null) })
     return () => { alive = false }
-  }, [view, boardPipelineId, refData, filters, search])
+    // `view` and `refData` were dependencies only because the board used to
+    // substitute the first pipeline here. It no longer does, so refetching the
+    // count on a view switch would be a request that cannot change the answer.
+  }, [boardPipelineId, filters, search])
 
   // Saved-view actions.
   //
@@ -456,9 +459,20 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
                 // only "Save view" under a new name.
                 setDirtyView(activeViewId)
               }}
+              // With a pipeline chosen, its stages. With "All pipelines", every
+              // stage — falling back to the FIRST pipeline's stages here would
+              // silently hide the rest, the same way the board used to.
+              // Names repeat across pipelines ("Won" exists in most), so each
+              // is qualified; ids stay untouched because that is what filters.
               stages={
-                ((refData?.pipelines || []).find((p) => p.id === boardPipelineId)
-                  || (refData?.pipelines || [])[0])?.stages || []
+                boardPipelineId
+                  ? ((refData?.pipelines || []).find((p) => p.id === boardPipelineId)?.stages || [])
+                  : (refData?.pipelines || []).flatMap((p) =>
+                      (p.stages || []).map((st) => ({
+                        ...st,
+                        name: (refData?.pipelines || []).length > 1 ? `${p.name} — ${st.name}` : st.name
+                      }))
+                    )
               }
               users={refData?.users || []}
             />
@@ -478,18 +492,14 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
                 // pipeline's stages — so it falls back to the first. Elsewhere
                 // '' is a real choice meaning "all pipelines", and `||` would
                 // have swallowed it back to the first one.
-                value={
-                  view === 'board'
-                    ? (boardPipelineId || refData.pipelines[0]?.id || '')
-                    : (boardPipelineId ?? '')
-                }
+                value={boardPipelineId ?? ''}
                 onChange={setBoardPipelineId}
                 options={[
-                  // "All pipelines" only OFF the board. A board's columns ARE
-                  // one pipeline's stages, so "all" there would mean merging
-                  // several pipelines' stage lists into one set of columns —
-                  // which is not a board any more.
-                  ...(view === 'board' ? [] : [{ value: '', label: 'All pipelines' }]),
+                  // "All pipelines" is offered everywhere, the board included.
+                  // It does NOT merge stage lists into one set of columns —
+                  // that would not be a board. The board renders one section
+                  // per pipeline, each with its own columns.
+                  { value: '', label: 'All pipelines' },
                   ...refData.pipelines.map((p) => ({ value: p.id, label: p.name }))
                 ]}
                 popupClassName="pp-menu"
@@ -593,11 +603,12 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
 
       {view === 'board' && !error && (refData?.pipelines || []).length > 0 && (
         <DealBoard
-          pipeline={
-            (refData?.pipelines || []).find((p) => p.id === boardPipelineId)
-            || (refData?.pipelines || [])[0]
-            || null
-          }
+          // No pipeline chosen means ALL of them, stacked — not "the first
+          // one". Silently narrowing to the first showed a rep one deal while
+          // the tab badge beside it still read the true total, with nothing on
+          // screen accounting for the difference.
+          pipeline={(refData?.pipelines || []).find((p) => p.id === boardPipelineId) || null}
+          pipelines={boardPipelineId ? null : (refData?.pipelines || [])}
           search={search}
           // The board's columns ARE the stages, so a stage filter would leave
           // one column populated and the rest empty — it is applied by the

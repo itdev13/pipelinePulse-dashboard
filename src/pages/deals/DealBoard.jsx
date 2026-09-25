@@ -332,7 +332,47 @@ function Column({ stage, search, status, onOpen, onMoved, registerReload }) {
   )
 }
 
-export default function DealBoard({ pipeline, search, status = 'open', onOpenDeal }) {
+// One pipeline's columns. Split out of DealBoard so the board can render
+// several pipelines stacked when no single one is chosen — each keeps its own
+// stage columns rather than merging stage lists, which would not be a board.
+function PipelineBoard({ pipeline, search, status, onOpenDeal, move, registerReload }) {
+  // Retired stages still hold deals, so they are shown; they are simply not
+  // offered as destinations by GHL. Sorted by position, as the pipeline is.
+  const stages = useMemo(
+    () => [...(pipeline?.stages || [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
+    [pipeline]
+  )
+  if (!pipeline) return null
+  return (
+    // Horizontal scroll lives HERE, not on the page: the board is wider than
+    // the viewport by design and the rest of the page must not move sideways.
+    <div style={{
+      display: 'flex', gap: 'var(--space-3)',
+      overflowX: 'auto', overflowY: 'hidden',
+      paddingBottom: 'var(--space-2)',
+      minHeight: 420
+    }}>
+      {stages.map((s) => (
+        <Column
+          key={s.id}
+          stage={s}
+          search={search}
+          status={status}
+          onOpen={onOpenDeal}
+          onMoved={move}
+          registerReload={registerReload}
+        />
+      ))}
+    </div>
+  )
+}
+
+// `pipeline` is the one to show; `pipelines` (optional) means "show them all,
+// stacked". The board used to take a single pipeline and DealsTab quietly
+// substituted the first one when a rep had chosen none — so a location with
+// eight deals across several pipelines opened showing one deal, with the tab
+// badge still reading 8. Nothing on screen explained the gap.
+export default function DealBoard({ pipeline, pipelines, search, status = 'open', onOpenDeal }) {
   const [moveError, setMoveError] = useState(null)
   // stageId -> reload fn, so a move can refresh exactly the two columns it
   // touched rather than the whole board.
@@ -360,14 +400,10 @@ export default function DealBoard({ pipeline, search, status = 'open', onOpenDea
     }
   }, [])
 
-  // Retired stages still hold deals, so they are shown; they are simply not
-  // offered as destinations by GHL. Sorted by position, as the pipeline is.
-  const stages = useMemo(
-    () => [...(pipeline?.stages || [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
-    [pipeline]
-  )
+  const showAll = Array.isArray(pipelines) && pipelines.length > 0
+  const list = showAll ? pipelines : (pipeline ? [pipeline] : [])
 
-  if (!pipeline) return null
+  if (!list.length) return null
 
   return (
     <div style={{ display: 'grid', gap: 'var(--space-2)', minHeight: 0 }}>
@@ -382,27 +418,30 @@ export default function DealBoard({ pipeline, search, status = 'open', onOpenDea
           {moveError}
         </p>
       )}
-      {/* Horizontal scroll lives HERE, not on the page: the board is wider
-          than the viewport by design and the rest of the page must not move
-          sideways with it. */}
-      <div style={{
-        display: 'flex', gap: 'var(--space-3)',
-        overflowX: 'auto', overflowY: 'hidden',
-        paddingBottom: 'var(--space-2)',
-        minHeight: 420
-      }}>
-        {stages.map((s) => (
-          <Column
-            key={s.id}
-            stage={s}
+      {list.map((p) => (
+        <section key={p.id} style={{ display: 'grid', gap: 'var(--space-2)', minWidth: 0 }}>
+          {/* Only when several are stacked: with one pipeline the picker above
+              already names it, and a second heading would just repeat it. */}
+          {showAll && list.length > 1 && (
+            <h3 style={{
+              margin: 0, fontSize: 'var(--text-sm)', fontWeight: 600,
+              letterSpacing: '0.04em', textTransform: 'uppercase',
+              color: 'var(--text-muted)',
+              position: 'sticky', left: 0,
+            }}>
+              {p.name}
+            </h3>
+          )}
+          <PipelineBoard
+            pipeline={p}
             search={search}
             status={status}
-            onOpen={onOpenDeal}
-            onMoved={move}
+            onOpenDeal={onOpenDeal}
+            move={move}
             registerReload={registerReload}
           />
-        ))}
-      </div>
+        </section>
+      ))}
     </div>
   )
 }
