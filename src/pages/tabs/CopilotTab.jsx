@@ -198,6 +198,26 @@ export default function CopilotTab({ onOpenDeal }) {
     } finally {
       abortRef.current = null
       setPending(false)
+      // Focus back to the composer so a follow-up can be typed straight away
+      // — the whole point of a conversation is the next question, and having
+      // to click back into the box every turn is friction on every single one.
+      //
+      // Only when focus is still nowhere in particular. A rep who clicked a
+      // citation, the reasoning panel or another field while waiting has
+      // deliberately moved on, and yanking the caret back would interrupt
+      // them mid-action. `body` (or null) is the browser's "nothing focused"
+      // state, which is exactly where focus sits after the disabled textarea
+      // lost it on submit.
+      //
+      // requestAnimationFrame so this runs after the answer has rendered and
+      // the textarea is enabled again — focusing a disabled element silently
+      // does nothing.
+      requestAnimationFrame(() => {
+        const el = inputRef.current
+        const active = document.activeElement
+        const focusIsIdle = !active || active === document.body
+        if (el && focusIsIdle) el.focus()
+      })
     }
   }
 

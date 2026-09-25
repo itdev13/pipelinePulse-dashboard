@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { aiAPI } from '../../api/ai'
+import SenderPicker from '../../components/SenderPicker'
 
 // A proposed CRM write, rendered inline under an AI answer — "Create
 // contact: Jane Doe · jane@x.com", "Attach Priya Nair to this deal", etc.
@@ -358,6 +359,14 @@ function ActionFields({ actionType, fields, setField }) {
         <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
           To <strong>{fields.contactName || 'this contact'}</strong> · {fields.type}
         </p>
+        {/* Renders nothing when the channel has a single sender, which is the
+            common case — see SenderPicker's own note on why it decides that
+            itself rather than taking a prop. */}
+        <SenderPicker
+          channel={fields.type}
+          value={fields.conversationProviderId ?? null}
+          onChange={(id) => setField('conversationProviderId', id)}
+        />
         {isEmail && (
           <label>
             <span style={labelStyle}>Subject</span>

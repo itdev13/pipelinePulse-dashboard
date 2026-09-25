@@ -251,12 +251,29 @@ function EventRow({ m }) {
 }
 // What to call this message's channel.
 //
-// A message routed through a CUSTOM conversation provider (goghl.ai's WhatsApp,
-// say) arrives with channel 'CUSTOM' — which told a rep nothing about what they
-// were looking at. Name the provider when there is one.
+// A message routed through a CUSTOM conversation provider arrives with channel
+// 'CUSTOM' — which told a rep nothing about what they were looking at. Name the
+// provider when there is one.
+//
+// The CUSTOM check alone was not enough. A location can run a custom provider
+// named for the channel it serves ("WhatsApp QR" on WhatsApp, "SMS Android" on
+// SMS): those normalise to WHATSAPP/SMS, not CUSTOM, so they fell through to
+// the generic channel label and read exactly like a native send. Two different
+// senders, one word on screen. Whenever a provider name is present and differs
+// from the channel's own label, it is the more specific truth — show it.
 function channelLabelOf(m) {
-  if (m.channel === 'CUSTOM' && m.providerName) return m.providerName
-  return CH_LABEL[m.channel] || m.channel
+  const base = CH_LABEL[m.channel] || m.channel
+  if (!m.providerName) return base
+  // GHL's own senders (twilio_provider, mailgun_provider, smtp_provider_*) are
+  // rows in the catalogue too, but they ARE the native path — labelling an SMS
+  // "Twilio" would be noise, not disambiguation.
+  if (m.providerIsNative) return base
+  if (m.channel === 'CUSTOM') return m.providerName
+  // A provider whose name merely restates the channel ("WhatsApp" on WhatsApp)
+  // adds no information as a label — but it IS the ambiguous case, so mark it
+  // rather than silently showing the same word a native send would show.
+  const same = String(m.providerName).trim().toLowerCase() === String(base).trim().toLowerCase()
+  return same ? `${base} (provider)` : m.providerName
 }
 
 function MessageRow({
