@@ -997,7 +997,6 @@ function Answer({ turn, onJumpToMessage, onInspect, people = [] }) {
         <CoverageStamp
           coverage={cov}
           cached={turn.cached}
-          confidence={turn.confidence}
           readMessageIds={turn.readMessageIds}
           channelScope={turn.channelScope}
           onInspect={onInspect}
@@ -1203,7 +1202,12 @@ function draftFrom(turn) {
   return `${body}\n\nSources:\n${sources.map((l) => `- ${l}`).join('\n')}`
 }
 
-function CoverageStamp({ coverage, cached, confidence, readMessageIds, channelScope, onInspect }) {
+// `confidence` is deliberately NOT a prop any more. The model still returns it
+// and it is still stored on the run for evaluation — it is only no longer shown
+// to a rep. A "medium confidence" pill next to a cited, verified answer read as
+// a disclaimer on the whole answer, when the coverage line beside it already
+// says the specific, useful thing: which messages were read and which were not.
+function CoverageStamp({ coverage, cached, readMessageIds, channelScope, onInspect }) {
   const partial =
     coverage.messagesRead != null &&
     coverage.messagesTotal != null &&
@@ -1238,20 +1242,13 @@ function CoverageStamp({ coverage, cached, confidence, readMessageIds, channelSc
         {coverage.messagesTotal === 1 ? 'message' : 'messages'}
       </span>
       {coverage.unreadReasons?.length > 0 && (
-        <span style={{ color: 'var(--accent-clay)' }}>
+        // Muted, not clay. These reasons are ordinary facts about what was in
+        // the thread — a call with no transcript, a message a rep deselected —
+        // not problems with the answer. Painting them warning-orange beside a
+        // "medium confidence" pill made a complete, cited answer look degraded.
+        // Insights AI's equivalent row is one uniform muted tone; this matches it.
+        <span>
           · {coverage.unreadReasons.join(' · ')}
-        </span>
-      )}
-      {confidence && confidence !== 'high' && (
-        <span
-          style={{
-            padding: '1px 7px', borderRadius: 'var(--radius-pill)',
-            background: confidence === 'low' ? 'var(--tint-rose)' : 'var(--tint-gold)',
-            color: confidence === 'low' ? 'var(--status-stuck)' : 'var(--accent-gold)',
-            fontWeight: 600
-          }}
-        >
-          {confidence} confidence
         </span>
       )}
       {channelScope?.length > 0 && (

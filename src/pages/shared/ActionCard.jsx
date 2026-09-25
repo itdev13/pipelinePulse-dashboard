@@ -1,4 +1,6 @@
 import React, { useState } from 'react'
+import { DatePicker } from 'antd'
+import dayjs from 'dayjs'
 import { aiAPI } from '../../api/ai'
 import SenderPicker from '../../components/SenderPicker'
 
@@ -202,6 +204,37 @@ const DESTRUCTIVE = new Set(['delete_task', 'delete_note', 'delete_deal', 'delet
 // library — every field here is a single string, and the whole card is
 // meant to be readable at a glance, not a settings page.
 function ActionFields({ actionType, fields, setField }) {
+  // The due date, as the rest of the app draws it.
+  //
+  // This was <input type="date">, which the BROWSER renders with the OS's own
+  // calendar — unstyleable, a different typeface and chrome from everything
+  // around it, and a dd/mm/yyyy placeholder no token can reach. The app already
+  // standardised on antd's DatePicker with the .pp-cal treatment in four other
+  // places (TaskEditor, DealSection, DealEditPanel, DealCreatePanel); this was
+  // the one control still falling back to the OS.
+  //
+  // The payload keeps its ISO string — antd works in dayjs objects, so the
+  // conversion happens here rather than changing what the server receives.
+  // dayjs(null) is an INVALID date, not an empty one, so an unset due date has
+  // to become null explicitly or the field renders as "Invalid Date".
+  const dueDateField = (label) => (
+    <label>
+      <span style={labelStyle}>{label}</span>
+      <DatePicker
+        popupClassName="pp-cal"
+        value={fields.dueDate ? dayjs(fields.dueDate) : null}
+        // Plain toISOString, matching TaskEditor/DealEditPanel — the whole app
+        // sends the picked instant and lets the server own the day. Normalising
+        // to startOf('day') here would have made this one control disagree with
+        // the other four, which is a worse bug than the one it fixes.
+        onChange={(d) => setField('dueDate', d ? d.toISOString() : null)}
+        format="D MMM YYYY"
+        placeholder="Pick a date"
+        style={{ width: '100%' }}
+      />
+    </label>
+  )
+
   const inputStyle = {
     width: '100%', boxSizing: 'border-box', height: 32, padding: '0 10px',
     border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)',
@@ -417,15 +450,7 @@ function ActionFields({ actionType, fields, setField }) {
             onChange={(e) => setField('body', e.target.value)}
           />
         </label>
-        <label>
-          <span style={labelStyle}>Due date</span>
-          <input
-            style={inputStyle}
-            type="date"
-            value={(fields.dueDate || '').slice(0, 10)}
-            onChange={(e) => setField('dueDate', e.target.value)}
-          />
-        </label>
+        {dueDateField('Due date')}
       </>
     )
   }
@@ -464,15 +489,7 @@ function ActionFields({ actionType, fields, setField }) {
             onChange={(e) => setField('body', e.target.value)}
           />
         </label>
-        <label>
-          <span style={labelStyle}>New due date</span>
-          <input
-            style={inputStyle}
-            type="date"
-            value={(fields.dueDate || '').slice(0, 10)}
-            onChange={(e) => setField('dueDate', e.target.value)}
-          />
-        </label>
+        {dueDateField('New due date')}
       </>
     )
   }
