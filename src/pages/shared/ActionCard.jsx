@@ -203,6 +203,30 @@ const DESTRUCTIVE = new Set(['delete_task', 'delete_note', 'delete_deal', 'delet
 // the composer/editor style elsewhere in this codebase rather than a form
 // library — every field here is a single string, and the whole card is
 // meant to be readable at a glance, not a settings page.
+// "not the main contact" — shown when a message or task is aimed at one of a
+// deal's ADDITIONAL people rather than its primary.
+//
+// A deal has one primary contact and any number of others: the architect, the
+// QS, a second decision-maker. Messaging them is routine, so this is not a
+// warning — but "To pra" and "To bindu" read identically on the card, and only
+// one is who a rep glancing at a deal would assume. The tag is the difference
+// between confirming deliberately and confirming by habit.
+function AdditionalContactTag({ on }) {
+  if (!on) return null
+  return (
+    <span
+      title="This is an additional contact on the deal, not its main one"
+      style={{
+        fontSize: 'var(--text-xs)', fontWeight: 600,
+        color: 'var(--accent-plum-text)', background: 'var(--tint-plum)',
+        padding: '1px 7px', borderRadius: 'var(--radius-pill)'
+      }}
+    >
+      not the main contact
+    </span>
+  )
+}
+
 function ActionFields({ actionType, fields, setField }) {
   // The due date, as the rest of the app draws it.
   //
@@ -428,8 +452,12 @@ function ActionFields({ actionType, fields, setField }) {
   if (actionType === 'create_task') {
     return (
       <>
-        <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-          For <strong>{fields.contactName || 'this contact'}</strong>
+        <p style={{
+          margin: 0, display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap',
+          fontSize: 'var(--text-sm)', color: 'var(--text-muted)'
+        }}>
+          <span>For <strong>{fields.contactName || 'this contact'}</strong></span>
+          <AdditionalContactTag on={fields.isAdditionalContact} />
         </p>
         <label>
           <span style={labelStyle}>Title</span>
@@ -505,8 +533,12 @@ function ActionFields({ actionType, fields, setField }) {
   if (actionType === 'create_note') {
     return (
       <>
-        <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-          For <strong>{fields.contactName || 'this contact'}</strong>
+        <p style={{
+          margin: 0, display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap',
+          fontSize: 'var(--text-sm)', color: 'var(--text-muted)'
+        }}>
+          <span>For <strong>{fields.contactName || 'this contact'}</strong></span>
+          <AdditionalContactTag on={fields.isAdditionalContact} />
         </p>
         <label>
           <span style={labelStyle}>Note</span>
