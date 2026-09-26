@@ -285,6 +285,11 @@ export default function AskDeal({
       turnsIn.length > 1 ? `Chat reopened — ${turnsIn.length} turns` : 'Chat reopened'
     )
     window.setTimeout(() => setToast(null), 2200)
+
+    // Focus the composer — reopening a chat is nearly always a prelude to
+    // asking the next thing in it. Same behaviour as the portfolio tab's
+    // Recents, and as New chat here.
+    requestAnimationFrame(() => inputRef.current?.focus())
   }
 
   // Start a fresh conversation. The transcript clears and the next question

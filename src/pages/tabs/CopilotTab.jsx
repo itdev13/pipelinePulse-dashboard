@@ -94,6 +94,21 @@ export default function CopilotTab({ onOpenDeal }) {
       .catch(() => {})
   }, [session?.user?.id])
 
+  // Focus the composer on arrival.
+  //
+  // The tab exists to be typed into — a rep switching to it has already
+  // decided to ask something, and the empty state's "What's on your mind?"
+  // is an invitation with nothing under the caret. Every other route in
+  // leaves focus wherever the tab button was.
+  //
+  // Mount only, so it does not fight the focus restored after an answer or
+  // the one New chat sets. rAF because the textarea is not in the DOM on the
+  // first paint, and focusing nothing silently does nothing.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => inputRef.current?.focus())
+    return () => cancelAnimationFrame(id)
+  }, [])
+
   const loadHistory = useCallback(() => {
     aiAPI.portfolioHistory()
       .then((r) => setHistory(r?.chats || []))
@@ -267,6 +282,19 @@ export default function CopilotTab({ onOpenDeal }) {
     ]))
     setConversationId(chat.conversationId || null)
     setError(null)
+
+    // Focus the composer, same as New chat.
+    //
+    // Reopening a chat from Recents is almost always a prelude to asking the
+    // NEXT thing in it — a rep going back to read an old answer would not have
+    // needed to click. Leaving focus on the sidebar row means a second click
+    // before they can type.
+    //
+    // Unconditional, unlike the restore after an answer: that one guards on
+    // focus being idle because a rep may have deliberately clicked elsewhere
+    // while waiting. Here the click IS the intent, so there is nothing to
+    // defer to.
+    requestAnimationFrame(() => inputRef.current?.focus())
   }
 
   const empty = turns.length === 0
