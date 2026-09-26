@@ -210,6 +210,8 @@ function SkillRow({ skill, onEdit, onToggled, onDeleted, onError }) {
 function SkillForm({ skill, onCancel, onSaved }) {
   const [form, setForm] = useState(() => ({ ...BLANK, ...skill }))
   const [cols, setCols] = useState(null)        // the view's real columns
+  const [colDocs, setColDocs] = useState({})    // column -> what it means
+  const [viewDoc, setViewDoc] = useState(null)  // the view's own description
   const [checking, setChecking] = useState(false)
   const [viewError, setViewError] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -232,11 +234,21 @@ function SkillForm({ skill, onCancel, onSaved }) {
         .then((r) => {
           if (seq !== checkSeq.current) return   // a newer keystroke won
           setCols(r?.columns || [])
+          setColDocs(r?.columnComments || {})
+          setViewDoc(r?.viewComment || null)
           setViewError(null)
+          // Prefill the description from the view's own comment, but only
+          // when the field is untouched — overwriting something someone typed
+          // because they paused on the view name would be infuriating.
+          setForm((f) => (f.description.trim() || !r?.viewComment
+            ? f
+            : { ...f, description: r.viewComment }))
         })
         .catch((e) => {
           if (seq !== checkSeq.current) return
           setCols(null)
+          setColDocs({})
+          setViewDoc(null)
           setViewError(e?.message || 'That view could not be used')
         })
         .finally(() => { if (seq === checkSeq.current) setChecking(false) })
@@ -332,6 +344,20 @@ function SkillForm({ skill, onCancel, onSaved }) {
             </span>
           )}
         </div>
+        {/* What the view is for, in its author's words. Confirms at a glance
+            that the right view was named — a typo that happens to match
+            another real view is otherwise invisible. */}
+        {viewDoc && !checking && (
+          <p style={{
+            margin: '7px 0 0', padding: '8px 11px',
+            background: 'var(--gray-50)',
+            borderLeft: '2px solid var(--accent-plum-text)',
+            borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
+            fontSize: 'var(--text-sm)', lineHeight: 1.5, color: 'var(--text-body)'
+          }}>
+            {viewDoc}
+          </p>
+        )}
       </Field>
 
       {/* Everything past this point needs the view's real columns, so it stays
@@ -400,6 +426,7 @@ function SkillForm({ skill, onCancel, onSaved }) {
                   key={i}
                   param={p}
                   columns={cols}
+                  docs={colDocs}
                   onChange={(patch) => setParam(i, patch)}
                   onRemove={() => removeParam(i)}
                 />
@@ -417,6 +444,7 @@ function SkillForm({ skill, onCancel, onSaved }) {
           >
             <ColumnChips
               all={cols}
+              docs={colDocs}
               selected={form.columns}
               onChange={(next) => set('columns', next)}
             />
@@ -503,7 +531,7 @@ function SkillForm({ skill, onCancel, onSaved }) {
   )
 }
 
-function ParamRow({ param, columns, onChange, onRemove }) {
+function ParamRow({ param, columns, docs = {}, onChange, onRemove }) {
   return (
     <div style={{
       border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)',
@@ -517,8 +545,15 @@ function ParamRow({ param, columns, onChange, onRemove }) {
           placeholder="rep"
           spellCheck={false}
         />
-        <select style={input()} value={param.column} onChange={(e) => onChange({ column: e.target.value })}>
-          {columns.map((c) => <option key={c} value={c}>{c}</option>)}
+        <select
+          style={input()}
+          value={param.column}
+          title={docs[param.column] || undefined}
+          onChange={(e) => onChange({ column: e.target.value })}
+        >
+          {columns.map((c) => (
+            <option key={c} value={c} title={docs[c] || undefined}>{c}</option>
+          ))}
         </select>
         <select style={input()} value={param.op} onChange={(e) => onChange({ op: e.target.value })}>
           {OPS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
@@ -538,7 +573,7 @@ function ParamRow({ param, columns, onChange, onRemove }) {
   )
 }
 
-function ColumnChips({ all, selected, onChange }) {
+function ColumnChips({ all, docs = {}, selected, onChange }) {
   const toggle = (c) =>
     onChange(selected.includes(c) ? selected.filter((x) => x !== c) : [...selected, c])
   return (
@@ -550,6 +585,10 @@ function ColumnChips({ all, selected, onChange }) {
             key={c}
             type="button"
             onClick={() => toggle(c)}
+            // What the column means, where the view's author said. A name
+            // like `pct_of_closed` is a guess until someone tells you what it
+            // is a percentage OF.
+            title={docs[c] || undefined}
             style={{
               padding: '3px 9px', borderRadius: 'var(--radius-pill)',
               border: `1px solid ${on ? 'var(--accent-plum-text)' : 'var(--border-default)'}`,
