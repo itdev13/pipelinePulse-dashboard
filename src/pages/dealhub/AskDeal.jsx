@@ -1418,8 +1418,14 @@ function ChannelScope({ value, onChange, scope }) {
           }}
         >
           <span className="ms" style={{ fontSize: 13 }}>visibility</span>
-          {selectedCount} message{selectedCount === 1 ? '' : 's'}
-          {value.length === 0 && ' (all channels)'}
+          {/* "items", not "messages". This counts every kind of evidence the
+              question will read — messages, notes AND tasks (see `scope`, which
+              increments `readable` for all three). On a deal with 2 tasks and no
+              messages it read "2 messages (all channels)" directly under a
+              coverage line saying "Read 0 of 0 messages", which is a flat
+              contradiction: one was counting messages, the other everything. */}
+          {selectedCount} item{selectedCount === 1 ? '' : 's'}
+          {value.length === 0 && ' (everything on this deal)'}
         </span>
       )}
 
