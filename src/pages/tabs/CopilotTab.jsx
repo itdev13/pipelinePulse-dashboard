@@ -13,6 +13,7 @@ import CopilotSidebar from '../shared/CopilotSidebar'
 import UserTurn from '../shared/UserTurn'
 import ReactionRow from '../shared/ReactionRow'
 import ActionCard from '../shared/ActionCard'
+import SkillMentions, { findMentionQuery } from '../dealhub/SkillMentions'
 import AnswerDealsTable from '../shared/AnswerDealsTable'
 
 // Co-Pilot — one question across EVERY deal in the sub-account.
@@ -863,6 +864,45 @@ function Composer({
 }) {
   const [focused, setFocused] = useState(false)
   const [dragging, setDragging] = useState(false)
+
+  // ── @-mentions ─────────────────────────────────────────────────────
+  // Typing @ offers this sub-account's skills. Picking one inserts its name
+  // as plain text — the model reads it in the question and reaches for that
+  // tool. No hidden parameter: a mention is a strong hint, not a separate
+  // instruction channel, so the AI can still ignore one that does not fit.
+  const [mention, setMention] = useState(null)      // { start, query } | null
+  const [skills, setSkills] = useState([])
+  const [skillsLoading, setSkillsLoading] = useState(false)
+  const [skillsLoaded, setSkillsLoaded] = useState(false)
+  const wrapRef = useRef(null)
+
+  // Fetched on the first @, not on mount: most questions never mention a
+  // skill, and this would otherwise be a request on every page load.
+  useEffect(() => {
+    if (!mention || skillsLoaded || skillsLoading) return
+    setSkillsLoading(true)
+    aiAPI.skills()
+      .then((r) => setSkills(r?.skills || []))
+      .catch(() => setSkills([]))
+      .finally(() => { setSkillsLoading(false); setSkillsLoaded(true) })
+  }, [mention, skillsLoaded, skillsLoading])
+
+  const syncMention = (text, caret) => setMention(findMentionQuery(text, caret))
+
+  const pickSkill = (skill) => {
+    if (!mention) return
+    const el = inputRef?.current
+    const caret = el?.selectionStart ?? value.length
+    const next = `${value.slice(0, mention.start)}@${skill.name} ${value.slice(caret)}`
+    onChange(next)
+    setMention(null)
+    // Put the caret after the inserted name so typing continues the sentence.
+    const pos = mention.start + skill.name.length + 2
+    requestAnimationFrame(() => {
+      el?.focus()
+      el?.setSelectionRange(pos, pos)
+    })
+  }
   const { supported: speechSupported, listening, heard, elapsed, start, finish, cancel } = dictation
 
   // Re-measure whenever `value` changes for ANY reason, not just typing.
@@ -907,9 +947,12 @@ function Composer({
         setDragging(false)
         onAddFiles(e.dataTransfer?.files)
       }}
+      ref={wrapRef}
       style={{
         display: 'grid', gap: 8,
         padding: '12px 16px',
+        // The mention menu is absolutely positioned against this pill.
+        position: 'relative',
         border: dragging
           ? '2px dashed var(--brand-primary)'
           : `1.5px solid ${focused ? 'var(--brand-primary)' : 'var(--border-default)'}`,
@@ -924,6 +967,17 @@ function Composer({
         cursor: 'text'
       }}
     >
+      {mention && (
+        <SkillMentions
+          skills={skills}
+          loading={skillsLoading}
+          query={mention.query}
+          onPick={pickSkill}
+          onClose={() => setMention(null)}
+          anchorRef={wrapRef}
+        />
+      )}
+
       <AttachmentThumbnails
         attachments={attachments}
         onView={onViewAttachment}
@@ -934,10 +988,38 @@ function Composer({
         <textarea
           ref={inputRef}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            onChange(e.target.value)
+            syncMention(e.target.value, e.target.selectionStart)
+          }}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
+          onClick={(e) => syncMention(value, e.target.selectionStart)}
+          onKeyUp={(e) => {
+            // Arrow keys move the caret without firing onChange, so the menu
+            // has to re-evaluate on cursor movement too — otherwise it stays
+            // open after the caret has left the @.
+            if (e.key.startsWith('Arrow') && !mention) syncMention(value, e.target.selectionStart)
+          }}
           onKeyDown={(e) => {
+            // While the menu is open it owns the arrow keys and Enter. The
+            // textarea keeps focus throughout — the caret must not jump into a
+            // list — so the keys are relayed rather than handled there.
+            if (mention) {
+              if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault()
+                window.dispatchEvent(new CustomEvent('pp-mention-key', {
+                  detail: e.key === 'ArrowDown' ? 'down' : 'up'
+                }))
+                return
+              }
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                window.dispatchEvent(new CustomEvent('pp-mention-key', { detail: 'pick' }))
+                return
+              }
+              if (e.key === 'Escape') { e.preventDefault(); setMention(null); return }
+            }
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSubmit() }
           }}
           onPaste={onPaste}

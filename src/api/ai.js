@@ -2,6 +2,15 @@ import apiClient from './client'
 
 // Deal Hub AI. Contract mirrors pipelinePulse/server/src/routes/ai.js.
 export const aiAPI = {
+  // Skills a rep can @-mention in the Insights AI composer.
+  //
+  // Not /api/control/skills — that is the admin view and returns view names,
+  // column mappings and operators. A rep picking from a menu needs a name and
+  // a sentence, and nothing about the database belongs on a sales rep's
+  // screen. Portfolio only: Deal AI cannot run a skill, so offering one there
+  // would be a menu of things that do nothing.
+  skills: () => apiClient.get('/api/ai/skills'),
+
   status: () => apiClient.get('/api/ai/status'),
   // `images` are a question aid, not evidence — the server states that boundary
   // to the model, and validate.js still requires a message quote for every
