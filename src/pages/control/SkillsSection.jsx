@@ -23,7 +23,10 @@ import SectionCard, { PrimaryButton, GhostButton } from './SectionCard'
 const BLANK = {
   name: '', description: '', viewName: '',
   params: [], columns: [], orderBy: '', rowLimit: 50,
-  surfaces: ['deal', 'portfolio'], isEnabled: true
+  // Insights AI only by default. Deal AI's answer path is a single
+  // schema-constrained call with no tool support, so a skill cannot run
+  // there — defaulting it on would tick a box that does nothing.
+  surfaces: ['portfolio'], isEnabled: true
 }
 
 const TYPES = ['text', 'int', 'number', 'bool', 'date']
@@ -221,6 +224,12 @@ function SkillForm({ skill, onCancel, onSaved }) {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
+  // Columns worth offering. location_id is hidden everywhere: a skill only
+  // runs scoped to one sub-account, so filtering or sorting by it can only
+  // match everything or nothing, and returning it repeats a value the caller
+  // already knew on every row. Offering it invites a filter that does nothing.
+  const usable = (cols || []).filter((c) => c !== 'location_id')
+
   // Check the view as soon as its name settles. Everything below — the column
   // pickers, the sort field — is driven by what comes back, so there is no
   // free-text column entry anywhere and no chance to mistype one.
@@ -264,7 +273,12 @@ function SkillForm({ skill, onCancel, onSaved }) {
         description: form.description.trim(),
         viewName: form.viewName.trim(),
         params: form.params,
-        columns: form.columns,
+        // Always [] now that the form has no column picker. The server
+        // resolves this to the view's full list at save time — sending the
+        // stored list back would silently freeze a skill's columns as they
+        // were the day it was created, so a column added to the view later
+        // would never reach the AI.
+        columns: [],
         orderBy: form.orderBy?.trim() || null,
         rowLimit: Number(form.rowLimit) || 50,
         surfaces: form.surfaces,
@@ -288,7 +302,7 @@ function SkillForm({ skill, onCancel, onSaved }) {
   }
 
   const addParam = () => set('params', [...form.params, {
-    name: '', column: cols?.[0] || '', type: 'text', op: 'eq', description: ''
+    name: '', column: usable[0] || '', type: 'text', op: 'eq', description: ''
   }])
   const setParam = (i, patch) =>
     set('params', form.params.map((p, j) => (j === i ? { ...p, ...patch } : p)))
@@ -425,7 +439,7 @@ function SkillForm({ skill, onCancel, onSaved }) {
                 <ParamRow
                   key={i}
                   param={p}
-                  columns={cols}
+                  columns={usable}
                   docs={colDocs}
                   onChange={(patch) => setParam(i, patch)}
                   onRemove={() => removeParam(i)}
@@ -437,19 +451,6 @@ function SkillForm({ skill, onCancel, onSaved }) {
             </div>
           </Field>
 
-          <Field
-            label="Columns to return"
-            hint="Leave all off to return everything. A wide view costs the AI tokens it could spend reasoning."
-            error={errorField === 'columns' ? error : null}
-          >
-            <ColumnChips
-              all={cols}
-              docs={colDocs}
-              selected={form.columns}
-              onChange={(next) => set('columns', next)}
-            />
-          </Field>
-
           <div style={{ display: 'grid', gap: 14, gridTemplateColumns: '1fr 1fr' }}>
             <Field label="Sort by" error={errorField === 'orderBy' ? error : null}>
               <select
@@ -458,7 +459,7 @@ function SkillForm({ skill, onCancel, onSaved }) {
                 onChange={(e) => set('orderBy', e.target.value)}
               >
                 <option value="">No particular order</option>
-                {cols.map((c) => (
+                {usable.map((c) => (
                   <React.Fragment key={c}>
                     <option value={c}>{c} — ascending</option>
                     <option value={`${c} DESC`}>{c} — descending</option>
@@ -479,10 +480,36 @@ function SkillForm({ skill, onCancel, onSaved }) {
             </Field>
           </div>
 
-          <Field label="Available in" hint="Which assistant may use it.">
-            <div style={{ display: 'flex', gap: 8 }}>
+          <Field
+            label="Available in"
+            hint="Which assistant may use it."
+          >
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               {[['portfolio', 'Insights AI'], ['deal', 'Deal AI']].map(([key, label]) => {
                 const on = form.surfaces.includes(key)
+                // Deal AI cannot run a skill: its answer path is one
+                // schema-constrained call with no tool support. The option
+                // stays visible rather than being hidden — it is on the
+                // roadmap, and a silently absent choice is harder to ask
+                // about than a disabled one — but it cannot be ticked into a
+                // setting that does nothing.
+                const unavailable = key === 'deal'
+                if (unavailable) {
+                  return (
+                    <span
+                      key={key}
+                      title="Deal AI cannot run skills yet"
+                      style={{
+                        padding: '5px 12px', borderRadius: 'var(--radius-pill)',
+                        border: '1px dashed var(--border-default)',
+                        background: 'var(--gray-50)', color: 'var(--text-faint)',
+                        fontSize: 'var(--text-base)', cursor: 'not-allowed'
+                      }}
+                    >
+                      {label} · not yet
+                    </span>
+                  )
+                }
                 return (
                   <button
                     key={key}
@@ -569,39 +596,6 @@ function ParamRow({ param, columns, docs = {}, onChange, onRemove }) {
         onChange={(e) => onChange({ description: e.target.value })}
         placeholder="What this filter means, e.g. “the rep who owns the deal”"
       />
-    </div>
-  )
-}
-
-function ColumnChips({ all, docs = {}, selected, onChange }) {
-  const toggle = (c) =>
-    onChange(selected.includes(c) ? selected.filter((x) => x !== c) : [...selected, c])
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-      {all.map((c) => {
-        const on = selected.includes(c)
-        return (
-          <button
-            key={c}
-            type="button"
-            onClick={() => toggle(c)}
-            // What the column means, where the view's author said. A name
-            // like `pct_of_closed` is a guess until someone tells you what it
-            // is a percentage OF.
-            title={docs[c] || undefined}
-            style={{
-              padding: '3px 9px', borderRadius: 'var(--radius-pill)',
-              border: `1px solid ${on ? 'var(--accent-plum-text)' : 'var(--border-default)'}`,
-              background: on ? 'var(--tint-plum)' : '#fff',
-              color: on ? 'var(--accent-plum-text)' : 'var(--text-muted)',
-              fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)',
-              cursor: 'pointer'
-            }}
-          >
-            {c}
-          </button>
-        )
-      })}
     </div>
   )
 }

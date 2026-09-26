@@ -85,12 +85,16 @@ export default function ControlCentreTab() {
         file={data.businessContext}
         onSaved={(businessContext) => setData((d) => ({ ...d, businessContext }))}
       />
-      <MeddicMappingSection fields={data.meddicFields || []} />
+      {/* Sits next to business context because the two are the same kind of
+          thing: what the AI knows. Qualification mapping below is a different
+          job — how a deal is scored.
 
-      {/* Loads its own data: skills change far more often than the page's
+          Loads its own data: skills change far more often than the page's
           other sections, and a rep toggling one should not refetch the
           qualification headings and the whole business-context preview. */}
       <SkillsSection />
+
+      <MeddicMappingSection fields={data.meddicFields || []} />
       <Footnote />
     </Shell>
   )
