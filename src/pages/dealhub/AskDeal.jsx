@@ -1090,10 +1090,14 @@ function Answer({ turn, onJumpToMessage, onInspect, people = [] }) {
 
       {/* Citations — same quote-pill style as the portfolio Co-Pilot's
           AnswerTurn: a left accent stripe on a quiet fill, not plain text.
-          Also carries the character-exact verification line inline, since
-          Deal Hub's citations are the one thing the portfolio tab's
-          equivalent doesn't need to say (portfolio answers cite whole
-          deals, not verbatim quotes). */}
+
+          No "N quotes verified character-exact" line under them. It restated
+          the mechanism on every single answer, directly beneath the quote it
+          described — and a rep who can already see the quote and click through
+          to its source gains nothing from being told how it got there. It also
+          read "against its source message" under a quote from a TASK, which is
+          simply wrong. Verification still happens (validate.js drops anything
+          that fails); the quote's presence IS the evidence it passed. */}
       {turn.citations?.length > 0 && (
         <div style={{ display: 'grid', gap: 6 }}>
           {turn.citations.map((c, i) => (
@@ -1120,20 +1124,6 @@ function Answer({ turn, onJumpToMessage, onInspect, people = [] }) {
               )}
             </button>
           ))}
-          <span
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
-            }}
-          >
-            <span className="ms" style={{ fontSize: 14, color: 'var(--status-done)' }}>
-              verified
-            </span>
-            {turn.citations.length}{' '}
-            {turn.citations.length === 1 ? 'quote' : 'quotes'} verified
-            character-exact against{' '}
-            {turn.citations.length === 1 ? 'its source message' : 'their source messages'}
-          </span>
         </div>
       )}
     </div>
