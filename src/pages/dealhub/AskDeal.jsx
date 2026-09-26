@@ -1006,15 +1006,16 @@ function Answer({ turn, onJumpToMessage, onInspect, people = [] }) {
       <div>
         <MarkdownAnswer text={turn.answerText} />
 
-        {/* An answer with no citations is either "the thread doesn't say" —
-            a valid answer — or a claim we could not verify. Say which. */}
-        {turn.citations?.length === 0 && turn.answered && (
-          <p style={{
-            margin: '9px 0 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)'
-          }}>
-            No verifiable quote was attached to this answer — treat it with care.
-          </p>
-        )}
+        {/* No "this answer has no quote" caveat.
+            It fired whenever an answer carried zero citations — which is the
+            NORMAL shape of plenty of sound answers: a count, a summary across
+            the thread, or "no, nothing here says that". Reps saw a warning
+            sitting under correct work, which teaches them to ignore warnings.
+            The real guarantee is the opposite one and it still holds: a quote
+            that IS shown has been checked character-for-character against its
+            source (validate.js), and anything that failed was dropped before
+            the answer was rendered. Absence of a quote is not evidence of a
+            problem, so it is no longer presented as one. */}
 
         {/* A write the question also asked for — "attach this contact",
             "mark it lost", etc. Same ActionCard the portfolio Co-Pilot uses,
