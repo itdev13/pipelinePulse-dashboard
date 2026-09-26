@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { controlAPI } from '../../api/control'
 import MeddicMappingSection from '../control/MeddicMappingSection'
+import SkillsSection from '../control/SkillsSection'
 import SectionCard, { PrimaryButton, GhostButton } from '../control/SectionCard'
 import { Bar, SkeletonStyles, formatDate } from '../shared/ListChrome'
 
@@ -85,6 +86,11 @@ export default function ControlCentreTab() {
         onSaved={(businessContext) => setData((d) => ({ ...d, businessContext }))}
       />
       <MeddicMappingSection fields={data.meddicFields || []} />
+
+      {/* Loads its own data: skills change far more often than the page's
+          other sections, and a rep toggling one should not refetch the
+          qualification headings and the whole business-context preview. */}
+      <SkillsSection />
       <Footnote />
     </Shell>
   )

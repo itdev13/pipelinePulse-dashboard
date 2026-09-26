@@ -101,7 +101,10 @@ export function PrimaryButton({ children, onClick, disabled, icon }) {
   )
 }
 
-export function GhostButton({ children, onClick, disabled, icon }) {
+// `danger` tints a destructive action — Delete next to Keep has to be
+// distinguishable at a glance, or the safe option and the irreversible one
+// look identical.
+export function GhostButton({ children, onClick, disabled, icon, danger }) {
   return (
     <button
       onClick={onClick}
@@ -109,9 +112,10 @@ export function GhostButton({ children, onClick, disabled, icon }) {
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 7,
         height: 34, padding: '0 14px',
-        border: '1px solid var(--border-strong)',
+        border: `1px solid ${danger ? 'var(--status-stuck)' : 'var(--border-strong)'}`,
         borderRadius: 'var(--radius-md)',
-        background: '#fff', color: 'var(--text-body)',
+        background: '#fff',
+        color: danger ? 'var(--status-stuck-text)' : 'var(--text-body)',
         fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.55 : 1
