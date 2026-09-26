@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { Select } from 'antd'
 import { controlAPI } from '../../api/control'
 import SectionCard, { PrimaryButton, GhostButton } from './SectionCard'
 
@@ -453,19 +454,24 @@ function SkillForm({ skill, onCancel, onSaved }) {
 
           <div style={{ display: 'grid', gap: 14, gridTemplateColumns: '1fr 1fr' }}>
             <Field label="Sort by" error={errorField === 'orderBy' ? error : null}>
-              <select
-                style={{ ...input(), maxWidth: 300 }}
+              {/* antd, not a native <select>: a browser renders <option> with
+                  the OS's own menu, which cannot be styled, sized or given the
+                  app's type. Every other picker in the app uses this treatment
+                  — see TasksTab, DealsTab, TaskEditor. */}
+              <Select
                 value={form.orderBy || ''}
-                onChange={(e) => set('orderBy', e.target.value)}
-              >
-                <option value="">No particular order</option>
-                {usable.map((c) => (
-                  <React.Fragment key={c}>
-                    <option value={c}>{c} — ascending</option>
-                    <option value={`${c} DESC`}>{c} — descending</option>
-                  </React.Fragment>
-                ))}
-              </select>
+                onChange={(v) => set('orderBy', v)}
+                popupClassName="pp-menu"
+                style={{ width: '100%', maxWidth: 300 }}
+                styles={{ root: { height: 32 } }}
+                options={[
+                  { value: '', label: 'No particular order' },
+                  ...usable.flatMap((c) => [
+                    { value: c, label: `${c} — ascending` },
+                    { value: `${c} DESC`, label: `${c} — descending` }
+                  ])
+                ]}
+              />
             </Field>
 
             <Field label="Most rows to return" hint="1–500.">
@@ -564,7 +570,14 @@ function ParamRow({ param, columns, docs = {}, onChange, onRemove }) {
       border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)',
       padding: 9, display: 'grid', gap: 7, background: 'var(--gray-50)'
     }}>
-      <div style={{ display: 'grid', gap: 7, gridTemplateColumns: '1fr 1fr 1fr 1fr auto' }}>
+      {/* Weighted, not four equal columns: a column name like
+          `closed_without_win` needs the room, while "equals" and "text" do
+          not. minmax(0, …) so a long option cannot push the row wider than
+          its card. */}
+      <div style={{
+        display: 'grid', gap: 7, alignItems: 'center',
+        gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 1.6fr) minmax(0, 1.1fr) minmax(0, 0.8fr) auto'
+      }}>
         <input
           style={input()}
           value={param.name}
@@ -572,22 +585,36 @@ function ParamRow({ param, columns, docs = {}, onChange, onRemove }) {
           placeholder="rep"
           spellCheck={false}
         />
-        <select
-          style={input()}
+        <Select
           value={param.column}
+          onChange={(v) => onChange({ column: v })}
+          popupClassName="pp-menu"
+          style={{ width: '100%' }}
+          styles={{ root: { height: 32 } }}
+          // The column's meaning, where the view's author recorded it — shown
+          // on the closed control and on each option.
           title={docs[param.column] || undefined}
-          onChange={(e) => onChange({ column: e.target.value })}
-        >
-          {columns.map((c) => (
-            <option key={c} value={c} title={docs[c] || undefined}>{c}</option>
-          ))}
-        </select>
-        <select style={input()} value={param.op} onChange={(e) => onChange({ op: e.target.value })}>
-          {OPS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-        </select>
-        <select style={input()} value={param.type} onChange={(e) => onChange({ type: e.target.value })}>
-          {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
+          options={columns.map((c) => ({
+            value: c,
+            label: docs[c] ? <span title={docs[c]}>{c}</span> : c
+          }))}
+        />
+        <Select
+          value={param.op}
+          onChange={(v) => onChange({ op: v })}
+          popupClassName="pp-menu"
+          style={{ width: '100%' }}
+          styles={{ root: { height: 32 } }}
+          options={OPS.map(([v, label]) => ({ value: v, label }))}
+        />
+        <Select
+          value={param.type}
+          onChange={(v) => onChange({ type: v })}
+          popupClassName="pp-menu"
+          style={{ width: '100%' }}
+          styles={{ root: { height: 32 } }}
+          options={TYPES.map((t) => ({ value: t, label: t }))}
+        />
         <GhostButton onClick={onRemove}>Remove</GhostButton>
       </div>
       <input
