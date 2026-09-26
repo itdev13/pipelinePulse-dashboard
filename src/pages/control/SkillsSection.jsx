@@ -53,13 +53,19 @@ export default function SkillsSection() {
       icon="database"
       title="AI skills"
       accent="plum"
-      meta={loading ? null : `${enabled} of ${skills.length} active`}
+      // "0 of 0 active" is a count of nothing presented as a statistic. With no
+      // skills the empty state below already says so; the meta slot stays empty.
+      meta={loading || skills.length === 0 ? null : `${enabled} of ${skills.length} active`}
       help={
         'Point the AI at a database view and it becomes a tool it can use to answer '
         + 'questions — no deploy needed. The view itself is created by whoever owns the '
         + 'data; this page only says which ones the AI may read and how.'
       }
     >
+      {/* SectionCard renders children with no padding of its own — each
+          section pads its own body (see MeddicMappingSection). Without this
+          the form ran flush to the card edges. */}
+      <div style={{ padding: 'var(--space-3) var(--space-4)', display: 'grid', gap: 12 }}>
       {error && <Banner tone="error" onDismiss={() => setError(null)}>{error}</Banner>}
 
       {editing ? (
@@ -89,12 +95,13 @@ export default function SkillsSection() {
             </div>
           )}
           {skills.length > 0 && (
-            <div style={{ marginTop: 12 }}>
+            <div>
               <PrimaryButton onClick={() => setEditing(BLANK)}>Add a skill</PrimaryButton>
             </div>
           )}
         </>
       )}
+      </div>
     </SectionCard>
   )
 }
@@ -277,6 +284,17 @@ function SkillForm({ skill, onCancel, onSaved }) {
 
   const ready = form.name.trim() && form.description.trim().length >= 20 && cols?.length
 
+  // What is stopping the save, in the order someone fills the form in. One
+  // reason at a time: a list of four faults on an empty form is noise.
+  const blocker =
+    !form.viewName.trim() ? 'Enter a view to get started'
+      : checking ? null
+        : !cols?.length ? null              // the view error already shows above
+          : !form.name.trim() ? 'Give the skill a name'
+            : form.description.trim().length < 20 ? 'Add a description'
+              : !form.surfaces.length ? 'Pick where it can be used'
+                : null
+
   return (
     <div style={{ display: 'grid', gap: 14 }}>
       {error && <Banner tone="error">{error}</Banner>}
@@ -286,20 +304,34 @@ function SkillForm({ skill, onCancel, onSaved }) {
         hint="The view the AI reads. Created by whoever owns the data, in a migration."
         error={errorField === 'viewName' ? error : viewError}
       >
-        <input
-          style={input(viewError)}
-          value={form.viewName}
-          onChange={(e) => set('viewName', e.target.value)}
-          placeholder="vw_quiet_deals_by_rep"
-          spellCheck={false}
-          autoComplete="off"
-        />
-        {checking && <Muted small>Checking…</Muted>}
-        {cols && !checking && (
-          <Muted small>
-            ✓ {cols.length} column{cols.length === 1 ? '' : 's'} · row-level security confirmed
-          </Muted>
-        )}
+        {/* Capped rather than full-bleed: a view name is ~30 characters, and a
+            900px input with a short placeholder adrift in it reads as an
+            unfinished layout. The status sits beside it, not under, so the
+            row stays one line once a view resolves. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <input
+            style={{ ...input(viewError), maxWidth: 340, fontFamily: 'var(--font-mono)' }}
+            value={form.viewName}
+            onChange={(e) => set('viewName', e.target.value)}
+            placeholder="vw_quiet_deals_by_rep"
+            spellCheck={false}
+            autoComplete="off"
+          />
+          {checking && (
+            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+              Checking…
+            </span>
+          )}
+          {cols && !checking && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              fontSize: 'var(--text-sm)', color: 'var(--accent-pine-text)'
+            }}>
+              <span className="ms" style={{ fontSize: 15 }}>check_circle</span>
+              {cols.length} column{cols.length === 1 ? '' : 's'} · access rules confirmed
+            </span>
+          )}
+        </div>
       </Field>
 
       {/* Everything past this point needs the view's real columns, so it stays
@@ -312,7 +344,7 @@ function SkillForm({ skill, onCancel, onSaved }) {
             hint="What the AI calls it. Lower case, no spaces."
             error={errorField === 'name' ? error : null}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 0, maxWidth: 340 }}>
               <span style={{
                 fontFamily: 'var(--font-mono)', fontSize: 'var(--text-base)',
                 color: 'var(--text-faint)', padding: '0 2px 0 10px',
@@ -324,7 +356,11 @@ function SkillForm({ skill, onCancel, onSaved }) {
                 skill_
               </span>
               <input
-                style={{ ...input(), borderRadius: '0 var(--radius-sm) var(--radius-sm) 0' }}
+                style={{
+                  ...input(),
+                  borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
+                  maxWidth: 280, fontFamily: 'var(--font-mono)'
+                }}
                 value={form.name}
                 onChange={(e) => set('name', e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_'))}
                 placeholder="quiet_deals_by_rep"
@@ -389,7 +425,7 @@ function SkillForm({ skill, onCancel, onSaved }) {
           <div style={{ display: 'grid', gap: 14, gridTemplateColumns: '1fr 1fr' }}>
             <Field label="Sort by" error={errorField === 'orderBy' ? error : null}>
               <select
-                style={input()}
+                style={{ ...input(), maxWidth: 300 }}
                 value={form.orderBy || ''}
                 onChange={(e) => set('orderBy', e.target.value)}
               >
@@ -405,7 +441,7 @@ function SkillForm({ skill, onCancel, onSaved }) {
 
             <Field label="Most rows to return" hint="1–500.">
               <input
-                style={input()}
+                style={{ ...input(), maxWidth: 110 }}
                 type="number"
                 min={1}
                 max={500}
@@ -446,11 +482,22 @@ function SkillForm({ skill, onCancel, onSaved }) {
         </>
       )}
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        paddingTop: 12, borderTop: '1px solid var(--border-default)'
+      }}>
         <PrimaryButton onClick={save} disabled={!ready || !form.surfaces.length || saving}>
           {saving ? 'Saving…' : form.id ? 'Save changes' : 'Create skill'}
         </PrimaryButton>
         <GhostButton onClick={onCancel} disabled={saving}>Cancel</GhostButton>
+        {/* A greyed-out button with no reason beside it reads as broken. Say
+            what is still missing — this is the first thing anyone sees on an
+            empty form, where nothing is filled in yet and Create is off. */}
+        {!saving && blocker && (
+          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+            {blocker}
+          </span>
+        )}
       </div>
     </div>
   )
@@ -533,7 +580,7 @@ function Field({ label, hint, error, children }) {
   return (
     <label style={{ display: 'block' }}>
       <span style={{
-        display: 'block', marginBottom: 3,
+        display: 'block', marginBottom: 4,
         fontSize: 'var(--text-xs)', fontWeight: 600,
         letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase',
         color: 'var(--text-muted)'
