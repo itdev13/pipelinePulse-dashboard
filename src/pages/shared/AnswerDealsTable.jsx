@@ -82,10 +82,34 @@ export default function AnswerDealsTable({ deals = [], onOpenDeal }) {
                 </td>
                 <td style={{ ...td, maxWidth: 160 }}>
                   <span style={{
-                    display: 'block', color: d.contact ? 'var(--text-body)' : 'var(--text-faint)',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                    display: 'flex', alignItems: 'baseline', gap: 5,
+                    color: d.contact ? 'var(--text-body)' : 'var(--text-faint)'
                   }}>
-                    {d.contact || '—'}
+                    <span style={{
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                    }}>
+                      {d.contact || '—'}
+                    </span>
+                    {/* A deal has ONE primary contact and can have additional
+                        ones (the architect, the QS, a second decision-maker).
+                        Only the primary is named: this cell is ~160px, so a
+                        second name would be ellipsised into nothing. "+2" is
+                        honest that there are more without pretending to show
+                        them — a rep can open the deal, or ask who they are. */}
+                    {d.other_contacts > 0 && (
+                      <span
+                        title={`${d.other_contacts} more contact${d.other_contacts === 1 ? '' : 's'} on this deal`}
+                        style={{
+                          flexShrink: 0,
+                          fontSize: 'var(--text-xs)', fontWeight: 600,
+                          color: 'var(--accent-plum-text)',
+                          background: 'var(--tint-plum)',
+                          padding: '0 5px', borderRadius: 'var(--radius-pill)'
+                        }}
+                      >
+                        +{d.other_contacts}
+                      </span>
+                    )}
                   </span>
                 </td>
                 <td style={{ ...td, whiteSpace: 'nowrap' }}>
