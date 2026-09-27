@@ -311,7 +311,7 @@ export default function DealHubShell() {
           style={{
             flex: 'none',
             width: 1, height: 22,
-            margin: '0 var(--space-4)',
+            margin: '0 var(--space-1)',
             background: 'var(--border-default)'
           }}
         />
