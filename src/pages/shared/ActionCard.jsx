@@ -4,6 +4,11 @@ import dayjs from 'dayjs'
 import { aiAPI } from '../../api/ai'
 import SenderPicker from '../../components/SenderPicker'
 
+// Lazy, same reason as the note and task dialogs: TipTap is ~127 KB gzipped
+// and only needed when an EMAIL draft is on screen. A rep confirming an SMS
+// should not download an editor.
+const RichEditor = React.lazy(() => import('./RichEditor'))
+
 // A proposed CRM write, rendered inline under an AI answer — "Create
 // contact: Jane Doe · jane@x.com", "Attach Priya Nair to this deal", etc.
 // Shared by the portfolio Co-Pilot tab and Deal Hub's per-deal Co-Pilot:
@@ -445,17 +450,48 @@ function ActionFields({ actionType, fields, setField }) {
             />
           </label>
         )}
-        <label>
-          <span style={labelStyle}>{isEmail ? 'Content' : 'Message'}</span>
-          <textarea
-            style={{
-              ...inputStyle, height: 'auto', minHeight: 90, padding: '8px 10px',
-              resize: 'vertical', fontFamily: 'var(--font-sans)'
-            }}
-            value={isEmail ? (fields.html || fields.message || '') : (fields.message || '')}
-            onChange={(e) => setField(isEmail ? 'html' : 'message', e.target.value)}
-          />
-        </label>
+        {/* An email body is HTML — the server sends it as `html`, and GHL
+            renders it. A plain textarea let a rep write a paragraph and no
+            more: no bold, no link, no list, and a line break that may or may
+            not survive. The same RichEditor the note and task dialogs use
+            writes real HTML, so the draft a rep edits is the email that
+            arrives.
+
+            SMS and WhatsApp stay a textarea: those are plain-text channels
+            and formatting controls there would offer something the channel
+            cannot carry. */}
+        {isEmail ? (
+          <label>
+            <span style={labelStyle}>Content</span>
+            <React.Suspense
+              fallback={
+                <div style={{
+                  minHeight: 120, border: '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-sm)', background: 'var(--gray-50)'
+                }} />
+              }
+            >
+              <RichEditor
+                value={fields.html || fields.message || ''}
+                onChange={(html) => setField('html', html)}
+                placeholder="Write the email…"
+                minHeight={120}
+              />
+            </React.Suspense>
+          </label>
+        ) : (
+          <label>
+            <span style={labelStyle}>Message</span>
+            <textarea
+              style={{
+                ...inputStyle, height: 'auto', minHeight: 90, padding: '8px 10px',
+                resize: 'vertical', fontFamily: 'var(--font-sans)'
+              }}
+              value={fields.message || ''}
+              onChange={(e) => setField('message', e.target.value)}
+            />
+          </label>
+        )}
       </>
     )
   }
