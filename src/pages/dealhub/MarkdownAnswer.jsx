@@ -35,10 +35,16 @@ import DOMPurify from 'dompurify'
 const LABEL_VALUE = /^\s{0,6}([A-Z][\w '&/-]{0,28}):\s+(\S.*)$/;
 
 // A short bare line that is plainly an option, not prose: "SMS (native)",
-// "WhatsApp QR", "iMessage". Capitalised, no sentence punctuation, few words.
-// Deliberately narrow — the risk is turning a real sentence into a list item,
-// so anything with a full stop, a comma or more than four words is left alone.
-const BARE_OPTION = /^\s{0,6}([A-Z][\w()+&./-]*(?:\s+[\w()+&./-]+){0,3})\s*$/;
+// "WhatsApp QR", "iMessage".
+//
+// Starts with a LETTER, not specifically a capital. Requiring a capital broke
+// on "iMessage" — a real sender name — which split the run in two and left
+// the whole list unnumbered. Product names do not agree to be capitalised.
+//
+// Deliberately narrow otherwise: no sentence punctuation, at most four words.
+// The risk is turning a real sentence into a list item, so anything with a
+// full stop, a comma, or more words is left alone.
+const BARE_OPTION = /^\s{0,6}([A-Za-z][\w()+&./-]*(?:\s+[\w()+&./-]+){0,3})\s*$/;
 
 function listify(text) {
   if (!text.includes(':')) return text
