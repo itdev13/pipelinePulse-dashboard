@@ -16,10 +16,54 @@ import DOMPurify from 'dompurify'
 // turns "<img onerror=alert(1)>" in a message the model quoted straight into
 // a live handler if nothing stands between it and the DOM. DOMPurify is that
 // step — the same pairing GHL's own renderer uses, not a substitute for it.
+// Turn a run of "Label: value" lines into a real markdown list.
+//
+// The prompt asks for "- " on every list item, and the model mostly complies —
+// but not for short breakdowns. A count split by status came back as four
+// indented lines with no markers, which markdown renders as unmarked text:
+// it looks like a list while the model is writing it and reads as loose lines
+// to the rep.
+//
+// Rather than only asking harder, the renderer repairs the common shape. The
+// bar is deliberately high, because wrongly converting prose into a list is
+// worse than leaving it alone:
+//   - at least two consecutive lines
+//   - each "Label: value", with a short label and no sentence punctuation
+//   - none already a list item, heading, quote or table row
+// A paragraph that happens to contain a colon does not qualify; four lines of
+// "Open: 8" do.
+const LABEL_VALUE = /^\s{0,6}([A-Z][\w '&/-]{0,28}):\s+(\S.*)$/;
+
+function listify(text) {
+  if (!text.includes(':')) return text
+  const lines = text.split('\n');
+  const out = [];
+  let run = [];
+
+  const flush = () => {
+    if (run.length >= 2) out.push(...run.map((l) => `- ${l.trim()}`))
+    else out.push(...run)
+    run = []
+  };
+
+  for (const line of lines) {
+    const t = line.trim();
+    const isListish = /^([-*+]|\d+\.|#{1,6}|>|\|)/.test(t);
+    if (!isListish && LABEL_VALUE.test(line) && !/[.!?]$/.test(t)) {
+      run.push(line);
+      continue;
+    }
+    flush();
+    out.push(line);
+  }
+  flush();
+  return out.join('\n');
+}
+
 export default function MarkdownAnswer({ text, className }) {
   const html = useMemo(() => {
     if (!text) return ''
-    const raw = marked.parse(String(text), {
+    const raw = marked.parse(listify(String(text)), {
       gfm: true,
       // Reps write "line one\nline two" expecting two lines; CommonMark's
       // default treats a single newline as the same paragraph, which read as

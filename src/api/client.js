@@ -40,10 +40,15 @@ apiClient.interceptors.response.use(
       error.response?.data?.message ||
       (error.code === 'ECONNABORTED'
         ? 'That took too long — check your connection and try again.'
-        : status >= 500
-          ? 'Something went wrong at our end. Try again in a moment.'
-          : !status
-            ? "Couldn't reach the server — check your connection."
+        // `!status` FIRST. A response that arrived with a status is not a
+        // connection problem, whatever else went wrong with it — and telling
+        // a rep to "check your connection" when the server answered sends
+        // them looking in the wrong place entirely. Only a request that never
+        // got an answer can blame the network.
+        : !status
+          ? "Couldn't reach the server — check your connection."
+          : status >= 500
+            ? 'Something went wrong at our end — nothing was saved. Try again in a moment.'
             : 'That did not work. Try again.')
     const enhanced = new Error(message)
     enhanced.status = status
