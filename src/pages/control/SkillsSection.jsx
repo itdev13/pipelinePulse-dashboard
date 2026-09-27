@@ -324,7 +324,11 @@ function SkillForm({ skill, onCancel, onSaved }) {
 
   return (
     <div style={{ display: 'grid', gap: 14 }}>
-      {error && <Banner tone="error">{error}</Banner>}
+      {/* Only when the error is not already pinned to a field. The server
+          names the field that failed, and showing the same sentence as a
+          banner AND under the input says it twice — which reads as two
+          problems rather than one. */}
+      {error && !errorField && <Banner tone="error">{error}</Banner>}
 
       <Field
         label="Database view"
