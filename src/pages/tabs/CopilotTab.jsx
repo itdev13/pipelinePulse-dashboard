@@ -15,6 +15,7 @@ import ReactionRow from '../shared/ReactionRow'
 import ActionCard from '../shared/ActionCard'
 import SkillMentions, { findMentionQuery } from '../dealhub/SkillMentions'
 import AnswerDealsTable from '../shared/AnswerDealsTable'
+import SkillResult from '../shared/SkillResult'
 
 // Co-Pilot — one question across EVERY deal in the sub-account.
 //
@@ -177,6 +178,7 @@ export default function CopilotTab({ onOpenDeal }) {
           answered: res.answered !== false,
           dealsRead: res.dealsRead || [],
           dealsTable: res.dealsTable || null,
+          skillResult: res.skillResult || null,
           toolCalls: res.toolCalls || [],
           // Writes the model proposed this turn — create/attach a contact,
           // change an owner or status. Nothing has happened to the CRM yet;
@@ -273,6 +275,7 @@ export default function CopilotTab({ onOpenDeal }) {
         answered: t.answered,
         dealsRead: t.dealsRead || [],
         dealsTable: t.dealsTable || null,
+        skillResult: t.skillResult || null,
         groundingWarning: t.groundingWarning || null,
         fromFactsOnly: false,
         // Without this, thumbs up/down disable on every reopened turn —
@@ -504,6 +507,13 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
             exists rather than trusting the model to format one in prose. */}
         {turn.dealsTable?.length > 0 && (
           <AnswerDealsTable deals={turn.dealsTable} onOpenDeal={onOpenDeal} />
+        )}
+
+        {/* A skill's own rows, charted. Sits under the answer rather than
+            above it: the prose is the point, and the chart is the evidence
+            a rep checks it against. */}
+        {turn.skillResult?.rows?.length > 0 && (
+          <SkillResult result={turn.skillResult} />
         )}
 
         {turn.scopeNote && (
