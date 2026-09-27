@@ -267,7 +267,7 @@ export default function DealHubShell() {
       <header
         style={{
           position: 'sticky', top: 0, zIndex: 20,
-          display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+          display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
           minHeight: 60, padding: '10px 20px',
           borderBottom: '1px solid var(--border-default)',
           background: '#fff',
