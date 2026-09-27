@@ -96,12 +96,23 @@ export default function ActionCard({ actionId, actionType, proposed, onResolved 
     <div style={{
       border: '1px solid var(--border-strong)',
       borderRadius: 'var(--radius-md)',
-      background: '#fff',
-      overflow: 'hidden'
+      background: '#fff'
+      // NO `overflow: hidden` here.
+      //
+      // It was clipping the sender dropdown: that menu is positioned absolutely
+      // and is taller than the space below the field, so the card cut it off
+      // mid-item — it looked like a list that had lost its scrollbar rather
+      // than one being clipped. The menu has its own maxHeight and scrolls
+      // fine; it just needs to be allowed out of the card.
+      //
+      // The rounding it was protecting is handled where it matters instead:
+      // the tinted header rounds its own top corners below.
     }}>
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8,
         padding: '9px 13px',
+        // Was inherited from the parent's overflow:hidden.
+        borderRadius: 'var(--radius-md) var(--radius-md) 0 0',
         borderBottom: '1px solid var(--border-default)',
         background: 'var(--tint-plum)'
       }}>
