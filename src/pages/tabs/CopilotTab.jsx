@@ -505,7 +505,13 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
         {/* The row data behind a "list of deals" answer, rendered as a real
             table — see AnswerDealsTable's own header comment for why this
             exists rather than trusting the model to format one in prose. */}
-        {turn.dealsTable?.length > 0 && (
+        {/* Not shown when a skill answered: the model often calls a deals tool
+            on the way to an answer, and that intermediate result is not what
+            the question was about. Asking "which stage do deals drop off at"
+            and getting a stage breakdown followed by ten unrelated open deals
+            reads as two answers to two different questions. The skill's own
+            rows are the evidence for a skill answer. */}
+        {turn.dealsTable?.length > 0 && !turn.skillResult?.rows?.length && (
           <AnswerDealsTable deals={turn.dealsTable} onOpenDeal={onOpenDeal} />
         )}
 
