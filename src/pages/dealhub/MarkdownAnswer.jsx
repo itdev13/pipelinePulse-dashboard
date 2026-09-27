@@ -34,6 +34,12 @@ import DOMPurify from 'dompurify'
 // "Open: 8" do.
 const LABEL_VALUE = /^\s{0,6}([A-Z][\w '&/-]{0,28}):\s+(\S.*)$/;
 
+// A short bare line that is plainly an option, not prose: "SMS (native)",
+// "WhatsApp QR", "iMessage". Capitalised, no sentence punctuation, few words.
+// Deliberately narrow — the risk is turning a real sentence into a list item,
+// so anything with a full stop, a comma or more than four words is left alone.
+const BARE_OPTION = /^\s{0,6}([A-Z][\w()+&./-]*(?:\s+[\w()+&./-]+){0,3})\s*$/;
+
 function listify(text) {
   if (!text.includes(':')) return text
   const lines = text.split('\n');
@@ -53,6 +59,40 @@ function listify(text) {
       run.push(line);
       continue;
     }
+    flush();
+    out.push(line);
+  }
+  flush();
+  return numberOptions(out.join('\n'));
+}
+
+// A run of bare option lines becomes a NUMBERED list.
+//
+// The model is told to write "1. ", "2. " when it offers a choice, and mostly
+// does — but when it does not, the reply still says "reply with a number"
+// above lines carrying no numbers. The rep is asked to pick from a list that
+// does not show what to pick.
+//
+// Only fires when the text actually asks for a number, and only on a run of
+// three or more bare lines. Both conditions matter: without the first, any
+// short capitalised line could be swept into a list; without the second, a
+// two-line aside becomes a menu.
+function numberOptions(text) {
+  if (!/reply with (a |the )?number|pick a number|choose a number/i.test(text)) return text
+  const lines = text.split('\n');
+  const out = [];
+  let run = [];
+
+  const flush = () => {
+    if (run.length >= 3) out.push(...run.map((l, i) => `${i + 1}. ${l.trim()}`))
+    else out.push(...run)
+    run = []
+  };
+
+  for (const line of lines) {
+    const t = line.trim();
+    const isListish = /^([-*+]|\d+\.|#{1,6}|>|\|)/.test(t);
+    if (!isListish && t && BARE_OPTION.test(line)) { run.push(line); continue }
     flush();
     out.push(line);
   }
