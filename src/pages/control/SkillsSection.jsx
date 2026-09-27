@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Select } from 'antd'
 import { controlAPI } from '../../api/control'
+import { useAuth } from '../../context/AuthContext'
 import SectionCard, { PrimaryButton, GhostButton } from './SectionCard'
 
 // AI skills — point the AI at a database view.
@@ -43,12 +44,29 @@ export default function SkillsSection() {
   const [editing, setEditing] = useState(null)   // a skill, BLANK, or null
   const [error, setError] = useState(null)
 
+  // Skills are per sub-account, so everything here is too. Without this the
+  // section kept the previous account's state on a switch: an empty list is
+  // correct in a new account, but a half-filled form and a "this sub-account
+  // already has a skill called X" error from the OLD one are not — they say
+  // the opposite of what the list says, about a different account.
+  const { session } = useAuth()
+  const locationId = session?.locationId
+
   const load = () => controlAPI.listSkills()
     .then((r) => setSkills(r?.skills || []))
     .catch((e) => setError(e?.message || 'Could not load skills'))
     .finally(() => setLoading(false))
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    // Clear first, then reload: a stale form or error belongs to the account
+    // it came from.
+    setEditing(null)
+    setError(null)
+    setSkills([])
+    setLoading(true)
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationId])
 
   const enabled = skills.filter((s) => s.isEnabled).length
 
