@@ -151,4 +151,30 @@ test('the persisted store is versioned', () => {
   assert.match(store, /v: STORE_VERSION/)
 })
 
+test('a filter with its own control on the toolbar gets no chip', () => {
+  // Owner and Tag moved out of the popover onto the toolbar, so a chip reading
+  // "Owner J srini" sat inches from a dropdown reading "Mine (J srini)" — the
+  // same fact twice, with two places to clear it from. Chips surface what is
+  // HIDDEN in the popover; these are not hidden any more.
+  const SELF_EVIDENT = new Set(['assignedTo', 'tag'])
+  const filters = { assignedTo: 'me', tag: 'hot-lead', activity: 'quiet:30' }
+  const allActive = Object.entries(filters).filter(([, v]) => v)
+  const chipped = allActive.filter(([k]) => !SELF_EVIDENT.has(k))
+  assert.deepEqual(chipped.map(([k]) => k), ['activity'])
+})
+
+test('Save view still appears when ONLY owner and tag are set', () => {
+  // The trap in the dedup: keying "Save view" off the CHIPPED filters would
+  // hide the button for a view filtered to one owner and one tag, which is a
+  // perfectly ordinary view to want to save.
+  const SELF_EVIDENT = new Set(['assignedTo', 'tag'])
+  const filters = { assignedTo: 'me', tag: 'hot-lead' }
+  const allActive = Object.entries(filters).filter(([, v]) => v)
+  const chipped = allActive.filter(([k]) => !SELF_EVIDENT.has(k))
+  assert.equal(chipped.length, 0)        // no chips
+  assert.ok(allActive.length > 0)        // but Save view must still show
+  const toolbar = readFileSync(new URL('../../deals/DealToolbar.jsx', import.meta.url), 'utf8')
+  assert.match(toolbar, /\(allActive\.length > 0 && !activeViewId\)/)
+})
+
 console.log('owner filter: all cases pass')

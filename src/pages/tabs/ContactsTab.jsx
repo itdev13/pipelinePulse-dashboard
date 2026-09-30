@@ -246,7 +246,11 @@ export default function ContactsTab({
           // few pixels apart is one too many, and they disagreed the moment a
           // filter narrowed the list.
           filterControl={
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            // display:contents, not inline-flex. The children have to be
+            // DIRECT flex items of the toolbar row, or the row cannot wrap
+            // between them — an inline-flex wrapper is one atom and takes the
+            // whole group to the next line together.
+            <span style={{ display: 'contents' }}>
               <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -281,6 +285,13 @@ export default function ContactsTab({
                   setDirtyView(activeViewId)
                 }}
               />
+              {/* Everything after this starts a second line: the popover of
+                  remaining filters, the chips it produces, and Save view.
+                  Search, Owner and Tag are what a rep reaches for constantly;
+                  the rest is occasional and belongs below rather than pushing
+                  the common controls off the right edge. */}
+              <div style={{ flexBasis: '100%', height: 2, margin: 0 }} aria-hidden="true" />
+
               <ContactFilters
               filters={filters}
               tags={tagList}

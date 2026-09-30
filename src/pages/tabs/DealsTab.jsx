@@ -488,6 +488,10 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
                 setDirtyView(activeViewId)
               }}
             />
+            {/* Second line from here: the popover, its chips, and Save view.
+                Owner and Tag lead because they are what a rep changes most. */}
+            <div style={{ flexBasis: '100%', height: 2, margin: 0 }} aria-hidden="true" />
+
             <DealFilters
               filters={filters}
               onChange={(next) => {

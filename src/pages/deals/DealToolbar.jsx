@@ -165,7 +165,16 @@ export default function DealToolbar({
 
   useEffect(() => { if (naming) inputRef.current?.focus() }, [naming])
 
-  const active = Object.entries(filters).filter(([, v]) => v)
+  // Filters that have their OWN control on the toolbar do not also get a chip.
+  //
+  // Owner and Tag moved out of the "Filters" popover and onto the toolbar, so
+  // a chip reading "Owner J srini" sat inches from a dropdown already reading
+  // "Mine (J srini)" — the same fact twice, and two places to clear it from.
+  // Chips exist to surface what is hidden inside the popover; these are not
+  // hidden any more.
+  const SELF_EVIDENT = new Set(['assignedTo', 'tag'])
+  const allActive = Object.entries(filters).filter(([, v]) => v)
+  const active = allActive.filter(([k]) => !SELF_EVIDENT.has(k))
   // Only offer an update for a view the caller can actually write to.
   const dirtyView = dirtyViewId
     ? views.find((v) => v.id === dirtyViewId && v.isMine)
@@ -259,21 +268,11 @@ export default function DealToolbar({
       )}
 
       {/* NARROWING — what cuts the list down, and the saved sets of it.
-          On its own line, below search and the view controls.
 
-          A full-width, zero-height flex item forces the wrap. The row already
-          wraps on overflow, but only when it runs out of width: on a wide
-          screen everything sat on one line and the eye had to separate "what
-          am I looking at" (search, views) from "what is it narrowed to"
-          (owner, tag, filters, chips) with no visual break at all. On a narrow
-          screen it wrapped anyway, in an arbitrary place that moved as the
-          chips changed.
-
-          Not a second <div>, because these controls and the chips that follow
-          belong to one wrapping group — the chips must be able to flow onto a
-          third line beside them, which a nested flex container would prevent. */}
-      <div style={{ flexBasis: '100%', height: 2, margin: 0 }} aria-hidden="true" />
-
+          The line break lives inside filterControl now, not here: only the
+          caller knows which of its own controls are the common ones that
+          should lead the row. Putting it here broke BEFORE the whole group,
+          which pushed search onto the second line with everything else. */}
       {filterControl}
 
       {active.map(([k, v]) => (
@@ -390,7 +389,10 @@ export default function DealToolbar({
             <span className="ms" style={{ fontSize: 16 }}>save</span>
             Update {dirtyView.name}
           </button>
-        ) : (active.length > 0 && !activeViewId) && (
+        // allActive, not active: a view filtered to one owner and one tag is
+        // a perfectly good view to save, and keying this off the CHIPPED
+        // filters would hide the button for exactly that case.
+        ) : (allActive.length > 0 && !activeViewId) && (
           <button
             onClick={() => setNaming(true)}
             title="Save these filters as a view"
