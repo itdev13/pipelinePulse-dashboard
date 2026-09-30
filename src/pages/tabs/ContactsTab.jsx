@@ -218,39 +218,13 @@ export default function ContactsTab({
         // it has two rows (Status and Due) that genuinely need their own line.
         actionFill
         contentPad
+        // Search, Owner and Tag share the TITLE row (`action`); Filters,
+        // chips and Save view go to `actionBreak`, a second header row that
+        // starts at the panel's left padding rather than at the title's right
+        // edge. Two lines, both aligned to the same margin.
+        // Row 1, beside the title: what a rep changes constantly.
         action={
           <>
-          <DealToolbar
-            bare
-            countLabel="contacts"
-          views={views}
-          activeViewId={activeViewId}
-          onSelectView={applyView}
-          onSaveView={saveView}
-          onDeleteView={deleteView}
-          dirtyViewId={dirtyView}
-          onUpdateView={(id) => {
-            const v = views.find((x) => x.id === id)
-            if (v) saveView(v.name)
-          }}
-          filters={filters}
-          // Chips read as sentences, not raw values — "Quiet for 30+ days"
-          // rather than "Activity quiet:30".
-          filterLabels={contactFilterLabels(filters, userList)}
-          onClearFilter={(k) => {
-            setFilters((f) => { const next = { ...f }; delete next[k]; return next })
-            setDirtyView(activeViewId)
-          }}
-          onClearAll={() => { setFilters({}); setActiveViewId(null); setDirtyView(null) }}
-          // No count here — the panel's title badge carries it. Two counts a
-          // few pixels apart is one too many, and they disagreed the moment a
-          // filter narrowed the list.
-          filterControl={
-            // display:contents, not inline-flex. The children have to be
-            // DIRECT flex items of the toolbar row, or the row cannot wrap
-            // between them — an inline-flex wrapper is one atom and takes the
-            // whole group to the next line together.
-            <span style={{ display: 'contents' }}>
               <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -293,15 +267,46 @@ export default function ContactsTab({
                   Search, Owner and Tag are what a rep reaches for constantly;
                   the rest is occasional and belongs below rather than pushing
                   the common controls off the right edge. */}
-              <div style={{ flexBasis: '100%', height: 2, margin: 0 }} aria-hidden="true" />
-
+          </>
+        }
+        // Row 2, at the panel's left padding: the filter popover, the chips it
+        // produces, saved views, and the display switch.
+        actionBreak={
+          <>
+          <DealToolbar
+            bare
+            countLabel="contacts"
+          views={views}
+          activeViewId={activeViewId}
+          onSelectView={applyView}
+          onSaveView={saveView}
+          onDeleteView={deleteView}
+          dirtyViewId={dirtyView}
+          onUpdateView={(id) => {
+            const v = views.find((x) => x.id === id)
+            if (v) saveView(v.name)
+          }}
+          filters={filters}
+          // Chips read as sentences, not raw values — "Quiet for 30+ days"
+          // rather than "Activity quiet:30".
+          filterLabels={contactFilterLabels(filters, userList)}
+          onClearFilter={(k) => {
+            setFilters((f) => { const next = { ...f }; delete next[k]; return next })
+            setDirtyView(activeViewId)
+          }}
+          onClearAll={() => { setFilters({}); setActiveViewId(null); setDirtyView(null) }}
+          // No count here — the panel's title badge carries it. Two counts a
+          // few pixels apart is one too many, and they disagreed the moment a
+          // filter narrowed the list.
+          filterControl={
+            <>
               <ContactFilters
               filters={filters}
               tags={tagList}
               users={userList}
               onChange={(next) => { setFilters(next); setDirtyView(activeViewId) }}
             />
-            </span>
+            </>
           }
         >
           <ViewSwitch

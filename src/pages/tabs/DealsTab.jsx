@@ -381,9 +381,15 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
           toolbar under it reading as two stacked headers.
 
           Deals keeps the BAND (unlike Contacts, which folds its controls onto
-          the title row): the pipeline picker, count, Filters and saved views
-          are a genuinely full row, so search and New deal stay up on the
-          title where they act on the whole tab. */}
+          the title row): the pipeline picker, Filters and saved views are a
+          genuinely full row on their own.
+
+          Inside the band the layout now matches Contacts — search, Owner and
+          Tag on the first line, then Filters, chips and Save view on the
+          second. Search moved down from the title row to join them: it
+          narrows the list exactly as the other two do, and sat apart only
+          because it was there first. "New deal" stays on the title row, since
+          it acts on the account rather than on what is being shown. */}
       <Panel
         icon="sell"
         title="Deals"
@@ -392,8 +398,16 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
         countTitle={
           pipelineCount != null ? `${pipelineCount} deals match these filters` : undefined
         }
+        // The action is a control ROW now (search, owner, tag, New deal), not
+        // a lone button, so it claims the width beside the title instead of
+        // hugging the right edge.
+        actionFill
         action={
           <>
+            {/* Search, Owner and Tag share the title row — the same shape as
+                Contacts. They are what a rep changes constantly; the filter
+                popover and saved views sit on the band below, which starts at
+                the panel's left padding. */}
             <SearchInput
               value={q}
               onChange={setQ}
@@ -407,6 +421,31 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
               placeholder="Search deal name — press Enter"
               width={280}
             />
+            {/* Owner and Tag sit OUTSIDE the filter popover, on the toolbar
+                itself. Both were reachable before — buried behind "Filters"
+                with a count badge — which meant the single most common thing
+                a rep wants ("just my deals") took two clicks and was invisible
+                until they went looking. The rest stay in the popover: they are
+                occasional, and putting nine controls on the toolbar would cost
+                the width that makes these two legible. */}
+            <OwnerFilter
+              value={filters.assignedTo ?? ''}
+              onChange={(v) => {
+                setFilters({ ...filters, assignedTo: v || undefined })
+                setDirtyView(activeViewId)
+              }}
+            />
+            <TagFilter
+              value={filters.tag || ''}
+              onChange={(v) => {
+                setFilters({ ...filters, tag: v || undefined })
+                setDirtyView(activeViewId)
+              }}
+            />
+            {/* Second line from here: the popover, its chips, and Save view.
+                Owner and Tag lead because they are what a rep changes most. */}
+            {/* "New deal" acts on the ACCOUNT, not on what is being shown, so
+                it sits apart from the narrowing controls. */}
             {/* Opening the create form closes any open editor — see `creating`
                 above. */}
             <button
@@ -414,7 +453,9 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
               disabled={creating}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
-                flex: 'none',
+                // Pushed to the far right of the row, away from the three
+                // controls that narrow the list.
+                flex: 'none', marginLeft: 'auto',
                 height: 36, padding: '0 15px',
                 border: 'none', borderRadius: 'var(--radius-md)',
                 background: creating ? 'var(--gray-200)' : 'var(--brand-primary)',
@@ -467,31 +508,6 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
           }}
           filterControl={
             <>
-            {/* Owner and Tag sit OUTSIDE the filter popover, on the toolbar
-                itself. Both were reachable before — buried behind "Filters"
-                with a count badge — which meant the single most common thing
-                a rep wants ("just my deals") took two clicks and was invisible
-                until they went looking. The rest stay in the popover: they are
-                occasional, and putting nine controls on the toolbar would cost
-                the width that makes these two legible. */}
-            <OwnerFilter
-              value={filters.assignedTo ?? ''}
-              onChange={(v) => {
-                setFilters({ ...filters, assignedTo: v || undefined })
-                setDirtyView(activeViewId)
-              }}
-            />
-            <TagFilter
-              value={filters.tag || ''}
-              onChange={(v) => {
-                setFilters({ ...filters, tag: v || undefined })
-                setDirtyView(activeViewId)
-              }}
-            />
-            {/* Second line from here: the popover, its chips, and Save view.
-                Owner and Tag lead because they are what a rep changes most. */}
-            <div style={{ flexBasis: '100%', height: 2, margin: 0 }} aria-hidden="true" />
-
             <DealFilters
               filters={filters}
               onChange={(next) => {

@@ -45,6 +45,15 @@ export function Panel({
   count, countTitle,
   // Let the action slot grow — for an action that is a full control row.
   actionFill = false,
+  // A SECOND header row, below the title row and starting at the panel's own
+  // left padding. For the controls that narrow a list — filters, their chips,
+  // save view — which belong under the search/owner/tag row rather than
+  // squeezed onto it.
+  //
+  // A sibling of the title row, not a child of `action`: nested inside it,
+  // every line began at the action box's left edge, which is the title's right
+  // edge (~175px in), so the second row started mid-panel.
+  actionBreak = null,
   // Air between the header and the content. Off by default: a panel whose
   // children are Rows wants them flush under the header line. A table or a
   // card grid, whose own first row is another rule, wants the gap.
@@ -147,32 +156,39 @@ export function Panel({
             task]" — the state first, then what you can do about it. */}
         {action && (
           <span style={{
-            // GROWS when the action is a whole control row rather than a lone
-            // button — a toolbar with its own right-aligned group needs the
-            // width to push against. `actionFill` opts into that; a plain
-            // "Add task" button stays hugged to the right.
-            // A FULL ROW OF ITS OWN, below the title — not the leftover width
-            // beside it.
+            // GROWS to fill the title row when the action is a whole control
+            // row rather than a lone button — a toolbar with its own
+            // right-aligned group needs the width to push against.
             //
-            // As a sibling of the title this box began at the title's right
-            // edge (~175px in for "Contacts 2406"), so every one of its rows
-            // was indented by that much and a wrapped second row started in
-            // the middle of the panel. flexBasis:100% makes it wrap onto its
-            // own line, where it starts at the panel's own left padding and
-            // its rows line up with each other and with the list below.
+            // NOT a full row of its own. The title, search, owner and tag
+            // belong on ONE line: making this flexBasis:100% pushed the whole
+            // group below the title and cost a third line to say nothing.
             //
-            // Only when actionFill is set — a lone "Add task" button still
-            // hugs the right of the title row, which is where it belongs.
-            flex: actionFill ? '1 1 100%' : 'none',
+            // The action's OWN second row (filters, chips, save view) is
+            // handled by `actionBreak` below, which is a sibling of this box
+            // in the header — so it wraps against the header's left padding
+            // rather than this box's left edge.
+            flex: actionFill ? 1 : 'none',
             minWidth: 0,
             display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-            // Its own rows wrap against THIS box, so every line starts at the
-            // same left edge.
-            flexWrap: actionFill ? 'wrap' : 'nowrap',
+            flexWrap: 'nowrap',
             rowGap: 'var(--space-2)'
           }}>
             {action}
           </span>
+        )}
+        {/* Second row: wraps to 100% so it starts at the header's left
+            padding, in line with the title above and the list below. Inside
+            the same <header>, so it shares the header's padding and the
+            border beneath it rather than drawing a band of its own. */}
+        {actionBreak && (
+          <div style={{
+            flexBasis: '100%', minWidth: 0,
+            display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+            flexWrap: 'wrap', rowGap: 'var(--space-2)'
+          }}>
+            {actionBreak}
+          </div>
         )}
       </header>
 
