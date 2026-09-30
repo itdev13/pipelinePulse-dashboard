@@ -120,4 +120,35 @@ test('a warm cache still updates the component', () => {
   assert.match(src, /if \(TAG_CACHE\.tags\) \{ setTags\(TAG_CACHE\.tags\); return \}/)
 })
 
+test('a stale sentinel from an older build is cleared, not sent to the API', () => {
+  // '__mine__' was a real stored value until the release that removed it. It
+  // survived in localStorage past that release and every request carried it to
+  // an API that matched nothing: "Unknown owner" in the control, "0" beside
+  // the title, and "No contacts in this sub-account yet" on an account with
+  // 2,406 of them.
+  const isGhlIdShaped = (v) => /^[A-Za-z0-9]{15,}$/.test(String(v))
+  assert.equal(isGhlIdShaped('__mine__'), false)      // cleared
+  assert.equal(isGhlIdShaped('h07KvFvGuKUVREXiabcd'), true)  // left alone
+  // The component only auto-clears the first kind.
+  assert.match(src, /if \(orphaned && !\/\^\[A-Za-z0-9\]\{15,\}\$\/\.test\(String\(value\)\)\) onChange\(ALL\)/)
+})
+
+test('a departed colleague is labelled, never silently cleared', () => {
+  // Their records are still real and still theirs. Widening someone's filter
+  // without telling them is worse than showing an empty list with a reason.
+  assert.match(src, /'Former owner'/)
+  assert.match(src, /no longer in the sub-account/)
+})
+
+test('the persisted store is versioned', () => {
+  // The general fix: a snapshot written by a build whose values meant
+  // something else is discarded, rather than revived into code that no longer
+  // understands it. Without this the only cure was waiting out the 2-hour
+  // expiry.
+  const store = readFileSync(new URL('../../../hooks/useTabState.js', import.meta.url), 'utf8')
+  assert.match(store, /const STORE_VERSION = \d+/)
+  assert.match(store, /if \(raw\.v !== STORE_VERSION\) return new Map\(\)/)
+  assert.match(store, /v: STORE_VERSION/)
+})
+
 console.log('owner filter: all cases pass')

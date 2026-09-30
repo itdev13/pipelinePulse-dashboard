@@ -24,6 +24,18 @@ import { useCallback, useState } from 'react'
 // snapshot expires — long enough to survive a reload and a detour through
 // another tab, short enough that a new session starts clean.
 const STORE_KEY = 'pp.tabstate'
+// Bumped whenever a stored VALUE changes meaning, not merely when a new key is
+// added. A snapshot from an older build is then dropped rather than revived
+// into code that no longer understands it.
+//
+// v2: the owner filter briefly stored a '__mine__' sentinel that the tabs
+// resolved to a user id at request time. That sentinel is gone — the id IS the
+// value now — but a snapshot written by the old build kept sending '__mine__'
+// to the API, which matched no user and returned nothing. On screen: "Unknown
+// owner" and an empty list, on an account with 2,406 contacts. The two-hour
+// expiry would have cleared it eventually, which is no comfort to whoever hits
+// it first.
+const STORE_VERSION = 2
 const MAX_AGE_MS = 2 * 60 * 60 * 1000   // 2 hours — a working session, not a day
 
 // The sub-account this snapshot belongs to. A saved view id or a pipeline id
@@ -50,6 +62,9 @@ function load() {
     // describe one moment together, and reviving half of them would leave a
     // filter applied with the view that produced it gone.
     if (!raw.at || Date.now() - raw.at > MAX_AGE_MS) return new Map()
+    // Written by a build whose values meant something else. Same treatment as
+    // a stale one: discard the lot.
+    if (raw.v !== STORE_VERSION) return new Map()
     // Same reasoning for a different sub-account: drop it all.
     const loc = currentLocationId()
     if (loc && raw.loc && raw.loc !== loc) return new Map()
@@ -67,6 +82,7 @@ function persist() {
     localStorage.setItem(
       STORE_KEY,
       JSON.stringify({
+        v: STORE_VERSION,
         at: Date.now(),
         loc: currentLocationId(),
         values: Object.fromEntries(store)

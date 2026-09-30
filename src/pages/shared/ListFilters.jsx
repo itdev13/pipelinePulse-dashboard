@@ -138,10 +138,29 @@ export function OwnerFilter({ value, onChange, label = 'Owner', width = 190 }) {
     return rest.length ? [...head, { label: '──────────', options: rest }] : head
   }, [users, myId, me])
 
-  // Still loading the user list, or an owner who has since been removed from
-  // the sub-account: show something readable rather than a 24-character id.
-  const known = !value || value === ALL || value === UNASSIGNED
-    || users.some((u) => u.id === value)
+  // A value that is not ALL, not UNASSIGNED, and not a user we know.
+  //
+  // Three ways to get here: the list is still loading (transient, resolves in
+  // a moment); the owner has left the sub-account (real, and their records are
+  // still theirs); or a snapshot from an older build is holding a value whose
+  // meaning changed — '__mine__' survived in localStorage past the release
+  // that removed it, and every request carried it to an API that matched
+  // nothing.
+  //
+  // Only the last is a fault, and it is the one worth clearing automatically:
+  // a value the API cannot match returns an empty list forever, and nothing on
+  // screen suggests the filter is the reason.
+  const loading = users.length === 0
+  const orphaned = !loading && value && value !== ALL && value !== UNASSIGNED
+    && !users.some((u) => u.id === value)
+
+  useEffect(() => {
+    // Not a user id at all — a leftover sentinel. Anything that looks like a
+    // GHL id is left alone: a departed colleague's records are still real, and
+    // silently widening someone's filter would be worse than showing nothing.
+    if (orphaned && !/^[A-Za-z0-9]{15,}$/.test(String(value))) onChange(ALL)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orphaned, value])
 
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
@@ -153,10 +172,15 @@ export function OwnerFilter({ value, onChange, label = 'Owner', width = 190 }) {
         popupClassName="pp-menu"
         style={{ width }}
         styles={{ root: { height: 34 } }}
-        // An id with no matching option renders as the id itself. That happens
-        // while users are still loading, and permanently for a user who has
-        // left the sub-account — neither should put a raw id on screen.
-        labelRender={(o) => (o?.label ?? (known ? o?.value : 'Unknown owner'))}
+        // antd renders the raw value when nothing matches. While the list
+        // loads that is a flash of a 24-character id; for a departed user it
+        // is permanent. Neither belongs on screen.
+        // Short enough for a 190px control — the full sentence goes in the
+        // tooltip rather than being truncated to "Former owne…".
+        labelRender={(o) => o?.label ?? (loading ? 'Loading\u2026' : 'Former owner')}
+        title={orphaned
+          ? 'This owner is no longer in the sub-account. Their records are still here — pick another owner or All owners to move on.'
+          : undefined}
       />
     </span>
   )

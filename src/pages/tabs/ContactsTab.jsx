@@ -331,8 +331,17 @@ export default function ContactsTab({
 
       {!loading && contacts.length === 0 && !error && (
         <div style={{ padding: 24, color: 'var(--text-muted)', fontSize: 'var(--text-md)' }}>
-          {search
-            ? 'No contacts match — clear the search to see everything.'
+          {/* "No contacts in this sub-account yet" was shown whenever the list
+              came back empty for ANY reason — so an owner filter matching
+              nothing claimed an account with 2,406 contacts was empty, and
+              offered nothing to do about it. The filters are what a rep can
+              actually change, so they are what the message names. */}
+          {search || Object.keys(filters).length > 0
+            ? `No contacts match ${
+                [search && 'the search',
+                 Object.keys(filters).length > 0 && 'the filters']
+                  .filter(Boolean).join(' and ')
+              } — clear ${Object.keys(filters).length > 0 ? 'them' : 'it'} to see everything.`
             : 'No contacts in this sub-account yet.'}
         </div>
       )}
