@@ -8,6 +8,8 @@ import { FollowUpChips, Panel } from '../shared/ListChrome'
 import { contactsAPI } from '../../api/contacts'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
+import { useAuth } from '../../context/AuthContext'
+import { OwnerFilter, TagFilter, defaultOwner, resolveOwner, ALL } from '../shared/ListFilters'
 import { CardGridSkeleton, LoadMore } from '../shared/ListChrome'
 import ContactDetail from '../contacts/ContactDetail'
 
@@ -79,6 +81,25 @@ export default function ContactsTab({
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Owner defaults to the signed-in user, and a change sticks: `filters` is
+  // useTabState, so switching to All owners survives a tab switch and a reload
+  // rather than snapping back to Mine on every visit.
+  //
+  // Seeded once, and only when nothing has been chosen yet — re-applying the
+  // default on later renders would undo the rep's own choice, and re-applying
+  // it after they picked "All owners" would look like the control was broken.
+  const { session } = useAuth()
+  const ownerSeeded = useRef(false)
+  useEffect(() => {
+    if (ownerSeeded.current) return
+    if (!session?.user?.id) return
+    ownerSeeded.current = true
+    if (filters.assignedTo === undefined) {
+      setFilters({ ...filters, assignedTo: session.user.id })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session])
 
   const fetchPage = useCallback(
     ({ cursor }) => contactsAPI.list({
@@ -244,6 +265,22 @@ export default function ContactsTab({
             fontSize: 'var(--text-lg)', color: 'var(--text-body)'
           }}
         />
+              {/* Owner and Tag upfront, the rest behind "Filters" — see the
+                  same pair on DealsTab for why. */}
+              <OwnerFilter
+                value={filters.assignedTo ?? ''}
+                onChange={(v) => {
+                  setFilters({ ...filters, assignedTo: v || undefined })
+                  setDirtyView(activeViewId)
+                }}
+              />
+              <TagFilter
+                value={filters.tag || ''}
+                onChange={(v) => {
+                  setFilters({ ...filters, tag: v || undefined })
+                  setDirtyView(activeViewId)
+                }}
+              />
               <ContactFilters
               filters={filters}
               tags={tagList}

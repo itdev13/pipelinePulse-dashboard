@@ -1,9 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Select } from 'antd'
 import DealBoard from '../deals/DealBoard'
 import DealTable from '../deals/DealTable'
 import DealToolbar from '../deals/DealToolbar'
+import { useAuth } from '../../context/AuthContext'
 import DealFilters from '../deals/DealFilters'
+import { OwnerFilter, TagFilter, resolveOwner } from '../shared/ListFilters'
 import DealEditPage from '../deals/DealEditPage'
 import ViewSwitch from '../shared/ViewSwitch'
 import { savedViewsAPI } from '../../api/deals'
@@ -76,6 +78,21 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
   // so applying a saved view is "spread these onto the request" rather than a
   // translation step that can drift.
   const [filters, setFilters] = useTabState('deals', 'filters', {})
+
+  // Owner defaults to the signed-in user and the choice sticks — see the same
+  // block in ContactsTab. Seeded once, and only if nothing was chosen, so a
+  // rep who switches to All owners is not put back on their own deals.
+  const { session } = useAuth()
+  const ownerSeeded = useRef(false)
+  useEffect(() => {
+    if (ownerSeeded.current) return
+    if (!session?.user?.id) return
+    ownerSeeded.current = true
+    if (filters.assignedTo === undefined) {
+      setFilters({ ...filters, assignedTo: session.user.id })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session])
   const [views, setViews] = useState([])
   const [activeViewId, setActiveViewId] = useTabState('deals', 'activeViewId', null)
   // The id of a saved view whose filters have since been EDITED. Not the same
@@ -160,6 +177,7 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
       q: search || undefined,
       stageId: filters.stageId || undefined,
       assignedTo: filters.assignedTo || undefined,
+      tag: filters.tag || undefined,
       pipelineId,
       // One row, because only the count is wanted — totalCount is computed
       // under the same WHERE regardless of the page size.
@@ -448,6 +466,28 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
             if (v) saveView(v.name)
           }}
           filterControl={
+            <>
+            {/* Owner and Tag sit OUTSIDE the filter popover, on the toolbar
+                itself. Both were reachable before — buried behind "Filters"
+                with a count badge — which meant the single most common thing
+                a rep wants ("just my deals") took two clicks and was invisible
+                until they went looking. The rest stay in the popover: they are
+                occasional, and putting nine controls on the toolbar would cost
+                the width that makes these two legible. */}
+            <OwnerFilter
+              value={filters.assignedTo ?? ''}
+              onChange={(v) => {
+                setFilters({ ...filters, assignedTo: v || undefined })
+                setDirtyView(activeViewId)
+              }}
+            />
+            <TagFilter
+              value={filters.tag || ''}
+              onChange={(v) => {
+                setFilters({ ...filters, tag: v || undefined })
+                setDirtyView(activeViewId)
+              }}
+            />
             <DealFilters
               filters={filters}
               onChange={(next) => {
@@ -476,6 +516,7 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
               }
               users={refData?.users || []}
             />
+            </>
           }
           // The pipeline sits with Filters, not with the view icons: it decides
           // WHICH deals are on screen, which is the same question Filters

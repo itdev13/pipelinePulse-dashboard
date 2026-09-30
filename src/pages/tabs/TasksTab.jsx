@@ -6,6 +6,8 @@ import WorkFilters from '../shared/WorkFilters'
 import { tasksAPI } from '../../api/tasks'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
+import { useAuth } from '../../context/AuthContext'
+import { OwnerFilter, defaultOwner, resolveOwner } from '../shared/ListFilters'
 import TaskEditor from '../shared/TaskEditor'
 import TaskDealsPopover from '../shared/TaskDealsPopover'
 import { useLinkTargets } from '../../hooks/useLinkTargets'
@@ -83,16 +85,23 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
   // deal or a contact and back should not discard them.
   const [filters, setFilters] = useTabState('tasks', 'filters', {})
 
+  // Defaults to the signed-in user's own tasks, and REMEMBERS a change:
+  // useTabState survives a tab switch and a reload for two hours, so a manager
+  // who switches to "All owners" is not put back on Mine every visit.
+  const { session } = useAuth()
+  const [owner, setOwner] = useTabState('tasks', 'owner', defaultOwner(session))
+
   const fetchPage = useCallback(
     ({ cursor }) => tasksAPI.list({
       status, due: dueFilter, limit: 20, cursor,
+      assignedTo: resolveOwner(owner, session?.user?.id),
       contactId: filters.contactId || undefined,
       dealId: filters.dealId || undefined
     }),
-    [status, dueFilter, filters]
+    [status, dueFilter, filters, owner, session]
   )
   const { items, error, hasMore, loadingMore, loading, loadMore, patchItem, reload } =
-    usePagedList({ fetchPage, key: 'tasks', deps: [status, dueFilter, filters] })
+    usePagedList({ fetchPage, key: 'tasks', deps: [status, dueFilter, filters, owner] })
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
   const tasks = items || []
@@ -210,6 +219,7 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                 styles={{ root: { height: 34 } }}
               />
             </span>
+            <OwnerFilter value={owner} onChange={setOwner} />
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
               <Label>Due</Label>
               <Select
