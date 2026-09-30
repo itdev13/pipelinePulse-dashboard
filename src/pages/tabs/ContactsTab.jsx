@@ -260,7 +260,10 @@ export default function ContactsTab({
           style={{
             // No marginLeft:auto — that pushed it to the far right of the
             // page header it used to live in. In the toolbar it leads the row.
-            width: 300, height: 36, boxSizing: 'border-box',
+            // Shrinks before the dropdowns do — a search box narrowed to 200px
+            // is still usable, whereas a truncated owner name is not.
+            width: 300, minWidth: 180, flex: '1 1 300px', maxWidth: 360,
+            height: 36, boxSizing: 'border-box',
             padding: '0 var(--space-3)',
             border: '1px solid var(--border-strong)',
             borderRadius: 'var(--radius-md)',

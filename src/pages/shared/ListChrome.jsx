@@ -78,7 +78,17 @@ export function Panel({
     >
       <header
         style={{
-          display: 'flex', alignItems: 'center', gap: 9,
+          display: 'flex', gap: 9,
+          // WRAPS: with actionFill the action takes a full row of its own
+          // below the title (see its flexBasis), which is what puts its
+          // controls at the panel's left margin rather than indented to the
+          // title's right edge.
+          //
+          // Items stay CENTRED — the title is alone on its row now, so there
+          // is nothing taller beside it to align against, and flex-start would
+          // only lift the count badge off the title's baseline.
+          flexWrap: 'wrap',
+          alignItems: 'center',
           padding: 'var(--space-3) var(--space-4)',
           // A line under the title, separating the header from whatever
           // follows — the filter band or the list itself. Always drawn now:
@@ -141,9 +151,25 @@ export function Panel({
             // button — a toolbar with its own right-aligned group needs the
             // width to push against. `actionFill` opts into that; a plain
             // "Add task" button stays hugged to the right.
-            flex: actionFill ? 1 : 'none',
+            // A FULL ROW OF ITS OWN, below the title — not the leftover width
+            // beside it.
+            //
+            // As a sibling of the title this box began at the title's right
+            // edge (~175px in for "Contacts 2406"), so every one of its rows
+            // was indented by that much and a wrapped second row started in
+            // the middle of the panel. flexBasis:100% makes it wrap onto its
+            // own line, where it starts at the panel's own left padding and
+            // its rows line up with each other and with the list below.
+            //
+            // Only when actionFill is set — a lone "Add task" button still
+            // hugs the right of the title row, which is where it belongs.
+            flex: actionFill ? '1 1 100%' : 'none',
             minWidth: 0,
-            display: 'flex', alignItems: 'center', gap: 'var(--space-2)'
+            display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+            // Its own rows wrap against THIS box, so every line starts at the
+            // same left edge.
+            flexWrap: actionFill ? 'wrap' : 'nowrap',
+            rowGap: 'var(--space-2)'
           }}>
             {action}
           </span>
