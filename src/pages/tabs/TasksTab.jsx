@@ -94,7 +94,7 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
   const fetchPage = useCallback(
     ({ cursor }) => tasksAPI.list({
       status, due: dueFilter, limit: 20, cursor,
-      assignedTo: resolveOwner(owner, session?.user?.id),
+      assignedTo: resolveOwner(owner),
       contactId: filters.contactId || undefined,
       dealId: filters.dealId || undefined
     }),

@@ -258,7 +258,22 @@ export default function DealToolbar({
         />
       )}
 
-      {/* NARROWING — what cuts the list down, and the saved sets of it. */}
+      {/* NARROWING — what cuts the list down, and the saved sets of it.
+          On its own line, below search and the view controls.
+
+          A full-width, zero-height flex item forces the wrap. The row already
+          wraps on overflow, but only when it runs out of width: on a wide
+          screen everything sat on one line and the eye had to separate "what
+          am I looking at" (search, views) from "what is it narrowed to"
+          (owner, tag, filters, chips) with no visual break at all. On a narrow
+          screen it wrapped anyway, in an arbitrary place that moved as the
+          chips changed.
+
+          Not a second <div>, because these controls and the chips that follow
+          belong to one wrapping group — the chips must be able to flow onto a
+          third line beside them, which a nested flex container would prevent. */}
+      <div style={{ flexBasis: '100%', height: 2, margin: 0 }} aria-hidden="true" />
+
       {filterControl}
 
       {active.map(([k, v]) => (

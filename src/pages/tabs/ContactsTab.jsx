@@ -9,7 +9,7 @@ import { contactsAPI } from '../../api/contacts'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
 import { useAuth } from '../../context/AuthContext'
-import { OwnerFilter, TagFilter, defaultOwner, resolveOwner, ALL } from '../shared/ListFilters'
+import { OwnerFilter, TagFilter } from '../shared/ListFilters'
 import { CardGridSkeleton, LoadMore } from '../shared/ListChrome'
 import ContactDetail from '../contacts/ContactDetail'
 
