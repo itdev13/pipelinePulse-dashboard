@@ -172,6 +172,10 @@ export function OwnerFilter({ value, onChange, label = 'Owner', width = 190 }) {
         popupClassName="pp-menu"
         style={{ width }}
         styles={{ root: { height: 34 } }}
+        // Wider than the control, for the same reason as the tag filter — but
+        // less so: these are names, not phrases. "Mine (Charlotte
+        // Fitzgerald-Smythe)" is about as long as it gets and needs ~250px.
+        popupMatchSelectWidth={260}
         // antd renders the raw value when nothing matches. While the list
         // loads that is a flash of a 24-character id; for a departed user it
         // is permanent. Neither belongs on screen.
@@ -186,7 +190,7 @@ export function OwnerFilter({ value, onChange, label = 'Owner', width = 190 }) {
   )
 }
 
-export function TagFilter({ value, onChange, label = 'Tag', width = 160 }) {
+export function TagFilter({ value, onChange, label = 'Tag', width = 170 }) {
   const tags = useTags()
   const options = useMemo(() => ([
     { value: '', label: 'Any tag' },
@@ -211,6 +215,26 @@ export function TagFilter({ value, onChange, label = 'Tag', width = 160 }) {
         optionFilterProp="label"
         style={{ width }}
         styles={{ root: { height: 34 } }}
+        // THE PANEL IS WIDER THAN THE CONTROL.
+        //
+        // antd matches the dropdown to the select's width by default, which is
+        // right for short options and wrong here: these are GHL tags, and this
+        // account's run to whole phrases — "(high) projects expected this
+        // month" wrapped onto three lines inside a 160px panel, so four tags
+        // filled the list and picking one meant reading a paragraph.
+        //
+        // A number, not `false`: false sizes the panel to its longest option,
+        // which a 60-character tag would drag across half the screen. 340px
+        // fits the realistic cases on one or two lines and stops there.
+        popupMatchSelectWidth={340}
+        // Long tags still need to wrap rather than be clipped — a truncated
+        // tag is unpickable, since the part that distinguishes it is usually
+        // at the end ("… expected this month" vs "… expected next month").
+        optionRender={(opt) => (
+          <span style={{ whiteSpace: 'normal', lineHeight: 1.35 }}>
+            {opt.label}
+          </span>
+        )}
       />
     </span>
   )
