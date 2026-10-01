@@ -184,7 +184,7 @@ export default function CopilotTab({ onOpenDeal }) {
           // change an owner or status. Nothing has happened to the CRM yet;
           // each renders its own ActionCard, confirmed independently.
           proposedActions: res.proposedActions || [],
-          scopeNote: res.scopeNote || null,
+
           groundingWarning: res.groundingWarning || null,
           fromFactsOnly: res.fromFactsOnly === true,
           // Needed to rate the answer. Dropped before — the server always
@@ -522,32 +522,45 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
           <SkillResult result={turn.skillResult} />
         )}
 
-        {turn.scopeNote && (
-          <p style={{
-            margin: '9px 0 0', padding: '7px 10px',
-            borderRadius: 'var(--radius-sm)',
-            background: 'var(--tint-gold)', color: 'var(--accent-gold-text)',
-            fontSize: 'var(--text-base)'
-          }}>
-            {turn.scopeNote}
-          </p>
-        )}
+        {/* The "ran out of lookups" note is NOT rendered.
+            It fired whenever the model hit its tool-call ceiling, which it
+            does routinely on a broad question — so it appeared under answers
+            that were perfectly complete and taught reps to read past the
+            notices under an answer. The signal still rides on the response as
+            `confidence: 'low'` for anyone who wants it; it is simply not worth
+            a banner. The grounding warning below stays: it fires rarely and
+            means something specific. */}
 
         {/* A deal-specific figure the model stated that no lookup this turn
-            actually backs — see groundingCheck.js on the server. Rose, not
-            gold: this is "possibly fabricated", a stronger caution than
-            scopeNote's "ran out of budget", so the two read as different
-            severities rather than the same shade of caution twice. */}
+            actually backs — see groundingCheck.js on the server. The only
+            notice left under an answer, which is what lets it carry weight. */}
         {turn.groundingWarning && (
           <p style={{
             display: 'flex', alignItems: 'flex-start', gap: 7,
             margin: '9px 0 0', padding: '7px 10px',
             borderRadius: 'var(--radius-sm)',
-            background: 'var(--tint-rose)', color: 'var(--status-stuck-text)',
+            // CLAY, not rose.
+            //
+            // Rose with status-stuck-text is what a genuine FAILURE wears —
+            // the request-error banner a few lines up uses exactly those two
+            // tokens, as do the editors' save errors. This is not a failure:
+            // the answer was produced and is shown above. Dressing a caution
+            // in the error palette is why a rep had to ask whether it was an
+            // error at all.
+            //
+            // Clay sits between the gold note and the red error: more urgent
+            // than "may be incomplete", short of "this went wrong". The left
+            // bar carries the weight that the softer background gives up, so
+            // it is still the most prominent thing under the answer.
+            background: 'var(--tint-clay)', color: 'var(--accent-clay-text)',
+            borderLeft: '3px solid var(--accent-clay)',
             fontSize: 'var(--text-base)'
           }}>
             <span className="ms" style={{ fontSize: 16, flex: 'none', marginTop: 1 }}>warning</span>
-            {turn.groundingWarning}
+            <span>
+              <strong>Check this one.</strong>{' '}
+              {turn.groundingWarning}
+            </span>
           </p>
         )}
 

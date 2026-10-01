@@ -28,8 +28,19 @@ export function findMentionQuery(text, caret) {
   const before = at === 0 ? '' : upto[at - 1]
   if (before && !/\s/.test(before)) return null
   const query = upto.slice(at + 1)
-  // A space closes the menu: the rep has moved on to writing their question.
-  if (/\s/.test(query)) return null
+  // A space no longer closes the menu outright — skill names are several words
+  // ("response time by rep"), and refusing any space meant the multi-word
+  // search below could never receive a multi-word query.
+  //
+  // But it cannot stay open forever either: an @ typed mid-sentence would hold
+  // a menu over the rest of the question. So it closes once the query stops
+  // looking like a name being typed — more than three words, or any word that
+  // ends with sentence punctuation.
+  const words = query.split(/\s+/)
+  if (words.length > 3) return null
+  if (/[.,;:!?]\s*$/.test(query)) return null
+  // A trailing double space is a deliberate "I am done with the mention".
+  if (/\s\s$/.test(query)) return null
   return { start: at, query }
 }
 
@@ -40,12 +51,36 @@ export default function SkillMentions({
   const listRef = useRef(null)
 
   const matches = useMemo(() => {
-    const q = (query || '').toLowerCase()
-    if (!q) return skills
-    return skills.filter(
-      (s) => s.name.toLowerCase().includes(q)
-        || (s.description || '').toLowerCase().includes(q)
-    )
+    const raw = (query || '').trim().toLowerCase()
+    if (!raw) return skills
+
+    // EVERY WORD must appear somewhere, not the phrase as a substring.
+    //
+    // Skill names are snake_case, so a plain `includes` only ever matched one
+    // contiguous run of a name: "rep" found six skills, but "rep time" found
+    // NONE — the words are there, separated by an underscore and in the other
+    // order. Same for "lost reason" against close_reason_list. A rep typing
+    // what they want in their own words got an empty menu and concluded the
+    // skill did not exist.
+    //
+    // Underscores are flattened to spaces so a word can match across them, and
+    // the description is searched too — "money" finds nothing in any name but
+    // sits in several descriptions.
+    const words = raw.split(/[\s_]+/).filter(Boolean)
+    const scored = []
+    for (const s of skills) {
+      const name = s.name.toLowerCase().replace(/_/g, ' ')
+      const desc = (s.description || '').toLowerCase()
+      if (!words.every((w) => name.includes(w) || desc.includes(w))) continue
+      // A name match beats a description one: someone typing "rep" wants the
+      // skills CALLED rep-something before the ones that merely mention reps.
+      const inName = words.filter((w) => name.includes(w)).length
+      const startsWord = words.some((w) => name.startsWith(w)) ? 1 : 0
+      scored.push({ s, rank: inName * 2 + startsWord })
+    }
+    return scored
+      .sort((a, b) => b.rank - a.rank || a.s.name.localeCompare(b.s.name))
+      .map((x) => x.s)
   }, [skills, query])
 
   // Reset the highlight whenever the list changes under it, or the keyboard
@@ -93,14 +128,48 @@ export default function SkillMentions({
         overflow: 'hidden'
       }}
     >
+      {/* The header doubles as the search box.
+          Typing after the @ has always filtered this list, but nothing said
+          so — the menu opened as 35 alphabetical rows and the only visible
+          affordance was the scrollbar, so a rep scrolled to find
+          "@response_time_by_rep" instead of typing "resp". A real input would
+          steal the caret from the textarea (which owns the arrow keys and
+          Enter), so this MIRRORS what has been typed rather than accepting
+          input of its own. */}
       <div style={{
+        display: 'flex', alignItems: 'center', gap: 7,
         padding: '7px 12px',
         borderBottom: '1px solid var(--border-default)',
         fontSize: 'var(--text-xs)', fontWeight: 600,
         letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase',
         color: 'var(--text-muted)'
       }}>
-        Skills
+        <span className="ms" style={{ fontSize: 14, textTransform: 'none' }}>search</span>
+        <span>Skills</span>
+        {query ? (
+          <span style={{
+            textTransform: 'none', letterSpacing: 0, fontWeight: 500,
+            color: 'var(--text-body)'
+          }}>
+            “{query}”
+          </span>
+        ) : (
+          <span style={{
+            textTransform: 'none', letterSpacing: 0, fontWeight: 400,
+            color: 'var(--text-faint)'
+          }}>
+            — type to filter
+          </span>
+        )}
+        <span style={{ flex: 1 }} />
+        {!loading && skills.length > 0 && (
+          <span style={{
+            textTransform: 'none', letterSpacing: 0, fontWeight: 500,
+            fontVariantNumeric: 'tabular-nums', color: 'var(--text-faint)'
+          }}>
+            {matches.length}/{skills.length}
+          </span>
+        )}
       </div>
 
       {loading ? (
