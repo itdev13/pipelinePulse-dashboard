@@ -164,4 +164,17 @@ test('a signed change column is never the bar', () => {
   assert.notEqual(shapeOf(rows).measure, 'expected_change')
 })
 
+test('a probability is never the bar — it is a ratio, not a quantity', () => {
+  // Not named "pct" or "percent", so the original test missed it: on the
+  // per-deal forecast list `probability` beat `value` on raw total and the
+  // chart showed the odds instead of the money.
+  const rows = [
+    { deal: 'A', value: 70000, probability: 60, expected_value: 42000 },
+    { deal: 'B', value: 40000, probability: 80, expected_value: 32000 }
+  ]
+  const s = shapeOf(rows)
+  assert.notEqual(s.measure, 'probability')
+  assert.ok(['value', 'expected_value'].includes(s.measure), s.measure)
+})
+
 console.log('skill chart shape: all cases pass')

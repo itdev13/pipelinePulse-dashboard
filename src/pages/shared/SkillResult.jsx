@@ -117,7 +117,12 @@ function shapeOf(rows) {
   // pct_lost_in_stage of 27/70/100 sums to 197 — so the percentage won and the
   // chart drew "share of this stage that was lost" as if it were volume. A
   // percentage is a ratio; bars of ratios beside each other do not compare.
-  const isPct = (c) => /^pct|_pct$|percent|_rate$/i.test(c)
+  // A probability is a ratio 0-100 — a percentage that is not called one.
+  // Bars of ratios side by side do not compare, which is why percentages are
+  // excluded, and the same argument applies here: on the per-deal forecast
+  // list `probability` beat `value` on raw total and charted the odds instead
+  // of the money.
+  const isPct = (c) => /^pct|_pct$|percent|_rate$|probability|_odds$/i.test(c)
   // Money is excluded from the bar for the same reason a percentage is: a
   // value column and a count column are different units, and value totals are
   // thousands of times larger, so value always wins the "biggest total"
