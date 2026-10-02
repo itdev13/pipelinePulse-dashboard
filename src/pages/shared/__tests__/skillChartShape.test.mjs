@@ -137,4 +137,31 @@ test('a column constant on every row is not charted', () => {
   assert.ok(!s.extras.includes('account_total'))
 })
 
+test('a running total is never the bar', () => {
+  // THE WORST CASE THIS FILE GUARDS. A cumulative column can only go up, so
+  // bars of it slope upward whatever happened. On the forecast growth view
+  // won_cumulative beat won_value on raw total and became the chart, drawing
+  // a rising line across three months in which revenue fell 210k to 150k.
+  // Every other wrong pick here is uninformative; this one states the
+  // opposite of the truth and looks deliberate doing it.
+  const rows = [
+    { month: new Date('2026-07-01'), won_value: 210000, won_cumulative: 210000 },
+    { month: new Date('2026-08-01'), won_value: 165000, won_cumulative: 375000 },
+    { month: new Date('2026-09-01'), won_value: 150000, won_cumulative: 525000 }
+  ]
+  const s = shapeOf(rows)
+  assert.notEqual(s.measure, 'won_cumulative')
+})
+
+test('a signed change column is never the bar', () => {
+  // A bar chart has no sensible way to draw -72000 beside 96000, and scaling
+  // to the largest row flattens everything else behind one big swing.
+  const rows = [
+    { month: new Date('2026-10-01'), expected_value: 216000, expected_change: 216000 },
+    { month: new Date('2026-11-01'), expected_value: 144000, expected_change: -72000 },
+    { month: new Date('2026-12-01'), expected_value: 240000, expected_change: 96000 }
+  ]
+  assert.notEqual(shapeOf(rows).measure, 'expected_change')
+})
+
 console.log('skill chart shape: all cases pass')

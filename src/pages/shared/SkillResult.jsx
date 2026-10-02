@@ -130,7 +130,19 @@ function shapeOf(rows) {
   // median_days_to_win beat won_deals on raw total and became the chart —
   // drawing "how long deals took" where the question was "how many we won".
   const isStat = (c) => /^(median|avg|average|mean|p\d+)_|_(median|avg|average|mean)$|^median|^avg_/i.test(c)
-  const counts = numeric.filter((c) => !isPct(c) && !isMoney(c) && !isStat(c))
+  // A RUNNING TOTAL can only go up, so bars of it slope upward no matter what
+  // happened. On the forecast growth view, won_cumulative beat won_value on
+  // raw total and became the chart — drawing a rising line across three months
+  // in which revenue fell 210k -> 165k -> 150k. The one shape that can state
+  // the opposite of the truth and look deliberate doing it.
+  const isCumulative = (c) => /cumulative|running|_to_date$|^total_[a-z]+_so_far/i.test(c)
+  // A CHANGE column is signed and often negative; a bar chart has no sensible
+  // way to draw -72000 beside 96000, and scaling to the largest row makes a
+  // single big swing flatten everything else.
+  const isDelta = (c) => /_change$|_change_pct$|^delta_|_diff$/i.test(c)
+  const counts = numeric.filter(
+    (c) => !isPct(c) && !isMoney(c) && !isStat(c) && !isCumulative(c) && !isDelta(c)
+  )
   const totalOf = (c) => rows.reduce((n, r) => n + (Number(r[c]) || 0), 0)
 
   // A column whose name says it is the whole beats one that is a part of it.
@@ -139,7 +151,16 @@ function shapeOf(rows) {
   // came first and charted "lost" as if it were all deaths, hiding the
   // abandoned ones entirely. Totals are the honest default measure.
   const TOTALISH = /^(deals|total|count|leads|enquiries|closed|open_deals|won|notes)/i
-  const pool = counts.length ? counts : numeric
+  // The fallback must keep the two HARD exclusions. Money and stats are
+  // merely poor bar choices and are fine when nothing else exists — a view of
+  // only money columns should still chart. A cumulative or a signed change is
+  // different: one always rises, the other goes negative, and neither can be
+  // drawn as a bar without misleading. On the forecast growth view both real
+  // measures were money, so counts was empty, the fallback took the whole
+  // numeric list, and won_cumulative won on raw total — the exact bug the
+  // exclusion above was added to prevent.
+  const safeFallback = numeric.filter((c) => !isCumulative(c) && !isDelta(c))
+  const pool = counts.length ? counts : (safeFallback.length ? safeFallback : numeric)
   const measure = [...pool].sort((a, b) => {
     const d = totalOf(b) - totalOf(a)
     if (d !== 0) return d
