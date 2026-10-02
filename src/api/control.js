@@ -8,6 +8,12 @@ export const controlAPI = {
   saveBusinessContext: (content, filename) =>
     apiClient.put('/api/control/business-context', { content, filename }),
 
+  // The signed-in rep's email sign-off. No user id is sent: the server always
+  // uses the session's own, so one rep cannot read or overwrite another's.
+  getSignature: () => apiClient.get('/api/control/signature'),
+  saveSignature: (html) => apiClient.put('/api/control/signature', { html }),
+  deleteSignature: () => apiClient.delete('/api/control/signature'),
+
   // AI skills — a saved database view the AI can query as a tool.
   //
   // No SQL crosses this boundary in either direction. A skill carries a view

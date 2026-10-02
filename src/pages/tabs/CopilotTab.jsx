@@ -280,7 +280,12 @@ export default function CopilotTab({ onOpenDeal }) {
         fromFactsOnly: false,
         // Without this, thumbs up/down disable on every reopened turn —
         // ReactionRow treats a missing runId as "no run to rate".
-        runId: t.runId || null
+        runId: t.runId || null,
+        // Proposed writes, with the status each ended up in. Dropped here
+        // before, so a reopened chat showed no trace of an email a rep had
+        // already sent — and the next turn's card would offer to send it
+        // again.
+        proposedActions: t.proposedActions || []
       }
     ]))
     setConversationId(chat.conversationId || null)
@@ -596,6 +601,10 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
                 actionId={a.actionId}
                 actionType={a.actionType}
                 proposed={a.proposed}
+                // Present on a reopened chat, absent on a live answer (which
+                // is pending by definition). The card renders as already
+                // sent rather than offering the draft again.
+                status={a.status || null}
               />
             ))}
           </div>

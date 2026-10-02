@@ -18,6 +18,8 @@ import { Bar, SkeletonStyles, formatDate } from '../shared/ListChrome'
 // restart or a redeploy, or the agent silently loses its grounding and nobody
 // notices until an answer goes generic.
 
+const RichEditor = React.lazy(() => import('../shared/RichEditor'))
+
 export default function ControlCentreTab() {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
@@ -81,6 +83,9 @@ export default function ControlCentreTab() {
 
   return (
     <Shell>
+      {/* First: it belongs to the rep reading the page, where everything
+          below is account-wide configuration. */}
+      <SignatureSection />
       <BusinessContextSection
         file={data.businessContext}
         onSaved={(businessContext) => setData((d) => ({ ...d, businessContext }))}
@@ -326,6 +331,109 @@ function BusinessContextSection({ file, onSaved }) {
 
 // The design's closing note. Worth keeping: it sets the expectation that the
 // agent doesn't learn, so what it knows is exactly what's in this file.
+// A rep's email sign-off, used on every email the AI drafts for them.
+//
+// WHY IT LIVES HERE AND NOT IN THE COMPOSER. A signature is written once and
+// changed rarely; the composer is where it is USED. Putting the editor on the
+// composer would ask a rep to re-check it on every email, which is how a
+// signature ends up half-deleted.
+function SignatureSection() {
+  const [html, setHtml] = useState(null)      // null while loading
+  const [saved, setSaved] = useState('')      // what the server last stored
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const [note, setNote] = useState(null)
+
+  useEffect(() => {
+    let alive = true
+    controlAPI.getSignature()
+      .then((r) => { if (!alive) return; const v = r?.signature?.html || ''; setHtml(v); setSaved(v) })
+      .catch((err) => alive && setError(err.message || 'Could not load your signature'))
+    return () => { alive = false }
+  }, [])
+
+  const dirty = html !== null && html !== saved
+
+  async function save() {
+    setBusy(true); setError(null); setNote(null)
+    try {
+      const r = await controlAPI.saveSignature(html || '')
+      // The SERVER's version, not ours — it sanitises on save, so a signature
+      // pasted from Outlook comes back without the table markup. Showing what
+      // was actually stored means a rep finds that out here rather than when
+      // an email looks different from the draft.
+      const stored = r?.signature?.html || ''
+      setHtml(stored); setSaved(stored)
+      setNote(stored ? 'Saved' : 'Signature removed')
+    } catch (err) {
+      setError(err.message || 'Could not save your signature')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <SectionCard
+      icon="signature"
+      title="Your email signature"
+      accent="plum"
+      meta="Yours only, in this sub-account"
+      help="Added to the end of every email the AI drafts for you, where you can still edit or trim it before sending. Paste yours from Outlook or write one here. Working in more than one brand? Each has its own — set it there too."
+    >
+      <div style={{ padding: 'var(--space-4)', display: 'grid', gap: 'var(--space-3)' }}>
+        {html === null ? (
+          <div style={{
+            minHeight: 140, borderRadius: 'var(--radius-sm)', background: 'var(--gray-50)'
+          }} />
+        ) : (
+          <React.Suspense fallback={<div style={{ minHeight: 140 }} />}>
+            <RichEditor
+              value={html}
+              onChange={setHtml}
+              placeholder="J Srini — Crittall Windows · 0121 000 0000"
+              minHeight={140}
+              disabled={busy}
+            />
+          </React.Suspense>
+        )}
+
+        {error && (
+          <p style={{
+            margin: 0, padding: '7px 10px', borderRadius: 'var(--radius-sm)',
+            background: 'var(--tint-rose)', color: 'var(--status-stuck-text)',
+            fontSize: 'var(--text-base)'
+          }}>
+            {error}
+          </p>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+          <button
+            type="button"
+            onClick={save}
+            disabled={busy || !dirty}
+            style={{
+              height: 34, padding: '0 14px', border: 'none',
+              borderRadius: 'var(--radius-md)',
+              background: (busy || !dirty) ? 'var(--gray-200)' : 'var(--brand-primary)',
+              color: (busy || !dirty) ? 'var(--text-faint)' : '#fff',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
+              cursor: (busy || !dirty) ? 'default' : 'pointer'
+            }}
+          >
+            {busy ? 'Saving…' : 'Save signature'}
+          </button>
+          {/* Deliberately not a separate Delete button: clearing the box and
+              saving removes it, which is one concept rather than two. */}
+          <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
+            {note || (dirty ? 'Unsaved changes' : 'Clear the box and save to remove it')}
+          </span>
+        </div>
+      </div>
+    </SectionCard>
+  )
+}
+
 function Footnote() {
   return (
     <p

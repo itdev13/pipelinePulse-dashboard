@@ -25,11 +25,28 @@ const RichEditor = React.lazy(() => import('./RichEditor'))
 // Fields are editable before confirming (like NoteEditor/TaskEditor's
 // create-mode draft pattern) — a rep fixing a typo'd phone number shouldn't
 // have to redo the whole exchange with the model.
-export default function ActionCard({ actionId, actionType, proposed, onResolved }) {
+export default function ActionCard({ actionId, actionType, proposed, status = null, onResolved }) {
   const [fields, setFields] = useState(() => ({ ...proposed }))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
-  const [resolved, setResolved] = useState(null) // 'confirmed' | 'rejected' | null
+  // Resolved LOCALLY this mount — a rep who just clicked Confirm.
+  const [justResolved, setJustResolved] = useState(null) // 'confirmed' | 'rejected' | null
+
+  // THE SERVER'S STATUS WINS.
+  //
+  // This used to be local state alone, which meant the card forgot. Switching
+  // tab unmounts it; switching back rebuilt a SENT email as an unsent draft,
+  // editor open, ready to send again. The row in ai_actions said 'confirmed'
+  // the whole time — the card simply never asked.
+  //
+  // `status` comes from the action row, so a reopened turn renders as
+  // resolved without the component having to remember anything. The local
+  // value still takes precedence while it is set, so the card updates the
+  // instant a rep clicks rather than waiting for a refetch.
+  const serverResolved = status === 'confirmed' ? 'confirmed'
+    : (status === 'rejected' || status === 'failed') ? 'rejected'
+    : null
+  const resolved = justResolved || serverResolved
 
   const setField = (key, value) => setFields((f) => ({ ...f, [key]: value }))
 
@@ -50,7 +67,7 @@ export default function ActionCard({ actionId, actionType, proposed, onResolved 
     setError(null)
     try {
       await aiAPI.confirmAction(actionId, editsOnly())
-      setResolved('confirmed')
+      setJustResolved('confirmed')
       onResolved?.('confirmed')
     } catch (err) {
       setError(err?.message || 'Could not complete this action')
@@ -65,7 +82,7 @@ export default function ActionCard({ actionId, actionType, proposed, onResolved 
     setError(null)
     try {
       await aiAPI.rejectAction(actionId)
-      setResolved('rejected')
+      setJustResolved('rejected')
       onResolved?.('rejected')
     } catch (err) {
       setError(err?.message || 'Could not dismiss this proposal')
