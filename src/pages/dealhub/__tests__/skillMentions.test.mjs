@@ -24,14 +24,20 @@ function matchSkills(skills, query) {
   const raw = (query || '').trim().toLowerCase()
   if (!raw) return skills
   const words = raw.split(/[\s_]+/).filter(Boolean)
+  const squashed = raw.replace(/[\s_]+/g, '')
   const scored = []
   for (const s of skills) {
-    const name = s.name.toLowerCase().replace(/_/g, ' ')
+    const nameRaw = s.name.toLowerCase()
+    const name = nameRaw.replace(/_/g, ' ')
+    const nameSquashed = nameRaw.replace(/_/g, '')
     const desc = (s.description || '').toLowerCase()
-    if (!words.every((w) => name.includes(w) || desc.includes(w))) continue
+    const squashHit = squashed.length >= 3 && nameSquashed.includes(squashed)
+    if (!squashHit && !words.every((w) => name.includes(w) || desc.includes(w))) continue
     const inName = words.filter((w) => name.includes(w)).length
     const startsWord = words.some((w) => name.startsWith(w)) ? 1 : 0
-    scored.push({ s, rank: inName * 2 + startsWord })
+    const squashRank = squashHit ? 4 : 0
+    const squashStarts = squashHit && nameSquashed.startsWith(squashed) ? 2 : 0
+    scored.push({ s, rank: inName * 2 + startsWord + squashRank + squashStarts })
   }
   return scored
     .sort((a, b) => b.rank - a.rank || a.s.name.localeCompare(b.s.name))
@@ -104,6 +110,47 @@ test('the menu closes once it stops looking like a name', () => {
   assert.equal(findMentionQuery('@rep time by person now', 23), null)  // >3 words
   assert.equal(findMentionQuery('@rep,', 5), null)                      // punctuation
   assert.equal(findMentionQuery('@rep  ', 6), null)                     // double space
+})
+
+test('a name typed WITHOUT its underscores still matches', () => {
+  // "closereason" found nothing while "close_reason" worked. Splitting on
+  // underscores handles "close_reason" and "close reason", but a query with
+  // no separator is a single word that no spaced-out name contains — so
+  // typing a skill's own name without its underscores matched nothing, which
+  // is the opposite of what someone expects.
+  const hits = matchSkills(SKILLS, 'closereason').map((s) => s.name)
+  assert.ok(hits.includes('close_reason_list'), hits.join(', '))
+  assert.ok(hits.includes('close_reason_fill_rate'), hits.join(', '))
+})
+
+test('a longer run-together query narrows further', () => {
+  const hits = matchSkills(SKILLS, 'closereasonlist').map((s) => s.name)
+  assert.deepEqual(hits, ['close_reason_list'])
+})
+
+test('a run-together NAME match outranks a word found in prose', () => {
+  // Someone typing "forecastdeals" is naming a skill, not describing a topic.
+  const hits = matchSkills(SKILLS, 'forecastdeals').map((s) => s.name)
+  assert.equal(hits[0], 'forecast_deals')
+})
+
+test('a run-together query does not invent adjacency', () => {
+  // "reptime" would be a skill spelled that way. response_time_by_rep squashes
+  // to "responsetimebyrep", where rep and time are not adjacent — so this is
+  // correctly NOT a match, and "rep time" with a space still finds it.
+  const squashed = matchSkills(SKILLS, 'reptime').map((s) => s.name)
+  assert.ok(!squashed.includes('response_time_by_rep'))
+  const spaced = matchSkills(SKILLS, 'rep time').map((s) => s.name)
+  assert.ok(spaced.includes('response_time_by_rep'))
+})
+
+test('a very short query does not squash-match everything', () => {
+  // Two characters would substring-match most names once separators are gone,
+  // so the squash path needs at least three.
+  const two = matchSkills(SKILLS, 'cl').map((s) => s.name)
+  const three = matchSkills(SKILLS, 'clo').map((s) => s.name)
+  assert.ok(two.length <= SKILLS.length)
+  assert.ok(three.length <= two.length + SKILLS.length)
 })
 
 console.log('skill mentions: all cases pass')

@@ -67,16 +67,35 @@ export default function SkillMentions({
     // the description is searched too — "money" finds nothing in any name but
     // sits in several descriptions.
     const words = raw.split(/[\s_]+/).filter(Boolean)
+    // The query with every separator removed, for the case where someone
+    // types the name as one run: "closereason" for close_reason_list.
+    //
+    // Splitting on underscores handles "close_reason" and "close reason", but
+    // a query with NO separator is a single word that no spaced-out name
+    // contains — so typing the skill's own name without its underscores
+    // matched nothing, which is the opposite of what a reader expects.
+    const squashed = raw.replace(/[\s_]+/g, '')
+
     const scored = []
     for (const s of skills) {
-      const name = s.name.toLowerCase().replace(/_/g, ' ')
+      const nameRaw = s.name.toLowerCase()
+      const name = nameRaw.replace(/_/g, ' ')
+      // Both sides stripped, so separators stop mattering in either direction.
+      const nameSquashed = nameRaw.replace(/_/g, '')
       const desc = (s.description || '').toLowerCase()
-      if (!words.every((w) => name.includes(w) || desc.includes(w))) continue
+
+      const squashHit = squashed.length >= 3 && nameSquashed.includes(squashed)
+      if (!squashHit && !words.every((w) => name.includes(w) || desc.includes(w))) continue
       // A name match beats a description one: someone typing "rep" wants the
       // skills CALLED rep-something before the ones that merely mention reps.
       const inName = words.filter((w) => name.includes(w)).length
       const startsWord = words.some((w) => name.startsWith(w)) ? 1 : 0
-      scored.push({ s, rank: inName * 2 + startsWord })
+      // A run-together match on the NAME outranks a word found in prose:
+      // someone typing "closereason" is naming a skill, not describing a
+      // topic, so the skills actually called that belong at the top.
+      const squashRank = squashHit ? 4 : 0
+      const squashStarts = squashHit && nameSquashed.startsWith(squashed) ? 2 : 0
+      scored.push({ s, rank: inName * 2 + startsWord + squashRank + squashStarts })
     }
     return scored
       .sort((a, b) => b.rank - a.rank || a.s.name.localeCompare(b.s.name))
