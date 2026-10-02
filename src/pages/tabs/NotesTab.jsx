@@ -4,6 +4,8 @@ import { htmlToText } from '../../utils/sanitiseHtml'
 import ViewSwitch from '../shared/ViewSwitch'
 import WorkFilters from '../shared/WorkFilters'
 import { useTabState } from '../../hooks/useTabState'
+import { useAuth } from '../../context/AuthContext'
+import { OwnerFilter, defaultOwner, resolveOwner } from '../shared/ListFilters'
 import { notesAPI } from '../../api/notes'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import NoteEditor from '../shared/NoteEditor'
@@ -36,16 +38,24 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
   // The note open in the reader. Null = none.
   const [reading, setReading] = useState(null)
 
+  // Defaults to the signed-in rep's own notes, and REMEMBERS a change — the
+  // same pattern as Tasks, Deals and Contacts. A rep opening Notes almost
+  // always wants what they wrote; a manager switches to everyone once and it
+  // sticks for the session.
+  const { session } = useAuth()
+  const [author, setAuthor] = useTabState('notes', 'author', defaultOwner(session))
+
   const fetchPage = useCallback(
     ({ cursor }) => notesAPI.list({
       limit: 20, cursor,
+      authorId: resolveOwner(author),
       contactId: filters.contactId || undefined,
       dealId: filters.dealId || undefined
     }),
-    [filters]
+    [filters, author]
   )
   const { items, error, hasMore, loadingMore, loading, loadMore, patchItem, reload } =
-    usePagedList({ fetchPage, key: 'notes', deps: [filters] })
+    usePagedList({ fetchPage, key: 'notes', deps: [filters, author] })
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
   const notes = items || []
@@ -147,6 +157,17 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
         count={loading ? null : `${notes.length}${hasMore ? '+' : ''}`}
         action={
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            {/* "Author", not "Owner": a note is not assigned to anyone and
+                cannot be reassigned, so calling it an owner would promise
+                something the record does not support. "No author" covers
+                notes synced before attribution existed. */}
+            <OwnerFilter
+              value={author}
+              onChange={setAuthor}
+              label="Author"
+              noneLabel="No author"
+              width={180}
+            />
             <WorkFilters
               filters={filters}
               onChange={setFilters}

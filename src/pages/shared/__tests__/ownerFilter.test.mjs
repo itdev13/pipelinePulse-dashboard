@@ -177,4 +177,35 @@ test('Save view still appears when ONLY owner and tag are set', () => {
   assert.match(toolbar, /\(allActive\.length > 0 && !activeViewId\)/)
 })
 
+test('the "everyone" option is named after the control', () => {
+  // "All owners" is right on Contacts and Deals, where a record is owned. A
+  // task is ASSIGNED and a note was WRITTEN — calling either an owner
+  // promises a reassignment that notes do not support at all.
+  const allLabel = (label, override) => override || `All ${label.toLowerCase()}s`
+  assert.equal(allLabel('Owner'), 'All owners')
+  assert.equal(allLabel('Assignee'), 'All assignees')
+  assert.equal(allLabel('Author'), 'All authors')
+  assert.equal(allLabel('Owner', 'Everyone'), 'Everyone')
+})
+
+test('the "nobody" option can be renamed per tab', () => {
+  // An unassigned TASK is the one most likely to be missed, so "Nobody" reads
+  // as a problem. A note with no author is just old data, so "No author" is
+  // the honest wording — neither is "Unassigned".
+  const card = readFileSync(new URL('../ListFilters.jsx', import.meta.url), 'utf8')
+  assert.match(card, /noneLabel = 'Unassigned'/)
+  assert.match(card, /label: noneLabel/)
+})
+
+test('Tasks and Notes both default to the signed-in user', () => {
+  const tasks = readFileSync(new URL('../../tabs/TasksTab.jsx', import.meta.url), 'utf8')
+  const notes = readFileSync(new URL('../../tabs/NotesTab.jsx', import.meta.url), 'utf8')
+  assert.match(tasks, /defaultOwner\(session\)/)
+  assert.match(notes, /defaultOwner\(session\)/)
+  // useTabState, so a change survives a tab switch and a reload rather than
+  // snapping back to Mine on every visit.
+  assert.match(tasks, /useTabState\('tasks', 'owner'/)
+  assert.match(notes, /useTabState\('notes', 'author'/)
+})
+
 console.log('owner filter: all cases pass')

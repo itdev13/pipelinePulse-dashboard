@@ -219,7 +219,16 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                 styles={{ root: { height: 34 } }}
               />
             </span>
-            <OwnerFilter value={owner} onChange={setOwner} />
+            {/* "Assignee", not "Owner": a task is assigned to someone, and
+                the unassigned option reads better as "Nobody" than as a
+                missing owner — an unassigned task is the one most likely to
+                be missed, which is worth it sounding like. */}
+            <OwnerFilter
+              value={owner}
+              onChange={setOwner}
+              label="Assignee"
+              noneLabel="Nobody"
+            />
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
               <Label>Due</Label>
               <Select

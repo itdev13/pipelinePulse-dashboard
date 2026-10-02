@@ -100,7 +100,16 @@ function useTags() {
   return tags
 }
 
-export function OwnerFilter({ value, onChange, label = 'Owner', width = 190 }) {
+export function OwnerFilter({
+  value, onChange, label = 'Owner', width = 190,
+  // What the "everyone" and "nobody" options are CALLED.
+  //
+  // "All owners" is right on Contacts and Deals, where a record is owned. A
+  // task is ASSIGNED to someone and a note was WRITTEN by someone — calling
+  // either an owner invites a rep to expect a reassignment that does not
+  // exist on notes at all. The control is the same; only the words change.
+  allLabel = null, noneLabel = 'Unassigned'
+}) {
   const { session } = useAuth()
   const users = useUsers()
   const myId = session?.user?.id || null
@@ -121,8 +130,8 @@ export function OwnerFilter({ value, onChange, label = 'Owner', width = 190 }) {
 
   const options = useMemo(() => {
     const head = [
-      { value: ALL, label: 'All owners' },
-      { value: UNASSIGNED, label: 'Unassigned' }
+      { value: ALL, label: allLabel || `All ${label.toLowerCase()}s` },
+      { value: UNASSIGNED, label: noneLabel }
     ]
     // Your own row first and labelled, so the common choice is reachable
     // without reading a list of colleagues to find yourself in it.
@@ -136,7 +145,7 @@ export function OwnerFilter({ value, onChange, label = 'Owner', width = 190 }) {
       .filter((u) => u.id && u.id !== myId)
       .map((u) => ({ value: u.id, label: u.name || u.email || u.id }))
     return rest.length ? [...head, { label: '──────────', options: rest }] : head
-  }, [users, myId, me])
+  }, [users, myId, me, label, allLabel, noneLabel])
 
   // A value that is not ALL, not UNASSIGNED, and not a user we know.
   //
