@@ -44,14 +44,10 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
   // sticks for the session.
   const { session } = useAuth()
   const [author, setAuthor] = useTabState('notes', 'author', defaultOwner(session))
-  // WRITTEN date by default, not import date.
-  //
-  // imported_at is when we synced the note, and on backfilled data every note
-  // shares one import timestamp — so a year of notes came back in arbitrary
-  // order while looking chronological. "Date synced" stays available because
-  // it answers a question written-date cannot: what arrived since I last
-  // looked.
-  const [sort, setSort] = useTabState('notes', 'sort', 'written')
+  // Newest first by default. Always the date the note was WRITTEN — the
+  // import date is when we synced it, and on backfilled data every note
+  // shares one, so ordering by it looks chronological and is not.
+  const [sort, setSort] = useTabState('notes', 'sort', 'desc')
 
   const fetchPage = useCallback(
     ({ cursor }) => notesAPI.list({
@@ -180,8 +176,8 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
               value={sort}
               onChange={setSort}
               options={[
-                { value: 'written', label: 'Date written' },
-                { value: 'synced', label: 'Date synced' }
+                { value: 'desc', label: 'Newest first' },
+                { value: 'asc', label: 'Oldest first' }
               ]}
               width={150}
             />

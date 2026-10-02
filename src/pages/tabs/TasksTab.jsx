@@ -249,9 +249,10 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
               onChange={setSort}
               options={[
                 { value: 'due', label: 'Due date' },
-                { value: 'created', label: 'Date created' }
+                { value: 'created_desc', label: 'Created, newest' },
+                { value: 'created_asc', label: 'Created, oldest' }
               ]}
-              width={150}
+              width={170}
             />
           </div>
         }

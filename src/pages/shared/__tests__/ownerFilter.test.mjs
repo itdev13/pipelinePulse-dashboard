@@ -215,7 +215,7 @@ test('both tabs expose a sort control, and remember the choice', () => {
   // Persisted like every other filter — a rep who switches to created-date
   // should not be put back on due-date by a tab switch.
   assert.match(tasks, /useTabState\('tasks', 'sort', 'due'\)/)
-  assert.match(notes, /useTabState\('notes', 'sort', 'written'\)/)
+  assert.match(notes, /useTabState\('notes', 'sort', 'desc'\)/)
 
   // And actually sent, or the control would move and nothing would change.
   assert.match(tasks, /due: dueFilter, sort,/)
@@ -238,13 +238,24 @@ test('the sort control is shared, not copied per tab', () => {
   assert.match(notes, /<SortSelect/)
 })
 
-test('notes defaults to WRITTEN date', () => {
-  // imported_at is when we synced it. On backfilled data every note shares one
-  // import timestamp, so the old default returned a year of notes in arbitrary
-  // order while looking chronological.
+test('notes sorts by direction, not by which timestamp', () => {
+  // A "date synced" option was offered and removed: it answers a question
+  // about our sync rather than the business, and it was the ordering that
+  // LOOKS chronological while being arbitrary — every backfilled note shares
+  // one import timestamp. Direction is the useful choice.
   const notes = readFileSync(new URL('../../tabs/NotesTab.jsx', import.meta.url), 'utf8')
-  assert.match(notes, /'sort', 'written'/)
-  assert.match(notes, /value: 'written', label: 'Date written'/)
+  assert.match(notes, /value: 'desc', label: 'Newest first'/)
+  assert.match(notes, /value: 'asc', label: 'Oldest first'/)
+  assert.doesNotMatch(notes, /Date synced/)
+})
+
+test('tasks offers a direction only on created date', () => {
+  // A due-date list read backwards is a list of overdue tasks, which the Due
+  // filter already answers better.
+  const tasks = readFileSync(new URL('../../tabs/TasksTab.jsx', import.meta.url), 'utf8')
+  assert.match(tasks, /value: 'created_desc'/)
+  assert.match(tasks, /value: 'created_asc'/)
+  assert.doesNotMatch(tasks, /value: 'due_desc'/)
 })
 
 console.log('owner filter: all cases pass')
