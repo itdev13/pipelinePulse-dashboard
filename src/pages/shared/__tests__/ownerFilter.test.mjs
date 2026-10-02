@@ -208,4 +208,43 @@ test('Tasks and Notes both default to the signed-in user', () => {
   assert.match(notes, /useTabState\('notes', 'author'/)
 })
 
+test('both tabs expose a sort control, and remember the choice', () => {
+  const tasks = readFileSync(new URL('../../tabs/TasksTab.jsx', import.meta.url), 'utf8')
+  const notes = readFileSync(new URL('../../tabs/NotesTab.jsx', import.meta.url), 'utf8')
+
+  // Persisted like every other filter — a rep who switches to created-date
+  // should not be put back on due-date by a tab switch.
+  assert.match(tasks, /useTabState\('tasks', 'sort', 'due'\)/)
+  assert.match(notes, /useTabState\('notes', 'sort', 'written'\)/)
+
+  // And actually sent, or the control would move and nothing would change.
+  assert.match(tasks, /due: dueFilter, sort,/)
+  assert.match(notes, /limit: 20, cursor, sort,/)
+
+  // In the deps, or the list would not refetch when it moved.
+  assert.match(tasks, /deps: \[status, dueFilter, filters, owner, sort\]/)
+  assert.match(notes, /deps: \[filters, author, sort\]/)
+})
+
+test('the sort control is shared, not copied per tab', () => {
+  // Tasks has antd Selects and a Label helper; Notes has neither. Two
+  // hand-rolled versions would drift in width, height and wording the first
+  // time either was touched.
+  const shared = readFileSync(new URL('../ListFilters.jsx', import.meta.url), 'utf8')
+  assert.match(shared, /export function SortSelect/)
+  const tasks = readFileSync(new URL('../../tabs/TasksTab.jsx', import.meta.url), 'utf8')
+  const notes = readFileSync(new URL('../../tabs/NotesTab.jsx', import.meta.url), 'utf8')
+  assert.match(tasks, /<SortSelect/)
+  assert.match(notes, /<SortSelect/)
+})
+
+test('notes defaults to WRITTEN date', () => {
+  // imported_at is when we synced it. On backfilled data every note shares one
+  // import timestamp, so the old default returned a year of notes in arbitrary
+  // order while looking chronological.
+  const notes = readFileSync(new URL('../../tabs/NotesTab.jsx', import.meta.url), 'utf8')
+  assert.match(notes, /'sort', 'written'/)
+  assert.match(notes, /value: 'written', label: 'Date written'/)
+})
+
 console.log('owner filter: all cases pass')

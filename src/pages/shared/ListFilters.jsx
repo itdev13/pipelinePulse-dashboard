@@ -249,6 +249,33 @@ export function TagFilter({ value, onChange, label = 'Tag', width = 170 }) {
   )
 }
 
+
+// Sort order, as a dropdown.
+//
+// Shared rather than written per tab because the two that need it have
+// different toolbars — Tasks has antd Selects and a Label helper, Notes has
+// neither — and a second hand-rolled version would drift in width, height and
+// wording the first time either was touched.
+//
+// The OPTIONS are the caller's: "Due date / Date created" means something on
+// tasks and nothing on notes, where the real choice is when it was written
+// versus when we synced it.
+export function SortSelect({ value, onChange, options, label = 'Sort', width = 160 }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+      <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>{label}</span>
+      <Select
+        value={value}
+        onChange={onChange}
+        options={options}
+        popupClassName="pp-menu"
+        style={{ width }}
+        styles={{ root: { height: 34 } }}
+      />
+    </span>
+  )
+}
+
 // The default a tab starts on: your own records if we know who you are,
 // everything if we do not — an empty list with no explanation is the worse
 // failure.

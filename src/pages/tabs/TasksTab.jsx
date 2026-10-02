@@ -7,7 +7,7 @@ import { tasksAPI } from '../../api/tasks'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
 import { useAuth } from '../../context/AuthContext'
-import { OwnerFilter, defaultOwner, resolveOwner } from '../shared/ListFilters'
+import { OwnerFilter, SortSelect, defaultOwner, resolveOwner } from '../shared/ListFilters'
 import TaskEditor from '../shared/TaskEditor'
 import TaskDealsPopover from '../shared/TaskDealsPopover'
 import { useLinkTargets } from '../../hooks/useLinkTargets'
@@ -90,18 +90,22 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
   // who switches to "All owners" is not put back on Mine every visit.
   const { session } = useAuth()
   const [owner, setOwner] = useTabState('tasks', 'owner', defaultOwner(session))
+  // Due date by default — a task list is for what is coming up. Created date
+  // answers a different question ("what came in recently"), so it is an
+  // option rather than a replacement. Persisted like every other filter.
+  const [sort, setSort] = useTabState('tasks', 'sort', 'due')
 
   const fetchPage = useCallback(
     ({ cursor }) => tasksAPI.list({
-      status, due: dueFilter, limit: 20, cursor,
+      status, due: dueFilter, sort, limit: 20, cursor,
       assignedTo: resolveOwner(owner),
       contactId: filters.contactId || undefined,
       dealId: filters.dealId || undefined
     }),
-    [status, dueFilter, filters, owner, session]
+    [status, dueFilter, filters, owner, session, sort]
   )
   const { items, error, hasMore, loadingMore, loading, loadMore, patchItem, reload } =
-    usePagedList({ fetchPage, key: 'tasks', deps: [status, dueFilter, filters, owner] })
+    usePagedList({ fetchPage, key: 'tasks', deps: [status, dueFilter, filters, owner, sort] })
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
   const tasks = items || []
@@ -240,6 +244,15 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                 styles={{ root: { height: 34 } }}
               />
             </span>
+            <SortSelect
+              value={sort}
+              onChange={setSort}
+              options={[
+                { value: 'due', label: 'Due date' },
+                { value: 'created', label: 'Date created' }
+              ]}
+              width={150}
+            />
           </div>
         }
         accent="rose"

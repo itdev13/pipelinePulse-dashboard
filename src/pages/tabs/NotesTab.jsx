@@ -5,7 +5,7 @@ import ViewSwitch from '../shared/ViewSwitch'
 import WorkFilters from '../shared/WorkFilters'
 import { useTabState } from '../../hooks/useTabState'
 import { useAuth } from '../../context/AuthContext'
-import { OwnerFilter, defaultOwner, resolveOwner } from '../shared/ListFilters'
+import { OwnerFilter, SortSelect, defaultOwner, resolveOwner } from '../shared/ListFilters'
 import { notesAPI } from '../../api/notes'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import NoteEditor from '../shared/NoteEditor'
@@ -44,18 +44,26 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
   // sticks for the session.
   const { session } = useAuth()
   const [author, setAuthor] = useTabState('notes', 'author', defaultOwner(session))
+  // WRITTEN date by default, not import date.
+  //
+  // imported_at is when we synced the note, and on backfilled data every note
+  // shares one import timestamp — so a year of notes came back in arbitrary
+  // order while looking chronological. "Date synced" stays available because
+  // it answers a question written-date cannot: what arrived since I last
+  // looked.
+  const [sort, setSort] = useTabState('notes', 'sort', 'written')
 
   const fetchPage = useCallback(
     ({ cursor }) => notesAPI.list({
-      limit: 20, cursor,
+      limit: 20, cursor, sort,
       authorId: resolveOwner(author),
       contactId: filters.contactId || undefined,
       dealId: filters.dealId || undefined
     }),
-    [filters, author]
+    [filters, author, sort]
   )
   const { items, error, hasMore, loadingMore, loading, loadMore, patchItem, reload } =
-    usePagedList({ fetchPage, key: 'notes', deps: [filters, author] })
+    usePagedList({ fetchPage, key: 'notes', deps: [filters, author, sort] })
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
   const notes = items || []
@@ -167,6 +175,15 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
               label="Author"
               noneLabel="No author"
               width={180}
+            />
+            <SortSelect
+              value={sort}
+              onChange={setSort}
+              options={[
+                { value: 'written', label: 'Date written' },
+                { value: 'synced', label: 'Date synced' }
+              ]}
+              width={150}
             />
             <WorkFilters
               filters={filters}
