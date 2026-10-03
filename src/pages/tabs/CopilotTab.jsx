@@ -414,10 +414,21 @@ export default function CopilotTab({ onOpenDeal }) {
           </div>
         ) : (
           <>
+            {/* minWidth:0 AND overflowX:hidden, both needed.
+                minWidth:0 lets this grid item shrink below its widest child —
+                without it the container sizes to that child and the excess
+                escapes sideways, which is the horizontal scrollbar that ran
+                under the whole conversation.
+                overflowX:hidden is the backstop: anything that still manages
+                to exceed the width is clipped here rather than being allowed
+                to scroll the chat. A wide table inside a skill card scrolls
+                within its own card (see SkillResult), which is where
+                sideways scrolling belongs — not on the conversation. */}
             <div
               ref={scrollRef}
               style={{
-                minHeight: 0, overflowY: 'auto',
+                minHeight: 0, minWidth: 0,
+                overflowY: 'auto', overflowX: 'hidden',
                 display: 'grid', gap: 12, alignContent: 'start'
               }}
             >

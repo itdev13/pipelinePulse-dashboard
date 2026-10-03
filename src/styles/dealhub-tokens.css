@@ -2682,6 +2682,14 @@
   font-size: var(--text-md);
   line-height: 1.6;
   color: var(--text-body);
+  /* The answer must never be what widens the conversation. min-width:0 lets
+     this shrink inside a grid/flex parent (which sizes to min-content without
+     it), and overflow-wrap breaks the one thing a browser otherwise refuses
+     to break: a long unspaced token. Model answers are full of them —
+     view names like vw_forecast_slippage_summary, raw ids, URLs — and one is
+     enough to push the whole chat sideways. */
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 [data-dealhub] .pp-md p { margin: 0 0 10px; }
 [data-dealhub] .pp-md strong { font-weight: 600; color: var(--text-heading); }
@@ -2721,6 +2729,12 @@
   background: var(--gray-100);
   font-family: var(--font-mono);
   font-size: 0.92em;
+  /* Inline code is where unbreakable tokens actually appear — the model
+     writes `forecast_summary` mid-sentence constantly. Without this the span
+     is one atomic word as wide as it needs to be. Block code is NOT given
+     this: there, scrolling inside the pre is correct and breaking a line of
+     SQL mid-token would make it unreadable. */
+  overflow-wrap: anywhere;
 }
 [data-dealhub] .pp-md pre {
   margin: 0 0 10px;
@@ -2729,7 +2743,13 @@
   background: var(--gray-50);
   overflow-x: auto;
 }
-[data-dealhub] .pp-md pre code { padding: 0; background: none; }
+/* Undo the inline-code break inside a block: a pre scrolls, and breaking a
+   line of SQL at an arbitrary character makes it unreadable. */
+[data-dealhub] .pp-md pre code {
+  padding: 0;
+  background: none;
+  overflow-wrap: normal;
+}
 [data-dealhub] .pp-md blockquote {
   margin: 0 0 10px;
   padding: 2px 0 2px 12px;

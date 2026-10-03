@@ -59,6 +59,24 @@ const labelOf = (v) => {
         : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', ...opts })
     }
   }
+  // Postgres NUMERIC arrives as a string carrying its full scale —
+  // "5161632.0900000000000000" is 24 characters of mostly zeroes. Rendered
+  // raw it is unreadable AND it is the widest cell in the table, so it sets
+  // the table's width and pushes the card sideways.
+  //
+  // Thousands separators and at most two decimals, trailing zeroes dropped so
+  // whole numbers stay whole. Integers are left alone — an id or a year must
+  // not pick up a comma.
+  // Only reformat values that ARRIVED with a decimal point. A bare integer is
+  // left exactly as it is: ids, years and counts must not pick up a comma, and
+  // "2026" becoming "2,026" is worse than the problem being solved.
+  if (typeof v !== 'boolean' && isNum(v) && /\./.test(String(v))) {
+    const n = Number(v)
+    // A small fraction keeps enough precision to stay non-zero — days_to_move
+    // of 0.001 must not render as "0", which reads as "instantly".
+    const digits = n !== 0 && Math.abs(n) < 1 ? 4 : 2
+    return n.toLocaleString(undefined, { maximumFractionDigits: digits })
+  }
   return String(v)
 }
 
