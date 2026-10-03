@@ -179,6 +179,7 @@ export default function CopilotTab({ onOpenDeal }) {
           dealsRead: res.dealsRead || [],
           dealsTable: res.dealsTable || null,
           skillResult: res.skillResult || null,
+          skillsUsed: res.skillsUsed || [],
           toolCalls: res.toolCalls || [],
           // Writes the model proposed this turn — create/attach a contact,
           // change an owner or status. Nothing has happened to the CRM yet;
@@ -276,6 +277,7 @@ export default function CopilotTab({ onOpenDeal }) {
         dealsRead: t.dealsRead || [],
         dealsTable: t.dealsTable || null,
         skillResult: t.skillResult || null,
+        skillsUsed: t.skillsUsed || [],
         groundingWarning: t.groundingWarning || null,
         fromFactsOnly: false,
         // Without this, thumbs up/down disable on every reopened turn —
@@ -566,6 +568,56 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
               <strong>Check this one.</strong>{' '}
               {turn.groundingWarning}
             </span>
+          </p>
+        )}
+
+        {/* WHICH SKILLS ANSWERED THIS.
+            Asked for directly: a rep seeing a number wants to know what was
+            consulted to produce it. The deal chips below say WHICH DEALS were
+            read; this says WHICH LOOKUP read them, which is the other half of
+            the same question and the only part that was missing.
+
+            Deliberately quiet — same muted treatment as a caption, not a
+            banner. It is reference material someone reaches for when a figure
+            looks wrong, so it must be present and legible without competing
+            with the answer itself. The warning above is the only thing under
+            an answer that is allowed to be loud.
+
+            Names are de-prefixed and underscores become spaces on the server
+            side of the chip: `customer_question_themes` reads as "customer
+            question themes", because a rep never typed the snake_case name
+            and should not have to parse one. The row count is the evidence
+            that the lookup actually returned something — a skill that ran and
+            returned 0 rows is exactly the case where an answer drifts into
+            invention, so it stays visible rather than being hidden. */}
+        {turn.skillsUsed?.length > 0 && (
+          <p style={{
+            display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 6,
+            margin: '9px 0 0', fontSize: 'var(--text-sm)',
+            color: 'var(--text-muted)'
+          }}>
+            <span style={{ flex: 'none' }}>Answered using</span>
+            {turn.skillsUsed.map((s) => (
+              <span
+                key={s.name}
+                title={[
+                  s.source ? `view: ${s.source}` : null,
+                  s.calls > 1 ? `${s.calls} lookups` : null,
+                ].filter(Boolean).join(' · ') || undefined}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  padding: '1px 7px', borderRadius: 'var(--radius-sm)',
+                  background: 'var(--surface-sunken)',
+                  border: '1px solid var(--border-default)',
+                  color: 'var(--text-body)', whiteSpace: 'nowrap'
+                }}
+              >
+                {s.name.replace(/_/g, ' ')}
+                <span style={{ color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                  {s.rows}
+                </span>
+              </span>
+            ))}
           </p>
         )}
 
