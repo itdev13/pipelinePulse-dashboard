@@ -250,12 +250,18 @@ export default function SkillResult({ result }) {
           <span className="ms" style={{ fontSize: 16, color: 'var(--accent-plum-text)' }}>
             insights
           </span>
+          {/* Truncates rather than pushing the row count and expand button
+              off the card — a long skill name is the common case, not the
+              edge one. */}
           <span style={{
-            fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-heading)'
+            fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-heading)',
+            minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
           }}>
             {humanise(result.name)}
           </span>
-          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+          <span style={{
+            fontSize: 'var(--text-sm)', color: 'var(--text-muted)', flex: 'none'
+          }}>
             {rows.length} row{rows.length === 1 ? '' : 's'}
           </span>
           <span style={{ flex: 1 }} />
@@ -365,12 +371,24 @@ function Chart({ rows, shape, expanded }) {
         const value = Number(r[measure]) || 0
         return (
           <div key={i} style={{ display: 'grid', gap: 4 }}>
+            {/* WRAPS. A view like vw_lead_map_area_route has ten numeric
+                columns, every one of which lands here as an `extras` span —
+                on one unwrapped line that runs metres past the card and off
+                the screen, taking the warning banner and the table with it
+                because the overflow widens the whole conversation column.
+
+                flexWrap lets the extras fall onto a second line instead;
+                minWidth:0 on the row lets it shrink below its content width
+                in the first place, which a flex item will not do by default.
+                The label already truncates, so the only unbounded thing left
+                was the extras run. */}
             <div style={{
               display: 'flex', alignItems: 'baseline', gap: 8,
+              flexWrap: 'wrap', minWidth: 0,
               fontSize: expanded ? 'var(--text-base)' : 'var(--text-sm)'
             }}>
               <span style={{
-                flex: 1, minWidth: 0, color: 'var(--text-heading)',
+                flex: '1 1 40%', minWidth: 0, color: 'var(--text-heading)',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
               }}>
                 {labelOf(r[label])}
@@ -436,9 +454,18 @@ function Chart({ rows, shape, expanded }) {
 function Rows({ rows, expanded }) {
   const cols = Object.keys(rows[0])
   const shown = expanded ? rows : rows.slice(0, 6)
+  // The scroller needs minWidth:0 or it inherits the table's content width
+  // from its parent grid and never actually scrolls — the overflow just
+  // moves up the tree and widens the card instead. A 13-column view like
+  // lead_to_won_deal_ratio is wider than 760px no matter what, so the table
+  // keeps its natural width and scrolls sideways WITHIN the card rather
+  // than dragging the page with it.
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
+    <div style={{ overflowX: 'auto', minWidth: 0, maxWidth: '100%' }}>
+      <table style={{
+        width: 'max-content', minWidth: '100%',
+        borderCollapse: 'collapse', fontSize: 'var(--text-sm)'
+      }}>
         <thead>
           <tr>
             {cols.map((c) => (

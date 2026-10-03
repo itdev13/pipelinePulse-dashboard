@@ -421,8 +421,15 @@ export default function CopilotTab({ onOpenDeal }) {
                 display: 'grid', gap: 12, alignContent: 'start'
               }}
             >
+              {/* minWidth:0 is load-bearing. A grid item sizes to min-content
+                  by default, so ONE wide child — a skill card with ten numeric
+                  columns on an unwrapped row — stretched this past its 760px
+                  cap and pushed every sibling off-screen with it: the answer
+                  text, the warning banner, the composer. maxWidth alone does
+                  not stop that; it only caps the preferred width, not the
+                  minimum. */}
               <div style={{
-                width: '100%', maxWidth: 760, margin: '0 auto',
+                width: '100%', maxWidth: 760, minWidth: 0, margin: '0 auto',
                 display: 'grid', gap: 12, alignContent: 'start'
               }}>
                 {turns.map((t, i) => (
@@ -564,7 +571,10 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
             fontSize: 'var(--text-base)'
           }}>
             <span className="ms" style={{ fontSize: 16, flex: 'none', marginTop: 1 }}>warning</span>
-            <span>
+            {/* minWidth:0 so a long warning wraps inside the banner rather
+                than running past it. The message names deals, so it is as
+                long as their names make it — there is no short version. */}
+            <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
               <strong>Check this one.</strong>{' '}
               {turn.groundingWarning}
             </span>
@@ -589,7 +599,10 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
             and should not have to parse one. The row count is the evidence
             that the lookup actually returned something — a skill that ran and
             returned 0 rows is exactly the case where an answer drifts into
-            invention, so it stays visible rather than being hidden. */}
+            invention, so it stays visible rather than being hidden. It is
+            labelled "rows" and divided off by a rule because a bare number
+            abutting a name like "lead to won deal ratio" reads as the ratio
+            itself. */}
         {turn.skillsUsed?.length > 0 && (
           <p style={{
             display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 6,
@@ -600,10 +613,15 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
             {turn.skillsUsed.map((s) => (
               <span
                 key={s.name}
+                // Hover spells out what the chip compresses: which view
+                // answered, and how many separate lookups hit it. The row
+                // count is the TOTAL across those lookups, which is only
+                // obvious once you know more than one ran.
                 title={[
-                  s.source ? `view: ${s.source}` : null,
-                  s.calls > 1 ? `${s.calls} lookups` : null,
-                ].filter(Boolean).join(' · ') || undefined}
+                  `${s.rows} ${s.rows === 1 ? 'row' : 'rows'} returned`,
+                  s.calls > 1 ? `across ${s.calls} lookups` : null,
+                  s.source ? `from ${s.source}` : null,
+                ].filter(Boolean).join(' · ')}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 4,
                   padding: '1px 7px', borderRadius: 'var(--radius-sm)',
@@ -613,8 +631,19 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
                 }}
               >
                 {s.name.replace(/_/g, ' ')}
-                <span style={{ color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-                  {s.rows}
+                {/* "row"/"rows", never a bare number.
+                    It shipped as a bare digit and read as part of the answer:
+                    "lead to won deal ratio 1" looks like the ratio IS 1,
+                    rather than one row having come back. Any skill whose name
+                    ends in a quantity word — ratio, rate, count, value — has
+                    that collision, and a figure a manager might act on is the
+                    worst possible thing to be ambiguous about. The unit costs
+                    four characters and removes the reading entirely. */}
+                <span style={{
+                  color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums',
+                  borderLeft: '1px solid var(--border-default)', paddingLeft: 6
+                }}>
+                  {s.rows} {s.rows === 1 ? 'row' : 'rows'}
                 </span>
               </span>
             ))}
