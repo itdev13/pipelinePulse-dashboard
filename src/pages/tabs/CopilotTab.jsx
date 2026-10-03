@@ -337,9 +337,21 @@ export default function CopilotTab({ onOpenDeal }) {
       className="pp-copilot-layout"
       style={{
         display: 'grid',
+        // THE RAIL GIVES UP WIDTH BEFORE THE ANSWER DOES.
+        //
+        // Sidebar (280) + rail (360) is 640px of chrome before a word of the
+        // answer. On anything short of a very wide window that squeezed the
+        // conversation until sentences and table columns clipped mid-
+        // character — the answer losing space to two panels that only exist
+        // to support it.
+        //
+        // clamp() lets the rail shrink from 360 to 260 as the window
+        // narrows, and `min()` on the conversation guarantees it keeps the
+        // ~760px its reading column needs. The rail is a transcript of what
+        // the model did: useful, never worth truncating the answer for.
         gridTemplateColumns:
           `${sidebarCollapsed ? 64 : 280}px minmax(0, 1fr)`
-          + (openThoughtsFor != null ? ' 360px' : ''),
+          + (openThoughtsFor != null ? ' clamp(260px, 22vw, 360px)' : ''),
         // The whole tab sits directly on [data-dealhub]'s page background
         // (grey — every other tab needs that for its cards to sit on), which
         // showed through once this tab dropped its own card frame. White
@@ -514,8 +526,12 @@ export default function CopilotTab({ onOpenDeal }) {
 }
 
 function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
+  // minWidth:0 on BOTH this grid and the answer block below it. Every level
+  // between the scroll container and the text needs it — a single grid or
+  // flex ancestor without it sizes to its widest descendant and the clip
+  // reappears, which is why fixing the outer containers alone did not hold.
   return (
-    <div style={{ display: 'grid', gap: 10 }}>
+    <div style={{ display: 'grid', gap: 10, minWidth: 0 }}>
       {turn.toolCalls?.length > 0 && (
         <ThoughtProcess
           steps={turn.toolCalls}
@@ -524,7 +540,7 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
         />
       )}
 
-      <div>
+      <div style={{ minWidth: 0 }}>
         <MarkdownAnswer text={turn.answerText} />
 
         {/* The row data behind a "list of deals" answer, rendered as a real
@@ -686,7 +702,7 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
             whether to confirm a proposed action before rating the answer
             that surfaced it, not after. */}
         {turn.proposedActions?.length > 0 && (
-          <div style={{ display: 'grid', gap: 8, margin: '9px 0 0' }}>
+          <div style={{ display: 'grid', gap: 8, minWidth: 0, margin: '9px 0 0' }}>
             {turn.proposedActions.map((a) => (
               <ActionCard
                 key={a.actionId}
@@ -706,7 +722,7 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
       </div>
 
       {turn.citations?.length > 0 && (
-        <div style={{ display: 'grid', gap: 6 }}>
+        <div style={{ display: 'grid', gap: 6, minWidth: 0 }}>
           {turn.citations.map((c, i) => (
             <button
               key={`${c.message_id}-${i}`}
