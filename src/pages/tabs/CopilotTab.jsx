@@ -636,7 +636,13 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
             margin: '9px 0 0', fontSize: 'var(--text-sm)',
             color: 'var(--text-muted)'
           }}>
-            <span style={{ flex: 'none' }}>Answered using</span>
+            {/* "Used this skill" / "Used these skills" — not "Answered using".
+                The old wording read as a claim about the answer; this reads as
+                a statement of what ran, which is what the line actually is.
+                Plural when more than one skill was called. */}
+            <span style={{ flex: 'none' }}>
+              {turn.skillsUsed.length === 1 ? 'Used this skill' : 'Used these skills'}
+            </span>
             {turn.skillsUsed.map((s) => (
               <span
                 key={s.name}
