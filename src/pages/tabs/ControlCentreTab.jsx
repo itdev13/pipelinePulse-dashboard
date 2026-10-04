@@ -393,6 +393,10 @@ function SignatureSection() {
               placeholder="J Srini — Crittall Windows · 0121 000 0000"
               minHeight={140}
               disabled={busy}
+              // The one place rich mode is on: a signature is branded layout,
+              // not prose, so colour and a logo are the content rather than
+              // decoration. Notes and tasks keep the plain toolbar.
+              rich
             />
           </React.Suspense>
         )}

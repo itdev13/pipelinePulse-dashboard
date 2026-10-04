@@ -38,7 +38,13 @@ const ALLOWED = new Set([
   'UL', 'OL', 'LI',
   'A',
   'H1', 'H2', 'H3', 'H4',
-  'BLOCKQUOTE', 'CODE', 'PRE'
+  'BLOCKQUOTE', 'CODE', 'PRE',
+  // Signature markup. Kept in step with the SERVER's list deliberately: the
+  // two disagreeing is what shipped a bug where a rep built a coloured
+  // signature, saved it, and the server quietly flattened it. Whatever one
+  // side allows, the other must.
+  'IMG',
+  'TABLE', 'THEAD', 'TBODY', 'TR', 'TD', 'TH'
 ])
 
 // Tags whose CONTENT is dangerous, not just their attributes. These are
@@ -60,7 +66,16 @@ const ATTRS = {
   SPAN: new Set(['style']),
   LI: new Set(['style']),
   UL: new Set(['style']),
-  OL: new Set(['style'])
+  OL: new Set(['style']),
+  H1: new Set(['style']), H2: new Set(['style']),
+  H3: new Set(['style']), H4: new Set(['style']),
+  IMG: new Set(['src', 'alt', 'width', 'height', 'style']),
+  TABLE: new Set(['style', 'cellpadding', 'cellspacing', 'border', 'width']),
+  THEAD: new Set(['style']),
+  TBODY: new Set(['style']),
+  TR: new Set(['style']),
+  TD: new Set(['style', 'colspan', 'rowspan', 'align', 'valign', 'width']),
+  TH: new Set(['style', 'colspan', 'rowspan', 'align', 'valign', 'width'])
 }
 
 // CSS properties a note may set. An allow-list again: `style` is a vector on
@@ -70,7 +85,13 @@ const CSS_PROPS = new Set([
   'color', 'background-color', 'font-weight', 'font-style',
   'text-decoration', 'text-align',
   'margin', 'margin-left', 'margin-right', 'margin-top', 'margin-bottom',
-  'padding', 'padding-left', 'padding-right', 'padding-top', 'padding-bottom'
+  'padding', 'padding-left', 'padding-right', 'padding-top', 'padding-bottom',
+  // Signature typography and layout — see the server's matching list.
+  'font-size', 'font-family', 'line-height',
+  'border', 'border-top', 'border-bottom', 'border-left', 'border-right',
+  'border-color', 'border-width', 'border-style',
+  'border-collapse', 'border-spacing',
+  'width', 'max-width', 'height', 'vertical-align', 'display'
 ])
 
 function safeStyle(value) {
@@ -81,6 +102,10 @@ function safeStyle(value) {
     const prop = decl.slice(0, i).trim().toLowerCase()
     const val = decl.slice(i + 1).trim()
     if (!CSS_PROPS.has(prop)) continue
+    // display is allowed (block/inline-block lay a signature out) but none
+    // is not — a whole signature saved invisible is a confusing thing to
+    // allow by accident.
+    if (prop === 'display' && /none/i.test(val)) continue
     // No url(), no expression(), no escapes that could reconstruct either.
     if (/url\s*\(|expression\s*\(|\\|@import/i.test(val)) continue
     out.push(`${prop}: ${val}`)
@@ -90,6 +115,16 @@ function safeStyle(value) {
 
 // A link may only point somewhere inert. javascript: and data: are the two
 // that execute; everything unrecognised is refused rather than guessed at.
+// An image source worth keeping — https or an inline image, nothing else.
+// http: shows as a broken image or a mixed-content warning in a mail client,
+// and javascript:/data:text are the two that execute. Mirrors the server.
+function safeImgSrc(value) {
+  const v = String(value).trim()
+  if (/^https:\/\//i.test(v)) return v
+  if (/^data:image\/(png|jpe?g|gif|webp);base64,[a-z0-9+/=\s]+$/i.test(v)) return v
+  return ''
+}
+
 function safeHref(value) {
   const v = String(value).trim()
   // Strip control characters first — "java\tscript:" parses as javascript:.
@@ -146,6 +181,7 @@ export function sanitiseHtml(input) {
 
       // Strip every attribute except the few allowed for this tag.
       const permitted = ATTRS[tag] || new Set()
+      let dropped = false
       for (const attr of Array.from(child.attributes)) {
         const name = attr.name.toLowerCase()
         // Belt and braces: no on* handler survives even if a tag's set grows.
@@ -163,7 +199,19 @@ export function sanitiseHtml(input) {
           if (safe) child.setAttribute('href', safe)
           else child.removeAttribute('href')
         }
+        if (name === 'src') {
+          const safe = safeImgSrc(attr.value)
+          // Removed outright, not left src-less: a broken-image icon in a
+          // signature is worse than the image simply not being there.
+          // `dropped`, not an early return: returning here would abandon
+          // every REMAINING SIBLING of this node, silently truncating the
+          // rest of the signature after one bad image.
+          if (safe) child.setAttribute('src', safe)
+          else { child.remove(); dropped = true; break }
+        }
       }
+
+      if (dropped) continue
 
       // Any surviving link opens away from the iframe, and rel closes the
       // reverse-tabnabbing hole that target=_blank opens on its own.

@@ -3,6 +3,11 @@ import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
+// Signature-only extensions. TextStyle is the carrier Color writes onto —
+// Color alone does nothing without it.
+import { TextStyle } from '@tiptap/extension-text-style'
+import { Color } from '@tiptap/extension-color'
+import Image from '@tiptap/extension-image'
 // Both ship in @tiptap/extensions, which StarterKit already pulls in — no new
 // dependency. Placeholder was MISSING: the CSS targeted p.is-editor-empty,
 // a class only this extension adds, so the placeholder never rendered and the
@@ -39,7 +44,14 @@ export default function RichEditor({
   maxLength = null,
   minHeight = 150,
   invalid = false,
-  autoFocus = false
+  autoFocus = false,
+  // RICH MODE — off everywhere except the signature editor.
+  //
+  // A note does not need brand colour or a logo, and every control added to a
+  // toolbar is one more thing a rep has to read past to find Bold. A
+  // signature is the one place where colour and an image ARE the content:
+  // the thing being built is a small piece of branded layout, not prose.
+  rich = false
 }) {
   // Character count, mirrored into React state — see onUpdate below.
   const [count, setCount] = useState(0)
@@ -74,6 +86,18 @@ export default function RichEditor({
       ...(maxLength
         ? [CharacterCount.configure({ limit: maxLength, mode: 'textSize' })]
         : []),
+      ...(rich ? [
+        TextStyle,
+        Color,
+        Image.configure({
+          inline: false,
+          // No base64. A pasted screenshot becomes a data: URI that inflates
+          // every email by ~133% of the file size and is stripped by some
+          // clients anyway — an image must be hosted somewhere and referenced
+          // by https, which is also the only scheme the sanitiser keeps.
+          allowBase64: false
+        })
+      ] : []),
       Link.configure({
         openOnClick: false,          // clicking inside an editor should place the cursor
         autolink: true,              // typing a URL makes it a link
@@ -167,7 +191,7 @@ export default function RichEditor({
         overflow: 'hidden'
       }}
     >
-      <Toolbar editor={editor} disabled={disabled} />
+      <Toolbar editor={editor} disabled={disabled} rich={rich} />
 
       {/* minHeight goes on the EDITABLE surface via a CSS variable, not on
           this wrapper.
@@ -220,7 +244,7 @@ export default function RichEditor({
 // expose that our schema does not support (colour pickers, alignment) — a
 // button that cannot round-trip through our sanitiser would be a control that
 // silently loses its effect.
-function Toolbar({ editor, disabled }) {
+function Toolbar({ editor, disabled, rich = false }) {
   const btn = (label, icon, isActive, run, title) => (
     <button
       key={label}
@@ -259,6 +283,21 @@ function Toolbar({ editor, disabled }) {
     editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
   }
 
+  const image = () => {
+    // eslint-disable-next-line no-alert
+    const url = window.prompt('Image URL (must be https)')
+    if (!url) return
+    // Same trick as link(): validate by asking the sanitiser. If the img does
+    // not survive, the URL was not one we would ever send — one rule for
+    // inserting and for storing, rather than two that can disagree.
+    const probe = sanitiseHtml(`<img src="${url.replace(/"/g, '&quot;')}">`)
+    if (!/<img/.test(probe)) {
+      window.alert('That image URL is not allowed. It must start with https://')
+      return
+    }
+    editor.chain().focus().setImage({ src: url }).run()
+  }
+
   return (
     <div className="pp-toolbar">
       {btn('Bold', 'format_bold', editor.isActive('bold'),
@@ -282,6 +321,25 @@ function Toolbar({ editor, disabled }) {
       <span className="pp-tb-sep" />
 
       {btn('Link', 'link', editor.isActive('link'), link, 'Add or edit a link')}
+      {rich && btn('Image', 'image', false, image, 'Insert an image by URL')}
+      {rich && (
+        <span className="pp-tb-colour" key="colour">
+          {/* A native colour input, not a custom popover. It is one element,
+              it is keyboard accessible for free, and it gives the OS picker
+              a rep already knows. The swatch shows the CURRENT colour so the
+              control reads as state rather than as a button. */}
+          <input
+            type="color"
+            disabled={disabled}
+            value={editor.getAttributes('textStyle')?.color || '#1a1a1a'}
+            onChange={(e) => editor.chain().focus().setColor(e.target.value).run()}
+            title="Text colour"
+            aria-label="Text colour"
+          />
+        </span>
+      )}
+      {rich && btn('No colour', 'format_color_reset', false,
+        () => editor.chain().focus().unsetColor().run(), 'Remove text colour')}
       {btn('Clear', 'format_clear', false,
         () => editor.chain().focus().unsetAllMarks().clearNodes().run(),
         'Remove formatting')}

@@ -1,7 +1,7 @@
 {
   "name": "ghl-embedded-app-starter",
   "version": "1.0.0",
-  "description": "GHL embedded app starter \u2014 iframe postMessage auth handshake + per-sub-account session, ready for feature development",
+  "description": "GHL embedded app starter — iframe postMessage auth handshake + per-sub-account session, ready for feature development",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,7 +14,10 @@
   },
   "dependencies": {
     "@ant-design/icons": "^5.3.0",
+    "@tiptap/extension-color": "^3.31.0",
+    "@tiptap/extension-image": "^3.31.0",
     "@tiptap/extension-link": "^3.31.0",
+    "@tiptap/extension-text-style": "^3.31.0",
     "@tiptap/extension-underline": "^3.31.0",
     "@tiptap/pm": "^3.31.0",
     "@tiptap/react": "^3.31.0",

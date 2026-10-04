@@ -1257,6 +1257,44 @@
   background: var(--border-default);
 }
 
+/* The colour swatch, sized to match a toolbar button exactly so the row does
+   not develop a bump where it sits. The native input paints its own border
+   and padding differently in every browser, hence the reset. */
+[data-dealhub] .pp-tb-colour {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+[data-dealhub] .pp-tb-colour input[type="color"] {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: none;
+  cursor: pointer;
+}
+[data-dealhub] .pp-tb-colour input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+[data-dealhub] .pp-tb-colour input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 2px;
+}
+[data-dealhub] .pp-tb-colour input[type="color"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* An image inside the editor must not escape its box — a 1600px logo pasted
+   by URL would otherwise set the editor's width and scroll the panel. */
+[data-dealhub] .pp-editor-content img {
+  max-width: 100%;
+  height: auto;
+}
+
 /* The editable surface. */
 [data-dealhub] .pp-editor-content {
   /* Set by RichEditor as an inline custom property on the wrapper, so the
