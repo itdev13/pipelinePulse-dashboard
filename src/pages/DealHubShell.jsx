@@ -93,7 +93,6 @@ function readPosition(locationId) {
 
 export default function DealHubShell() {
   const { location } = useAuth()
-  const locationName = location?.name || location?.id || ''
   // Restored once, on the first render, from where we were before a reload.
   // Lazy initialisers so localStorage is read once rather than every render.
   const restored = useRef(readPosition(location?.id)).current
@@ -276,46 +275,16 @@ export default function DealHubShell() {
           boxShadow: '0 1px 2px rgba(23, 33, 46, 0.06)'
         }}
       >
-        {/* The sub-account name, separated from the navigation by space AND a
-            rule.
-            The header's own gap is 14px — the same as between the chips — so
-            with nothing added the name read as the first item in the nav
-            rather than as the label for what follows. 24px was tried and was
-            still not enough to separate two different kinds of thing.
-            A divider does the work whitespace alone could not: 32px of space
-            either side plus a hairline, so "whose account this is" and "where
-            to go in it" read as two zones rather than one row of controls.
-            flex: 'none' so a long sub-account name is truncated by the header
-            rather than squeezing the chips. */}
-        <span
-          title={locationName}
-          style={{
-            flex: 'none',
-            maxWidth: 260,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            fontWeight: 600, fontSize: 'var(--text-lg)', color: 'var(--text-heading)'
-          }}
-        >
-          {locationName}
-        </span>
-
-        {/* The rule. aria-hidden because it is decoration — a screen reader
-            announcing a separator between a heading and a nav adds nothing.
-            The header wraps on a narrow iframe, and a vertical rule that ends
-            up last on a line points at nothing. CSS cannot detect that, so the
-            rule is simply narrow enough (1px + 32px of margin) that a stranded
-            one reads as trailing space rather than as a mark. Hiding it would
-            need a resize observer for a cosmetic case. */}
-        <span
-          aria-hidden="true"
-          style={{
-            flex: 'none',
-            width: 1, height: 22,
-            margin: '0 var(--space-1)',
-            background: 'var(--border-default)'
-          }}
-        />
-
+        {/* NO SUB-ACCOUNT NAME HERE.
+            It sat to the left of Back with a vertical rule after it, and the
+            pair was removed deliberately: GHL's own sidebar already names the
+            sub-account directly above this header, so the row repeated what
+            was on screen an inch away and spent ~290px of a wrapping header
+            doing it. The divider went with it — a rule separating a heading
+            from a nav has nothing to separate once the heading is gone.
+            `location` itself is still used — location.id keys the saved
+            position and useTabState's location check — but nothing reads the
+            NAME any more, so the binding went with the markup. */}
         {/* Back. Disabled rather than hidden on the first screen: a control
             that appears and disappears makes the whole header jump sideways
             every time you navigate, and the tabs beside it move with it. */}

@@ -15,10 +15,13 @@ import dayjs from 'dayjs'
 // definitions were synced (migration 023) but never sent to the client, and
 // the folder each belongs to was not stored until migration 064.
 //
-// COLLAPSED BY DEFAULT, except the first. A location with eight folders and
-// forty fields would otherwise bury the contact's name, email and phone under
-// a wall of inputs. The first section is open so the panel does not read as
-// empty.
+// COLLAPSED BY DEFAULT. A location with eight folders and forty fields would
+// otherwise bury the contact's name, email and phone under a wall of inputs.
+//
+// Whether the FIRST section opens is the caller's call (openFirst). Contacts
+// open it so the panel does not read as empty; deals do not, because one
+// folder there holds 22 fields and opening it pushes People, Tasks and Notes
+// off the screen.
 //
 // WHAT IS EDITABLE. Everything except FILE_UPLOAD, which the server flags
 // `readOnly` because there is no OAuth documents API — a control that could
@@ -42,12 +45,20 @@ export default function CustomFieldSections({
   // changed fields rather than rewriting all forty.
   draft = {},
   onChange,
-  disabled = false
+  disabled = false,
+  // Open the first section, or start with every one closed.
+  //
+  // Contacts keep the first open: a contact has a handful of custom fields
+  // and the panel would otherwise read as empty. A DEAL on this account has
+  // 22 in one folder, which pushes People, Tasks and Notes — the things a rep
+  // came to the deal for — a full screen down. There the right default is
+  // closed, with the field count on the header saying what is inside.
+  openFirst = true
 }) {
-  // The first section open, the rest closed. Held as a Set of ids rather than
-  // a per-section boolean so "expand all" stays a one-liner later.
+  // Held as a Set of ids rather than a per-section boolean so "expand all"
+  // stays a one-liner later.
   const [open, setOpen] = useState(() =>
-    new Set(groups.length ? [groups[0].id ?? '__ungrouped__'] : []))
+    new Set(openFirst && groups.length ? [groups[0].id ?? '__ungrouped__'] : []))
 
   if (!groups.length) return null
 

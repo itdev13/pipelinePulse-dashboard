@@ -590,6 +590,12 @@ export default function DealEditPanel({
         <Group title="Custom fields">
           <div style={{ gridColumn: '1 / -1' }}>
             <CustomFieldSections
+              // Every folder closed on a deal. One folder here holds 22
+              // fields, which pushed People, Tasks and Notes a full screen
+              // below the fold — a rep opening a deal to see its activity had
+              // to scroll past a form they rarely touch. The header still
+              // shows the field count, so a closed folder is not opaque.
+              openFirst={false}
               groups={fieldGroups.map((g) => ({
                 ...g,
                 fields: g.fields.map((f) => ({

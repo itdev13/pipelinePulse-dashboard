@@ -37,7 +37,10 @@ const humanise = (c) =>
 // a day — a raw "2026-08-01T00:00:00.000Z" down the side of a chart is
 // unreadable and pushes every bar off the right of the card.
 const labelOf = (v) => {
-  if (v === null || v === undefined || v === '') return '—'
+  // trim() too: a whitespace-only value is not null, so it slipped through and
+  // rendered a bar with no label at all — which reads as a broken chart rather
+  // than as missing data.
+  if (v === null || v === undefined || String(v).trim() === '') return '—'
   if (isDateLike(v)) {
     const d = v instanceof Date ? v : new Date(v)
     if (!Number.isNaN(d.getTime())) {
@@ -107,7 +110,24 @@ function shapeOf(rows) {
   // Constant across every row = a total repeated by a window function. Real
   // information, but not something a bar chart can express.
   const varying = cols.filter((c) => new Set(rows.map((r) => String(r[c]))).size > 1)
-  const usable = varying.filter((c) => !/_id$/.test(c))
+  // ONE constant text column is kept as a label candidate.
+  //
+  // "Constant means a repeated total" holds for numbers, not for the column
+  // the rows are ABOUT. A themes view filtered to one theme has every row
+  // saying "Price too high" — dropping it left buyer_type as the label and
+  // drew five bars all reading "homeowner", which tells a reader nothing
+  // about what they are comparing. The theme is the subject even when it
+  // does not vary; the varying column is the breakdown.
+  const constantText = cols.find((c) => (
+    !varying.includes(c)
+    && !/_id$/.test(c)
+    && rows.every((r) => r[c] === null || typeof r[c] === 'string')
+    && rows.some((r) => String(r[c] ?? '').trim())
+  ))
+  const usable = [
+    ...varying.filter((c) => !/_id$/.test(c)),
+    ...(constantText ? [constantText] : [])
+  ]
 
   // Dates are excluded from `numeric` before anything else: they pass Number()
   // as an epoch and would otherwise win the "biggest total" contest outright.
@@ -125,7 +145,22 @@ function shapeOf(rows) {
   //
   // Preferred over a text column when present, because on a view that has
   // both, the date is what the rows are really organised by.
-  const text = dates.length ? [dates[0], ...plainText] : plainText
+  // WHICH TEXT COLUMN LABELS THE BARS.
+  //
+  // Position is the wrong answer. plainText follows column order, so a view
+  // returning (objection_theme, buyer_type) labelled its bars "homeowner"
+  // five times over — the breakdown, not the subject.
+  //
+  // A name or a theme is what the rows are ABOUT; a type or a status is how
+  // they are split. Prefer the former, fall back to position when neither
+  // pattern matches so an unfamiliar view still charts.
+  const SUBJECT = /(name|theme|label|title|reason|stage|period|month|question)/i
+  const BREAKDOWN = /(type|status|owner|source|channel|band|bucket)/i
+  const ranked = [...plainText].sort((a, b) => {
+    const score = (c) => (SUBJECT.test(c) ? 0 : BREAKDOWN.test(c) ? 2 : 1)
+    return score(a) - score(b) || plainText.indexOf(a) - plainText.indexOf(b)
+  })
+  const text = dates.length ? [dates[0], ...ranked] : ranked
   if (!text.length || !numeric.length) return null
 
   // The bar is a COUNT, never a percentage.

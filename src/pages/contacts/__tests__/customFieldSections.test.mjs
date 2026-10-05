@@ -78,7 +78,17 @@ console.log('\nthe sections');
 
 t('the first folder is open, the rest closed', () => {
   // Eight folders open at once would bury the contact's name and phone.
-  assert.match(sections, /new Set\(groups\.length \? \[groups\[0\]\.id \?\? '__ungrouped__'\] : \[\]\)/);
+  //
+  // Now gated on openFirst, which DEFAULTS to true — so contacts, which do
+  // not pass it, keep this behaviour. Deals pass false: one folder there holds
+  // 22 fields and opening it pushes People, Tasks and Notes off the screen.
+  assert.match(sections, /openFirst && groups\.length \? \[groups\[0\]\.id \?\? '__ungrouped__'\] : \[\]/);
+  assert.match(sections, /openFirst = true/, 'the default must stay true or contacts change too');
+});
+
+t('a deal starts with every folder closed', () => {
+  const panel = readFileSync(join(here, '..', '..', 'deals', 'DealEditPanel.jsx'), 'utf8');
+  assert.match(panel, /openFirst=\{false\}/);
 });
 
 t('FILE_UPLOAD renders a real picker', () => {
