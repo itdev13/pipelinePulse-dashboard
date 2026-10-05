@@ -61,6 +61,27 @@ export default function ActionCard({ actionId, actionType, proposed, status = nu
     return Object.keys(edits).length ? edits : null
   }
 
+  // 409 MEANS IT ALREADY HAPPENED, WHICH IS NOT A FAILURE.
+  //
+  // actionExecutor returns 409 "This proposal was already confirmed" when the
+  // row is no longer pending. Treating that as an error left the card stuck:
+  // a red banner, a live Confirm button, and a Cancel that could not dismiss
+  // it either — because rejecting an already-confirmed action 409s too. The
+  // rep had sent the email and had no way to clear the card.
+  //
+  // The outcome is in the message: "...already confirmed" / "...already
+  // rejected". Parse it, settle the card into that state, and tell the parent
+  // so the turn records it. The only thing lost is the illusion that
+  // something went wrong.
+  const settledFrom409 = (err) => {
+    if (err?.status !== 409) return null
+    const m = /already (confirmed|rejected|failed)/i.exec(err?.message || '')
+    if (!m) return null
+    // 'failed' is a terminal state too — the action ran and did not work, so
+    // the card must stop offering to run it again.
+    return m[1].toLowerCase() === 'confirmed' ? 'confirmed' : 'rejected'
+  }
+
   const confirm = async () => {
     if (busy) return
     setBusy(true)
@@ -70,6 +91,12 @@ export default function ActionCard({ actionId, actionType, proposed, status = nu
       setJustResolved('confirmed')
       onResolved?.('confirmed')
     } catch (err) {
+      const settled = settledFrom409(err)
+      if (settled) {
+        setJustResolved(settled)
+        onResolved?.(settled)
+        return
+      }
       setError(err?.message || 'Could not complete this action')
     } finally {
       setBusy(false)
@@ -85,6 +112,12 @@ export default function ActionCard({ actionId, actionType, proposed, status = nu
       setJustResolved('rejected')
       onResolved?.('rejected')
     } catch (err) {
+      const settled = settledFrom409(err)
+      if (settled) {
+        setJustResolved(settled)
+        onResolved?.(settled)
+        return
+      }
       setError(err?.message || 'Could not dismiss this proposal')
     } finally {
       setBusy(false)
