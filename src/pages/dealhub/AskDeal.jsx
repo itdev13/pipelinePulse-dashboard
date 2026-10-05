@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { aiAPI } from '../../api/ai'
 import { dealsAPI } from '../../api/deals'
@@ -102,6 +102,21 @@ export default function AskDeal({
   // follow-ups, and every question is already persisted server-side in
   // ai_runs for the audit trail.
   const [turns, setTurns] = useState([])
+  // Record an action's outcome in the turn, so a card that has been confirmed
+  // does not revert to a live Confirm button when this remounts. Mirrors
+  // CopilotTab — see the comment on its ActionCard.
+  const onActionResolved = useCallback((actionId, outcome) => {
+    setTurns((cur) => cur.map((t) => (
+      t.proposedActions?.some((a) => a.actionId === actionId)
+        ? {
+            ...t,
+            proposedActions: t.proposedActions.map((a) => (
+              a.actionId === actionId ? { ...a, status: outcome } : a
+            ))
+          }
+        : t
+    )))
+  }, [])
   const [pending, setPending] = useState(false)
   const [error, setError] = useState(null)
   const [available, setAvailable] = useState(null)
@@ -664,6 +679,7 @@ export default function AskDeal({
                     onJumpToMessage={onJumpToMessage}
                     onInspect={t.runId ? () => setInspectRunId(t.runId) : undefined}
                     people={people}
+                    onActionResolved={onActionResolved}
                   />
                 )
               )}
@@ -989,7 +1005,7 @@ function PromptChip({ prompt, onPick }) {
 // steps to show, but there IS real coverage data, and it's now styled as
 // the same kind of bare inline row ThoughtProcess uses rather than a
 // tinted banner.
-function Answer({ turn, onJumpToMessage, onInspect, people = [] }) {
+function Answer({ turn, onJumpToMessage, onInspect, people = [], onActionResolved }) {
   // 'note' | 'task' | null — which editor is open over this answer.
   const [saveAs, setSaveAs] = useState(null)
 
@@ -1036,6 +1052,13 @@ function Answer({ turn, onJumpToMessage, onInspect, people = [] }) {
                 actionId={a.actionId}
                 actionType={a.actionType}
                 proposed={a.proposed}
+                // Same pair as the portfolio Co-Pilot: `status` so a reopened
+                // thread shows a sent action as sent, and `onResolved` so the
+                // outcome is written into the turn rather than living only in
+                // the card. Without both, a remount offers an already-sent
+                // email again with a live Confirm button.
+                status={a.status || null}
+                onResolved={(outcome) => onActionResolved?.(a.actionId, outcome)}
               />
             ))}
           </div>

@@ -264,6 +264,24 @@ export default function CopilotTab({ onOpenDeal }) {
     requestAnimationFrame(() => inputRef.current?.focus())
   }
 
+  // Record an action's outcome in the TURN, not just in the card.
+  //
+  // `turns` is persisted (useTabState), so this is what survives a tab switch
+  // or a remount. Without it a confirmed send reverts to a pending draft the
+  // moment the component unmounts — see the comment on the ActionCard below.
+  const onActionResolved = useCallback((actionId, outcome) => {
+    setTurns((cur) => cur.map((t) => (
+      t.proposedActions?.some((a) => a.actionId === actionId)
+        ? {
+            ...t,
+            proposedActions: t.proposedActions.map((a) => (
+              a.actionId === actionId ? { ...a, status: outcome } : a
+            ))
+          }
+        : t
+    )))
+  }, [setTurns])
+
   const reopen = (chat) => {
     const list = chat.turns?.length ? chat.turns : [chat]
     setTurns(list.flatMap((t) => [
@@ -470,6 +488,7 @@ export default function CopilotTab({ onOpenDeal }) {
                         onOpenDeal={onOpenDeal}
                         thoughtsOpen={openThoughtsFor === i}
                         onToggleThoughts={() => setOpenThoughtsFor((cur) => (cur === i ? null : i))}
+                        onActionResolved={onActionResolved}
                       />
                     )
                 ))}
@@ -525,7 +544,7 @@ export default function CopilotTab({ onOpenDeal }) {
   )
 }
 
-function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
+function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts, onActionResolved }) {
   // minWidth:0 on BOTH this grid and the answer block below it. Every level
   // between the scroll container and the text needs it — a single grid or
   // flex ancestor without it sizes to its widest descendant and the clip
@@ -719,6 +738,15 @@ function AnswerTurn({ turn, onOpenDeal, thoughtsOpen, onToggleThoughts }) {
                 // is pending by definition). The card renders as already
                 // sent rather than offering the draft again.
                 status={a.status || null}
+                // WRITE THE OUTCOME BACK INTO THE TURN.
+                //
+                // Without this the resolution lived only in ActionCard's own
+                // state, and `turns` is persisted through useTabState — so
+                // switching to Businesses and back remounted the card from a
+                // turn that still said status: null, and an email the rep had
+                // already sent was offered again with a live Confirm button.
+                // One tab switch away from sending it twice.
+                onResolved={(outcome) => onActionResolved(a.actionId, outcome)}
               />
             ))}
           </div>

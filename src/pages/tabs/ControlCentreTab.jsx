@@ -390,7 +390,11 @@ function SignatureSection() {
             <RichEditor
               value={html}
               onChange={setHtml}
-              placeholder="J Srini — Crittall Windows · 0121 000 0000"
+              // Empty, not omitted: the prop defaults to "Write a note…",
+              // which is wrong here and worse than no placeholder at all.
+              // A signature is the rep's own, and a worked example in the
+              // box reads as a house style to copy rather than a hint.
+              placeholder=""
               minHeight={140}
               disabled={busy}
               // The one place rich mode is on: a signature is branded layout,
