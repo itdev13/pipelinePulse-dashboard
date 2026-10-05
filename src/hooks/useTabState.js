@@ -47,9 +47,17 @@ const MAX_AGE_MS = 2 * 60 * 60 * 1000   // 2 hours — a working session, not a 
 // rather than threading a prop through every useTabState call site.
 function currentLocationId() {
   try {
-    for (const k of Object.keys(localStorage)) {
-      if (k.startsWith('pp.position.')) return k.slice('pp.position.'.length)
-    }
+    // Written by AuthContext on every successful verify, so it is the location
+    // the SESSION is for — not a guess.
+    //
+    // This used to scan for a `pp.position.*` key and return the first match.
+    // That key is written per sub-account, so after a rep had visited two, the
+    // scan returned whichever Object.keys happened to list first. Switching
+    // location then compared the new snapshot against the OLD id, decided it
+    // matched, and kept the previous account's Insights AI history and Recents
+    // on screen under the new account's name. It looked like a data leak. It
+    // was a scan returning the wrong answer.
+    return localStorage.getItem('pp.activeLocation') || null
   } catch { /* storage blocked */ }
   return null
 }
@@ -75,7 +83,26 @@ function load() {
   }
 }
 
-const store = load()
+// The location this in-memory store was loaded for. A module-level `store`
+// is created ONCE per page load, but a sub-account switch inside GHL does not
+// reload the iframe — so without this the store kept serving the previous
+// location's values for the rest of the session, no matter what load() would
+// have decided had it run again.
+let storeLoc = currentLocationId()
+let store = load()
+
+// Drop everything if the sub-account has changed since the store was built.
+// Called on every read and write rather than on a listener: there is no event
+// for "GHL switched location", and a check that costs one localStorage read is
+// cheaper than being wrong.
+function ensureCurrentLocation() {
+  const loc = currentLocationId()
+  if (loc !== storeLoc) {
+    storeLoc = loc
+    store = new Map()
+    try { localStorage.removeItem(STORE_KEY) } catch { /* storage blocked */ }
+  }
+}
 
 function persist() {
   try {
@@ -104,12 +131,16 @@ function persist() {
  */
 export function useTabState(page, key, initial) {
   const id = `${page}:${key}`
-  const [value, setValue] = useState(() => (store.has(id) ? store.get(id) : initial))
+  const [value, setValue] = useState(() => {
+    ensureCurrentLocation()
+    return store.has(id) ? store.get(id) : initial
+  })
 
   const set = useCallback((next) => {
     setValue((prev) => {
       // Support the updater form, or callers can't do setX(v => !v).
       const resolved = typeof next === 'function' ? next(prev) : next
+      ensureCurrentLocation()
       store.set(id, resolved)
       persist()
       return resolved

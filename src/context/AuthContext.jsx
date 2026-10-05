@@ -40,6 +40,14 @@ export const AuthProvider = ({ children }) => {
         userId: ctx.userId,
       })
       localStorage.setItem('sessionToken', res.sessionToken)
+      // The authoritative sub-account for this session, written where
+      // non-React code can read it. useTabState needs it to decide whether a
+      // persisted snapshot belongs to the location now on screen; it used to
+      // infer this by scanning for a `pp.position.*` key, which returns the
+      // FIRST one found — so after visiting two sub-accounts it would answer
+      // with whichever happened to be first, and one location's chat history
+      // stayed on screen under another's name.
+      localStorage.setItem('pp.activeLocation', res.location.id)
       setSession({ token: res.sessionToken, user: res.user, locationId: res.location.id })
       setLocation(res.location)
       // Apply the sub-account's currency to all money formatters.
@@ -55,6 +63,10 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('sessionToken')
+    // Cleared with the session, so the next sign-in cannot be compared against
+    // the previous one's sub-account and judged a match.
+    localStorage.removeItem('pp.activeLocation')
+    localStorage.removeItem('pp.tabstate')
     setSession(null)
     setLocation(null)
   }
