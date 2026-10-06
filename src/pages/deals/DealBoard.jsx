@@ -104,7 +104,7 @@ function DealCard({ deal, onOpen, onDragStart, dragging }) {
 }
 
 // One stage. Owns its own deals, count and paging.
-function Column({ stage, search, status, tag, assignedTo, onOpen, onMoved, registerReload }) {
+function Column({ stage, search, status, tag, assignedTo, compact, onOpen, onMoved, onCount, registerReload }) {
   const [deals, setDeals] = useState([])
   const [total, setTotal] = useState(null)
   const [cursor, setCursor] = useState(null)
@@ -138,13 +138,20 @@ function Column({ stage, search, status, tag, assignedTo, onOpen, onMoved, regis
       setDeals((prev) => (nextCursor ? [...prev, ...(r.deals || [])] : (r.deals || [])))
       setCursor(r.nextCursor || null)
       setHasMore(!!r.hasMore)
-      if (typeof r.totalCount === 'number') setTotal(r.totalCount)
+      if (typeof r.totalCount === 'number') {
+        setTotal(r.totalCount)
+        // Tell the pipeline how many this stage holds, so a pipeline with
+        // none anywhere can collapse instead of occupying a screen of empty
+        // columns. Reported from here because the column owns the query —
+        // the parent has no count of its own without refetching.
+        onCount?.(stage.id, r.totalCount)
+      }
     } catch (e) {
       setError(e.message || 'Could not load this stage')
     } finally {
       setLoading(false)
     }
-  }, [stage.id, search, status, tag, assignedTo])
+  }, [stage.id, search, status, tag, assignedTo, onCount])
 
   useEffect(() => { load(null) }, [load])
 
@@ -179,7 +186,14 @@ function Column({ stage, search, status, tag, assignedTo, onOpen, onMoved, regis
         // whether it holds ten cards or none, so the board reads as a grid.
         // Without it, an empty column collapsed to its header and the row of
         // headers sat at different depths.
-        height: 'calc(100vh - 260px)', minHeight: 380,
+        // Full height for ONE board, so its columns end on the same line and
+        // read as a grid. Stacked, that rule turns every pipeline — empty or
+        // not — into a full screen, and eight pipelines became eight screens
+        // of "No deals here". Compact caps them instead, so a stacked board
+        // is as tall as it needs to be.
+        height: compact ? 'auto' : 'calc(100vh - 260px)',
+        maxHeight: compact ? 'calc(100vh - 260px)' : undefined,
+        minHeight: compact ? 190 : 380,
         // gray-100, not gray-50: against a white header and white cards, 50 is
         // a 1.02:1 difference — the header did not read as a header and the
         // cards floated with no visible column behind them.
@@ -346,13 +360,38 @@ function Column({ stage, search, status, tag, assignedTo, onOpen, onMoved, regis
 // One pipeline's columns. Split out of DealBoard so the board can render
 // several pipelines stacked when no single one is chosen — each keeps its own
 // stage columns rather than merging stage lists, which would not be a board.
-function PipelineBoard({ pipeline, search, status, tag, assignedTo, onOpenDeal, move, registerReload }) {
+function PipelineBoard({
+  pipeline, search, status, tag, assignedTo, compact, onOpenDeal, move, registerReload, onTotal
+}) {
   // Retired stages still hold deals, so they are shown; they are simply not
   // offered as destinations by GHL. Sorted by position, as the pipeline is.
   const stages = useMemo(
     () => [...(pipeline?.stages || [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
     [pipeline]
   )
+
+  // stageId -> count, from each column's own query. Kept per stage rather
+  // than as a running sum so a refetch REPLACES that stage's number instead
+  // of adding to it — a column reloads on every filter change and on both
+  // sides of a drag, and a sum would climb each time.
+  const [counts, setCounts] = useState({})
+  const noteCount = useCallback((stageId, n) => {
+    setCounts((prev) => (prev[stageId] === n ? prev : { ...prev, [stageId]: n }))
+  }, [])
+
+  const total = useMemo(
+    () => Object.values(counts).reduce((a, b) => a + b, 0),
+    [counts]
+  )
+  // Only once EVERY stage has answered. Before that the total is a partial
+  // sum, and a pipeline would flicker from "empty" to populated as its
+  // columns landed one by one.
+  const settled = stages.length > 0 && Object.keys(counts).length >= stages.length
+
+  useEffect(() => {
+    if (settled) onTotal?.(pipeline?.id, total)
+  }, [settled, total, onTotal, pipeline?.id])
+
   if (!pipeline) return null
   return (
     // Horizontal scroll lives HERE, not on the page: the board is wider than
@@ -371,6 +410,8 @@ function PipelineBoard({ pipeline, search, status, tag, assignedTo, onOpenDeal, 
           status={status}
           tag={tag}
           assignedTo={assignedTo}
+          compact={compact}
+          onCount={noteCount}
           onOpen={onOpenDeal}
           onMoved={move}
           registerReload={registerReload}
@@ -416,6 +457,24 @@ export default function DealBoard({ pipeline, pipelines, search, status = 'open'
   const showAll = Array.isArray(pipelines) && pipelines.length > 0
   const list = showAll ? pipelines : (pipeline ? [pipeline] : [])
 
+  // pipelineId -> how many deals it holds under the current filters, as each
+  // board settles. Used to collapse the empty ones: with "All pipelines"
+  // selected every pipeline rendered a full-height board of "No deals here",
+  // so eight pipelines meant eight screens of nothing between the one that
+  // had deals in it.
+  const [totals, setTotals] = useState({})
+  const noteTotal = useCallback((id, n) => {
+    setTotals((prev) => (prev[id] === n ? prev : { ...prev, [id]: n }))
+  }, [])
+  // Which empty ones the user has opened anyway. An empty pipeline is still
+  // a real drop target — dragging a deal into it is how it stops being empty
+  // — so collapsing must be reversible, not a filter.
+  const [expanded, setExpanded] = useState(() => new Set())
+
+  // Stacked boards are compact; a single board keeps the full-height columns
+  // that make it read as a grid.
+  const compact = showAll && list.length > 1
+
   if (!list.length) return null
 
   return (
@@ -431,32 +490,78 @@ export default function DealBoard({ pipeline, pipelines, search, status = 'open'
           {moveError}
         </p>
       )}
-      {list.map((p) => (
-        <section key={p.id} style={{ display: 'grid', gap: 'var(--space-2)', minWidth: 0 }}>
-          {/* Only when several are stacked: with one pipeline the picker above
-              already names it, and a second heading would just repeat it. */}
-          {showAll && list.length > 1 && (
-            <h3 style={{
-              margin: 0, fontSize: 'var(--text-sm)', fontWeight: 600,
-              letterSpacing: '0.04em', textTransform: 'uppercase',
-              color: 'var(--text-muted)',
-              position: 'sticky', left: 0,
-            }}>
-              {p.name}
-            </h3>
-          )}
-          <PipelineBoard
-            pipeline={p}
-            search={search}
-            status={status}
-            tag={tag}
-            assignedTo={assignedTo}
-            onOpenDeal={onOpenDeal}
-            move={move}
-            registerReload={registerReload}
-          />
-        </section>
-      ))}
+      {list.map((p) => {
+        const n = totals[p.id]
+        // Collapsed only once it has ANSWERED with zero — `undefined` means
+        // its columns have not reported yet, and collapsing on that would
+        // hide a pipeline before its deals had a chance to arrive.
+        const isEmpty = compact && n === 0 && !expanded.has(p.id)
+        return (
+          <section key={p.id} style={{ display: 'grid', gap: 'var(--space-2)', minWidth: 0 }}>
+            {/* Only when several are stacked: with one pipeline the picker
+                above already names it, and a second heading would just
+                repeat it. */}
+            {compact && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                position: 'sticky', left: 0
+              }}>
+                <h3 style={{
+                  margin: 0, fontSize: 'var(--text-sm)', fontWeight: 600,
+                  letterSpacing: '0.04em', textTransform: 'uppercase',
+                  color: 'var(--text-muted)'
+                }}>
+                  {p.name}
+                </h3>
+                {/* The count belongs in the heading: scanning eight stacked
+                    boards, "which of these has anything in it" is the first
+                    question, and it was only answerable by reading every
+                    column header. */}
+                {typeof n === 'number' && (
+                  <span style={{
+                    fontSize: 'var(--text-sm)', color: 'var(--text-faint)',
+                    fontVariantNumeric: 'tabular-nums'
+                  }}>
+                    {n === 0 ? 'no deals' : `${n} deal${n === 1 ? '' : 's'}`}
+                  </span>
+                )}
+                {isEmpty && (
+                  <button
+                    type="button"
+                    onClick={() => setExpanded((prev) => new Set(prev).add(p.id))}
+                    style={{
+                      padding: 0, border: 'none', background: 'none',
+                      color: 'var(--accent-plum-text)', fontFamily: 'var(--font-sans)',
+                      fontSize: 'var(--text-sm)', fontWeight: 600, cursor: 'pointer'
+                    }}
+                  >
+                    Show stages
+                  </button>
+                )}
+              </div>
+            )}
+            {/* An empty pipeline stays MOUNTED, just hidden — unmounting it
+                would drop its columns' counts, so `totals` would lose the
+                zero that collapsed it and it would expand again on the next
+                render. Hidden, it keeps reporting, so a filter change that
+                gives it deals reopens it on its own. */}
+            <div style={isEmpty ? { display: 'none' } : undefined}>
+              <PipelineBoard
+                pipeline={p}
+                search={search}
+                status={status}
+                tag={tag}
+                assignedTo={assignedTo}
+                compact={compact}
+                onTotal={noteTotal}
+                onOpenDeal={onOpenDeal}
+                move={move}
+                registerReload={registerReload}
+              />
+            </div>
+          </section>
+        )
+      })}
     </div>
   )
 }
