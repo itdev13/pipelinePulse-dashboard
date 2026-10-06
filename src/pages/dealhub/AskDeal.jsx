@@ -31,8 +31,8 @@ function titleCase(v) {
 //   Right · Co-Pilot: starter chips, the transcript, and the composer
 //
 // The five starters are written for a sales manager reviewing the deal (next
-// step, biggest risk, undelivered promises, missing qualification, coaching the
-// rep on price objections). They were cards in the left rail; as chips in the
+// step, biggest risk, undelivered promises, missing qualification, and the
+// questions to ask next). They were cards in the left rail; as chips in the
 // Co-Pilot header they sit where the question actually gets asked.
 //
 // Backend wiring lands next — for now the ask box just captures locally and
@@ -85,9 +85,14 @@ const PROMPTS = [
     id: 'coaching',
     icon: 'psychology',
     accent: 'plum',
-    chipLabel: 'Coach the rep',
-    label: 'How should the rep handle the price objection?',
-    hint: 'Coaching view for the manager'
+    chipLabel: 'Questions I should ask',
+    // Deliberately points at the QUALIFICATION HEADINGS — the location's own
+    // opportunity fields, shown in Control panel → Qualification headings. The
+    // old wording ("how should the rep handle the price objection") assumed a
+    // price objection that most deals do not have, so on a thread with no
+    // pricing in it the answer was always "there is no price objection here".
+    label: 'What questions should the rep ask to progress the meddic questions',
+    hint: 'Questions to fill the qualification headings'
   }
 ]
 

@@ -1445,6 +1445,13 @@ export default function DealHubTab({
               // from these so a checkbox tick updates them instantly —
               // re-fetching from the server would lag behind unflushed ticks.
               messages={messages || []}
+              // The deal's contacts. "Save as note" and "Create task" store
+              // against a CONTACT, so AskDeal disables both when this is
+              // empty — and it was never passed, so it defaulted to [] and
+              // the two buttons were permanently disabled on every deal,
+              // contacts or not. The tooltip said "this deal has no
+              // contacts" on deals that plainly had one.
+              people={deal?.people || []}
             />
           </>
         )}

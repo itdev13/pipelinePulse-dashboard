@@ -465,7 +465,15 @@ export function DealNotesSection({ dealId, people = [], onOpenAll }) {
       emptyText="No notes on this deal yet."
     >
       {shown.map((n, i) => {
-        const { heading, rest } = splitNote(n.body)
+        // The note's OWN title when the author gave one — the server has
+        // always sent it (routes/notes.js), and the timeline already renders
+        // it, but this rail went straight to splitNote. So a note titled
+        // "test note" with body "body" showed only "body": splitNote took the
+        // body's first line as the heading and the real title never appeared,
+        // unlike the task rail right above it which shows both.
+        const { heading, rest } = n.title
+          ? { heading: n.title, rest: (n.body || '').trim() || null }
+          : splitNote(n.body)
         // The colour a rep set on the note, in GHL or here. The server has
         // always sent it on /api/notes; nothing rendered it until now.
         const col = noteColourStyle(n.color)
