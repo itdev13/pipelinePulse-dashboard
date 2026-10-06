@@ -342,6 +342,25 @@ export default function DealHubTab({
           })
         }
 
+        // QUALIFICATION rows paint early too. They live in their own array
+        // rather than on a dealKey, and the reconcile below is a deliberate
+        // 2.5s later — without this the heading a rep just filled kept
+        // showing "Not filled yet" for that whole time, which reads as a
+        // failed save. The refetch still replaces it with whatever GHL
+        // normalised.
+        setDeal((d) => {
+          if (!d?.qualification?.length) return d
+          const text = Array.isArray(value.value) ? value.value.join(', ') : value.value
+          return {
+            ...d,
+            qualification: d.qualification.map((q) => (
+              q.fieldId && q.fieldId === value.id
+                ? { ...q, value: text || null, filled: !!(text && String(text).trim()) }
+                : q
+            ))
+          }
+        })
+
         res = await dealsAPI.update(dealId, {
           customFields: [{ id: value.id, field_value: value.value }]
         })
@@ -1432,7 +1451,15 @@ export default function DealHubTab({
                   people={deal?.people || []}
                   onOpenAll={onOpenTab ? () => onOpenTab('notes') : undefined}
                 />
-                <QualificationSection qualification={deal?.qualification || []} />
+                <QualificationSection
+                  qualification={deal?.qualification || []}
+                  // The same saver the deal card's custom-field pickers use,
+                  // so a qualification answer is written exactly like any
+                  // other opportunity custom field — one write path, one set
+                  // of error handling.
+                  onSave={saveDealField}
+                  savingField={savingField}
+                />
               </div>
             </div>
             <AskDeal
