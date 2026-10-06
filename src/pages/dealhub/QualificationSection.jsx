@@ -229,7 +229,11 @@ export default function QualificationSection({ qualification = [], onSave, savin
                   style={{
                     display: 'block', width: '100%', maxWidth: 620,
                     padding: 0, border: 'none', background: 'none',
-                    textAlign: 'left', cursor: canEdit ? 'text' : 'default',
+                    textAlign: 'left',
+                    // A text caret over prose you are about to edit, a
+                    // pointer over the Add chip — the chip is a control, and
+                    // a caret over it contradicts the border saying so.
+                    cursor: !canEdit ? 'default' : (q.filled ? 'text' : 'pointer'),
                     fontFamily: 'var(--font-sans)'
                   }}
                 >
@@ -246,12 +250,37 @@ export default function QualificationSection({ qualification = [], onSave, savin
                   ) : (
                     <span
                       style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        // A DASHED CHIP, not bare text. It said "click to
+                        // add" while looking like a sentence, so nothing
+                        // about it invited a click — the one hint was the
+                        // wording itself.
+                        //
+                        // Same treatment the deal card's unset field chips
+                        // already use (DealSection's FieldPicker): dashed
+                        // border, tinted fill, pill height. Rose rather than
+                        // gold because this row is already a rose wash, and a
+                        // gold chip on it reads as a second, unrelated state.
+                        //
+                        // Only when it is actually clickable — read-only, it
+                        // stays plain text, since a button that does nothing
+                        // is worse than a label.
+                        ...(canEdit ? {
+                          height: 30, padding: '0 11px',
+                          border: '1px dashed var(--status-stuck)',
+                          borderRadius: 'var(--radius-md)',
+                          background: '#fff'
+                        } : null),
                         fontSize: 'var(--text-base)', color: 'var(--status-stuck)'
                       }}
                     >
-                      <span className="ms" style={{ fontSize: 15 }}>help</span>
-                      {canEdit ? 'Not filled yet — click to add' : 'Not filled yet'}
+                      <span className="ms" style={{ fontSize: 15 }}>add</span>
+                      {/* "Add answer", not bare "Add": the row is a question
+                          and the panel's whole point is which ones are
+                          unanswered. "Add" alone names the action but drops
+                          the state, and a manager scanning the rail is
+                          reading for the gaps. */}
+                      {canEdit ? 'Add answer' : 'Not filled yet'}
                     </span>
                   )}
                 </button>
