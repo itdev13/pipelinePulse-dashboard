@@ -40,15 +40,18 @@ test('both filters are threaded down the whole component chain', () => {
   // gain props over time and a test that pins the full argument order fails
   // on an unrelated addition, which teaches people to edit the test rather
   // than read it.
-  for (const name of ['Column', 'PipelineBoard', 'DealBoard']) {
+  // Two levels now: DealBoard renders Column directly. PipelineBoard is gone
+  // — it existed only to draw one grid per pipeline, which is the thing that
+  // was replaced.
+  for (const name of ['Column', 'DealBoard']) {
     const sig = board.match(new RegExp(`function ${name}\\(\\{([^}]*)\\}`))
     assert.ok(sig, `${name} should destructure its props`)
     assert.match(sig[1], /\btag\b/, `${name} should accept tag`)
     assert.match(sig[1], /\bassignedTo\b/, `${name} should accept assignedTo`)
   }
   // and actually passed, not just accepted
-  assert.ok((board.match(/tag=\{tag\}/g) || []).length >= 2, 'tag must be passed at each level')
-  assert.ok((board.match(/assignedTo=\{assignedTo\}/g) || []).length >= 2)
+  assert.ok((board.match(/tag=\{tag\}/g) || []).length >= 1, 'tag must reach the column')
+  assert.ok((board.match(/assignedTo=\{assignedTo\}/g) || []).length >= 1)
 })
 
 test('DealsTab gives the board the same filters it gives the count query', () => {
@@ -67,50 +70,73 @@ test('stage is still NOT passed to the board', () => {
   assert.ok(!/stageId=/.test(call), 'a stage filter must not reach the board')
 })
 
-// ── STACKING EVERY PIPELINE ──────────────────────────────────────────
-// With no pipeline picked the board stacks one per pipeline. Each used
-// full-height columns (calc(100vh - 260px)), so eight pipelines meant eight
-// screens — almost all of them reading "No deals here" — with the one that
-// had deals somewhere below the fold.
+// ── ONE BOARD, EVERY PIPELINE ────────────────────────────────────────
+// The board used to render a separate full-height grid PER pipeline when no
+// single one was chosen: eight pipelines meant eight screens, each with its
+// own scrollbar, almost all reading "No deals here".
+//
+// Now there is one grid. Stage names repeat across pipelines — every
+// pipeline has its own "Quote Sent" with a different stage_id — so columns
+// are keyed by NAME and each asks for every id sharing it.
 
-test('stacked boards use compact columns, a single board does not', () => {
-  // The full-height rule is right for ONE board: it makes the columns end on
-  // the same line and read as a grid. Stacked, it is what produced the
-  // screens of nothing.
-  assert.match(board, /const compact = showAll && list\.length > 1/)
-  assert.match(board, /height: compact \? 'auto' : 'calc\(100vh - 260px\)'/)
-  assert.match(board, /maxHeight: compact \? 'calc\(100vh - 260px\)' : undefined/)
+const merge = (() => {
+  const fn = board.slice(board.indexOf('function mergeStages'), board.indexOf('export default function DealBoard'))
+  // eslint-disable-next-line no-new-func
+  return new Function(`${fn}; return mergeStages`)()
+})()
+
+const PIPELINES = [
+  { id: 'p_brad', name: 'Brad', stages: [
+    { id: 's_b1', name: 'Marketing Qualified', position: 0 },
+    { id: 's_b2', name: 'Quote Sent', position: 4 }] },
+  { id: 'p_chris', name: 'Chris', stages: [
+    { id: 's_c1', name: 'Marketing Qualified', position: 0 },
+    { id: 's_c2', name: 'Quote Sent', position: 3 }] },
+  { id: 'p_mkt', name: 'Marketing', stages: [
+    { id: 's_m1', name: 'Marketing Qualified', position: 0 }] }
+]
+
+test('pipelines collapse into one set of columns, keyed by stage name', () => {
+  const cols = merge(PIPELINES)
+  assert.equal(cols.length, 2, 'three pipelines, two distinct stage names')
+  assert.deepEqual(cols.map((c) => c.name), ['Marketing Qualified', 'Quote Sent'])
 })
 
-test('an empty pipeline collapses only once it has reported zero', () => {
-  // `undefined` means its columns have not answered yet. Collapsing on that
-  // would hide a pipeline before its deals had a chance to arrive.
-  assert.match(board, /const isEmpty = compact && n === 0 && !expanded\.has\(p\.id\)/)
+test('a merged column asks for every stage id that shares its name', () => {
+  // The list form of stageId, which routes/deals.js gained for exactly this.
+  const [first] = merge(PIPELINES)
+  assert.equal(first.id, 's_b1,s_c1,s_m1')
 })
 
-test('a pipeline total is only published once every stage has answered', () => {
-  // Otherwise the sum is partial and a populated pipeline flickers through
-  // "empty" as its columns land one at a time.
-  assert.match(board, /Object\.keys\(counts\)\.length >= stages\.length/)
-  assert.match(board, /if \(settled\) onTotal/)
+test('a drop resolves to the stage id of the deal OWN pipeline', () => {
+  // The column is one name backed by several ids. Sending the joined list as
+  // a stage id would write nonsense to the CRM, and picking the first would
+  // move the deal into another pipeline's stage.
+  const [, quoteSent] = merge(PIPELINES)
+  assert.equal(quoteSent.stageIdFor('p_brad'), 's_b2')
+  assert.equal(quoteSent.stageIdFor('p_chris'), 's_c2')
+  // A pipeline that does not have this stage at all has no answer, and the
+  // drop is refused rather than guessed.
+  assert.equal(quoteSent.stageIdFor('p_mkt'), null)
 })
 
-test('counts are kept per stage, not accumulated', () => {
-  // A column refetches on every filter change and on both sides of a drag.
-  // A running sum would climb on each one.
-  assert.match(board, /setCounts\(\(prev\) => \(prev\[stageId\] === n \? prev : \{ \.\.\.prev, \[stageId\]: n \}\)\)/)
+test('a single pipeline still yields its own plain stage ids', () => {
+  assert.deepEqual(merge([PIPELINES[0]]).map((c) => c.id), ['s_b1', 's_b2'])
 })
 
-test('a collapsed pipeline stays mounted', () => {
-  // Unmounting drops its columns' counts, so `totals` loses the zero that
-  // collapsed it and it expands again on the next render — a loop. Hidden,
-  // it keeps reporting, so a filter change that gives it deals reopens it.
-  assert.match(board, /isEmpty \? \{ display: 'none' \} : undefined/)
+test('stage order is the earliest position any pipeline gives it', () => {
+  // "Quote Sent" is 4th in one pipeline and 3rd in another; taking the
+  // minimum stops a shared stage jumping around as pipelines are added.
+  const [, quoteSent] = merge(PIPELINES)
+  assert.equal(quoteSent.position, 3)
 })
 
-test('a collapsed pipeline can still be opened', () => {
-  // An empty pipeline is a real drop target — dragging a deal into it is how
-  // it stops being empty — so this must be reversible, not a filter.
-  assert.match(board, /Show stages/)
-  assert.match(board, /setExpanded\(\(prev\) => new Set\(prev\)\.add\(p\.id\)\)/)
+test('the deal pipeline travels with the drag', () => {
+  // Without it the drop handler cannot resolve which stage id it means.
+  assert.match(board, /setData\('text\/pipeline-id'/)
+  assert.match(board, /getData\('text\/pipeline-id'\)/)
+})
+
+test('there is one scroll container, not one per pipeline', () => {
+  assert.equal((board.match(/overflowX: 'auto'/g) || []).length, 1)
 })

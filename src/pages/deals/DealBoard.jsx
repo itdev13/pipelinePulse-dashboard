@@ -104,7 +104,7 @@ function DealCard({ deal, onOpen, onDragStart, dragging }) {
 }
 
 // One stage. Owns its own deals, count and paging.
-function Column({ stage, search, status, tag, assignedTo, compact, onOpen, onMoved, onCount, registerReload }) {
+function Column({ stage, search, status, tag, assignedTo, onOpen, onMoved, registerReload }) {
   const [deals, setDeals] = useState([])
   const [total, setTotal] = useState(null)
   const [cursor, setCursor] = useState(null)
@@ -138,20 +138,13 @@ function Column({ stage, search, status, tag, assignedTo, compact, onOpen, onMov
       setDeals((prev) => (nextCursor ? [...prev, ...(r.deals || [])] : (r.deals || [])))
       setCursor(r.nextCursor || null)
       setHasMore(!!r.hasMore)
-      if (typeof r.totalCount === 'number') {
-        setTotal(r.totalCount)
-        // Tell the pipeline how many this stage holds, so a pipeline with
-        // none anywhere can collapse instead of occupying a screen of empty
-        // columns. Reported from here because the column owns the query —
-        // the parent has no count of its own without refetching.
-        onCount?.(stage.id, r.totalCount)
-      }
+      if (typeof r.totalCount === 'number') setTotal(r.totalCount)
     } catch (e) {
       setError(e.message || 'Could not load this stage')
     } finally {
       setLoading(false)
     }
-  }, [stage.id, search, status, tag, assignedTo, onCount])
+  }, [stage.id, search, status, tag, assignedTo])
 
   useEffect(() => { load(null) }, [load])
 
@@ -177,7 +170,13 @@ function Column({ stage, search, status, tag, assignedTo, compact, onOpen, onMov
         setOver(false)
         const id = e.dataTransfer.getData('text/deal-id')
         const from = e.dataTransfer.getData('text/stage-id')
-        if (id && from !== stage.id) onMoved(id, from, stage.id)
+        const fromPipeline = e.dataTransfer.getData('text/pipeline-id')
+        // WHICH stage id this column means for THIS deal. The column is one
+        // merged stage name backed by several ids — one per pipeline — and
+        // sending the joined list as a stage id would write nonsense to the
+        // CRM. stageIdFor resolves it against the deal's own pipeline.
+        const to = stage.stageIdFor?.(fromPipeline) ?? stage.id
+        if (id && to && from !== to) onMoved(id, from, to)
       }}
       style={{
         flex: 'none', width: 320,
@@ -186,14 +185,11 @@ function Column({ stage, search, status, tag, assignedTo, compact, onOpen, onMov
         // whether it holds ten cards or none, so the board reads as a grid.
         // Without it, an empty column collapsed to its header and the row of
         // headers sat at different depths.
-        // Full height for ONE board, so its columns end on the same line and
-        // read as a grid. Stacked, that rule turns every pipeline — empty or
-        // not — into a full screen, and eight pipelines became eight screens
-        // of "No deals here". Compact caps them instead, so a stacked board
-        // is as tall as it needs to be.
-        height: compact ? 'auto' : 'calc(100vh - 260px)',
-        maxHeight: compact ? 'calc(100vh - 260px)' : undefined,
-        minHeight: compact ? 190 : 380,
+        // A fixed height, not maxHeight: every column ends at the same line
+        // whether it holds ten cards or none, so the board reads as a grid.
+        // There is only ever ONE grid now — the pipelines are merged into it
+        // — so this no longer multiplies into a screen per pipeline.
+        height: 'calc(100vh - 260px)', minHeight: 380,
         // gray-100, not gray-50: against a white header and white cards, 50 is
         // a 1.02:1 difference — the header did not read as a header and the
         // cards floated with no visible column behind them.
@@ -268,6 +264,10 @@ function Column({ stage, search, status, tag, assignedTo, compact, onOpen, onMov
             onDragStart={(e, deal) => {
               e.dataTransfer.setData('text/deal-id', deal.id)
               e.dataTransfer.setData('text/stage-id', stage.id)
+              // The deal's OWN pipeline. A merged column holds one stage id
+              // per pipeline, so the drop target has to pick the right one —
+              // and a deal dragged between columns stays in its pipeline.
+              e.dataTransfer.setData('text/pipeline-id', deal.pipelineId || '')
               e.dataTransfer.effectAllowed = 'move'
             }}
           />
@@ -360,72 +360,50 @@ function Column({ stage, search, status, tag, assignedTo, compact, onOpen, onMov
 // One pipeline's columns. Split out of DealBoard so the board can render
 // several pipelines stacked when no single one is chosen — each keeps its own
 // stage columns rather than merging stage lists, which would not be a board.
-function PipelineBoard({
-  pipeline, search, status, tag, assignedTo, compact, onOpenDeal, move, registerReload, onTotal
-}) {
-  // Retired stages still hold deals, so they are shown; they are simply not
-  // offered as destinations by GHL. Sorted by position, as the pipeline is.
-  const stages = useMemo(
-    () => [...(pipeline?.stages || [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
-    [pipeline]
-  )
-
-  // stageId -> count, from each column's own query. Kept per stage rather
-  // than as a running sum so a refetch REPLACES that stage's number instead
-  // of adding to it — a column reloads on every filter change and on both
-  // sides of a drag, and a sum would climb each time.
-  const [counts, setCounts] = useState({})
-  const noteCount = useCallback((stageId, n) => {
-    setCounts((prev) => (prev[stageId] === n ? prev : { ...prev, [stageId]: n }))
-  }, [])
-
-  const total = useMemo(
-    () => Object.values(counts).reduce((a, b) => a + b, 0),
-    [counts]
-  )
-  // Only once EVERY stage has answered. Before that the total is a partial
-  // sum, and a pipeline would flicker from "empty" to populated as its
-  // columns landed one by one.
-  const settled = stages.length > 0 && Object.keys(counts).length >= stages.length
-
-  useEffect(() => {
-    if (settled) onTotal?.(pipeline?.id, total)
-  }, [settled, total, onTotal, pipeline?.id])
-
-  if (!pipeline) return null
-  return (
-    // Horizontal scroll lives HERE, not on the page: the board is wider than
-    // the viewport by design and the rest of the page must not move sideways.
-    <div style={{
-      display: 'flex', gap: 'var(--space-3)',
-      overflowX: 'auto', overflowY: 'hidden',
-      paddingBottom: 'var(--space-2)',
-      minHeight: 420
-    }}>
-      {stages.map((s) => (
-        <Column
-          key={s.id}
-          stage={s}
-          search={search}
-          status={status}
-          tag={tag}
-          assignedTo={assignedTo}
-          compact={compact}
-          onCount={noteCount}
-          onOpen={onOpenDeal}
-          onMoved={move}
-          registerReload={registerReload}
-        />
-      ))}
-    </div>
-  )
+// MERGED COLUMNS — the board is ONE grid, whatever the pipeline picker says.
+//
+// It used to render a separate full-height board per pipeline when no single
+// one was chosen. Eight pipelines meant eight grids, each with its own
+// horizontal scrollbar, almost all of them reading "No deals here" — the
+// board stopped being a board.
+//
+// Stage NAMES repeat across pipelines: every pipeline here has its own
+// "Quote Sent", each with a different stage_id. So the columns are keyed by
+// name and a column asks for every id that shares it (the list form of
+// stageId, added in routes/deals.js for exactly this). One grid, one scroll,
+// and picking a pipeline narrows the same grid instead of changing its shape.
+function mergeStages(pipelines) {
+  const byName = new Map()
+  for (const p of pipelines) {
+    for (const st of p.stages || []) {
+      const key = (st.name || '').trim().toLowerCase()
+      if (!key) continue
+      if (!byName.has(key)) {
+        byName.set(key, { name: st.name, ids: [], byPipeline: new Map(), position: st.position ?? 0 })
+      }
+      const slot = byName.get(key)
+      slot.ids.push(st.id)
+      slot.byPipeline.set(p.id, st.id)
+      // The earliest position any pipeline gives this stage. Pipelines order
+      // their shared stages the same way in practice, and taking the minimum
+      // keeps a stage that is 3rd in one and 4th in another from jumping.
+      slot.position = Math.min(slot.position, st.position ?? 0)
+    }
+  }
+  return [...byName.values()]
+    .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name))
+    // `id` is what Column keys and registers reloaders by; the joined list is
+    // also exactly what the query sends, so the two cannot drift.
+    .map((s) => ({
+      id: s.ids.join(','),
+      name: s.name,
+      position: s.position,
+      // pipelineId -> the stage id this column means in THAT pipeline. A drop
+      // writes one real stage id, never the joined list.
+      stageIdFor: (pipelineId) => s.byPipeline.get(pipelineId) || (s.ids.length === 1 ? s.ids[0] : null)
+    }))
 }
 
-// `pipeline` is the one to show; `pipelines` (optional) means "show them all,
-// stacked". The board used to take a single pipeline and DealsTab quietly
-// substituted the first one when a rep had chosen none — so a location with
-// eight deals across several pipelines opened showing one deal, with the tab
-// badge still reading 8. Nothing on screen explained the gap.
 export default function DealBoard({ pipeline, pipelines, search, status = 'open', tag, assignedTo, onOpenDeal }) {
   const [moveError, setMoveError] = useState(null)
   // stageId -> reload fn, so a move can refresh exactly the two columns it
@@ -454,28 +432,21 @@ export default function DealBoard({ pipeline, pipelines, search, status = 'open'
     }
   }, [])
 
-  const showAll = Array.isArray(pipelines) && pipelines.length > 0
-  const list = showAll ? pipelines : (pipeline ? [pipeline] : [])
+  // Every pipeline in scope — the chosen one, or all of them — merged into
+  // one set of columns. Built INSIDE the memo: a `list` computed outside is a
+  // new array on every render, so the memo would recompute each time and
+  // hand Column a new `stage` object, refetching the whole board on any
+  // parent re-render.
+  const stages = useMemo(
+    () => mergeStages(
+      Array.isArray(pipelines) && pipelines.length > 0
+        ? pipelines
+        : (pipeline ? [pipeline] : [])
+    ),
+    [pipelines, pipeline]
+  )
 
-  // pipelineId -> how many deals it holds under the current filters, as each
-  // board settles. Used to collapse the empty ones: with "All pipelines"
-  // selected every pipeline rendered a full-height board of "No deals here",
-  // so eight pipelines meant eight screens of nothing between the one that
-  // had deals in it.
-  const [totals, setTotals] = useState({})
-  const noteTotal = useCallback((id, n) => {
-    setTotals((prev) => (prev[id] === n ? prev : { ...prev, [id]: n }))
-  }, [])
-  // Which empty ones the user has opened anyway. An empty pipeline is still
-  // a real drop target — dragging a deal into it is how it stops being empty
-  // — so collapsing must be reversible, not a filter.
-  const [expanded, setExpanded] = useState(() => new Set())
-
-  // Stacked boards are compact; a single board keeps the full-height columns
-  // that make it read as a grid.
-  const compact = showAll && list.length > 1
-
-  if (!list.length) return null
+  if (!stages.length) return null
 
   return (
     <div style={{ display: 'grid', gap: 'var(--space-2)', minHeight: 0 }}>
@@ -490,78 +461,29 @@ export default function DealBoard({ pipeline, pipelines, search, status = 'open'
           {moveError}
         </p>
       )}
-      {list.map((p) => {
-        const n = totals[p.id]
-        // Collapsed only once it has ANSWERED with zero — `undefined` means
-        // its columns have not reported yet, and collapsing on that would
-        // hide a pipeline before its deals had a chance to arrive.
-        const isEmpty = compact && n === 0 && !expanded.has(p.id)
-        return (
-          <section key={p.id} style={{ display: 'grid', gap: 'var(--space-2)', minWidth: 0 }}>
-            {/* Only when several are stacked: with one pipeline the picker
-                above already names it, and a second heading would just
-                repeat it. */}
-            {compact && (
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                position: 'sticky', left: 0
-              }}>
-                <h3 style={{
-                  margin: 0, fontSize: 'var(--text-sm)', fontWeight: 600,
-                  letterSpacing: '0.04em', textTransform: 'uppercase',
-                  color: 'var(--text-muted)'
-                }}>
-                  {p.name}
-                </h3>
-                {/* The count belongs in the heading: scanning eight stacked
-                    boards, "which of these has anything in it" is the first
-                    question, and it was only answerable by reading every
-                    column header. */}
-                {typeof n === 'number' && (
-                  <span style={{
-                    fontSize: 'var(--text-sm)', color: 'var(--text-faint)',
-                    fontVariantNumeric: 'tabular-nums'
-                  }}>
-                    {n === 0 ? 'no deals' : `${n} deal${n === 1 ? '' : 's'}`}
-                  </span>
-                )}
-                {isEmpty && (
-                  <button
-                    type="button"
-                    onClick={() => setExpanded((prev) => new Set(prev).add(p.id))}
-                    style={{
-                      padding: 0, border: 'none', background: 'none',
-                      color: 'var(--accent-plum-text)', fontFamily: 'var(--font-sans)',
-                      fontSize: 'var(--text-sm)', fontWeight: 600, cursor: 'pointer'
-                    }}
-                  >
-                    Show stages
-                  </button>
-                )}
-              </div>
-            )}
-            {/* An empty pipeline stays MOUNTED, just hidden — unmounting it
-                would drop its columns' counts, so `totals` would lose the
-                zero that collapsed it and it would expand again on the next
-                render. Hidden, it keeps reporting, so a filter change that
-                gives it deals reopens it on its own. */}
-            <div style={isEmpty ? { display: 'none' } : undefined}>
-              <PipelineBoard
-                pipeline={p}
-                search={search}
-                status={status}
-                tag={tag}
-                assignedTo={assignedTo}
-                compact={compact}
-                onTotal={noteTotal}
-                onOpenDeal={onOpenDeal}
-                move={move}
-                registerReload={registerReload}
-              />
-            </div>
-          </section>
-        )
-      })}
+      {/* Horizontal scroll lives HERE, not on the page: the board is wider
+          than the viewport by design and the rest of the page must not move
+          sideways. ONE scrollbar now, not one per pipeline. */}
+      <div style={{
+        display: 'flex', gap: 'var(--space-3)',
+        overflowX: 'auto', overflowY: 'hidden',
+        paddingBottom: 'var(--space-2)',
+        minHeight: 420
+      }}>
+        {stages.map((st) => (
+          <Column
+            key={st.id}
+            stage={st}
+            search={search}
+            status={status}
+            tag={tag}
+            assignedTo={assignedTo}
+            onOpen={onOpenDeal}
+            onMoved={move}
+            registerReload={registerReload}
+          />
+        ))}
+      </div>
     </div>
   )
 }
