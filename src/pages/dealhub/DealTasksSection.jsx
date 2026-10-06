@@ -614,7 +614,7 @@ export function DealNotesSection({ dealId, people = [], onOpenAll }) {
             items.filter((x) => x.pinned && x.contact?.id === targetContactId).length
           }
           onClose={() => setEditor(null)}
-          onSaved={(saved) => {
+          onSaved={(saved, applied) => {
             // Moved to a DIFFERENT deal? This rail is fetched by dealId, so
             // the note no longer belongs in it. Patching the row in place
             // would leave it sitting under a deal it is not on any more —
@@ -623,11 +623,15 @@ export function DealNotesSection({ dealId, people = [], onOpenAll }) {
             const movedAway = editor.note
               && (saved?.opportunityId ?? null) !== (editor.note.opportunityId ?? null)
             if (editor.note && saved && !movedAway) {
+              // `applied` first: GHL's note PUT does not reliably echo
+              // every field it was sent, and `saved.title ?? null` blanked
+              // the name a rep had just typed — the old body-derived heading
+              // reappeared and the rename looked like it had failed.
               patchItem((x) => x.id === editor.note.id, {
-                body: saved.body ?? editor.note.body,
-                title: saved.title ?? null,
-                color: saved.color ?? null,
-                pinned: saved.pinned === true
+                body: applied?.body ?? saved.body ?? editor.note.body,
+                title: applied?.title ?? saved.title ?? editor.note.title ?? null,
+                color: applied?.color ?? saved.color ?? editor.note.color ?? null,
+                pinned: applied?.pinned ?? (saved.pinned === true)
               })
             } else {
               // A new note arrives via the webhook, so refetch rather than

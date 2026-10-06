@@ -299,13 +299,24 @@ export default function NoteEditor({
       }
       // Second argument: what we KNOW we applied.
       //
-      // The caller patches its row from the CRM's echo, but GHL's note PUT is
-      // not confirmed to return `businessId` — and if it omits the field, a
-      // caller reading `saved.businessId ?? null` would blank a company the
-      // rep had just set. Passing the value we sent removes the guess.
-      onSaved(res.note || null, editing && NOTE_COMPANY_EDITING && 'businessId' in changes
-        ? { businessId: changes.businessId }
-        : null)
+      // The caller patches its row from the CRM's echo, but GHL's note PUT
+      // does not reliably return every field it was sent — and a caller
+      // reading `saved.<field> ?? null` then BLANKS something the rep had
+      // just set. Passing the values we sent removes the guess.
+      //
+      // TITLE is the case that was actually reported: renaming a note sent
+      // {"title":"test4"}, GHL's response came back without a title, and
+      // both rails patched their row to `saved.title ?? null` — so the new
+      // name vanished and the old heading (derived from the body's first
+      // line) reappeared. The body survived only because it falls back to
+      // what we already held.
+      //
+      // Everything in `changes` is included: those are exactly the fields we
+      // sent, so they are exactly the ones we can speak for.
+      onSaved(
+        res.note || null,
+        editing && changes && Object.keys(changes).length ? { ...changes } : null
+      )
       onClose()
     } catch (err) {
       setError(err.message || 'Could not save that — try again')

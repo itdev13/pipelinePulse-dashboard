@@ -592,12 +592,20 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
           onClose={() => setEditor(null)}
           onSaved={(saved, applied) => {
             if (editor.note && saved) {
-              // Apply what the CRM echoed, not what we sent.
+              // Prefer what we KNOW we applied, then the CRM's echo, then
+              // what the row already held.
+              //
+              // GHL's note PUT does not reliably echo every field it was
+              // sent. Renaming a note sent {"title":"test4"} and the response
+              // came back with no title, so `saved.title ?? null` blanked it
+              // — the new name vanished and the old body-derived heading
+              // came back. `applied` carries exactly the fields we sent, so
+              // it is the only source that can speak for them.
               patchItem((x) => x.id === editor.note.id, {
-                body: saved.body ?? editor.note.body,
-                title: saved.title ?? null,
-                color: saved.color ?? null,
-                pinned: saved.pinned === true,
+                body: applied?.body ?? saved.body ?? editor.note.body,
+                title: applied?.title ?? saved.title ?? editor.note.title ?? null,
+                color: applied?.color ?? saved.color ?? editor.note.color ?? null,
+                pinned: applied?.pinned ?? (saved.pinned === true),
                 // The company, which the CRM echoes back on the note.
                 //
                 // Missing here, reopening the editor showed the OLD company
