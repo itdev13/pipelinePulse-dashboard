@@ -85,6 +85,10 @@ const sameSet = (a = [], b = []) => {
 // single shared fetch failed.
 export default function DealEditPanel({
   deal, pipelines, users, refError, onSaved, onDeleted, onClose,
+  // Opens a person's record in the Contacts tab. The same handler the deal
+  // table's contact cells and the Deal Hub's chips use, so a contact opens
+  // the same way wherever its name appears.
+  onOpenContact,
   // Called after a contact is linked or unlinked, so the caller refetches the
   // deal. Separate from onSaved: those writes go straight to GHL rather than
   // through this form's Update, so the panel stays open and only the people
@@ -631,6 +635,7 @@ export default function DealEditPanel({
         dealId={deal.id}
         people={deal.people || []}
         onChanged={onPeopleChanged}
+        onOpenContact={onOpenContact}
         disabled={saving}
       />
 
@@ -841,7 +846,7 @@ export default function DealEditPanel({
 // The cap is the same 11 the deal hub enforces: a primary plus ten others.
 const MAX_PEOPLE = 11
 
-function PeopleEditor({ dealId, people = [], onChanged, disabled }) {
+function PeopleEditor({ dealId, people = [], onChanged, onOpenContact, disabled }) {
   const [busy, setBusy] = useState(null)
   const [error, setError] = useState(null)
   const [adding, setAdding] = useState(false)
@@ -926,15 +931,47 @@ function PeopleEditor({ dealId, people = [], onChanged, disabled }) {
               person
             </span>
             <span style={{ flex: 1, minWidth: 0 }}>
-              <span
-                style={{
-                  display: 'block',
-                  fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                }}
-              >
-                {nameFor(p)}
-              </span>
+              {/* The NAME opens the contact's own record. A person on a deal
+                  was a dead end here: their name, email and phone were on
+                  screen but there was no way through to the record that owns
+                  them — every other surface (the deal table's contact cell,
+                  the Deal Hub's chips) already links, so this one read as
+                  broken rather than deliberate.
+
+                  A <button>, not a styled span: it is keyboard-reachable and
+                  announces itself, which a clickable span does not. Falls
+                  back to plain text when no handler is supplied, so the panel
+                  still renders wherever it is mounted without one. */}
+              {onOpenContact ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenContact(p.id)}
+                  title={`Open ${nameFor(p)} in Contacts`}
+                  style={{
+                    display: 'block', width: '100%',
+                    padding: 0, border: 'none', background: 'none',
+                    textAlign: 'left', cursor: 'pointer',
+                    fontFamily: 'var(--font-sans)',
+                    fontSize: 'var(--text-md)', fontWeight: 600,
+                    color: 'var(--text-heading)',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none' }}
+                >
+                  {nameFor(p)}
+                </button>
+              ) : (
+                <span
+                  style={{
+                    display: 'block',
+                    fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                  }}
+                >
+                  {nameFor(p)}
+                </span>
+              )}
               {(p.email || p.phone) && (
                 <span
                   style={{

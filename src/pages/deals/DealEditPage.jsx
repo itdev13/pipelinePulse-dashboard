@@ -22,7 +22,7 @@ import DealEditPanel from './DealEditPanel'
 
 export default function DealEditPage({
   deal, pipelines, users, refError,
-  onClose, onSaved, onDeleted, onOpenInHub
+  onClose, onSaved, onDeleted, onOpenInHub, onOpenContact
 }) {
   // Escape returns to the list — the keyboard equivalent of Back.
   useEffect(() => {
@@ -103,6 +103,11 @@ export default function DealEditPage({
           onSaved={onSaved}
           onDeleted={onDeleted}
           onClose={onClose}
+          // The full-page editor is the SAME panel as the inline one, so a
+          // contact must link from both. Wiring only the inline card would
+          // make the link appear and disappear depending on how the deal was
+          // opened, which is worse than it never working.
+          onOpenContact={onOpenContact}
         />
       </div>
     </div>

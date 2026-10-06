@@ -352,6 +352,7 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
           pipelines={refData?.pipelines || null}
           users={refData?.users || null}
           refError={refError}
+          onOpenContact={onOpenContact}
           onClose={() => setOpenDealId(null)}
           onSaved={() => refreshDeal(openDealId)}
           onDeleted={() => { setOpenDealId(null); reload() }}
@@ -709,6 +710,9 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
           key={d.id}
           deal={d}
           onOpenDeal={onOpenDeal}
+          // Opens the Contacts tab on that person — the same handler the
+          // table rows and the Deal Hub chips already use.
+          onOpenContact={onOpenContact}
           expanded={editingId === d.id}
           onToggleExpand={() => {
             setCreating(false)
@@ -741,7 +745,7 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
 }
 
 function DealCard({
-  deal, onOpenDeal, expanded, onToggleExpand,
+  deal, onOpenDeal, onOpenContact, expanded, onToggleExpand,
   pipelines, users, refError, onSaved, onDeleted
 }) {
   // No edit state on the card any more — DealEditPanel owns the whole draft,
@@ -918,6 +922,7 @@ function DealCard({
           users={users}
           refError={refError}
           onSaved={onSaved}
+          onOpenContact={onOpenContact}
           // Same refetch as a save. A link change is written to GHL
           // immediately, so the panel stays open and only the people list
           // needs to catch up.
