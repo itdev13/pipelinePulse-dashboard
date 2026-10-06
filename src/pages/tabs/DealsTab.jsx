@@ -675,6 +675,12 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
           // one column populated and the rest empty — it is applied by the
           // board's own column scoping instead. Status does pass through.
           status={filters.status || 'open'}
+          // Tag and Owner DO apply here, and were not being passed at all —
+          // so the toolbar's two pickers did nothing on the board while the
+          // count beside the heading (which does send them) dropped to 0.
+          // The screen showed "Deals 0" above columns full of deals.
+          tag={filters.tag || undefined}
+          assignedTo={filters.assignedTo || undefined}
           // A card opens the deal's own page. It used to jump straight to the
           // deal hub, which is a different question — the hub is the record's
           // activity, this is the record itself. The hub is one button away

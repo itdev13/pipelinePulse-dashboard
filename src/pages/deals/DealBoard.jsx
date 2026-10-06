@@ -104,7 +104,7 @@ function DealCard({ deal, onOpen, onDragStart, dragging }) {
 }
 
 // One stage. Owns its own deals, count and paging.
-function Column({ stage, search, status, onOpen, onMoved, registerReload }) {
+function Column({ stage, search, status, tag, assignedTo, onOpen, onMoved, registerReload }) {
   const [deals, setDeals] = useState([])
   const [total, setTotal] = useState(null)
   const [cursor, setCursor] = useState(null)
@@ -122,7 +122,18 @@ function Column({ stage, search, status, onOpen, onMoved, registerReload }) {
         status,
         limit: PAGE,
         cursor: nextCursor || undefined,
-        q: search || undefined
+        q: search || undefined,
+        // TAG AND OWNER. Both were absent, so the toolbar's pickers did
+        // nothing on the board: a rep set Tag to "gone quiet", the count
+        // beside the heading dropped to 0 (that query DOES send them — see
+        // DealsTab's pipelineCount effect), and the columns underneath went
+        // on showing every deal. The two numbers on screen contradicted each
+        // other and the filter looked broken because it was.
+        //
+        // The server has supported both all along (routes/deals.js) — they
+        // simply never left the browser on this view.
+        tag: tag || undefined,
+        assignedTo: assignedTo || undefined
       })
       setDeals((prev) => (nextCursor ? [...prev, ...(r.deals || [])] : (r.deals || [])))
       setCursor(r.nextCursor || null)
@@ -133,7 +144,7 @@ function Column({ stage, search, status, onOpen, onMoved, registerReload }) {
     } finally {
       setLoading(false)
     }
-  }, [stage.id, search, status])
+  }, [stage.id, search, status, tag, assignedTo])
 
   useEffect(() => { load(null) }, [load])
 
@@ -335,7 +346,7 @@ function Column({ stage, search, status, onOpen, onMoved, registerReload }) {
 // One pipeline's columns. Split out of DealBoard so the board can render
 // several pipelines stacked when no single one is chosen — each keeps its own
 // stage columns rather than merging stage lists, which would not be a board.
-function PipelineBoard({ pipeline, search, status, onOpenDeal, move, registerReload }) {
+function PipelineBoard({ pipeline, search, status, tag, assignedTo, onOpenDeal, move, registerReload }) {
   // Retired stages still hold deals, so they are shown; they are simply not
   // offered as destinations by GHL. Sorted by position, as the pipeline is.
   const stages = useMemo(
@@ -358,6 +369,8 @@ function PipelineBoard({ pipeline, search, status, onOpenDeal, move, registerRel
           stage={s}
           search={search}
           status={status}
+          tag={tag}
+          assignedTo={assignedTo}
           onOpen={onOpenDeal}
           onMoved={move}
           registerReload={registerReload}
@@ -372,7 +385,7 @@ function PipelineBoard({ pipeline, search, status, onOpenDeal, move, registerRel
 // substituted the first one when a rep had chosen none — so a location with
 // eight deals across several pipelines opened showing one deal, with the tab
 // badge still reading 8. Nothing on screen explained the gap.
-export default function DealBoard({ pipeline, pipelines, search, status = 'open', onOpenDeal }) {
+export default function DealBoard({ pipeline, pipelines, search, status = 'open', tag, assignedTo, onOpenDeal }) {
   const [moveError, setMoveError] = useState(null)
   // stageId -> reload fn, so a move can refresh exactly the two columns it
   // touched rather than the whole board.
@@ -436,6 +449,8 @@ export default function DealBoard({ pipeline, pipelines, search, status = 'open'
             pipeline={p}
             search={search}
             status={status}
+            tag={tag}
+            assignedTo={assignedTo}
             onOpenDeal={onOpenDeal}
             move={move}
             registerReload={registerReload}
