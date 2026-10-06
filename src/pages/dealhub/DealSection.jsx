@@ -559,6 +559,50 @@ function StageColumn({ deal, stages, onSaveField, saving, saveError, users, onNe
 //
 // stageHistoryWriter already accounts for the double underscore; the derivation
 // here did not. Anything keyed off GHL's field names has to be spelled out.
+// UNWRAP A VALUE THAT HAS BEEN JSON-ENCODED MORE THAN ONCE.
+//
+// A real one from production, on Lead source opportunity:
+//
+//   {"{\"{\\\"Webchat\\\"}\"}"}
+//
+// which is the word "Webchat" wrapped as a Postgres array, stringified,
+// wrapped again, stringified again. These columns hold whatever GHL's
+// customFields gave us, and a value that round-tripped through a
+// serialise step more than once arrives like this. The data wants
+// repairing at the source, but until it is, printing the raw string in a
+// chip is unreadable and tells a rep nothing.
+//
+// Peels the wrappers off for DISPLAY only — nothing is written back, so a
+// repair upstream simply makes this a no-op. Bails after a few passes
+// rather than looping on something it cannot reduce, and returns the
+// original whenever it cannot do better, so an ordinary value is never
+// mangled by the attempt.
+function unwrapNested(v) {
+  if (typeof v !== 'string') return v
+  let out = v.trim()
+  for (let i = 0; i < 6; i += 1) {
+    const before = out
+    // Postgres array literal: {a,b} or {"a"}
+    if (out.startsWith('{') && out.endsWith('}') && !out.includes(':')) {
+      out = out.slice(1, -1).trim()
+    }
+    // A JSON string, including one whose quotes are escaped.
+    if (out.startsWith('"') && out.endsWith('"')) {
+      try {
+        const parsed = JSON.parse(out)
+        if (typeof parsed === 'string') out = parsed.trim()
+      } catch {
+        out = out.slice(1, -1).trim()
+      }
+    }
+    out = out.replace(/\\+"/g, '"')
+    if (out === before) break
+  }
+  const cleaned = out.replace(/^[{"\s]+|[}"\s]+$/g, '').trim()
+  // Only accept the result if it actually reduced to something plain.
+  return cleaned && !/[{}\\]/.test(cleaned) ? cleaned : v
+}
+
 const FIELD_CHIPS = [
   ['Client type',             'clientType',         'client_type'],
   ['Product system',          'productSystem',      'product_system'],
@@ -648,7 +692,7 @@ function FieldChipRow({ deal, fieldOptions = {}, onSaveField, saving }) {
           >
             <FieldPicker
               label={label}
-              value={deal[key]}
+              value={unwrapNested(deal[key])}
               spec={spec}
               saving={saving === spec.id}
               // dealKey travels so the handler can update the right property
@@ -657,7 +701,7 @@ function FieldChipRow({ deal, fieldOptions = {}, onSaveField, saving }) {
             />
           </span>
         ) : (
-          <FieldChip key={key} label={label} value={deal[key]} />
+          <FieldChip key={key} label={label} value={unwrapNested(deal[key])} />
         )
       })}
 

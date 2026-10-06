@@ -375,8 +375,46 @@ export default function DealHubTab({
         // webhook, the handler fetches the opportunity back and only then
         // writes our row, so a GET issued microseconds later returns the OLD
         // value and the chip fell back to "Not set".
+        //
+        // MERGED, NOT REPLACED. 2.5s is a guess at a round trip we do not
+        // control — our PUT to GHL, GHL's webhook to us, then the handler's
+        // OWN getOpportunityFull call back to GHL. When that guess is wrong
+        // the response is the pre-edit row, and `setDeal(fresh)` wholesale
+        // put EVERY field back: a rep cleared one chip, watched it read "Not
+        // set", and then saw the old value return along with anything else
+        // they had changed in the last few seconds.
+        //
+        // So the fields this turn touched are pinned over the refetch. They
+        // are the ones we know we sent and the server may not have yet; every
+        // other field still comes from the server, which is the point of
+        // reconciling at all. The next refetch — a reload, a tab switch —
+        // carries no pins and shows the settled truth.
+        const pinnedId = value.id
+        const pinnedKey = value.dealKey || null
+        const pinnedText = (Array.isArray(value.value)
+          ? value.value.join(', ')
+          : value.value) || null
         window.setTimeout(() => {
-          dealsAPI.get(dealId).then(setDeal).catch(() => {})
+          dealsAPI.get(dealId).then((fresh) => {
+            if (!fresh) return
+            setDeal((cur) => {
+              if (!cur) return fresh
+              const merged = { ...fresh }
+              // The chip's own property, when it has one.
+              if (pinnedKey && fresh[pinnedKey] !== pinnedText) {
+                merged[pinnedKey] = pinnedText
+              }
+              // And the qualification row, which lives in its own array.
+              if (pinnedId && Array.isArray(fresh.qualification)) {
+                merged.qualification = fresh.qualification.map((q) => (
+                  q.fieldId === pinnedId
+                    ? { ...q, value: pinnedText, filled: !!(pinnedText && String(pinnedText).trim()) }
+                    : q
+                ))
+              }
+              return merged
+            })
+          }).catch(() => {})
         }, 2500)
       } else if (field === 'status') {
         // Its own endpoint — the only one that records a lost reason, and the
