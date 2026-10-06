@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Select } from 'antd'
 import { controlAPI } from '../../api/control'
 import { useAuth } from '../../context/AuthContext'
 import SectionCard, { PrimaryButton, GhostButton } from './SectionCard'
@@ -25,18 +24,13 @@ import SectionCard, { PrimaryButton, GhostButton } from './SectionCard'
 const BLANK = {
   name: '', description: '', viewName: '',
   params: [], columns: [], orderBy: '', rowLimit: 50,
-  // Insights AI only by default. Deal AI's answer path is a single
-  // schema-constrained call with no tool support, so a skill cannot run
-  // there — defaulting it on would tick a box that does nothing.
+  // Insights AI only by DEFAULT — Deal AI is now a real choice (it runs the
+  // same tool loop, so skillToolsFor(locationId, 'deal') serves it), but it
+  // is left unticked. A portfolio skill reads across every deal, and most do;
+  // turning that on for a single-deal chat by default would offer the model a
+  // tool whose answer is about the wrong scope.
   surfaces: ['portfolio'], isEnabled: true
 }
-
-const TYPES = ['text', 'int', 'number', 'bool', 'date']
-const OPS = [
-  ['eq', 'equals'], ['neq', 'is not'], ['contains', 'contains'],
-  ['gt', 'greater than'], ['gte', 'at least'],
-  ['lt', 'less than'], ['lte', 'at most'], ['in', 'is one of']
-]
 
 export default function SkillsSection() {
   const [skills, setSkills] = useState([])
@@ -90,38 +84,53 @@ export default function SkillsSection() {
       <div style={{ padding: 'var(--space-3) var(--space-4)', display: 'grid', gap: 12 }}>
       {error && <Banner tone="error" onDismiss={() => setError(null)}>{error}</Banner>}
 
-      {editing ? (
-        <SkillForm
-          skill={editing}
-          onCancel={() => setEditing(null)}
-          onSaved={() => { setEditing(null); load() }}
-        />
+      {/* THE LIST STAYS. Editing used to REPLACE it — `editing ? form : list`
+          — so clicking Edit on one of 56 skills emptied the page down to a
+          single form, and the only way back to the others was Cancel. It read
+          as though the skills had been deleted.
+
+          Now the form opens in place of the row it belongs to, with every
+          other skill still listed above and below it. The one being edited
+          keeps its position, so you can see what you are editing and what it
+          sits between. Adding appends the form to the end of the list. */}
+      {loading ? (
+        <Muted>Loading…</Muted>
+      ) : skills.length === 0 && !editing ? (
+        <Empty onAdd={() => setEditing(BLANK)} />
       ) : (
-        <>
-          {loading ? (
-            <Muted>Loading…</Muted>
-          ) : skills.length === 0 ? (
-            <Empty onAdd={() => setEditing(BLANK)} />
-          ) : (
-            <div style={{ display: 'grid', gap: 8 }}>
-              {skills.map((s) => (
-                <SkillRow
-                  key={s.id}
-                  skill={s}
-                  onEdit={() => setEditing(s)}
-                  onToggled={load}
-                  onDeleted={load}
-                  onError={setError}
-                />
-              ))}
-            </div>
+        <div style={{ display: 'grid', gap: 8 }}>
+          {skills.map((s) => (
+            editing?.id === s.id ? (
+              <SkillForm
+                key={s.id}
+                skill={editing}
+                onCancel={() => setEditing(null)}
+                onSaved={() => { setEditing(null); load() }}
+              />
+            ) : (
+              <SkillRow
+                key={s.id}
+                skill={s}
+                onEdit={() => setEditing(s)}
+                onToggled={load}
+                onDeleted={load}
+                onError={setError}
+              />
+            )
+          ))}
+          {editing && !editing.id && (
+            <SkillForm
+              skill={editing}
+              onCancel={() => setEditing(null)}
+              onSaved={() => { setEditing(null); load() }}
+            />
           )}
-          {skills.length > 0 && (
-            <div>
-              <PrimaryButton onClick={() => setEditing(BLANK)}>Add a skill</PrimaryButton>
-            </div>
-          )}
-        </>
+        </div>
+      )}
+      {!editing && skills.length > 0 && (
+        <div>
+          <PrimaryButton onClick={() => setEditing(BLANK)}>Add a skill</PrimaryButton>
+        </div>
       )}
       </div>
     </SectionCard>
@@ -232,7 +241,6 @@ function SkillRow({ skill, onEdit, onToggled, onDeleted, onError }) {
 function SkillForm({ skill, onCancel, onSaved }) {
   const [form, setForm] = useState(() => ({ ...BLANK, ...skill }))
   const [cols, setCols] = useState(null)        // the view's real columns
-  const [colDocs, setColDocs] = useState({})    // column -> what it means
   const [viewDoc, setViewDoc] = useState(null)  // the view's own description
   const [checking, setChecking] = useState(false)
   const [viewError, setViewError] = useState(null)
@@ -243,11 +251,6 @@ function SkillForm({ skill, onCancel, onSaved }) {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
-  // Columns worth offering. location_id is hidden everywhere: a skill only
-  // runs scoped to one sub-account, so filtering or sorting by it can only
-  // match everything or nothing, and returning it repeats a value the caller
-  // already knew on every row. Offering it invites a filter that does nothing.
-  const usable = (cols || []).filter((c) => c !== 'location_id')
 
   // Check the view as soon as its name settles. Everything below — the column
   // pickers, the sort field — is driven by what comes back, so there is no
@@ -262,7 +265,6 @@ function SkillForm({ skill, onCancel, onSaved }) {
         .then((r) => {
           if (seq !== checkSeq.current) return   // a newer keystroke won
           setCols(r?.columns || [])
-          setColDocs(r?.columnComments || {})
           setViewDoc(r?.viewComment || null)
           setViewError(null)
           // Prefill the description from the view's own comment, but only
@@ -275,7 +277,6 @@ function SkillForm({ skill, onCancel, onSaved }) {
         .catch((e) => {
           if (seq !== checkSeq.current) return
           setCols(null)
-          setColDocs({})
           setViewDoc(null)
           setViewError(e?.message || 'That view could not be used')
         })
@@ -320,12 +321,6 @@ function SkillForm({ skill, onCancel, onSaved }) {
     }
   }
 
-  const addParam = () => set('params', [...form.params, {
-    name: '', column: usable[0] || '', type: 'text', op: 'eq', description: ''
-  }])
-  const setParam = (i, patch) =>
-    set('params', form.params.map((p, j) => (j === i ? { ...p, ...patch } : p)))
-  const removeParam = (i) => set('params', form.params.filter((_, j) => j !== i))
 
   const ready = form.name.trim() && form.description.trim().length >= 20 && cols?.length
 
@@ -341,7 +336,24 @@ function SkillForm({ skill, onCancel, onSaved }) {
                 : null
 
   return (
-    <div style={{ display: 'grid', gap: 14 }}>
+    // Framed, because the form now sits INSIDE the list rather than replacing
+    // it. Without a border it reads as the page having changed state; with
+    // one it reads as the row you clicked, opened.
+    <div style={{
+      display: 'grid', gap: 14,
+      padding: 'var(--space-3)',
+      border: '1px solid var(--accent-plum-text)',
+      borderRadius: 'var(--radius-md)',
+      background: 'var(--gray-50)'
+    }}>
+      <div style={{
+        fontSize: 'var(--text-sm)', fontWeight: 600,
+        letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase',
+        color: 'var(--accent-plum-text)'
+      }}>
+        {skill?.id ? 'Editing this skill' : 'New skill'}
+      </div>
+
       {/* Only when the error is not already pinned to a field. The server
           names the field that failed, and showing the same sentence as a
           banner AND under the input says it twice — which reads as two
@@ -449,53 +461,16 @@ function SkillForm({ skill, onCancel, onSaved }) {
             )}
           </Field>
 
-          <Field
-            label="Filters the AI can apply"
-            hint="Optional. Each one becomes something the AI can narrow by."
-            error={errorField === 'params' ? error : null}
-          >
-            {form.params.length === 0 && (
-              <Muted small>No filters — the AI always gets the whole view.</Muted>
-            )}
-            <div style={{ display: 'grid', gap: 8 }}>
-              {form.params.map((p, i) => (
-                <ParamRow
-                  key={i}
-                  param={p}
-                  columns={usable}
-                  docs={colDocs}
-                  onChange={(patch) => setParam(i, patch)}
-                  onRemove={() => removeParam(i)}
-                />
-              ))}
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <GhostButton onClick={addParam}>Add a filter</GhostButton>
-            </div>
-          </Field>
+          {/* FILTERS AND SORT ARE NOT EDITED HERE ANY MORE.
+              Both were row-builders over the view's columns — the densest
+              part of the form and the part nobody filled in by hand, since
+              a seeded skill arrives with its filters already written. They
+              are still STORED and still sent on save (form.params and
+              form.orderBy pass through untouched), so an existing skill
+              keeps everything it had; there is simply no editor for them.
+              A new filter belongs in the skill's JSON, beside the view. */}
 
           <div style={{ display: 'grid', gap: 14, gridTemplateColumns: '1fr 1fr' }}>
-            <Field label="Sort by" error={errorField === 'orderBy' ? error : null}>
-              {/* antd, not a native <select>: a browser renders <option> with
-                  the OS's own menu, which cannot be styled, sized or given the
-                  app's type. Every other picker in the app uses this treatment
-                  — see TasksTab, DealsTab, TaskEditor. */}
-              <Select
-                value={form.orderBy || ''}
-                onChange={(v) => set('orderBy', v)}
-                popupClassName="pp-menu"
-                style={{ width: '100%', maxWidth: 300 }}
-                styles={{ root: { height: 32 } }}
-                options={[
-                  { value: '', label: 'No particular order' },
-                  ...usable.flatMap((c) => [
-                    { value: c, label: `${c} — ascending` },
-                    { value: `${c} DESC`, label: `${c} — descending` }
-                  ])
-                ]}
-              />
-            </Field>
-
             <Field label="Most rows to return" hint="1–500.">
               <input
                 style={{ ...input(), maxWidth: 110 }}
@@ -515,29 +490,6 @@ function SkillForm({ skill, onCancel, onSaved }) {
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               {[['portfolio', 'Insights AI'], ['deal', 'Deal AI']].map(([key, label]) => {
                 const on = form.surfaces.includes(key)
-                // Deal AI cannot run a skill: its answer path is one
-                // schema-constrained call with no tool support. The option
-                // stays visible rather than being hidden — it is on the
-                // roadmap, and a silently absent choice is harder to ask
-                // about than a disabled one — but it cannot be ticked into a
-                // setting that does nothing.
-                const unavailable = key === 'deal'
-                if (unavailable) {
-                  return (
-                    <span
-                      key={key}
-                      title="Deal AI cannot run skills yet"
-                      style={{
-                        padding: '5px 12px', borderRadius: 'var(--radius-pill)',
-                        border: '1px dashed var(--border-default)',
-                        background: 'var(--gray-50)', color: 'var(--text-faint)',
-                        fontSize: 'var(--text-base)', cursor: 'not-allowed'
-                      }}
-                    >
-                      {label} · not yet
-                    </span>
-                  )
-                }
                 return (
                   <button
                     key={key}
@@ -585,71 +537,6 @@ function SkillForm({ skill, onCancel, onSaved }) {
     </div>
   )
 }
-
-function ParamRow({ param, columns, docs = {}, onChange, onRemove }) {
-  return (
-    <div style={{
-      border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)',
-      padding: 9, display: 'grid', gap: 7, background: 'var(--gray-50)'
-    }}>
-      {/* Weighted, not four equal columns: a column name like
-          `closed_without_win` needs the room, while "equals" and "text" do
-          not. minmax(0, …) so a long option cannot push the row wider than
-          its card. */}
-      <div style={{
-        display: 'grid', gap: 7, alignItems: 'center',
-        gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 1.6fr) minmax(0, 1.1fr) minmax(0, 0.8fr) auto'
-      }}>
-        <input
-          style={input()}
-          value={param.name}
-          onChange={(e) => onChange({ name: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_') })}
-          placeholder="rep"
-          spellCheck={false}
-        />
-        <Select
-          value={param.column}
-          onChange={(v) => onChange({ column: v })}
-          popupClassName="pp-menu"
-          style={{ width: '100%' }}
-          styles={{ root: { height: 32 } }}
-          // The column's meaning, where the view's author recorded it — shown
-          // on the closed control and on each option.
-          title={docs[param.column] || undefined}
-          options={columns.map((c) => ({
-            value: c,
-            label: docs[c] ? <span title={docs[c]}>{c}</span> : c
-          }))}
-        />
-        <Select
-          value={param.op}
-          onChange={(v) => onChange({ op: v })}
-          popupClassName="pp-menu"
-          style={{ width: '100%' }}
-          styles={{ root: { height: 32 } }}
-          options={OPS.map(([v, label]) => ({ value: v, label }))}
-        />
-        <Select
-          value={param.type}
-          onChange={(v) => onChange({ type: v })}
-          popupClassName="pp-menu"
-          style={{ width: '100%' }}
-          styles={{ root: { height: 32 } }}
-          options={TYPES.map((t) => ({ value: t, label: t }))}
-        />
-        <GhostButton onClick={onRemove}>Remove</GhostButton>
-      </div>
-      <input
-        style={input()}
-        value={param.description}
-        onChange={(e) => onChange({ description: e.target.value })}
-        placeholder="What this filter means, e.g. “the rep who owns the deal”"
-      />
-    </div>
-  )
-}
-
-// ── Small shared bits ────────────────────────────────────────────────
 
 const input = (hasError) => ({
   width: '100%', boxSizing: 'border-box', height: 32, padding: '0 10px',
