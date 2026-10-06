@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Select } from 'antd'
 import { controlAPI } from '../../api/control'
 import { useAuth } from '../../context/AuthContext'
@@ -113,16 +114,30 @@ export default function SkillsSection() {
       ) : skills.length === 0 && !editing ? (
         <Empty onAdd={() => setEditing(BLANK)} />
       ) : (
-        <div style={{ display: 'grid', gap: 8 }}>
+        <div style={{
+          display: 'grid', gap: 10,
+          // TWO COLUMNS, auto-collapsing to one. Stacked full-width, a skill's
+          // card was a paragraph of model-facing prose and 56 of them were an
+          // endless scroll. auto-fill with a 420px floor rather than a fixed
+          // `1fr 1fr`: the control panel is also opened on a narrow window,
+          // and two 300px columns of this text would be worse than one.
+          gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))',
+          // Cards in a row match the tallest, so the action buttons line up
+          // (see SkillRow's marginTop:auto).
+          alignItems: 'stretch'
+        }}>
           {skills.map((s) => (
             editing?.id === s.id ? (
-              <SkillForm
-                key={s.id}
-                skill={editing}
-                views={views}
-                onCancel={() => setEditing(null)}
-                onSaved={() => { setEditing(null); load() }}
-              />
+              // Spans every column: the form is a full-width object, and
+              // squeezed into one of two it would be unusable.
+              <div key={s.id} style={{ gridColumn: '1 / -1' }}>
+                <SkillForm
+                  skill={editing}
+                  views={views}
+                  onCancel={() => setEditing(null)}
+                  onSaved={() => { setEditing(null); load() }}
+                />
+              </div>
             ) : (
               <SkillRow
                 key={s.id}
@@ -135,12 +150,14 @@ export default function SkillsSection() {
             )
           ))}
           {editing && !editing.id && (
-            <SkillForm
-              skill={editing}
-              views={views}
-              onCancel={() => setEditing(null)}
-              onSaved={() => { setEditing(null); load() }}
-            />
+            <div style={{ gridColumn: '1 / -1' }}>
+              <SkillForm
+                skill={editing}
+                views={views}
+                onCancel={() => setEditing(null)}
+                onSaved={() => { setEditing(null); load() }}
+              />
+            </div>
           )}
         </div>
       )}
@@ -156,9 +173,139 @@ export default function SkillsSection() {
 
 // ── One saved skill ──────────────────────────────────────────────────
 
+// Everything about one skill, in full.
+//
+// The card can only show four lines of a description written for the model —
+// the AI picks a tool almost entirely on that text, so it is long on purpose
+// and the full wording is exactly what someone tuning a skill needs to read.
+function SkillDetail({ skill, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const row = (label, value) => (
+    <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 12, alignItems: 'start' }}>
+      <span style={{
+        fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-muted)',
+        letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase'
+      }}>
+        {label}
+      </span>
+      <div style={{ minWidth: 0, fontSize: 'var(--text-base)', color: 'var(--text-body)' }}>
+        {value}
+      </div>
+    </div>
+  )
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`skill_${skill.name}`}
+      className="pp-portal"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 920,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(15, 23, 42, 0.32)',
+        backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+        padding: 16
+      }}
+    >
+      <div style={{
+        width: 'min(760px, 100%)', maxHeight: '86vh',
+        background: '#fff',
+        borderRadius: 'var(--radius-lg)',
+        boxShadow: 'var(--shadow-overlay)',
+        display: 'grid', gridTemplateRows: 'auto 1fr',
+        overflow: 'hidden'
+      }}>
+        <div style={{
+          display: 'flex', alignItems: 'flex-start', gap: 12,
+          padding: '18px 22px 14px',
+          borderBottom: '1px solid var(--border-default)'
+        }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <code style={{
+              fontFamily: 'var(--font-mono)', fontSize: 'var(--text-lg)',
+              fontWeight: 600, color: 'var(--text-heading)'
+            }}>
+              skill_{skill.name}
+            </code>
+            <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+              {skill.surfaces?.map((sf) => (
+                <Pill key={sf} tone={sf === 'deal' ? 'gold' : 'plum'}>
+                  {sf === 'deal' ? 'Deal AI' : 'Insights AI'}
+                </Pill>
+              ))}
+              {!skill.isEnabled && <Pill tone="gray">Off</Pill>}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 30, height: 30, flex: 'none',
+              border: 'none', borderRadius: 'var(--radius-sm)',
+              background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 19 }}>close</span>
+          </button>
+        </div>
+
+        <div style={{ overflowY: 'auto', padding: '16px 22px 20px', display: 'grid', gap: 14 }}>
+          {row('Database view', (
+            <code style={{ fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>
+              {skill.viewName}
+            </code>
+          ))}
+          {row('When to use it', (
+            // Whitespace preserved: these are written as paragraphs and read
+            // as one run-on block otherwise.
+            <p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: 'var(--leading-normal)' }}>
+              {skill.description}
+            </p>
+          ))}
+          {skill.params?.length > 0 && row('Filters', (
+            <div style={{ display: 'grid', gap: 6 }}>
+              {skill.params.map((prm) => (
+                <div key={prm.name}>
+                  <code style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)' }}>
+                    {prm.name}
+                  </code>
+                  {prm.description && (
+                    <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
+                      {' — '}{prm.description}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ))}
+          {skill.orderBy && row('Sorted by', (
+            <code style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)' }}>
+              {skill.orderBy}
+            </code>
+          ))}
+          {row('Most rows', String(skill.rowLimit ?? 50))}
+          {row('Times used', skill.useCount > 0
+            ? `${skill.useCount}×`
+            : 'Never — usually a sign the description needs work')}
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 function SkillRow({ skill, onEdit, onToggled, onDeleted, onError }) {
   const [busy, setBusy] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [showing, setShowing] = useState(false)
 
   const toggle = async () => {
     setBusy(true)
@@ -188,7 +335,13 @@ function SkillRow({ skill, onEdit, onToggled, onDeleted, onError }) {
         borderRadius: 'var(--radius-sm)',
         padding: '11px 13px',
         background: skill.isEnabled ? '#fff' : 'var(--gray-50)',
-        opacity: skill.isEnabled ? 1 : 0.72
+        opacity: skill.isEnabled ? 1 : 0.72,
+        // A column, so the action row can be pushed to the bottom with
+        // marginTop:auto — side by side, two cards in a row are the height of
+        // the taller one, and without this the buttons float mid-card on the
+        // shorter one.
+        display: 'flex', flexDirection: 'column',
+        minWidth: 0
       }}
     >
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
@@ -215,21 +368,49 @@ function SkillRow({ skill, onEdit, onToggled, onDeleted, onError }) {
         )}
       </div>
 
+      {/* CLAMPED TO FOUR LINES. A skill's description is written for the
+          MODEL — it is the only thing the AI picks a tool on, so it runs to
+          two or three hundred words and says the same thing several ways on
+          purpose. Printed in full, one skill filled the viewport and 56 of
+          them were an unreadable column. Four lines is enough to tell which
+          skill this is; the rest is a click away. */}
       <p style={{
-        margin: '5px 0 0', fontSize: 'var(--text-base)', color: 'var(--text-body)'
+        margin: '5px 0 0', fontSize: 'var(--text-base)', color: 'var(--text-body)',
+        display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical',
+        overflow: 'hidden',
+        // Belt and braces: -webkit-line-clamp is near-universal but a browser
+        // without it would otherwise print all 300 words again.
+        maxHeight: 'calc(var(--leading-normal) * 4em)',
+        lineHeight: 'var(--leading-normal)'
       }}>
         {skill.description}
       </p>
 
+      <button
+        type="button"
+        onClick={() => setShowing(true)}
+        style={{
+          margin: '4px 0 0', padding: 0, border: 'none', background: 'none',
+          color: 'var(--accent-plum-text)', fontFamily: 'var(--font-sans)',
+          fontSize: 'var(--text-sm)', fontWeight: 600, cursor: 'pointer'
+        }}
+      >
+        View more
+      </button>
+
       <p style={{
-        margin: '4px 0 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)',
-        fontFamily: 'var(--font-mono)'
+        margin: '6px 0 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)',
+        fontFamily: 'var(--font-mono)',
+        // The view name plus five filter names is longer than a half-width
+        // card. Truncated rather than wrapped: it is an identifier line, and
+        // the full list is in the modal.
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
       }}>
         {skill.viewName}
         {skill.params?.length > 0 && ` · ${skill.params.map((p) => p.name).join(', ')}`}
       </p>
 
-      <div style={{ display: 'flex', gap: 6, marginTop: 9 }}>
+      <div style={{ display: 'flex', gap: 6, marginTop: 'auto', paddingTop: 9, flexWrap: 'wrap' }}>
         <GhostButton onClick={onEdit} disabled={busy}>Edit</GhostButton>
         <GhostButton onClick={toggle} disabled={busy}>
           {skill.isEnabled ? 'Turn off' : 'Turn on'}
@@ -249,6 +430,8 @@ function SkillRow({ skill, onEdit, onToggled, onDeleted, onError }) {
           <GhostButton onClick={() => setConfirming(true)} disabled={busy} danger>Delete</GhostButton>
         )}
       </div>
+
+      {showing && <SkillDetail skill={skill} onClose={() => setShowing(false)} />}
     </div>
   )
 }

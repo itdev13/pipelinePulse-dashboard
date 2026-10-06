@@ -78,3 +78,36 @@ test('the catalogue is refetched when the account changes', () => {
   assert.match(src, /setViews\(\[\]\)/)
   assert.match(src, /controlAPI\.listViews\(\)/)
 })
+
+test('skills are laid out side by side, not stacked', () => {
+  // A skill's description is written for the MODEL — the AI picks a tool
+  // almost entirely on that text — so it runs to two or three hundred words.
+  // Full width and unclamped, one card filled the viewport and 56 of them
+  // were an endless scroll.
+  assert.match(src, /gridTemplateColumns: 'repeat\(auto-fill, minmax\(420px, 1fr\)\)'/)
+})
+
+test('the description is clamped on the card', () => {
+  assert.match(src, /WebkitLineClamp: 4/)
+  // -webkit-line-clamp is near-universal but not guaranteed; without a
+  // maxHeight fallback a browser lacking it prints all 300 words again.
+  assert.match(src, /maxHeight: 'calc\(var\(--leading-normal\) \* 4em\)'/)
+})
+
+test('the full description is reachable from the card', () => {
+  assert.match(src, /View more/)
+  assert.match(src, /function SkillDetail/)
+  assert.match(src, /createPortal/)
+})
+
+test('the detail modal closes on Escape and shows the full text', () => {
+  const modal = src.slice(src.indexOf('function SkillDetail'), src.indexOf('function SkillRow'))
+  assert.match(modal, /e\.key === 'Escape'/)
+  assert.match(modal, /whiteSpace: 'pre-wrap'/, 'paragraphs must not collapse into one block')
+  assert.match(modal, /aria-modal="true"/)
+})
+
+test('the edit form still spans the full width inside the grid', () => {
+  // Squeezed into one of two columns it would be unusable.
+  assert.match(src, /gridColumn: '1 \/ -1'/)
+})
