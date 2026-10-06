@@ -26,6 +26,8 @@ export const controlAPI = {
   deleteSkill: (id) => apiClient.delete(`/api/control/skills/${encodeURIComponent(id)}`),
   // The view's real columns, so the form offers them instead of asking
   // someone to remember a name — which is where typos come from.
+  // Every view a skill may point at — the dropdown's options.
+  listViews: () => apiClient.get('/api/control/skills/views'),
   describeView: (name) =>
     apiClient.get(`/api/control/skills/views/${encodeURIComponent(name)}`),
 

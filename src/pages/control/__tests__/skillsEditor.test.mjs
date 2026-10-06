@@ -55,3 +55,26 @@ test('filters and sort are still SAVED', () => {
   assert.match(src, /orderBy: form\.orderBy\?\.trim\(\) \|\| null/)
   assert.match(src, /\{ \.\.\.BLANK, \.\.\.skill \}/)
 })
+
+test('the view is picked from a dropdown, not typed from memory', () => {
+  // "vw_close_reason_by_stage" had to be recalled exactly, underscores and
+  // all, and a typo only surfaced as a validation error after the fact.
+  assert.match(src, /<Select/, 'the view field should offer a list')
+  assert.match(src, /showSearch/, 'the list is long enough to need filtering')
+  assert.match(src, /views\.map\(/, 'options come from the fetched catalogue')
+})
+
+test('a free-text input remains for when the catalogue cannot be read', () => {
+  // A single-select antd dropdown cannot commit a value outside its options,
+  // so an empty list would leave the field impossible to fill — the form
+  // unusable rather than merely less convenient.
+  assert.match(src, /views\.length > 0 \? \(/, 'the two cases should be explicit branches')
+  assert.match(src, /placeholder="vw_quiet_deals_by_rep"/, 'the input branch should survive')
+})
+
+test('the catalogue is refetched when the account changes', () => {
+  // A view exists in the database the account's role can reach, so switching
+  // accounts must not leave the previous one's names in the dropdown.
+  assert.match(src, /setViews\(\[\]\)/)
+  assert.match(src, /controlAPI\.listViews\(\)/)
+})

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { Select } from 'antd'
 import { controlAPI } from '../../api/control'
 import { useAuth } from '../../context/AuthContext'
 import SectionCard, { PrimaryButton, GhostButton } from './SectionCard'
@@ -36,6 +37,11 @@ export default function SkillsSection() {
   const [skills, setSkills] = useState([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(null)   // a skill, BLANK, or null
+  // Every view a skill may point at. Fetched once for the section rather than
+  // per-form: the list is the same for every skill, and refetching it each
+  // time a row is opened would make the dropdown empty for a beat on a slow
+  // connection — exactly when someone is reaching for it.
+  const [views, setViews] = useState([])
   const [error, setError] = useState(null)
 
   // Skills are per sub-account, so everything here is too. Without this the
@@ -57,8 +63,17 @@ export default function SkillsSection() {
     setEditing(null)
     setError(null)
     setSkills([])
+    setViews([])
     setLoading(true)
     load()
+    // The view catalogue is per-account too — a view exists in the database
+    // the account's role can reach, so switching accounts must not leave the
+    // previous one's names in the dropdown. A failure here is NOT surfaced as
+    // an error: the dropdown falls back to free typing, which is what the
+    // form did before it existed, so a skill can still be saved.
+    controlAPI.listViews()
+      .then((r) => setViews(r?.views || []))
+      .catch(() => setViews([]))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationId])
 
@@ -104,6 +119,7 @@ export default function SkillsSection() {
               <SkillForm
                 key={s.id}
                 skill={editing}
+                views={views}
                 onCancel={() => setEditing(null)}
                 onSaved={() => { setEditing(null); load() }}
               />
@@ -121,6 +137,7 @@ export default function SkillsSection() {
           {editing && !editing.id && (
             <SkillForm
               skill={editing}
+              views={views}
               onCancel={() => setEditing(null)}
               onSaved={() => { setEditing(null); load() }}
             />
@@ -238,7 +255,7 @@ function SkillRow({ skill, onEdit, onToggled, onDeleted, onError }) {
 
 // ── The form ─────────────────────────────────────────────────────────
 
-function SkillForm({ skill, onCancel, onSaved }) {
+function SkillForm({ skill, views = [], onCancel, onSaved }) {
   const [form, setForm] = useState(() => ({ ...BLANK, ...skill }))
   const [cols, setCols] = useState(null)        // the view's real columns
   const [viewDoc, setViewDoc] = useState(null)  // the view's own description
@@ -370,14 +387,66 @@ function SkillForm({ skill, onCancel, onSaved }) {
             unfinished layout. The status sits beside it, not under, so the
             row stays one line once a view resolves. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <input
-            style={{ ...input(viewError), maxWidth: 340, fontFamily: 'var(--font-mono)' }}
-            value={form.viewName}
-            onChange={(e) => set('viewName', e.target.value)}
-            placeholder="vw_quiet_deals_by_rep"
-            spellCheck={false}
-            autoComplete="off"
-          />
+          {/* A DROPDOWN, not a text box — the names are in the database
+              catalogue, so asking someone to recall
+              "vw_close_reason_by_stage" exactly, underscores and all, only
+              created typos that surfaced as a validation error afterwards.
+
+              showSearch because the list is long: typing filters it, by name
+              OR by the view's own comment, so near-identical names are told
+              apart by what they are for.
+
+              The plain input is kept for the case where the catalogue call
+              FAILED. A single-select antd dropdown cannot commit a value that
+              is not in its options, so an empty list would leave the field
+              impossible to fill — the form would be unusable rather than
+              merely less convenient. Two explicit branches, rather than one
+              control that silently stops working. */}
+          {views.length > 0 ? (
+            <Select
+              showSearch
+              value={form.viewName || undefined}
+              onChange={(v) => set('viewName', v || '')}
+              placeholder="Pick a view…"
+              popupClassName="pp-menu"
+              status={viewError ? 'error' : undefined}
+              style={{ width: '100%', maxWidth: 340 }}
+              styles={{ root: { height: 32 } }}
+              optionFilterProp="value"
+              filterOption={(q, opt) => {
+                const needle = q.toLowerCase()
+                return String(opt?.value || '').toLowerCase().includes(needle)
+                  || String(opt?.comment || '').toLowerCase().includes(needle)
+              }}
+              options={views.map((v) => ({
+                value: v.name,
+                comment: v.comment,
+                label: (
+                  <span style={{ display: 'block', lineHeight: 1.3 }}>
+                    <span style={{ fontFamily: 'var(--font-mono)' }}>{v.name}</span>
+                    {v.comment && (
+                      <span style={{
+                        display: 'block',
+                        fontSize: 'var(--text-sm)', color: 'var(--text-muted)',
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                      }}>
+                        {v.comment}
+                      </span>
+                    )}
+                  </span>
+                )
+              }))}
+            />
+          ) : (
+            <input
+              style={{ ...input(viewError), maxWidth: 340, fontFamily: 'var(--font-mono)' }}
+              value={form.viewName}
+              onChange={(e) => set('viewName', e.target.value)}
+              placeholder="vw_quiet_deals_by_rep"
+              spellCheck={false}
+              autoComplete="off"
+            />
+          )}
           {checking && (
             <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
               Checking…
