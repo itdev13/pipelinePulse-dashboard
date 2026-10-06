@@ -800,9 +800,13 @@ function FieldPicker({ label, value, spec, saving, onChange }) {
 
   // GHL multi-selects arrive as an array or a comma-joined string depending on
   // the path; the picker needs an array either way.
-  const current = spec.multiple
+  // Memoised: for a multi-select this builds a NEW array every render, and
+  // the effect below depends on it — an unmemoised value would make that
+  // effect run on every render and fight with the draft it is meant to
+  // release.
+  const current = useMemo(() => (spec.multiple
     ? (Array.isArray(value) ? value : (set ? String(value).split(',').map((v) => v.trim()) : []))
-    : (set ? String(value) : undefined)
+    : (set ? String(value) : undefined)), [spec.multiple, value, set])
 
   // The uncommitted selection. null means "nothing picked yet this session" —
   // distinct from [], which is a deliberate clear of every option.
@@ -819,9 +823,36 @@ function FieldPicker({ label, value, spec, saving, onChange }) {
       ? draft.length === current.length &&
         [...draft].sort().join('\u0000') === [...current].sort().join('\u0000')
       : draft === current
-    setDraft(null)
-    if (!same) onChange(draft)
+    if (same) { setDraft(null); return }
+    // KEEP THE DRAFT until the parent's value catches up to it.
+    //
+    // setDraft(null) used to run here, BEFORE onChange — so for the frames
+    // between the two the chip fell back to `current`, which is still the
+    // prop the parent has not updated yet. Clearing a field therefore read:
+    // empty, then the OLD value flashes back, then empty again once the
+    // parent's optimistic paint landed. Three states for one action, and the
+    // middle one says the clear failed.
+    //
+    // The effect below drops the draft once the prop agrees with it, so the
+    // chip goes straight from the old value to the new one and stays there.
+    onChange(draft)
   }
+
+  // Release the held draft once the parent reports the same value — or
+  // something else entirely, which means the save was rejected or GHL
+  // normalised it, and the server's answer should win.
+  useEffect(() => {
+    if (draft === null) return
+    const settled = Array.isArray(draft) && Array.isArray(current)
+      ? draft.length === current.length
+        && [...draft].sort().join('\u0000') === [...current].sort().join('\u0000')
+      : draft === current
+        // An empty draft and an unset field are the same thing: clearing a
+        // single-select sends '' and the prop comes back null/undefined, so a
+        // strict compare would hold the draft for ever.
+        || (!draft && !set)
+    if (settled) setDraft(null)
+  }, [draft, current, set])
 
   if (!open) {
     return (

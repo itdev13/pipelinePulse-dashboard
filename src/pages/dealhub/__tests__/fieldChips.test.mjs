@@ -103,3 +103,60 @@ test('a cleared qualification row does not disturb its siblings', () => {
   assert.deepEqual(r.qualification[0], { fieldId: 'f1', value: null, filled: false })
   assert.deepEqual(r.qualification[1], { fieldId: 'f2', value: 'keep', filled: true })
 })
+
+// ── No flash of the old value ────────────────────────────────────────
+// Reported after the revert fix: "i clear, loading coming, then old value is
+// coming and then its removing — it's working finally but confusion for
+// users." Three visual states for one action, and the middle one says the
+// clear failed.
+//
+// Cause: commit() called setDraft(null) BEFORE onChange, so for the frames
+// between the two the chip fell back to `current` — the prop the parent had
+// not updated yet.
+
+test('the draft is not dropped before the change is announced', () => {
+  const commit = section.slice(section.indexOf('const commit = () =>'), section.indexOf('// Release the held draft'))
+  // The old shape: setDraft(null) then onChange(draft).
+  assert.ok(
+    !/setDraft\(null\)\s*\n\s*if \(!same\) onChange\(draft\)/.test(commit),
+    'the draft must outlive the onChange call'
+  )
+  assert.match(commit, /onChange\(draft\)\s*\n\s*\}/)
+})
+
+test('the draft is released once the prop agrees', () => {
+  assert.match(section, /if \(settled\) setDraft\(null\)/)
+})
+
+test('an empty draft settles against an unset field', () => {
+  // Clearing a single-select sends '' and the prop comes back null, so a
+  // strict compare would hold the draft for ever and the chip would never
+  // accept a later server correction.
+  assert.match(section, /\|\| \(!draft && !set\)/)
+})
+
+// The sequence itself.
+const sequence = () => {
+  const frames = []
+  let value = 'Crittall'
+  let draft = null
+  const paint = () => {
+    const set = value != null && String(value).trim() !== ''
+    const current = set ? String(value) : undefined
+    frames.push((draft === null ? current : draft) || 'Not set')
+    if (draft !== null && (draft === current || (!draft && !set))) draft = null
+  }
+  paint()                 // before
+  draft = ''; paint()     // rep clears
+  paint()                 // onChange fired, draft held
+  value = null; paint()   // parent optimistic paint
+  paint()                 // settled
+  return frames
+}
+
+test('clearing never shows the old value again', () => {
+  const frames = sequence()
+  // 'Crittall' may only appear as the FIRST frame.
+  assert.equal(frames[0], 'Crittall')
+  assert.ok(!frames.slice(1).includes('Crittall'), `old value reappeared: ${frames.join(' -> ')}`)
+})
