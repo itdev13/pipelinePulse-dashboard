@@ -178,3 +178,50 @@ test('a probability is never the bar — it is a ratio, not a quantity', () => {
 })
 
 console.log('skill chart shape: all cases pass')
+
+test('a repeating date does not label a list of individual rows', () => {
+  // vw_requirement_quotes: 87 quotes, each carrying the deal's name, the theme
+  // and a quoted_at. The date led unconditionally, so four different customers
+  // quoted on the same day drew four bars all labelled "15 Sept" with
+  // different numbers beside them — nothing on the chart said what separated
+  // them.
+  const rows = [
+    { deal_name: 'Smith', requirement_theme: 'Price', quoted_at: new Date('2026-09-15'), deals: 3 },
+    { deal_name: 'Jones', requirement_theme: 'Lead time', quoted_at: new Date('2026-09-15'), deals: 2 },
+    { deal_name: 'Patel', requirement_theme: 'Price', quoted_at: new Date('2026-09-14'), deals: 5 }
+  ]
+  assert.equal(shapeOf(rows).label, 'deal_name')
+})
+
+test('a date still labels a grouped time series', () => {
+  // The counter-case to the above: one row per month, no subject column, so
+  // the date IS what the rows are grouped by and must keep leading.
+  const rows = [
+    { month: new Date('2026-07-01'), won_deals: 7 },
+    { month: new Date('2026-08-01'), won_deals: 9 }
+  ]
+  assert.equal(shapeOf(rows).label, 'month')
+})
+
+test('a view carrying prose is a table, not a chart', () => {
+  // The only numeric column on the quotes view is the DEAL's value — a
+  // property of the deal, not of the quote. Charting it compared deal sizes
+  // under an answer about what customers asked for, and the quotes themselves
+  // never appeared.
+  const rows = [
+    { deal_name: 'Smith', quote: 'We have decided to go with another glazing company as they were cheaper', monetary_value: 8398 },
+    { deal_name: 'Jones', quote: 'Too slow on lead time, we needed it fitted before Christmas', monetary_value: 7730 }
+  ]
+  assert.equal(shapeOf(rows), null)
+})
+
+test('short categorical text still charts', () => {
+  // The prose rule must not swallow ordinary label columns — a close reason is
+  // a category to group by, not content to read.
+  const rows = [
+    { close_reason: 'Price too high', buyer_type: 'homeowner', deals: 12 },
+    { close_reason: 'Went elsewhere', buyer_type: 'trade', deals: 7 }
+  ]
+  assert.equal(shapeOf(rows).label, 'close_reason')
+  assert.equal(shapeOf(rows).measure, 'deals')
+})

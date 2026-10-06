@@ -137,6 +137,25 @@ function shapeOf(rows) {
   )
   const plainText = usable.filter((c) => !numeric.includes(c) && !dates.includes(c))
 
+  // A VIEW CARRYING PROSE IS A LIST, NOT A CHART.
+  //
+  // vw_requirement_quotes returns what a customer actually said, one row per
+  // quote. Its only numeric column is the DEAL's value — a property of the
+  // deal, not of the quote — so charting it drew bars comparing deal sizes
+  // under an answer about what customers asked for. Nothing on that chart
+  // answered the question, and the quotes themselves were not on it at all.
+  //
+  // The tell is a column of free text: short labels are categories you can
+  // group by, sentences are content you have to read. Falling through to the
+  // table shows the quotes, which is the entire point of the view.
+  const isProse = (c) => {
+    const vals = rows.map((r) => String(r[c] ?? '').trim()).filter(Boolean)
+    if (vals.length < Math.max(2, rows.length * 0.5)) return false
+    const long = vals.filter((v) => v.length > 60 || /\s\S+\s\S+\s\S+\s/.test(v))
+    return long.length >= vals.length * 0.6
+  }
+  if (plainText.some(isProse)) return null
+
   // A date is not a MEASURE, but it is a perfectly good LABEL — and on a
   // month-by-month view it is the only one. Excluding dates from both roles
   // (the first fix for bars of epoch milliseconds) left every time series
@@ -160,7 +179,26 @@ function shapeOf(rows) {
     const score = (c) => (SUBJECT.test(c) ? 0 : BREAKDOWN.test(c) ? 2 : 1)
     return score(a) - score(b) || plainText.indexOf(a) - plainText.indexOf(b)
   })
-  const text = dates.length ? [dates[0], ...ranked] : ranked
+  // A DATE ONLY LABELS THE ROWS WHEN IT IS WHAT THEY ARE GROUPED BY.
+  //
+  // Preferring the date unconditionally was right for {month, won_deals} and
+  // wrong for everything that merely carries a timestamp. vw_requirement_quotes
+  // returns 87 individual quotes with deal_name, requirement_theme and
+  // quoted_at — and it charted quoted_at, so four different customers quoted on
+  // the same day drew four bars all labelled "15 Sept" with different numbers.
+  // A reader cannot tell what separates them, which is worse than no chart.
+  //
+  // The tell is whether the date identifies a row. On a grouped view there is
+  // one row per month and the dates are distinct; on a list view the same day
+  // repeats. So the date leads only when it is (near) unique AND no subject
+  // column is on offer — a name or theme beats a timestamp whenever both
+  // exist, because that is what the rows are about.
+  const datesDistinct = dates.length
+    && new Set(rows.map((r) => String(r[dates[0]]))).size >= rows.length * 0.9
+  const hasSubject = ranked.some((c) => SUBJECT.test(c))
+  const text = dates.length && datesDistinct && !hasSubject
+    ? [dates[0], ...ranked]
+    : [...ranked, ...dates]
   if (!text.length || !numeric.length) return null
 
   // The bar is a COUNT, never a percentage.
