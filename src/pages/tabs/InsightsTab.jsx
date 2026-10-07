@@ -1,4 +1,7 @@
 import React, { useMemo } from 'react'
+import { Select } from 'antd'
+import { Shell, Panel } from '../shared/ListChrome'
+import { useTabState } from '../../hooks/useTabState'
 import CARDS from '../insights/cards.json'
 import InsightCard from '../insights/InsightCard'
 
@@ -22,61 +25,122 @@ import InsightCard from '../insights/InsightCard'
 // query, so there is nothing to draw and a placeholder card for each would be
 // 22 rows of furniture. Cards that are live but have one missing PART keep
 // the design's empty frame — see InsightCard's ghost block.
+//
+// ── THE HEADER, SHARED WITH EVERY OTHER TAB ───────────────────────────
+//
+// This used to be its own bare <h1> sitting straight on the page background,
+// with a paragraph under it and plain-text group headings below — the one
+// tab that did not look like the other eight, each of which uses Panel: an
+// icon, a coloured title, a count, inside a bordered card. Rebuilt on the
+// same component so Insights reads as part of the app rather than a page
+// pasted into it.
+//
+// The group names ("Pipeline Leakage", "Scaling & Rep Performance", …) were
+// also plain headings with no way to narrow the page to one section. They
+// are now the panel's own filter, as a multi-select — defaulting to every
+// group, so the page shows everything until someone deliberately narrows it.
 export default function InsightsTab() {
-  // Grouped in the design's own order. Sorted by group number rather than by
-  // first appearance so a card added later lands in its section instead of
-  // creating a second one with the same name.
+  const groupDefs = useMemo(() => {
+    const by = new Map()
+    for (const c of CARDS) {
+      if (!by.has(c.group_number)) {
+        by.set(c.group_number, { number: c.group_number, name: c.group_name })
+      }
+    }
+    // Sorted by group number, not first appearance, so a card added later
+    // lands in its own section rather than opening a duplicate.
+    return [...by.values()].sort((a, b) => a.number - b.number)
+  }, [])
+
+  // Persisted per tab, like every other filter in the app — stepping out to
+  // a deal and back keeps the same groups narrowed, rather than resetting to
+  // "show everything" on return.
+  //
+  // undefined (not set yet) and [] (deliberately narrowed to nothing) are
+  // different states — see `selected` below. Defaulting the STORED value to
+  // "all" would make "clear every group" indistinguishable from "never
+  // touched the filter", and the second visit would silently re-expand a
+  // selection someone had just narrowed down.
+  const [selectedGroups, setSelectedGroups] = useTabState('insights', 'groups', undefined)
+  const selected = selectedGroups === undefined
+    ? groupDefs.map((g) => g.number)
+    : selectedGroups
+
   const groups = useMemo(() => {
     const by = new Map()
     for (const c of CARDS) {
+      if (!selected.includes(c.group_number)) continue
       if (!by.has(c.group_number)) {
         by.set(c.group_number, { number: c.group_number, name: c.group_name, cards: [] })
       }
       by.get(c.group_number).cards.push(c)
     }
     return [...by.values()].sort((a, b) => a.number - b.number)
-  }, [])
+  }, [selected])
+
+  const shownCount = groups.reduce((n, g) => n + g.cards.length, 0)
 
   return (
-    <div style={{ display: 'grid', gap: 'var(--space-5)' }}>
-      <header>
-        <h2 style={{
-          margin: 0, fontSize: 'var(--text-xl)', fontWeight: 700, color: 'var(--text-heading)'
-        }}>
-          Insights
-        </h2>
-        <p style={{
-          margin: '4px 0 0', maxWidth: 680,
-          fontSize: 'var(--text-md)', color: 'var(--text-muted)',
-          lineHeight: 'var(--leading-normal)'
-        }}>
-          {CARDS.length} questions about this sub-account, each answered from its own
-          query. Figures are read live, so they move as deals do.
-        </p>
-      </header>
-
-      {groups.map((g) => (
-        <section key={g.number} style={{ display: 'grid', gap: 'var(--space-3)', minWidth: 0 }}>
-          <h3 style={{
-            margin: 0,
-            fontSize: 'var(--text-sm)', fontWeight: 600,
-            letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase',
-            color: 'var(--text-muted)'
-          }}>
-            {g.name}
-          </h3>
-          {/* Two columns on a wide screen, one on a narrow. A 420px floor
-              rather than a fixed 1fr 1fr: these cards are mostly prose, and
-              two narrow columns of it read worse than one wide one. */}
-          <div style={{
-            display: 'grid', gap: 'var(--space-3)',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))',
-            alignItems: 'start'
-          }}>
-            {g.cards.map((c) => <InsightCard key={c.card_id} card={c} />)}
-          </div>
-        </section>
-      ))}
-    </div>
+    <Shell>
+      <Panel
+        icon="insights"
+        title="Insights"
+        accent="plum"
+        count={shownCount === CARDS.length ? CARDS.length : `${shownCount} of ${CARDS.length}`}
+        countTitle={`${CARDS.length} questions about this sub-account, each answered from its own query`}
+        actionFill
+        action={
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
+              Section
+            </span>
+            <Select
+              mode="multiple"
+              value={selected}
+              onChange={(v) => setSelectedGroups(v)}
+              popupClassName="pp-menu"
+              maxTagCount="responsive"
+              style={{ minWidth: 220, maxWidth: 480 }}
+              styles={{ root: { height: 34 } }}
+              popupMatchSelectWidth={320}
+              options={groupDefs.map((g) => ({ value: g.number, label: g.name }))}
+              placeholder="No sections selected"
+            />
+          </span>
+        }
+      >
+        <div style={{ padding: 'var(--space-4)', display: 'grid', gap: 'var(--space-5)' }}>
+          {groups.length === 0 ? (
+            <p style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
+              No section selected — pick one above to see its insights.
+            </p>
+          ) : (
+            groups.map((g) => (
+              <section key={g.number} style={{ display: 'grid', gap: 'var(--space-3)', minWidth: 0 }}>
+                <h3 style={{
+                  margin: 0,
+                  fontSize: 'var(--text-sm)', fontWeight: 600,
+                  letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase',
+                  color: 'var(--text-muted)'
+                }}>
+                  {g.name}
+                </h3>
+                {/* Two columns on a wide screen, one on a narrow. A 420px
+                    floor rather than a fixed 1fr 1fr: these cards are mostly
+                    prose, and two narrow columns of it read worse than one
+                    wide one. */}
+                <div style={{
+                  display: 'grid', gap: 'var(--space-3)',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))',
+                  alignItems: 'start'
+                }}>
+                  {g.cards.map((c) => <InsightCard key={c.card_id} card={c} />)}
+                </div>
+              </section>
+            ))
+          )}
+        </div>
+      </Panel>
+    </Shell>
   )
 }

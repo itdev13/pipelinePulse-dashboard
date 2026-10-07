@@ -237,10 +237,61 @@ export default function DealHubTab({
       })
       .catch((err) => {
         if (!alive) return
+        // A RESTORED dealId that no longer resolves — won/lost/archived
+        // differently since the last visit, deleted in GHL, or simply left
+        // over in localStorage's pp.position.<locationId> with no expiry —
+        // used to render as a dead end: "Select a deal…" in the switcher (the
+        // fetch never set `deal`) sitting above a flat "Deal not found" error.
+        // The rep's only way out was the dropdown they were already looking
+        // at failing to help, because it has nothing to show until a search
+        // is typed.
+        //
+        // Same rule as the empty-dealId case on mount (Option B — land on a
+        // REAL deal, never an empty or broken one): on a 404 specifically,
+        // fall back to the first open deal instead of showing the error.
+        // Anything else (network failure, 500, auth) is a real problem and
+        // must still be shown — silently swapping deals under a genuine
+        // server error would hide it.
+        if (err.status === 404) {
+          const select = onAutoSelectDeal || onSwitchDeal
+          if (deals && deals.length > 0) {
+            if (deals[0].id !== dealId) {
+              select(deals[0].id)
+            } else {
+              // The "first" deal IS the one that just 404'd — a stale list,
+              // not a stale dealId. Selecting it again would refire this same
+              // effect with the same outcome. Show the error instead of
+              // spinning forever.
+              setError(err.message || 'Failed to load deal')
+              setLoading(false)
+            }
+            return
+          }
+          // The deals list has not resolved yet — both effects fire on
+          // mount in parallel, and this one can win the race. Fetch a fresh
+          // first page rather than wait on state from the other effect.
+          dealsAPI.list({ status: 'all', limit: 1 })
+            .then((res) => {
+              if (!alive) return
+              const first = res.deals && res.deals[0]
+              if (first && first.id !== dealId) select(first.id)
+              else {
+                setError('No deals found for this account')
+                setLoading(false)
+              }
+            })
+            .catch(() => {
+              if (!alive) return
+              setError(err.message || 'Failed to load deal')
+              setLoading(false)
+            })
+          return
+        }
         setError(err.message || 'Failed to load deal')
         setLoading(false)
       })
     return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dealId])
 
   // Close the switcher on outside click. Also clear its search when closed
