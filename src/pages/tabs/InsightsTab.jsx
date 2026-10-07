@@ -79,6 +79,10 @@ export default function InsightsTab() {
   }, [selected])
 
   const shownCount = groups.reduce((n, g) => n + g.cards.length, 0)
+  // Every section picked — the default, and the state the "+8" chip used to
+  // describe uselessly. Compared on COUNT rather than set equality because
+  // `selected` can only ever hold ids that came from groupDefs.
+  const allSelected = groupDefs.length > 0 && selected.length === groupDefs.length
 
   return (
     <Shell>
@@ -99,7 +103,21 @@ export default function InsightsTab() {
               value={selected}
               onChange={(v) => setSelectedGroups(v)}
               popupClassName="pp-menu"
-              maxTagCount="responsive"
+              // EVERY SECTION SELECTED READS AS "All", NOT AS CHIPS.
+              //
+              // The default behaviour collapsed eight picked sections into a
+              // bare "+8" chip — a number that names none of them and that
+              // nobody has to act on, since "all of them" is the state the
+              // page starts in. maxTagCount 0 in that case hides the chips
+              // entirely so the placeholder below is all that shows.
+              //
+              // Narrowed to a few, the chips ARE the useful thing — they say
+              // which sections you are looking at — so 'responsive' comes
+              // back and only overflow collapses.
+              maxTagCount={allSelected ? 0 : 'responsive'}
+              maxTagPlaceholder={(omitted) => (
+                allSelected ? 'All sections' : `+${omitted.length}`
+              )}
               style={{ minWidth: 220, maxWidth: 480 }}
               styles={{ root: { height: 34 } }}
               popupMatchSelectWidth={320}

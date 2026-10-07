@@ -89,4 +89,44 @@ t('groups are ordered by group number, not first appearance', () => {
   assert.deepEqual(groups.map((g) => g.number), [1, 2, 8]);
 });
 
+// ── What the control SAYS when everything is picked ──────────────────
+// With all eight sections selected, antd collapsed them into a bare "+8"
+// chip — a number naming none of them, describing the state the page starts
+// in anyway. "All sections" says the same thing in words.
+//
+// Mirrors the maxTagCount / maxTagPlaceholder pair in InsightsTab.
+
+function tagDisplay(selected, groupDefs) {
+  const allSelected = groupDefs.length > 0 && selected.length === groupDefs.length;
+  return {
+    // 0 hides every chip so only the rest-placeholder shows; 'responsive'
+    // keeps the chips and collapses only what overflows.
+    maxTagCount: allSelected ? 0 : 'responsive',
+    restLabel: (omittedCount) => (allSelected ? 'All sections' : `+${omittedCount}`),
+  };
+}
+
+t('all sections selected reads "All sections", not "+8"', () => {
+  const defs = groupDefsFor(CARDS);
+  const d = tagDisplay(selectedFor(undefined, defs), defs);
+  assert.equal(d.maxTagCount, 0);
+  assert.equal(d.restLabel(defs.length), 'All sections');
+});
+
+t('a narrowed selection keeps its chips', () => {
+  // The chips ARE the useful thing here — they name which sections you are
+  // looking at. Only genuine overflow should collapse.
+  const defs = groupDefsFor(CARDS);
+  const d = tagDisplay([1], defs);
+  assert.equal(d.maxTagCount, 'responsive');
+  assert.equal(d.restLabel(2), '+2');
+});
+
+t('clearing every section is not mistaken for "all"', () => {
+  // [] and "all of them" are opposite states and must not share a label.
+  const defs = groupDefsFor(CARDS);
+  const d = tagDisplay([], defs);
+  assert.equal(d.maxTagCount, 'responsive');
+});
+
 console.log(`\n${n} passed`);
