@@ -128,6 +128,12 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
     return () => { alive = false }
   }, [])
 
+  // The table's sort column and direction. useTabState for the same reason as
+  // the filters: a rep who sorts by value, opens a deal and comes back should
+  // not find the list silently reordered. 'recent' is the server's default.
+  const [sort, setSort] = useTabState('deals', 'sort', 'recent')
+  const [sortDir, setSortDir] = useTabState('deals', 'sortDir', 'desc')
+
   const [q, setQ] = useTabState('deals', 'q', '')
   // Server-side: filtering only the loaded page would hide matches further
   // down the list.
@@ -291,14 +297,20 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
       // The table and card views were ignoring the pipeline picker entirely —
       // it only ever reached the board. Empty means "all pipelines".
       pipelineId: boardPipelineId || undefined,
+      // Sorting is the SERVER's job — the cursor is anchored to the sort
+      // column, so a client-side reorder would only sort the page in hand.
+      sort, dir: sortDir,
       // The saved view's filters, minus `view` (display mode, stripped when
       // the view is applied) and `q` (owned by the search box above).
       ...filters
     }),
-    [search, filters, boardPipelineId]
+    [search, filters, boardPipelineId, sort, sortDir]
   )
+  // sort/sortDir are DEPS, not just fetch arguments: changing the sort changes
+  // the cursor's anchor column, so page one must be refetched. Without them
+  // the new sort would not apply until some other filter happened to change.
   const { items, error, hasMore, loadingMore, loading, loadMore, patchItem, reload } =
-    usePagedList({ fetchPage, key: 'deals', deps: [search, filters, boardPipelineId] })
+    usePagedList({ fetchPage, key: 'deals', deps: [search, filters, boardPipelineId, sort, sortDir] })
 
   // After a save: refetch THAT deal and patch it in place.
   //
@@ -712,6 +724,9 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
           // Straight to the hub, skipping the editor — the row's other
           // action already covers "edit this record".
           onOpenInHub={onOpenDeal}
+          sort={sort}
+          dir={sortDir}
+          onSort={(col, d) => { setSort(col); setSortDir(d) }}
           // Already filtered to one stage, so every row would repeat it.
           singleStage={!!filters.stageId}
         />

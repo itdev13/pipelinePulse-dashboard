@@ -8,11 +8,14 @@ import { formatMoney } from '../../utils/money'
 // is one a rep reads on every row, and a chooser would add persistence and a
 // settings surface for a list nobody has asked to trim.
 //
-// SORTING IS NOT HERE. The server orders by "recently updated" and pages with
-// a keyset cursor anchored to that order — re-sorting client-side would sort
-// only the page you have, which is worse than not offering it at all. Doing it
-// properly means teaching the cursor about other sort keys, which is its own
-// change.
+// SORTING IS SERVER-SIDE, and only on the columns the cursor can anchor to:
+// Value, Created and Last customer message. Re-sorting client-side would order
+// only the page you hold — with a keyset cursor that is ~20 rows out of N, so
+// "highest value" would name the richest deal on screen rather than in the
+// pipeline. The text columns (deal, contact, stage, status, owner) stay
+// unsorted rather than offering a control that quietly lies; sorting those
+// needs a collation-matched text key in the cursor, which is its own change.
+// Tags is multi-valued and has no single sort key at all.
 
 const TH = {
   textAlign: 'left',
@@ -78,6 +81,9 @@ function shortDate(ts) {
 
 export default function DealTable({
   deals = [], onOpenDeal, onOpenContact, onOpenInHub,
+  // Server-side sort: the active column, its direction, and the setter. All
+  // three optional, so a caller that does not sort renders plain headers.
+  sort, dir, onSort,
   // True when the list is already filtered to ONE stage.
   singleStage = false
 }) {
@@ -108,12 +114,22 @@ export default function DealTable({
             <th style={TH}>Deal</th>
             <th style={TH}>Contact</th>
             {showStage && <th style={TH}>Stage</th>}
-            <th style={{ ...TH, textAlign: 'right' }}>Value</th>
+            <SortTH
+              label="Value" col="value" align="right"
+              sort={sort} dir={dir} onSort={onSort}
+            />
             <th style={TH}>Status</th>
             <th style={TH}>Owner</th>
             <th style={TH}>Tags</th>
-            <th style={TH}>Created</th>
-            <th style={TH}>Updated</th>
+            <SortTH label="Created" col="created" sort={sort} dir={dir} onSort={onSort} />
+            {/* Was "Updated", which showed updated_at — a field the CRM's own
+                sync touches, so it moved when nobody had spoken to the
+                customer. This is the newest INBOUND message instead: the
+                question a rep actually asks of this column. */}
+            <SortTH
+              label="Last customer message" col="lastCustomerMessage"
+              sort={sort} dir={dir} onSort={onSort}
+            />
             {/* No label: two icon buttons under the word "Actions" is a
                 column header explaining itself. The buttons carry their own
                 titles and aria-labels. */}
@@ -236,7 +252,7 @@ export default function DealTable({
                   {shortDate(d.createdAt) || '—'}
                 </td>
                 <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>
-                  {shortDate(d.updatedAt) || '—'}
+                  {shortDate(d.lastCustomerContactAt) || '—'}
                 </td>
 
                 {/* Explicit actions. The whole row already opens the editor,
@@ -270,6 +286,53 @@ export default function DealTable({
   )
 }
 
+
+// A sortable column header.
+//
+// Falls back to a PLAIN header when no onSort is supplied, so a caller that
+// does not wire sorting shows a label rather than a dead button.
+//
+// Clicking the active column flips direction; clicking a new one starts it
+// descending — newest and largest first is what a rep wants on first click of
+// a date or a money column, and starting ascending would open on the oldest
+// and the cheapest.
+function SortTH({ label, col, align = 'left', sort, dir, onSort }) {
+  const active = sort === col;
+  if (!onSort) return <th style={{ ...TH, textAlign: align }}>{label}</th>;
+  return (
+    <th style={{ ...TH, textAlign: align, padding: 0 }} aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button
+        type="button"
+        onClick={() => onSort(col, active && dir === 'desc' ? 'asc' : 'desc')}
+        title={`Sort by ${label.toLowerCase()}`}
+        style={{
+          // Inherits the header's type rather than restating it: a button
+          // resets font and colour, so without this the sortable columns
+          // rendered in the browser default face beside the plain ones.
+          font: 'inherit', color: active ? 'var(--text-heading)' : 'inherit',
+          letterSpacing: 'inherit', textTransform: 'inherit',
+          display: 'flex', alignItems: 'center', gap: 4,
+          justifyContent: align === 'right' ? 'flex-end' : 'flex-start',
+          width: '100%', padding: '11px var(--space-4)',
+          border: 'none', background: 'none', cursor: 'pointer'
+        }}
+      >
+        {label}
+        {/* The inactive arrow is held at low opacity rather than hidden: a
+            caret that appears on hover gives no hint the column sorts at all
+            until the pointer is already on it, and removing it entirely makes
+            the row jump sideways when a sort is applied. */}
+        <span
+          className="ms"
+          aria-hidden="true"
+          style={{ fontSize: 16, opacity: active ? 1 : 0.35 }}
+        >
+          {active && dir === 'asc' ? 'arrow_upward' : 'arrow_downward'}
+        </span>
+      </button>
+    </th>
+  );
+}
 
 // A row-level icon button. Inert without an onClick rather than rendering a
 // pointer cursor over something that does nothing.
