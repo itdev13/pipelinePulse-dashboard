@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import DealHubTab from './tabs/DealHubTab'
 import DealsTab from './tabs/DealsTab'
 import CopilotTab from './tabs/CopilotTab'
+import InsightsTab from './tabs/InsightsTab'
 import BusinessesTab from './tabs/BusinessesTab'
 import ContactsTab from './tabs/ContactsTab'
 import TasksTab from './tabs/TasksTab'
@@ -28,6 +29,10 @@ import { useAuth } from '../context/AuthContext'
 const TABS = [
   { id: 'hub',        label: 'Deal hub',     icon: 'space_dashboard' },
   { id: 'copilot',    label: 'Insights AI',  icon: 'auto_awesome' },
+  // Next to Insights AI deliberately: one ANSWERS a question you type, the
+  // other shows the 24 questions already answered for this account. Someone
+  // looking for "why are we losing deals" could reasonably start at either.
+  { id: 'insights',   label: 'Insights',     icon: 'insights' },
   { id: 'businesses', label: 'Businesses',   icon: 'domain' },
   { id: 'deals',      label: 'Deals',        icon: 'sell' },
   { id: 'contacts',   label: 'Contacts',     icon: 'group' },
@@ -406,6 +411,7 @@ export default function DealHubShell() {
             onOpenDeal={openDeal}
           />
         )}
+        {activeTab === 'insights' && <InsightsTab />}
         {activeTab === 'deals' && (
           <DealsTab
             onOpenDeal={openDeal}
