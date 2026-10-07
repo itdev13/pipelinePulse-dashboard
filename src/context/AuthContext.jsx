@@ -21,7 +21,26 @@ export const AuthProvider = ({ children }) => {
   const MAX = 3
 
   useEffect(() => {
-    if (ghlContext && !session && attempts.current < MAX) {
+    if (!ghlContext) return
+    // RE-AUTHENTICATE ON A LOCATION CHANGE, not just once per page load.
+    //
+    // useGHLContext used to resolve the handshake exactly once and never
+    // update again, so this effect's `!session` guard was enough — there was
+    // only ever one ghlContext to react to. It now keeps listening, because
+    // GHL's sidebar can switch sub-accounts without reloading this iframe,
+    // and the parent frame posts the new location unprompted.
+    //
+    // Without this, every request after a switch — including the contact
+    // picker's search — kept the PREVIOUS sub-account's JWT. The picker
+    // showed the right rep's name and the wrong location's contacts, which
+    // is why adding one to a deal 404'd: the contact existed, just not in
+    // this account.
+    const switchedLocation = session && ghlContext.locationId !== session.locationId
+    if ((switchedLocation || !session) && attempts.current < MAX) {
+      // A real switch gets its own fresh attempt budget — the cap exists to
+      // stop a retry storm against one bad handshake, not to lock a rep out
+      // of every account after their third switch today.
+      if (switchedLocation) attempts.current = 0
       authenticate(ghlContext)
     } else if (attempts.current >= MAX && !session) {
       setLoading(false)
