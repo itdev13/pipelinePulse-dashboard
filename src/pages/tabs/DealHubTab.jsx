@@ -1286,6 +1286,36 @@ export default function DealHubTab({
               siblingDeals={siblingDeals}
               onOpenDeal={onSwitchDeal}
               onOpenBusiness={onOpenBusiness}
+              // A business linked through one of the deal's contacts.
+              //
+              // Painted optimistically, then reconciled 2.5s later — the same
+              // shape as the custom-field and people saves, and for the same
+              // reason: the write goes to GHL, our contacts.business_id row
+              // only updates when the ContactUpdate webhook lands, and an
+              // immediate GET returns the OLD deal with no business on it.
+              // Without the paint the chip stayed on "None linked" for the
+              // whole round trip, which reads as the link having failed.
+              //
+              // De-duped by id: two contacts at the same company would
+              // otherwise list it twice until the refetch.
+              onBusinessLinked={(business) => {
+                setDeal((d) => {
+                  if (!d) return d
+                  const have = new Set((d.businesses || []).map((b) => b.id))
+                  if (have.has(business.id)) return d
+                  return {
+                    ...d,
+                    businesses: [...(d.businesses || []), {
+                      id: business.id,
+                      name: business.name || 'Unnamed business',
+                      city: business.city || null
+                    }]
+                  }
+                })
+                window.setTimeout(() => {
+                  dealsAPI.get(dealId).then(setDeal).catch(() => {})
+                }, 2500)
+              }}
               // These existed on DealSection but were never passed, so every
               // edit to value, stage or close date was discarded on reload —
               // the card accepted input and silently threw it away.
