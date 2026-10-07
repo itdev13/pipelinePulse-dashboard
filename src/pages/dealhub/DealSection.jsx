@@ -106,9 +106,11 @@ export default function DealSection({
           <StatusPill status={deal.status} />
         )}
         {/* The way to everything the card cannot edit inline — pipeline,
-            status, followers, and the primary contact's own fields. Opens the
-            Deals tab with THIS deal's editor already expanded, rather than
-            leaving the rep to find the row.
+            status, followers, and the primary contact's own fields. Opens
+            THIS DEAL'S OWN RECORD PAGE. It used to expand the deal's row
+            inside the Deals list instead, which landed the rep on the list
+            with a row open somewhere in it; the request names one deal, so
+            the destination is that deal.
             In the header, not beside a field: it is about the whole record. */}
         {onEditRecord && (
           <button

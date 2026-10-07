@@ -66,6 +66,21 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
   // used to return to the whole list with the deal to find again.
   const [openDealId, setOpenDealId] = useTabState('deals', 'openDealId', null)
 
+  // "Edit record" on the Deal Hub card opens THIS DEAL'S OWN PAGE.
+  //
+  // It used to seed `editingId`, which expands the deal's row inline — so the
+  // rep landed on the Deals LIST and had to find the row that had quietly
+  // opened somewhere in it. The request names one deal; the honest
+  // destination is that deal's record, which is what openDealId renders
+  // (DealEditPage, below). It fetches the deal when it is not in the loaded
+  // page, so this works for a deal the list has never shown.
+  useEffect(() => {
+    if (initialEditDealId) setOpenDealId(initialEditDealId)
+    // Only when the hub actually asks; otherwise the remembered position
+    // stands.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEditDealId])
+
   // How many deals the CURRENT pipeline and filters resolve to.
   //
   // Not deals.length: that is the loaded page (20 rows), and on the board it
@@ -142,11 +157,6 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
   // this deal's editor — "edit the full record" on the deal card. That is an
   // explicit request for a particular deal, so it outranks the remembered one.
   const [editingId, setEditingId] = useTabState('deals', 'editingId', null)
-  useEffect(() => {
-    if (initialEditDealId) setEditingId(initialEditDealId)
-    // Only when the hub actually asks; otherwise the remembered row stands.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialEditDealId])
 
   // The create form, above the list. Mutually exclusive with an open editor —
   // two draft forms on screen is two things to lose.
