@@ -371,6 +371,25 @@ function BusinessDetail({ businessId, onBack, onOpenDeal, onOpenContact, onDelet
     return () => { alive = false }
   }, [businessId])
 
+  // Refetch the whole record after a link or unlink.
+  //
+  // NOT an optimistic paint. A contact row carries four things this component
+  // cannot work out for itself — the deal count, the role, the initials and
+  // the avatar accent, which is a hash of the id computed server-side
+  // (accentFor in routes/businesses.js). A hand-built row got `undefined
+  // deals` under the name and a blank circle beside it, and the roll-up counts
+  // on the panels above stayed one link behind.
+  //
+  // Businesses have no webhooks and the contact PATCH writes
+  // contacts.business_id synchronously, so the server is already correct by
+  // the time this runs — there is no race to wait out.
+  const reload = useCallback(() => {
+    businessesAPI.get(businessId)
+      .then((d) => setData(d))
+      .catch(() => { /* The write succeeded; the row list is stale until the
+                        next visit, which is better than clearing the page. */ })
+  }, [businessId])
+
   return (
     <Shell>
       <div style={{ marginBottom: 14 }}>
@@ -426,16 +445,10 @@ function BusinessDetail({ businessId, onBack, onOpenDeal, onOpenContact, onDelet
               contacts={data.contacts}
               businessId={businessId}
               onOpenContact={onOpenContact}
-              // Painted straight in. Businesses have no webhooks, and the
-              // contact PATCH now writes contacts.business_id itself, so the
-              // server is already correct when this returns — there is
-              // nothing to wait for and no race to reconcile against.
-              onLinked={(contact) => setData((prev) => prev && {
-                ...prev,
-                contacts: prev.contacts.some((c) => c.id === contact.id)
-                  ? prev.contacts
-                  : [...prev.contacts, contact]
-              })}
+              // Both re-read the record rather than patching it in place —
+              // see reload() for why a hand-built row is not enough.
+              onLinked={reload}
+              onUnlinked={reload}
             />
           </div>
 
@@ -945,7 +958,9 @@ function DealsPanel({ deals, onOpenDeal }) {
   )
 }
 
-function ContactsPanel({ contacts, businessId, onOpenContact, onLinked }) {
+function ContactsPanel({ contacts, businessId, onOpenContact, onLinked, onUnlinked }) {
+  // The contact awaiting an unlink confirmation, or null.
+  const [confirming, setConfirming] = useState(null)
   const [adding, setAdding] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -962,31 +977,33 @@ function ContactsPanel({ contacts, businessId, onOpenContact, onLinked }) {
     setBusy(true); setError(null)
     try {
       await contactsAPI.update(contactId, { businessId })
-      // ContactPicker's onChange emits the ID ONLY — not the option — so the
-      // row's name is read back from the server rather than guessed. That
-      // also makes it the canonical record, formatted the way every other
-      // contact row here is, instead of a shape invented at the call site.
-      let row = { id: contactId, name: 'Contact', email: null, accent: 'clay' }
-      try {
-        const fresh = await contactsAPI.get(contactId)
-        const c = fresh?.contact || fresh
-        if (c) {
-          row = {
-            id: contactId,
-            name: c.name || [c.firstName, c.lastName].filter(Boolean).join(' ') || 'Contact',
-            email: c.email || null,
-            accent: 'clay'
-          }
-        }
-      } catch {
-        // The link SUCCEEDED; only the name lookup failed. Showing the row
-        // with a placeholder beats reporting a failure that did not happen —
-        // the next load reads the real name.
-      }
       setAdding(false)
-      onLinked && onLinked(row)
+      // The parent refetches. Building the row here meant guessing the deal
+      // count, the role, the initials and the accent — and the accent is a
+      // server-side hash of the id, so it cannot be guessed correctly at all.
+      onLinked && onLinked()
     } catch (err) {
       setError(err?.message || 'Could not link that contact')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Unlink ONE contact — businessId: null, the same single write the contact
+  // record's own chip makes.
+  //
+  // The contact itself is untouched: it keeps its deals and its history and
+  // simply stops belonging to this business. That is worth saying on the
+  // confirm, because "remove" next to a person reads like a delete.
+  const unlink = async (contact) => {
+    if (busy) return
+    setBusy(true); setError(null)
+    try {
+      await contactsAPI.update(contact.id, { businessId: null })
+      setConfirming(null)
+      onUnlinked && onUnlinked()
+    } catch (err) {
+      setError(err?.message || 'Could not unlink that contact')
     } finally {
       setBusy(false)
     }
@@ -1082,7 +1099,12 @@ function ContactsPanel({ contacts, businessId, onOpenContact, onLinked }) {
               <span style={{ display: 'block', fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
                 {[
                   c.role,
-                  `${c.dealCount} ${c.dealCount === 1 ? 'deal' : 'deals'}`
+                  // Number()-guarded: the template literal is ALWAYS truthy,
+                  // so .filter(Boolean) cannot catch a missing count — it
+                  // printed "undefined deals" under the name instead.
+                  Number.isFinite(Number(c.dealCount))
+                    ? `${Number(c.dealCount)} ${Number(c.dealCount) === 1 ? 'deal' : 'deals'}`
+                    : null
                 ].filter(Boolean).join(' · ')}
               </span>
             </span>
@@ -1090,8 +1112,47 @@ function ContactsPanel({ contacts, businessId, onOpenContact, onLinked }) {
               Record
               <span className="ms" style={{ fontSize: 15 }}>arrow_forward</span>
             </button>
+            {/* Icon only, and muted: unlinking is the rarer of the two
+                actions on this row, and a second full-width button beside
+                "Record" would read as its equal. */}
+            <button
+              type="button"
+              onClick={() => { setError(null); setConfirming(c) }}
+              disabled={busy}
+              title={`Unlink ${c.name} from this business`}
+              aria-label={`Unlink ${c.name} from this business`}
+              style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 30, height: 30, flex: 'none',
+                border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--surface-card)',
+                color: 'var(--text-muted)',
+                cursor: busy ? 'default' : 'pointer'
+              }}
+            >
+              <span className="ms" style={{ fontSize: 16 }}>link_off</span>
+            </button>
           </Row>
         ))
+      )}
+
+      {confirming && (
+        <ConfirmDialog
+          title="Unlink this contact?"
+          // Says what SURVIVES, not just what changes: next to a person's
+          // name, "remove" reads like a delete, and this deletes nothing.
+          message={
+            'They stay in the CRM with their deals and history — they just stop '
+            + 'being linked to this business.'
+          }
+          preview={confirming.name}
+          confirmLabel="Unlink"
+          busy={busy}
+          error={error}
+          onConfirm={() => unlink(confirming)}
+          onCancel={() => { setConfirming(null); setError(null) }}
+        />
       )}
     </Panel>
   )

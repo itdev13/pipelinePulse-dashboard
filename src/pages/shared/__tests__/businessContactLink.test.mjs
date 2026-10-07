@@ -63,13 +63,45 @@ test('contacts already linked are not offered again', () => {
   assert.match(picker, /const alreadyLinked = useMemo\(\(\) => new Set\(excludeIds\), \[excludeIds\]\)/)
 })
 
-test('the linked contact name is read back, not guessed', () => {
-  // ContactPicker's onChange emits the ID only — no option object — so a
-  // name assembled at the call site would be a placeholder.
-  assert.match(business, /await contactsAPI\.get\(contactId\)/)
+test('the row comes back from the server, not built at the call site', () => {
+  // ContactPicker's onChange emits the ID only — no option object. A row
+  // assembled here would be missing the deal count, the role and the initials,
+  // and would have to GUESS the avatar accent, which is a server-side hash of
+  // the contact id. The whole record is refetched instead.
+  assert.match(business, /const reload = useCallback\(\(\) => \{/)
+  assert.match(business, /onLinked=\{reload\}/)
+  assert.doesNotMatch(business, /await contactsAPI\.get\(contactId\)/)
 })
 
-test('a failed name lookup does not report the link as failed', () => {
-  // The PATCH already succeeded; only the follow-up read failed.
-  assert.match(business, /The link SUCCEEDED; only the name lookup failed/)
+test('a missing deal count never renders as "undefined deals"', () => {
+  // The template literal is always truthy, so .filter(Boolean) cannot catch
+  // an absent count — it printed "undefined deals" under the contact's name.
+  assert.match(business, /Number\.isFinite\(Number\(c\.dealCount\)\)/)
+})
+
+test('a failed refetch does not wipe the page', () => {
+  // The write succeeded. Clearing `data` on a failed re-read would blank the
+  // record the rep is looking at over a link that actually worked.
+  assert.match(business, /The write succeeded; the row list is stale/)
+})
+
+// ── Unlinking one contact ────────────────────────────────────────────
+
+test('each contact row can be unlinked on its own', () => {
+  // businessId: null is a real unlink, and the server treats it as one —
+  // it is not the same as omitting the field.
+  assert.match(business, /contactsAPI\.update\(contact\.id, \{ businessId: null \}\)/)
+})
+
+test('unlinking is confirmed, and says what survives', () => {
+  // Next to a person's name "remove" reads like a delete. It deletes nothing:
+  // the contact keeps its deals and history.
+  assert.match(business, /title="Unlink this contact\?"/)
+  assert.match(business, /they just stop /)
+})
+
+test('the panel refetches after an unlink as well as a link', () => {
+  // The roll-up counts on the panels above move with it; patching the array
+  // in place would leave them a link behind.
+  assert.match(business, /onUnlinked=\{reload\}/)
 })
