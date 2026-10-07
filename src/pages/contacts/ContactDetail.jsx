@@ -11,6 +11,7 @@ import EmailBody from '../dealhub/EmailBody'
 import AttachmentChip from '../dealhub/AttachmentChip'
 import AttachmentViewer from '../dealhub/AttachmentViewer'
 import MessageDealPill from '../dealhub/MessageDealPill'
+import BusinessPickerModal from '../shared/BusinessPickerModal'
 
 // Contact record — everything about one person, in four panels:
 //
@@ -467,6 +468,32 @@ function Details({ contact, onSaved }) {
             />
           </label>
         ))}
+
+        {/* THE BUSINESS LINK — not the same thing as the "Business" text
+            box above.
+            
+            That box is GHL's companyName: a label somebody typed, with no
+            record behind it. This is contacts.business_id, the actual link
+            to a business record (migration 056) — what the Businesses page
+            lists its contacts by, and the only route a DEAL has to a
+            business. Until now nothing in the app could set it from either
+            side, so a contact could show a company name while the business
+            record showed "No contacts linked".
+            
+            Its own row rather than a seventh input in the grid above: those
+            all save on blur through the same PATCH, and this one opens a
+            picker and writes immediately. */}
+        <label style={{ display: 'grid', gap: 5, minWidth: 0 }}>
+          <span
+            style={{
+              fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
+              textTransform: 'uppercase', color: 'var(--text-muted)'
+            }}
+          >
+            Linked business
+          </span>
+          <BusinessLink contact={contact} onSaved={onSaved} />
+        </label>
 
         <label style={{ display: 'grid', gap: 5, minWidth: 0 }}>
           <span

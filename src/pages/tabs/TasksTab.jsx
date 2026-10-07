@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Select } from 'antd'
+import { DatePicker, Select } from 'antd'
+import dayjs from 'dayjs'
+
+const { RangePicker } = DatePicker
 import { htmlToText } from '../../utils/sanitiseHtml'
 import ViewSwitch from '../shared/ViewSwitch'
 import WorkFilters from '../shared/WorkFilters'
@@ -31,7 +34,11 @@ const DUE_FILTERS = [
   ['all', 'All'],
   ['overdue', 'Overdue'],
   ['week', 'Due this week'],
-  ['month', 'Due next 30 days']
+  ['month', 'Due next 30 days'],
+  // Reveals the range picker beside this select. The presets answer "what is
+  // coming up"; a range answers "what happened in March", which no relative
+  // window can express.
+  ['custom', 'Custom range']
 ]
 
 // Open is the default because the queue is a to-do list, but a completed task
@@ -68,6 +75,12 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
   // Remembered across tab switches — see useTabState. Clicking a task through
   // to its deal and coming back used to reset this to 'all'.
   const [dueFilter, setDueFilter] = useTabState('tasks', 'dueFilter', 'all')
+  // The custom date range, as ['YYYY-MM-DD', 'YYYY-MM-DD'] or null.
+  //
+  // Stored as STRINGS, not dayjs objects: useTabState persists through
+  // localStorage, and a dayjs instance does not survive JSON — it would come
+  // back as a plain object that throws the moment the picker calls .format().
+  const [dueRange, setDueRange] = useTabState('tasks', 'dueRange', null)
   const [status, setStatus] = useTabState('tasks', 'status', 'open')
   const [toast, setToast] = useState(null)
 
@@ -98,14 +111,21 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
   const fetchPage = useCallback(
     ({ cursor }) => tasksAPI.list({
       status, due: dueFilter, sort, limit: 20, cursor,
+      // Only sent with due=custom — the server ignores them otherwise, and
+      // sending them regardless would make the request vary for no reason.
+      dueFrom: dueFilter === 'custom' ? (dueRange?.[0] || undefined) : undefined,
+      dueTo: dueFilter === 'custom' ? (dueRange?.[1] || undefined) : undefined,
       assignedTo: resolveOwner(owner),
       contactId: filters.contactId || undefined,
       dealId: filters.dealId || undefined
     }),
-    [status, dueFilter, filters, owner, session, sort]
+    [status, dueFilter, dueRange, filters, owner, session, sort]
   )
+  // dueRange is a DEP: without it, picking a different range while already on
+  // 'custom' leaves dueFilter unchanged, so page one is never refetched and
+  // the list keeps showing the previous range.
   const { items, error, hasMore, loadingMore, loading, loadMore, patchItem, reload } =
-    usePagedList({ fetchPage, key: 'tasks', deps: [status, dueFilter, filters, owner, sort] })
+    usePagedList({ fetchPage, key: 'tasks', deps: [status, dueFilter, dueRange, filters, owner, sort] })
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
   const tasks = items || []
@@ -244,6 +264,38 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                 styles={{ root: { height: 34 } }}
               />
             </span>
+            {/* Only once 'Custom range' is chosen. A range picker sitting
+                permanently beside a preset select reads as a second, competing
+                filter — and most of the time it would be inert. */}
+            {dueFilter === 'custom' && (
+              <RangePicker
+                // Same portal class as every other calendar in the app: antd
+                // renders this to document.body, outside [data-dealhub], where
+                // none of the design tokens resolve. See .pp-cal.
+                popupClassName="pp-cal"
+                value={dueRange ? [
+                  dueRange[0] ? dayjs(dueRange[0]) : null,
+                  dueRange[1] ? dayjs(dueRange[1]) : null
+                ] : null}
+                onChange={(range) => {
+                  // Clearing the range keeps the filter on 'custom' with no
+                  // bounds, which the server reads as "every dated task" —
+                  // the same thing the picker now shows, rather than silently
+                  // reverting to a preset the rep did not pick.
+                  setDueRange(range && (range[0] || range[1])
+                    ? [
+                        range[0] ? range[0].format('YYYY-MM-DD') : null,
+                        range[1] ? range[1].format('YYYY-MM-DD') : null
+                      ]
+                    : null)
+                }}
+                format="D MMM YYYY"
+                allowEmpty={[true, true]}
+                placeholder={['From', 'To']}
+                style={{ width: 260 }}
+                styles={{ root: { height: 34 } }}
+              />
+            )}
             <SortSelect
               value={sort}
               onChange={setSort}

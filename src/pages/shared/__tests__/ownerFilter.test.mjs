@@ -221,8 +221,10 @@ test('both tabs expose a sort control, and remember the choice', () => {
   assert.match(tasks, /due: dueFilter, sort,/)
   assert.match(notes, /limit: 20, cursor, sort,/)
 
-  // In the deps, or the list would not refetch when it moved.
-  assert.match(tasks, /deps: \[status, dueFilter, filters, owner, sort\]/)
+  // In the deps, or the list would not refetch when it moved. Matched as
+  // MEMBERSHIP, not as the exact array: pinning the full list failed the day a
+  // filter was added beside it, which is not what this test is about.
+  assert.match(tasks, /deps: \[[^\]]*\bsort\b[^\]]*\]/)
   assert.match(notes, /deps: \[filters, author, sort\]/)
 })
 
