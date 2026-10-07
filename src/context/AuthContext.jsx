@@ -58,7 +58,12 @@ export const AuthProvider = ({ children }) => {
         companyId: ctx.companyId,
         userId: ctx.userId,
       })
-      localStorage.setItem('sessionToken', res.sessionToken)
+      // sessionStorage, NOT localStorage — see src/storage/session.js. A JWT
+      // in localStorage is shared by every tab of this origin, so two
+      // sub-accounts open side by side overwrote each other's token: whichever
+      // tab authenticated LAST won for ALL of them, and tab A's next click
+      // fetched tab B's data. sessionStorage is scoped to one tab.
+      sessionStorage.setItem('sessionToken', res.sessionToken)
       // The authoritative sub-account for this session, written where
       // non-React code can read it. useTabState needs it to decide whether a
       // persisted snapshot belongs to the location now on screen; it used to
@@ -66,7 +71,7 @@ export const AuthProvider = ({ children }) => {
       // FIRST one found — so after visiting two sub-accounts it would answer
       // with whichever happened to be first, and one location's chat history
       // stayed on screen under another's name.
-      localStorage.setItem('pp.activeLocation', res.location.id)
+      sessionStorage.setItem('pp.activeLocation', res.location.id)
       setSession({ token: res.sessionToken, user: res.user, locationId: res.location.id })
       setLocation(res.location)
       // Apply the sub-account's currency to all money formatters.
@@ -81,11 +86,11 @@ export const AuthProvider = ({ children }) => {
   }
 
   const logout = () => {
-    localStorage.removeItem('sessionToken')
+    sessionStorage.removeItem('sessionToken')
     // Cleared with the session, so the next sign-in cannot be compared against
     // the previous one's sub-account and judged a match.
-    localStorage.removeItem('pp.activeLocation')
-    localStorage.removeItem('pp.tabstate')
+    sessionStorage.removeItem('pp.activeLocation')
+    sessionStorage.removeItem('pp.tabstate')
     setSession(null)
     setLocation(null)
   }

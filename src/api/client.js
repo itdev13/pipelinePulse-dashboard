@@ -9,7 +9,11 @@ const apiClient = axios.create({
 })
 
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('sessionToken')
+  // sessionStorage: per-TAB. The token used to come from localStorage,
+  // which every tab of this origin shares — so with two sub-accounts open
+  // side by side, the tab that authenticated last silently supplied its
+  // token to every request from the other tab too. See AuthContext.
+  const token = sessionStorage.getItem('sessionToken')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
@@ -23,7 +27,7 @@ apiClient.interceptors.response.use(
     const code = error.response?.data?.code
     const url = error.config?.url || ''
     if (status === 401 && code === 'TOKEN_EXPIRED' && !url.includes('/auth/verify')) {
-      localStorage.removeItem('sessionToken')
+      sessionStorage.removeItem('sessionToken')
       window.location.reload()
       return
     }

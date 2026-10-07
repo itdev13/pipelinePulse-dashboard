@@ -19,7 +19,13 @@ import { useCallback, useState } from 'react'
 // thing rather than a rare one. A rep who filtered the deals list, opened a
 // deal in the hub and hit refresh came back to a default list.
 //
-// Not plain localStorage though: coming back TOMORROW to yesterday's filter
+// sessionStorage, NOT localStorage. localStorage is shared by every tab of
+// this origin: with two sub-accounts open side by side, the stored location
+// and snapshot were whichever tab wrote last, so tab A's filters and chat
+// history appeared under tab B's name. sessionStorage is scoped to one tab,
+// which is exactly the lifetime a "where was I" snapshot should have.
+//
+// Not plain persistence though: coming back TOMORROW to yesterday's filter
 // still applied, with no visible reason, is worse than a clean page. So the
 // snapshot expires — long enough to survive a reload and a detour through
 // another tab, short enough that a new session starts clean.
@@ -57,14 +63,14 @@ function currentLocationId() {
     // matched, and kept the previous account's Insights AI history and Recents
     // on screen under the new account's name. It looked like a data leak. It
     // was a scan returning the wrong answer.
-    return localStorage.getItem('pp.activeLocation') || null
+    return sessionStorage.getItem('pp.activeLocation') || null
   } catch { /* storage blocked */ }
   return null
 }
 
 function load() {
   try {
-    const raw = JSON.parse(localStorage.getItem(STORE_KEY) || 'null')
+    const raw = JSON.parse(sessionStorage.getItem(STORE_KEY) || 'null')
     if (!raw || typeof raw !== 'object') return new Map()
     // A stale snapshot is discarded wholesale rather than per key: the values
     // describe one moment together, and reviving half of them would leave a
@@ -93,20 +99,20 @@ let store = load()
 
 // Drop everything if the sub-account has changed since the store was built.
 // Called on every read and write rather than on a listener: there is no event
-// for "GHL switched location", and a check that costs one localStorage read is
+// for "GHL switched location", and a check that costs one sessionStorage read is
 // cheaper than being wrong.
 function ensureCurrentLocation() {
   const loc = currentLocationId()
   if (loc !== storeLoc) {
     storeLoc = loc
     store = new Map()
-    try { localStorage.removeItem(STORE_KEY) } catch { /* storage blocked */ }
+    try { sessionStorage.removeItem(STORE_KEY) } catch { /* storage blocked */ }
   }
 }
 
 function persist() {
   try {
-    localStorage.setItem(
+    sessionStorage.setItem(
       STORE_KEY,
       JSON.stringify({
         v: STORE_VERSION,

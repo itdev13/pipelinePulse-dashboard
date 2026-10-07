@@ -36,7 +36,7 @@ export const controlAPI = {
   // window.open would arrive unauthenticated. Fetch it with the header, then
   // hand the browser a blob.
   downloadBusinessContext: async () => {
-    const token = localStorage.getItem('sessionToken')
+    const token = sessionStorage.getItem('sessionToken')
     const res = await fetch(`${API_BASE_URL}/api/control/business-context/download`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {}
     })
