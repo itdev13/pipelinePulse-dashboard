@@ -414,7 +414,12 @@ export default function DealHubTab({
               }
               return merged
             })
-          }).catch(() => {})
+          })
+            .catch(() => {})
+            // Settled — or we failed to re-read, in which case the optimistic
+            // value is the best we have and holding a spinner over it for
+            // ever would be worse than showing it.
+            .finally(() => setSavingField((cur) => (cur === pinnedId ? null : cur)))
         }, 2500)
       } else if (field === 'status') {
         // Its own endpoint — the only one that records a lost reason, and the
@@ -501,6 +506,11 @@ export default function DealHubTab({
       setSavedField(field)
       window.setTimeout(() => setSavedField((f) => (f === field ? null : f)), 2200)
     } catch (err) {
+      // The write FAILED, so no reconcile was scheduled and nothing else will
+      // clear the custom-field spinner that `finally` now leaves running.
+      // Cleared here, before the rollback, so a failed save shows its error
+      // against a settled chip rather than one still pretending to work.
+      setSavingField(null)
       setDeal(before)
       // Only pipelineStageId ever repaints `stages` optimistically (above) —
       // restoring it unconditionally on every other field's failure would be
@@ -509,7 +519,18 @@ export default function DealHubTab({
       setSaveError(err.message || 'Could not save that — try again')
       window.setTimeout(() => setSaveError(null), 5000)
     } finally {
-      setSavingField(null)
+      // A CUSTOM FIELD IS NOT DONE WHEN ITS REQUEST IS.
+      //
+      // The PUT resolves in ~700ms, but the value is not settled until the
+      // 2.5s reconcile lands — our write goes to GHL, GHL webhooks us, and
+      // the handler fetches the opportunity back before our row updates.
+      // Clearing the spinner here let the chip look finished for ~1.8s and
+      // then change again, which reads as the save undoing itself.
+      //
+      // So the custom-field branch owns its own spinner and clears it when
+      // the reconcile returns. Every other field is synchronous from the
+      // rep's point of view and clears here as before.
+      if (field !== 'customField') setSavingField(null)
     }
   }
 

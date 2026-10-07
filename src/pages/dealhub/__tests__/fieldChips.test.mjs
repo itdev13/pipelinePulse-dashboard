@@ -160,3 +160,45 @@ test('clearing never shows the old value again', () => {
   assert.equal(frames[0], 'Crittall')
   assert.ok(!frames.slice(1).includes('Crittall'), `old value reappeared: ${frames.join(' -> ')}`)
 })
+
+// ── The spinner has to outlive the request ───────────────────────────
+// Reported after the flicker fix: "it should have loading until value
+// changes instead of changing and coming empty like that — at the end value
+// is coming but transition."
+//
+// A custom field is not done when its PUT is. The write resolves in ~700ms,
+// but the value is not settled until the 2.5s reconcile lands (our PUT ->
+// GHL -> webhook -> the handler's own fetch -> our row). Clearing the
+// spinner on the request left the chip looking finished for ~1.8s and then
+// changing again, which reads as the save undoing itself.
+
+test('a custom field keeps its spinner past the request', () => {
+  assert.match(tab, /if \(field !== 'customField'\) setSavingField\(null\)/)
+})
+
+test('the reconcile clears it, on success AND on failure to re-read', () => {
+  // .finally, not .then: an unreadable refetch must not strand a spinner for
+  // ever over a value that is probably correct.
+  assert.match(tab, /\.finally\(\(\) => setSavingField\(\(cur\) => \(cur === pinnedId \? null : cur\)\)\)/)
+})
+
+test('it is cleared by id, not blindly', () => {
+  // A second field edited while the first reconciles owns the spinner by
+  // then; clearing unconditionally would stop ITS spinner early.
+  assert.match(tab, /cur === pinnedId \? null : cur/)
+})
+
+test('a failed write clears the spinner itself', () => {
+  // No reconcile is scheduled when the PUT throws, so nothing else would.
+  // Sliced from the catch to its own finally — `setSaveError` also appears
+  // earlier in the file, so indexing on it found the wrong window.
+  const start = tab.indexOf('} catch (err) {')
+  const katch = tab.slice(start, tab.indexOf('} finally {', start))
+  assert.match(katch, /setSavingField\(null\)/)
+})
+
+test('the chip is disabled while saving', () => {
+  // The value is already painted optimistically, so without this a rep could
+  // pick again mid-flight and race two writes to the same field.
+  assert.match(section, /disabled=\{saving\}/)
+})
