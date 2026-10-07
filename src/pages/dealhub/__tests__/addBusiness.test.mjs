@@ -15,6 +15,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const section = readFileSync(new URL('../DealSection.jsx', import.meta.url), 'utf8');
+// The linking WRITE and the picker's own list live in the shared modal, not in
+// DealSection: Deal Hub and the contact record both open this one component,
+// which is what stops the two surfaces drifting on what "link" means. These
+// assertions follow the code rather than pinning it to where it used to sit.
+const picker = readFileSync(new URL('../../shared/BusinessPickerModal.jsx', import.meta.url), 'utf8');
 const tab = readFileSync(new URL('../../tabs/DealHubTab.jsx', import.meta.url), 'utf8');
 
 let n = 0;
@@ -77,12 +82,12 @@ t('the paint is followed by a DELAYED reconcile, not an immediate one', () => {
 });
 
 t('the write is a contact PATCH carrying businessId — the only link GHL has', () => {
-  assert.match(section, /contactsAPI\.update\(contact\.id, \{ businessId: picked\.id \}\)/);
+  assert.match(picker, /contactsAPI\.update\(contact\.id, \{ businessId: picked\.id \}\)/);
 });
 
 t('already-linked businesses are excluded from the picker', () => {
   // The common mistake — relinking the one already there — cannot be clicked.
-  assert.match(section, /filter\(\(b\) => !alreadyLinked\.has\(b\.id\)\)/);
+  assert.match(picker, /filter\(\(b\) => !alreadyLinked\.has\(b\.id\)\)/);
 });
 
 // ── The reconcile must not undo the link ─────────────────────────────
