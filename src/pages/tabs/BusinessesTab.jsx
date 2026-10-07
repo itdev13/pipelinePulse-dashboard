@@ -1124,9 +1124,20 @@ function ConversationsPanel({ businessId, total, dealCount, onOpenDeal }) {
 
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
+  // Both counts come from the server already coerced to numbers, so this
+  // normally just formats them. The guards are for the case where they do NOT
+  // arrive — an older cached bundle, or a response shape that changed — where
+  // a template literal would print "undefined across undefined deals" in the
+  // panel header. A count we cannot state is better left unsaid than stated
+  // wrongly, so the line is dropped entirely rather than showing a zero we
+  // have not actually counted.
   const meta = useMemo(() => {
     if (channel) return `${channel.toLowerCase()} only`
-    return `${total} across ${dealCount} ${dealCount === 1 ? 'deal' : 'deals'}`
+    const n = Number(total)
+    const d = Number(dealCount)
+    if (!Number.isFinite(n)) return null
+    if (!Number.isFinite(d)) return `${n} ${n === 1 ? 'message' : 'messages'}`
+    return `${n} across ${d} ${d === 1 ? 'deal' : 'deals'}`
   }, [channel, total, dealCount])
 
   return (
