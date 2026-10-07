@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import AttachmentChip from '../dealhub/AttachmentChip'
 import AttachmentViewer from '../dealhub/AttachmentViewer'
 import ViewSwitch from '../shared/ViewSwitch'
+import ContactPicker from '../shared/ContactPicker'
+import { contactsAPI } from '../../api/contacts'
 import { businessesAPI } from '../../api/businesses'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
@@ -420,7 +422,21 @@ function BusinessDetail({ businessId, onBack, onOpenDeal, onOpenContact, onDelet
             }}
           >
             <DealsPanel deals={data.deals} onOpenDeal={onOpenDeal} />
-            <ContactsPanel contacts={data.contacts} onOpenContact={onOpenContact} />
+            <ContactsPanel
+              contacts={data.contacts}
+              businessId={businessId}
+              onOpenContact={onOpenContact}
+              // Painted straight in. Businesses have no webhooks, and the
+              // contact PATCH now writes contacts.business_id itself, so the
+              // server is already correct when this returns — there is
+              // nothing to wait for and no race to reconcile against.
+              onLinked={(contact) => setData((prev) => prev && {
+                ...prev,
+                contacts: prev.contacts.some((c) => c.id === contact.id)
+                  ? prev.contacts
+                  : [...prev.contacts, contact]
+              })}
+            />
           </div>
 
           <ConversationsPanel
@@ -929,14 +945,113 @@ function DealsPanel({ deals, onOpenDeal }) {
   )
 }
 
-function ContactsPanel({ contacts, onOpenContact }) {
+function ContactsPanel({ contacts, businessId, onOpenContact, onLinked }) {
+  const [adding, setAdding] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+
+  // THE REVERSE OF THE CONTACT PAGE'S LINK, and the same single write.
+  //
+  // contacts.business_id is the only link GHL has (migration 056), so
+  // "add a contact to this company" is "set this company on that contact".
+  // Offering it from both sides matters because a rep lands on whichever
+  // record they were already looking at — before this, neither side could
+  // create the link at all.
+  const link = async (contactId) => {
+    if (!contactId || busy) return
+    setBusy(true); setError(null)
+    try {
+      await contactsAPI.update(contactId, { businessId })
+      // ContactPicker's onChange emits the ID ONLY — not the option — so the
+      // row's name is read back from the server rather than guessed. That
+      // also makes it the canonical record, formatted the way every other
+      // contact row here is, instead of a shape invented at the call site.
+      let row = { id: contactId, name: 'Contact', email: null, accent: 'clay' }
+      try {
+        const fresh = await contactsAPI.get(contactId)
+        const c = fresh?.contact || fresh
+        if (c) {
+          row = {
+            id: contactId,
+            name: c.name || [c.firstName, c.lastName].filter(Boolean).join(' ') || 'Contact',
+            email: c.email || null,
+            accent: 'clay'
+          }
+        }
+      } catch {
+        // The link SUCCEEDED; only the name lookup failed. Showing the row
+        // with a placeholder beats reporting a failure that did not happen —
+        // the next load reads the real name.
+      }
+      setAdding(false)
+      onLinked && onLinked(row)
+    } catch (err) {
+      setError(err?.message || 'Could not link that contact')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <Panel
       icon="group"
       title="Contacts"
       accent="clay"
       meta={`${contacts.length} ${contacts.length === 1 ? 'contact' : 'contacts'}`}
+      action={
+        adding ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 260 }}>
+            <ContactPicker
+              value={null}
+              onChange={link}
+              seed={[]}
+              // The ones already here are not candidates — offering them
+              // invites a click that does nothing.
+              exclude={contacts.map((c) => c.id)}
+              showInitial
+            />
+            <button
+              type="button"
+              onClick={() => { setAdding(false); setError(null) }}
+              disabled={busy}
+              style={{
+                height: 28, padding: '0 10px',
+                border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-sm)',
+                background: '#fff', fontFamily: 'var(--font-sans)',
+                fontSize: 'var(--text-sm)', cursor: 'pointer'
+              }}
+            >
+              Cancel
+            </button>
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              height: 28, padding: '0 11px 0 8px',
+              border: '1px dashed var(--border-strong)',
+              borderRadius: 'var(--radius-pill)',
+              background: 'var(--surface-card)', color: 'var(--text-body)',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)',
+              cursor: 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 15 }}>person_add</span>
+            Link a contact
+          </button>
+        )
+      }
     >
+      {error && (
+        <p style={{
+          margin: 0, padding: '8px var(--space-4)',
+          fontSize: 'var(--text-sm)', color: 'var(--status-stuck-text)'
+        }}>
+          {error}
+        </p>
+      )}
       {contacts.length === 0 ? (
         <EmptyLine text="No contacts linked to this business." />
       ) : (

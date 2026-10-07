@@ -298,6 +298,125 @@ const CONTACT_TYPES = [
   { value: 'customer', label: 'Customer' }
 ]
 
+// The contact's link to a business record, as a chip you can change.
+//
+// Writes PATCH /contacts/:id { businessId } — the same single write the Deal
+// Hub's "Add business" makes, through the same shared picker, so the two
+// surfaces cannot drift apart on what linking means.
+//
+// `businessId: null` is a real unlink and the server treats it as one (see
+// the hasOwnProperty check on that route); it is not the same as omitting
+// the field.
+function BusinessLink({ contact, onSaved }) {
+  const [picking, setPicking] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+
+  const linked = contact.businessId
+    ? { id: contact.businessId, name: contact.businessName || 'Linked business' }
+    : null
+
+  const unlink = async () => {
+    if (busy) return
+    setBusy(true); setError(null)
+    try {
+      await contactsAPI.update(contact.id, { businessId: null })
+      onSaved({ businessId: null, businessName: null })
+    } catch (err) {
+      setError(err?.message || 'Could not unlink')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+      {linked ? (
+        <>
+          <span
+            title={linked.name}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              maxWidth: '100%',
+              padding: '6px 11px',
+              border: '1px solid var(--accent-sky)',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--tint-sky)',
+              fontSize: 'var(--text-md)', fontWeight: 600,
+              color: 'var(--accent-sky-text)'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 16, flex: 'none' }}>domain</span>
+            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {linked.name}
+            </span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setPicking(true)}
+            disabled={busy}
+            style={linkButtonStyle}
+          >
+            Change
+          </button>
+          <button
+            type="button"
+            onClick={unlink}
+            disabled={busy}
+            style={linkButtonStyle}
+          >
+            {busy ? 'Working…' : 'Unlink'}
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setPicking(true)}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            height: 32, padding: '0 12px 0 9px',
+            border: '1px dashed var(--border-strong)',
+            borderRadius: 'var(--radius-md)',
+            background: 'var(--surface-card)',
+            color: 'var(--text-body)',
+            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+            cursor: 'pointer'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 16 }}>add_business</span>
+          Link a business
+        </button>
+      )}
+
+      {error && (
+        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--status-stuck-text)' }}>{error}</span>
+      )}
+
+      {picking && (
+        <BusinessPickerModal
+          contact={contact}
+          excludeIds={linked ? [linked.id] : []}
+          blurb="Linked to this contact, and shown on every deal they are on."
+          onClose={() => setPicking(false)}
+          onLinked={(business) => {
+            setPicking(false)
+            onSaved({ businessId: business.id, businessName: business.name })
+          }}
+        />
+      )}
+    </span>
+  )
+}
+
+const linkButtonStyle = {
+  height: 28, padding: '0 10px',
+  border: '1px solid var(--border-strong)',
+  borderRadius: 'var(--radius-sm)',
+  background: '#fff', color: 'var(--text-heading)',
+  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)',
+  cursor: 'pointer'
+}
+
 function Details({ contact, onSaved }) {
   const [draft, setDraft] = useState(() =>
     Object.fromEntries(FIELDS.map(([k]) => [k, contact[k] || '']))
