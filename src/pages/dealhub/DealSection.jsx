@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import DealStatusControl from './DealStatusControl'
 import { DatePicker, Select } from 'antd'
 import dayjs from 'dayjs'
@@ -297,58 +298,159 @@ function EnquiryBlock({ deal }) {
       </p>
 
       {earlier.length > 0 && (
-        <>
-          <button
-            type="button"
-            onClick={() => setShowAll((v) => !v)}
-            style={{
-              margin: '6px 0 0', padding: 0, border: 'none', background: 'none',
-              color: 'var(--accent-plum-text)', fontFamily: 'var(--font-sans)',
-              fontSize: 'var(--text-sm)', fontWeight: 600, cursor: 'pointer'
-            }}
-          >
-            {showAll ? 'Hide' : `${earlier.length} earlier ${earlier.length === 1 ? 'enquiry' : 'enquiries'}`}
-          </button>
+        <button
+          type="button"
+          onClick={() => setShowAll(true)}
+          style={{
+            margin: '6px 0 0', padding: 0, border: 'none', background: 'none',
+            color: 'var(--accent-plum-text)', fontFamily: 'var(--font-sans)',
+            fontSize: 'var(--text-sm)', fontWeight: 600, cursor: 'pointer'
+          }}
+        >
+          {/* Counts the current one too, since the modal shows it. Singular
+              when a deal has an earlier enquiry but no current one — which
+              happens if the automation cleared the field. */}
+          Show all {earlier.length + (current ? 1 : 0)}{' '}
+          {earlier.length + (current ? 1 : 0) === 1 ? 'enquiry' : 'enquiries'}
+        </button>
+      )}
 
-          {showAll && (
-            <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
-              {/* Newest first here, unlike storage. Stored oldest-first so the
-                  array reads forward in time; shown newest-first because the
-                  one just replaced is the one a rep is most likely comparing
-                  against. */}
-              {[...earlier].reverse().map((e, i) => (
-                <div
-                  key={i}
-                  style={{
-                    paddingLeft: 9,
-                    borderLeft: '2px solid var(--border-strong)'
-                  }}
-                >
-                  <p style={{
-                    margin: 0,
-                    fontSize: 'var(--text-sm)', lineHeight: 'var(--leading-normal)',
-                    color: 'var(--text-muted)',
-                    whiteSpace: 'pre-wrap', overflowWrap: 'anywhere'
-                  }}>
-                    {e.text}
-                  </p>
-                  {e.seen_at && (
-                    <p style={{ margin: '2px 0 0', fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
-                      {/* "Replaced", not "sent": seen_at is when WE saw the
-                          field change. GHL does not tell us when the customer
-                          actually wrote it. */}
-                      Replaced {new Date(e.seen_at).toLocaleDateString(undefined, {
-                        day: 'numeric', month: 'short', year: 'numeric'
-                      })}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </>
+      {showAll && (
+        <EnquiryModal
+          current={current}
+          earlier={earlier}
+          dealName={deal.name}
+          onClose={() => setShowAll(false)}
+        />
       )}
     </div>
+  )
+}
+
+// Every enquiry on this deal, in full.
+//
+// The block in the column shows the CURRENT enquiry and nothing else — it
+// sits in a narrow slot beside Value and Businesses, and three paragraphs of
+// customer text there would push everything below it off screen. The history
+// is a read, not a glance, so it gets the room a read needs.
+//
+// Oldest LAST, newest first, matching the block: the enquiry just replaced is
+// the one a rep is comparing the current one against.
+function EnquiryModal({ current, earlier, dealName, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  // Current first, then the previous ones newest-first. `seen_at` is absent
+  // on the current one by definition — it has not been replaced yet.
+  const entries = [
+    ...(current ? [{ text: current, current: true }] : []),
+    ...[...earlier].reverse()
+  ]
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Initial enquiries"
+      className="pp-portal"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 920,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(15, 23, 42, 0.32)',
+        backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+        padding: 16
+      }}
+    >
+      <div style={{
+        width: 'min(680px, 100%)', maxHeight: '86vh',
+        background: '#fff',
+        borderRadius: 'var(--radius-lg)',
+        boxShadow: 'var(--shadow-overlay)',
+        display: 'grid', gridTemplateRows: 'auto 1fr',
+        overflow: 'hidden'
+      }}>
+        <div style={{
+          display: 'flex', alignItems: 'flex-start', gap: 12,
+          padding: '18px 22px 14px',
+          borderBottom: '1px solid var(--border-default)'
+        }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <h2 style={{
+              margin: 0, fontSize: 'var(--text-lg)', fontWeight: 700,
+              color: 'var(--text-heading)'
+            }}>
+              Initial enquiries
+            </h2>
+            <p style={{
+              margin: '3px 0 0', fontSize: 'var(--text-sm)', color: 'var(--text-muted)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+            }}>
+              {dealName || 'This deal'} · {entries.length} in total
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 30, height: 30, flex: 'none',
+              border: 'none', borderRadius: 'var(--radius-sm)',
+              background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 19 }}>close</span>
+          </button>
+        </div>
+
+        <div style={{ overflowY: 'auto', padding: '16px 22px 20px', display: 'grid', gap: 14 }}>
+          {entries.map((e, i) => (
+            <div
+              key={i}
+              style={{
+                paddingLeft: 11,
+                // The current one is marked by colour, not by a badge: it is
+                // always first, so a label would state what position already
+                // says.
+                borderLeft: `3px solid ${e.current ? 'var(--accent-pine)' : 'var(--border-strong)'}`
+              }}
+            >
+              <p style={{
+                margin: 0,
+                fontSize: 'var(--text-sm)', fontWeight: 600,
+                letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase',
+                color: e.current ? 'var(--accent-pine-text)' : 'var(--text-faint)'
+              }}>
+                {e.current ? 'Current' : 'Earlier'}
+                {e.seen_at && (
+                  <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+                    {' · replaced '}
+                    {new Date(e.seen_at).toLocaleDateString(undefined, {
+                      day: 'numeric', month: 'short', year: 'numeric'
+                    })}
+                  </span>
+                )}
+              </p>
+              <p style={{
+                margin: '4px 0 0',
+                fontSize: 'var(--text-md)', lineHeight: 'var(--leading-normal)',
+                color: e.current ? 'var(--text-body)' : 'var(--text-muted)',
+                // The customer's own words — their line breaks are kept, and
+                // a pasted URL or a long unbroken string must not widen the
+                // dialog past its own edge.
+                whiteSpace: 'pre-wrap', overflowWrap: 'anywhere'
+              }}>
+                {e.text}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>,
+    document.body
   )
 }
 
