@@ -697,6 +697,9 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
           // activity, this is the record itself. The hub is one button away
           // from there.
           onOpenDeal={setOpenDealId}
+          // The card face opens the deal's page; this icon is the hub, the
+          // same pairing the table rows use.
+          onOpenInHub={onOpenDeal}
         />
       )}
 
@@ -719,7 +722,11 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
         <DealCard
           key={d.id}
           deal={d}
-          onOpenDeal={onOpenDeal}
+          // "Open deal" means the deal's own page here too. It used to jump to
+          // the hub, so the same green button meant two different destinations
+          // depending on which view the rep happened to be in.
+          onOpenDeal={setOpenDealId}
+          onOpenInHub={onOpenDeal}
           // Opens the Contacts tab on that person — the same handler the
           // table rows and the Deal Hub chips already use.
           onOpenContact={onOpenContact}
@@ -755,7 +762,7 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
 }
 
 function DealCard({
-  deal, onOpenDeal, onOpenContact, expanded, onToggleExpand,
+  deal, onOpenDeal, onOpenInHub, onOpenContact, expanded, onToggleExpand,
   pipelines, users, refError, onSaved, onDeleted
 }) {
   // No edit state on the card any more — DealEditPanel owns the whole draft,
@@ -835,6 +842,28 @@ function DealCard({
           </span>
           {expanded ? 'Close' : 'Edit'}
         </button>
+
+        {/* Secondary to "Open deal": same destination the table's hub icon
+            reaches, so a rep who works from cards is not the only one who has
+            to open the editor first. */}
+        {onOpenInHub && (
+          <button
+            onClick={() => onOpenInHub(deal.id)}
+            title="Open on the deal hub"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+              height: 34, padding: '0 13px',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--surface-card)', color: 'var(--text-body)',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
+              cursor: 'pointer', flex: 'none'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 16 }}>space_dashboard</span>
+            Deal hub
+          </button>
+        )}
 
         <button
           onClick={() => onOpenDeal && onOpenDeal(deal.id)}

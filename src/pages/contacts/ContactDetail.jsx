@@ -16,13 +16,15 @@ import MessageDealPill from '../dealhub/MessageDealPill'
 //
 //   Header      identity + how to reach them
 //   Details     editable fields, saved on blur
-//   Do not disturb   per-channel switches
 //   Deals       which opportunities they're on
 //   All messages     every message, with the deal it's filed to
+//   Do not disturb   per-channel switches
+//   Custom fields    GHL's own folders
 //
-// The last panel is the useful one: showing all messages together is what
-// makes a wrongly-filed message visible, because it's the row whose deal tag
-// looks wrong beside its content.
+// All messages is the useful one: showing every message together is what
+// makes a wrongly-filed one visible, because it's the row whose deal tag
+// looks wrong beside its content. DND and custom fields sit after it —
+// settings and reference, not the story of the relationship.
 // GHL's echo uses its own camelCase field names; the UI uses ours. Map only the
 // keys we display — an unmapped key would quietly leave a stale value on screen.// GHL's field name -> the label the user sees on that input.
 function labelFor(field) {
@@ -103,25 +105,29 @@ export default function ContactDetail({ contactId, onBack, onOpenDeal }) {
   return (
     <Shell onBack={onBack}>
       <Header contact={contact} />
+      {/* PANEL ORDER: Details, Deals, All messages, Do not disturb, Custom
+          fields. Asked for directly, and it reads as the order a rep works
+          in: who they are, what they are buying, what has been said — then
+          the two panels that are settings and reference rather than the
+          story of the relationship. */}
       <Details
         contact={contact}
         onSaved={(patch) => setContact((c) => ({ ...c, ...patch }))}
-      />
-      {/* Custom fields, in GHL's own folders. Above DND because they are
-          content a rep reads and edits, where DND is a setting. */}
-      <CustomFields
-        contact={contact}
-        onSaved={(groups) => setContact((c) => ({ ...c, customFieldGroups: groups }))}
-      />
-      <DoNotDisturb
-        contact={contact}
-        onChange={(dnd) => setContact((c) => ({ ...c, dnd }))}
       />
       <Deals deals={contact.deals} onOpenDeal={onOpenDeal} />
       <AllMessages
         contactId={contactId}
         deals={contact.deals || []}
         onOpenDeal={onOpenDeal}
+      />
+      <DoNotDisturb
+        contact={contact}
+        onChange={(dnd) => setContact((c) => ({ ...c, dnd }))}
+      />
+      {/* Custom fields, in GHL's own folders. */}
+      <CustomFields
+        contact={contact}
+        onSaved={(groups) => setContact((c) => ({ ...c, customFieldGroups: groups }))}
       />
     </Shell>
   )

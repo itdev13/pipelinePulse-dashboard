@@ -32,7 +32,10 @@ test('it matches the handler shape the rest of the app uses', () => {
 test('the handler is threaded from the tab to the panel', () => {
   // Three levels: DealsTab -> DealCard -> DealEditPanel. A break anywhere is
   // invisible — React passes undefined and the name silently stops linking.
-  assert.match(tab, /function DealCard\(\{\s*\n?\s*deal, onOpenDeal, onOpenContact/)
+  // The param list is matched loosely: what matters is that onOpenContact is
+  // one of DealCard's props, not which handlers sit beside it. Pinning the
+  // exact list failed the day an unrelated prop was added next to it.
+  assert.match(tab, /function DealCard\(\{[^}]*\bonOpenContact\b/)
   assert.ok((tab.match(/onOpenContact=\{onOpenContact\}/g) || []).length >= 3)
   assert.match(panel, /onOpenContact=\{onOpenContact\}/)
 })

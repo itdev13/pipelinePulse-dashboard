@@ -85,4 +85,47 @@ t('already-linked businesses are excluded from the picker', () => {
   assert.match(section, /filter\(\(b\) => !alreadyLinked\.has\(b\.id\)\)/);
 });
 
+// ── The reconcile must not undo the link ─────────────────────────────
+// Reported after the server-side relation writer was already fixed: the
+// business "still removes itself". A second, independent bug — this
+// handler's refetch was a wholesale setDeal(fresh), unlike the custom-field
+// reconcile beside it which merges. When 2.5s loses the race against GHL's
+// webhook, `fresh` has no business on it and the painted one is discarded.
+
+const mergeFresh = (fresh, pinned) => {
+  const list = fresh.businesses || [];
+  if (list.some((b) => b.id === pinned.id)) return fresh;
+  return { ...fresh, businesses: [...list, pinned] };
+};
+
+t('a stale refetch does not drop the business just linked', () => {
+  const r = mergeFresh({ businesses: [] }, { id: 'b1', name: 'Acme', city: 'Leeds' });
+  assert.deepEqual(r.businesses, [{ id: 'b1', name: 'Acme', city: 'Leeds' }]);
+});
+
+t("once the server has caught up, ITS copy wins", () => {
+  // The pin is a stopgap for a slow webhook, not a source of truth — the
+  // server's canonical name must not be overwritten by ours.
+  const r = mergeFresh(
+    { businesses: [{ id: 'b1', name: 'Acme Ltd', city: 'Leeds' }] },
+    { id: 'b1', name: 'Acme', city: 'Leeds' }
+  );
+  assert.equal(r.businesses[0].name, 'Acme Ltd');
+  assert.equal(r.businesses.length, 1);
+});
+
+t('a business already on the deal is preserved alongside the new one', () => {
+  const r = mergeFresh({ businesses: [{ id: 'b9', name: 'Other' }] }, { id: 'b1', name: 'Acme' });
+  assert.deepEqual(r.businesses.map((b) => b.id), ['b9', 'b1']);
+});
+
+t('the handler merges rather than replacing wholesale', () => {
+  const handler = tab.slice(tab.indexOf('onBusinessLinked={(business) => {'), tab.indexOf('// These existed on DealSection'));
+  assert.ok(
+    !/dealsAPI\.get\(dealId\)\.then\(setDeal\)/.test(handler),
+    'a wholesale setDeal discards the painted business — the reported bug'
+  );
+  assert.match(handler, /const pinnedBusiness = \{/);
+});
+
 console.log(`\n${n} passed`);

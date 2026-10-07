@@ -1312,8 +1312,38 @@ export default function DealHubTab({
                     }]
                   }
                 })
+                // MERGED, NOT REPLACED — the same protection the
+                // custom-field reconcile carries, which this handler was
+                // written without.
+                //
+                // 2.5s is a guess at a round trip we do not control: our
+                // PATCH to GHL, GHL's RelationCreate webhook back to us,
+                // then our own write of contacts.business_id. When the guess
+                // loses, the refetch returns a deal with NO business on it
+                // and `setDeal(fresh)` wholesale threw the painted one away
+                // — the business appeared and then removed itself, which is
+                // exactly what was reported after the relation writer had
+                // already fixed the server side.
+                //
+                // So the business just linked is pinned over the refetch.
+                // Everything else still comes from the server, which is the
+                // point of reconciling. A later refetch — a reload, a tab
+                // switch — carries no pin and shows the settled truth.
+                const pinnedBusiness = {
+                  id: business.id,
+                  name: business.name || 'Unnamed business',
+                  city: business.city || null
+                }
                 window.setTimeout(() => {
-                  dealsAPI.get(dealId).then(setDeal).catch(() => {})
+                  dealsAPI.get(dealId).then((fresh) => {
+                    if (!fresh) return
+                    setDeal((cur) => {
+                      if (!cur) return fresh
+                      const list = fresh.businesses || []
+                      if (list.some((b) => b.id === pinnedBusiness.id)) return fresh
+                      return { ...fresh, businesses: [...list, pinnedBusiness] }
+                    })
+                  }).catch(() => {})
                 }, 2500)
               }}
               // These existed on DealSection but were never passed, so every

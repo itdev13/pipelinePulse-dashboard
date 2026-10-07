@@ -21,7 +21,7 @@ const PAGE = 25
 
 // A card's height is fixed so a column of them scans as a list rather than a
 // ragged stack. Anything that would overflow is truncated at one line.
-function DealCard({ deal, onOpen, onDragStart, dragging }) {
+function DealCard({ deal, onOpen, onOpenInHub, onDragStart, dragging }) {
   const value = Number(deal.monetaryValue)
   return (
     <article
@@ -86,25 +86,57 @@ function DealCard({ deal, onOpen, onDragStart, dragging }) {
         }}>
           {value > 0 ? formatMoney(value, deal.currency) : 'Not priced'}
         </span>
-        {deal.owner && (
-          <span
-            title={deal.owner}
-            style={{
-                fontSize: 'var(--text-base)', color: 'var(--text-faint)',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              maxWidth: 110
-            }}
-          >
-            {deal.owner}
-          </span>
-        )}
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          minWidth: 0
+        }}>
+          {deal.owner && (
+            <span
+              title={deal.owner}
+              style={{
+                  fontSize: 'var(--text-base)', color: 'var(--text-faint)',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                maxWidth: 110
+              }}
+            >
+              {deal.owner}
+            </span>
+          )}
+          {/* The card body opens the deal's editor. Reaching the deal hub from
+              the board needed that editor opened first, so the one screen a rep
+              actually works a deal on was two steps behind every card. */}
+          {onOpenInHub && (
+            <button
+              type="button"
+              title="Open on the deal hub"
+              aria-label="Open on the deal hub"
+              // Without this the card's own onClick fires underneath and the
+              // rep lands in the editor they were trying to skip.
+              onClick={(e) => { e.stopPropagation(); onOpenInHub(deal.id) }}
+              // A button inside a draggable card starts its own drag on
+              // mousedown, which cancels the click entirely.
+              draggable={false}
+              onDragStart={(e) => { e.preventDefault(); e.stopPropagation() }}
+              style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 26, height: 26, flex: 'none',
+                border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--surface-card)',
+                color: 'var(--text-muted)', cursor: 'pointer'
+              }}
+            >
+              <span className="ms" style={{ fontSize: 15 }}>space_dashboard</span>
+            </button>
+          )}
+        </span>
       </div>
     </article>
   )
 }
 
 // One stage. Owns its own deals, count and paging.
-function Column({ stage, search, status, tag, assignedTo, onOpen, onMoved, registerReload }) {
+function Column({ stage, search, status, tag, assignedTo, onOpen, onOpenInHub, onMoved, registerReload }) {
   const [deals, setDeals] = useState([])
   const [total, setTotal] = useState(null)
   const [cursor, setCursor] = useState(null)
@@ -260,6 +292,7 @@ function Column({ stage, search, status, tag, assignedTo, onOpen, onMoved, regis
             key={d.id}
             deal={d}
             onOpen={onOpen}
+            onOpenInHub={onOpenInHub}
             dragging={false}
             onDragStart={(e, deal) => {
               e.dataTransfer.setData('text/deal-id', deal.id)
@@ -404,7 +437,7 @@ function mergeStages(pipelines) {
     }))
 }
 
-export default function DealBoard({ pipeline, pipelines, search, status = 'open', tag, assignedTo, onOpenDeal }) {
+export default function DealBoard({ pipeline, pipelines, search, status = 'open', tag, assignedTo, onOpenDeal, onOpenInHub }) {
   const [moveError, setMoveError] = useState(null)
   // stageId -> reload fn, so a move can refresh exactly the two columns it
   // touched rather than the whole board.
@@ -479,6 +512,7 @@ export default function DealBoard({ pipeline, pipelines, search, status = 'open'
             tag={tag}
             assignedTo={assignedTo}
             onOpen={onOpenDeal}
+            onOpenInHub={onOpenInHub}
             onMoved={move}
             registerReload={registerReload}
           />
