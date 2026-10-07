@@ -255,6 +255,103 @@ export default function DealSection({
 // GHL has no opportunities.business_id — a deal links to a business only
 // through the contacts on it (contacts.business_id). So this is usually one
 // company, occasionally two when a deal spans a homeowner and their architect,
+// WHAT THE CUSTOMER FIRST ASKED FOR.
+//
+// Until now there was nowhere in Deal Hub to see this. The conversation is in
+// the timeline, but the enquiry that CREATED the deal lives in whichever lead
+// source produced it — so a rep opening a deal could read every reply and
+// still not know what was originally wanted.
+//
+// A block rather than a chip: these run to a paragraph, and a chip truncates
+// to one line. Truncated, the part that distinguishes one enquiry from
+// another is usually the part that gets cut.
+//
+// EARLIER ENQUIRIES are collapsed. The GHL automation overwrites the master
+// field each time a customer enquires again, so our writer keeps the previous
+// text (migration 136). It matters — a second enquiry is often a changed
+// scope — but the current one is what a rep is acting on, so the history sits
+// behind a toggle rather than above it.
+function EnquiryBlock({ deal }) {
+  const [showAll, setShowAll] = useState(false)
+  const current = deal.initialEnquiry
+  const earlier = deal.earlierEnquiries || []
+
+  // Nothing at all, and no history either: render nothing rather than an
+  // empty labelled box. The field is new and most deals will not have one
+  // until the GHL automations have run for a while.
+  if (!current && earlier.length === 0) return null
+
+  return (
+    <div style={{ marginTop: 'var(--space-4)' }}>
+      <FieldLabel>Initial enquiry</FieldLabel>
+
+      <p style={{
+        margin: 0,
+        fontSize: 'var(--text-md)', lineHeight: 'var(--leading-normal)',
+        color: current ? 'var(--text-body)' : 'var(--text-faint)',
+        // The customer's own words, so line breaks they typed are kept.
+        whiteSpace: 'pre-wrap',
+        overflowWrap: 'anywhere'
+      }}>
+        {current || 'No enquiry recorded.'}
+      </p>
+
+      {earlier.length > 0 && (
+        <>
+          <button
+            type="button"
+            onClick={() => setShowAll((v) => !v)}
+            style={{
+              margin: '6px 0 0', padding: 0, border: 'none', background: 'none',
+              color: 'var(--accent-plum-text)', fontFamily: 'var(--font-sans)',
+              fontSize: 'var(--text-sm)', fontWeight: 600, cursor: 'pointer'
+            }}
+          >
+            {showAll ? 'Hide' : `${earlier.length} earlier ${earlier.length === 1 ? 'enquiry' : 'enquiries'}`}
+          </button>
+
+          {showAll && (
+            <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
+              {/* Newest first here, unlike storage. Stored oldest-first so the
+                  array reads forward in time; shown newest-first because the
+                  one just replaced is the one a rep is most likely comparing
+                  against. */}
+              {[...earlier].reverse().map((e, i) => (
+                <div
+                  key={i}
+                  style={{
+                    paddingLeft: 9,
+                    borderLeft: '2px solid var(--border-strong)'
+                  }}
+                >
+                  <p style={{
+                    margin: 0,
+                    fontSize: 'var(--text-sm)', lineHeight: 'var(--leading-normal)',
+                    color: 'var(--text-muted)',
+                    whiteSpace: 'pre-wrap', overflowWrap: 'anywhere'
+                  }}>
+                    {e.text}
+                  </p>
+                  {e.seen_at && (
+                    <p style={{ margin: '2px 0 0', fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
+                      {/* "Replaced", not "sent": seen_at is when WE saw the
+                          field change. GHL does not tell us when the customer
+                          actually wrote it. */}
+                      Replaced {new Date(e.seen_at).toLocaleDateString(undefined, {
+                        day: 'numeric', month: 'short', year: 'numeric'
+                      })}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 // and often none: the link only exists once the Businesses sync has run and
 // the contact actually carries a businessId.
 // A block within the Value column rather than a column of its own — see the
@@ -408,6 +505,7 @@ function ValueColumn({ deal, onSaveField, saving, onOpenBusiness }) {
       )}
 
       <BusinessBlock deal={deal} onOpenBusiness={onOpenBusiness} />
+      <EnquiryBlock deal={deal} />
     </Column>
   )
 }
