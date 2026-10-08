@@ -607,17 +607,15 @@ export default function DealEditPanel({
                   // The stored value, by id or by the short key the deal
                   // response uses — customFields blobs have used both.
                   //
-                  // Falls back to the PROMOTED column last. Five of these
-                  // fields are promoted out to their own columns and returned
-                  // as top-level keys; the blob is a separate copy that is
-                  // only as fresh as the last webhook that landed. A deal
-                  // whose upsert failed (or that predates the promotion) has
-                  // the value in the column and nothing in the blob, and the
-                  // grid showed "Not set" over data we were already holding.
+                  //
+                  // The promoted columns are already merged into this blob by
+                  // the server (withPromotedFields in routes/deals.js), so a
+                  // field whose value lives in a column rather than in the
+                  // stored blob fills in here too — with no per-field wiring
+                  // to keep in step as fields are added.
                   value: deal.customFields?.[f.id]
                     ?? deal.customFields?.[f.key]
                     ?? deal.customFields?.[f.shortKey]
-                    ?? PROMOTED_FALLBACK[f.shortKey]?.(deal)
                     ?? null
                 }))
               }))}
@@ -854,36 +852,6 @@ export default function DealEditPanel({
 //
 // The cap is the same 11 the deal hub enforces: a primary plus ten others.
 const MAX_PEOPLE = 11
-
-// Custom fields that ALSO live in a promoted column on the deal.
-//
-// The blob and the column are two copies of the same value: the column is
-// written by the opportunity upsert, the blob by whatever customFields the
-// same event carried. They normally agree, but the blob is empty whenever an
-// upsert rolled back or the deal predates the promotion — and the grid read
-// only the blob, so the field rendered "Not set" while the value sat in the
-// column the card above was already displaying.
-//
-// Keyed by shortKey, the name the definitions endpoint reports.
-//
-// The multi-select columns come back COMMA-JOINED ("Crittall, Smarts") because
-// the server flattens them for the card's chips. A multi Select renders a bare
-// string as ONE option, so "Crittall, Smarts" would show as a single invalid
-// choice rather than two — hence splitting them back out here.
-const splitMulti = (v) => {
-  if (v == null || v === '') return null
-  if (Array.isArray(v)) return v
-  return String(v).split(',').map((x) => x.trim()).filter(Boolean)
-}
-const PROMOTED_FALLBACK = {
-  master_initial_enquiry: (d) => d.initialEnquiry,
-  client_type: (d) => splitMulti(d.clientType),
-  product_system: (d) => splitMulti(d.productSystem),
-  product_type: (d) => splitMulti(d.productType),
-  first_contact__method: (d) => splitMulti(d.firstContactMethod),
-  first_contact_method: (d) => splitMulti(d.firstContactMethod),
-  lead_source_opportunity: (d) => d.leadSource
-}
 
 function PeopleEditor({ dealId, people = [], onChanged, onOpenContact, disabled }) {
   const [busy, setBusy] = useState(null)

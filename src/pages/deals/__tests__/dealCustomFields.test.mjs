@@ -99,10 +99,17 @@ t('grouped into folders, with the flat picklist shape kept', () => {
   assert.match(route, /fieldGroups,/);
 });
 
-t('the deal carries its raw custom field values', () => {
+t('the deal carries its custom field values', () => {
   // Four promoted columns are not enough, and promoting one per field would
   // mean a migration per client request.
-  assert.match(route, /customFields: \(d\.custom_fields && typeof d\.custom_fields === 'object'\)/);
+  //
+  // The blob now goes through withPromotedFields, which fills any gap from
+  // the promoted COLUMN — the editor rendered "Not set" over values the card
+  // above it was already showing, because the two are separate copies and the
+  // blob is only as fresh as the last event that landed. The guard against a
+  // non-object blob moved into that helper.
+  assert.match(route, /customFields: withPromotedFields\(d\.custom_fields, d\)/);
+  assert.match(route, /blob && typeof blob === 'object' \? blob : \{\}/);
 });
 
 t('FILE_UPLOAD is flagged UPLOADABLE, not read-only', () => {
