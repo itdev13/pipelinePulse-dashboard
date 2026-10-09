@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useRef, useEffect } from 'react'
 import { sanitiseHtml } from '../../utils/sanitiseHtml'
 
 // Shared chrome for the list tabs (Notes / Tasks / Deals).
@@ -233,6 +233,64 @@ export function Row({ children, last, align = 'flex-start' }) {
   )
 }
 
+// ── Truncation ────────────────────────────────────────────────────────
+
+// One line of text that ellipsises rather than overflowing its box, and
+// reveals itself on hover WHEN IT HAS BEEN CUT — never otherwise.
+//
+// The app had 73 places doing the ellipsis by hand and 64 of them had no
+// tooltip, so a clipped deal name, email or business was simply unreadable:
+// the information was on screen, cut off, with no way to read the rest short
+// of opening the record.
+//
+// The tooltip is CONDITIONAL on purpose. A `title` on every line would fire
+// on text that is already fully visible — a tooltip repeating what you are
+// looking at is noise. scrollWidth > clientWidth is the only reliable test,
+// and it is only knowable after layout, so it is measured rather than
+// guessed from string length (which cannot account for font, weight, or the
+// width of the box).
+export function Truncate({ children, title, as: Tag = 'span', style, ...rest }) {
+  const ref = useRef(null)
+  const [clipped, setClipped] = useState(false)
+
+  // Re-measured when the text changes AND when the element resizes — a
+  // column dragged narrower clips text that fitted a moment ago, and a
+  // one-shot measurement on mount would never notice.
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const measure = () => setClipped(el.scrollWidth > el.clientWidth + 1)
+    measure()
+    if (typeof ResizeObserver === 'undefined') return undefined
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [children, title])
+
+  // The caller's own text wins when given (a cell may show "3 days ago" and
+  // want the full date); otherwise the text itself is the tooltip, and only
+  // when it is a plain string — a tooltip reading "[object Object]" is worse
+  // than none at all.
+  const full = title != null
+    ? title
+    : (typeof children === 'string' || typeof children === 'number' ? String(children) : undefined)
+
+  return (
+    <Tag
+      ref={ref}
+      title={clipped ? full : undefined}
+      style={{
+        minWidth: 0,
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        ...style
+      }}
+      {...rest}
+    >
+      {children}
+    </Tag>
+  )
+}
+
 // ── Chips ─────────────────────────────────────────────────────────────
 
 export function ContactChip({ name, onClick }) {
@@ -243,7 +301,15 @@ export function ContactChip({ name, onClick }) {
   )
 }
 
-export function DealPill({ name, onClick, empty = false, draggable, onDragStart }) {
+export function DealPill({
+  name, onClick, empty = false, draggable, onDragStart,
+  // Dense surfaces — the deal board's cards are a column wide, and the
+  // full-size pill took roughly four times the width of the 26px icon button
+  // it replaced, crowding the title it sits beside. Same shape and the same
+  // two halves, scaled down: the control stays recognisable rather than
+  // becoming a different control on one screen.
+  compact = false
+}) {
   const live = typeof onClick === 'function' && !empty
   const Tag = live ? 'button' : 'span'
   // Darkened rose rather than the alert red: this is a STATE, not a failure,
@@ -262,12 +328,19 @@ export function DealPill({ name, onClick, empty = false, draggable, onDragStart 
       draggable={draggable}
       onDragStart={onDragStart}
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 7,
-        height: 30, padding: '0 5px 0 12px', flex: 'none',
+        display: 'inline-flex', alignItems: 'center',
+        gap: compact ? 5 : 7,
+        height: compact ? 22 : 26,
+        padding: compact ? '0 3px 0 8px' : '0 4px 0 10px',
+        flex: 'none',
         border: 'none', borderRadius: 'var(--radius-pill)',
         background: fill,
         fontFamily: 'var(--font-sans)',
-        fontSize: 'var(--text-base)', fontWeight: 600,
+        // 11px / 9px, two below the token sizes this started on. The pill is
+        // a compact control, not running text, and at --text-base the word
+        // "View" carried more visual weight than the deal names beside it.
+        fontSize: compact ? 10 : 11,
+        fontWeight: 600,
         color: '#fff',
         cursor: live ? 'pointer' : 'default',
         whiteSpace: 'nowrap'
@@ -279,11 +352,13 @@ export function DealPill({ name, onClick, empty = false, draggable, onDragStart 
       <span
         style={{
           display: 'inline-flex', alignItems: 'center',
-          height: 22, padding: '0 10px',
+          height: compact ? 16 : 19,
+          padding: compact ? '0 6px' : '0 8px',
           borderRadius: 'var(--radius-pill)',
           background: '#fff',
           color: fill,
-          fontSize: 'var(--text-sm)', fontWeight: 700,
+          fontSize: compact ? 9 : 10,
+          fontWeight: 700,
           letterSpacing: 'var(--tracking-label)'
         }}
       >
@@ -341,7 +416,7 @@ export function Chip({
       }}
     >
       {icon && <span className="ms" style={{ fontSize: 15, flex: 'none' }}>{icon}</span>}
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{children}</span>
+      <Truncate>{children}</Truncate>
     </Tag>
   )
 }
@@ -1056,9 +1131,9 @@ export function NoteChip({ label, onClick }) {
       <span className="ms" style={{ fontSize: 12, color: 'var(--accent-gold)' }}>
         sticky_note_2
       </span>
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <Truncate>
         {label}
-      </span>
+      </Truncate>
     </span>
   )
 }

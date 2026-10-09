@@ -80,6 +80,7 @@ t('every surface opens a deal the SAME way', () => {
     ['../../tabs/BusinessesTab.jsx', 'Businesses'],
     ['../../contacts/ContactDetail.jsx', 'Contacts'],
     ['../DealBoard.jsx', 'Deals board'],
+    ['../../tabs/ContactsTab.jsx', 'Contacts grid'],
   ];
   for (const [rel, label] of surfaces) {
     const src = read(rel);
@@ -146,6 +147,84 @@ t('an unlinked pill is not clickable', () => {
   const pill = chrome.slice(chrome.indexOf('export function DealPill'), chrome.indexOf('export function Chip'));
   // "No DEAL" must not look or behave like a link to a deal that is not there.
   assert.match(pill, /&& !empty/, 'an empty pill is still rendered as a live button');
+});
+
+
+t('the board uses the compact pill', () => {
+  // A board column is ~260px wide. The full-size pill is ~106px of that, and
+  // with flex:none it does not yield — so the title beside it was squeezed to
+  // nothing and cards showed a pill with no deal name at all.
+  const board = read('../DealBoard.jsx');
+  const at = board.indexOf('<DealPill');
+  const pill = board.slice(at, board.indexOf('/>', at));
+  assert.match(pill, /compact/, 'the board renders the full-size pill and crushes its own titles');
+});
+
+t('the pill never yields its size to a long title', () => {
+  // flex:none is what makes the TITLE ellipsise instead of the control
+  // collapsing into an unreadable sliver.
+  const chrome = read('../../shared/ListChrome.jsx');
+  const pill = chrome.slice(chrome.indexOf('export function DealPill'), chrome.indexOf('export function Chip'));
+  assert.match(pill, /flex: 'none'/, 'the pill can be squeezed by a long deal name');
+});
+
+t('compact changes size, not identity', () => {
+  // Same two halves, same colours — a rep must not have to learn a second
+  // control on the board.
+  const chrome = read('../../shared/ListChrome.jsx');
+  const pill = chrome.slice(chrome.indexOf('export function DealPill'), chrome.indexOf('export function Chip'));
+  for (const prop of ['height', 'padding', 'fontSize']) {
+    assert.ok(
+      new RegExp(`${prop}: compact \\?`).test(pill),
+      `${prop} does not scale with compact — the variant would be the same size`
+    );
+  }
+  assert.ok(!/compact \? '[^']*red|compact \? '[^']*No'/.test(pill), 'compact alters the pill\'s meaning, not just its size');
+});
+
+
+t('the contacts card keeps its deal detail AND gains the pill', () => {
+  // These rows are not just an action: they carry the deal's name, value,
+  // stage and whether this contact owns it. A bare pill shows none of that,
+  // so the row stays and the pill is added to it.
+  const contacts = read('../../tabs/ContactsTab.jsx');
+  const at = contacts.indexOf('<DealPill');
+  assert.notEqual(at, -1, 'the contacts card has no pill');
+  const block = contacts.slice(Math.max(0, at - 2200), at);
+  assert.match(block, /PRIMARY/, 'the PRIMARY badge was lost');
+  assert.match(block, /money\(d\.value\)/, 'the deal value was lost');
+  assert.match(block, /d\.stage/, 'the stage was lost');
+});
+
+t('the contacts deal row is not a button around a button', () => {
+  // The row used to be a <button> that opened the deal. With the pill inside
+  // it that is a button nested in a button — invalid HTML, and two tab stops
+  // for one destination.
+  const contacts = read('../../tabs/ContactsTab.jsx');
+  const at = contacts.indexOf('<DealPill');
+  const rowStart = contacts.lastIndexOf('{c.deals.map', at);
+  const row = contacts.slice(rowStart, at);
+  assert.ok(!/<button/.test(row), 'the deal row is still a button wrapping the pill');
+});
+
+t('the pill text is small enough for a control', () => {
+  const chrome = read('../../shared/ListChrome.jsx');
+  const pill = chrome.slice(chrome.indexOf('export function DealPill'), chrome.indexOf('export function Chip'));
+
+  // BOTH sizes, found by position rather than by one regex: the label and the
+  // white capsule each set their own, and a single match silently read the
+  // capsule's while the label kept a token — the test passed while pinning
+  // nothing.
+  const sizes = [...pill.matchAll(/fontSize: compact \? (\d+) : (\d+)/g)];
+  assert.equal(sizes.length, 2, `expected a numeric size for the label AND the capsule, found ${sizes.length}`);
+
+  const [label, capsule] = sizes.map((m) => ({ compact: Number(m[1]), full: Number(m[2]) }));
+  // Two below the 12/13px tokens this started on: at --text-base the word
+  // "View" outweighed the deal names beside it.
+  assert.ok(label.full <= 11, `label is ${label.full}px, expected 11 or less`);
+  assert.ok(label.compact <= 10, `compact label is ${label.compact}px, expected 10 or less`);
+  assert.ok(capsule.full <= 10, `DEAL capsule is ${capsule.full}px, expected 10 or less`);
+  assert.ok(capsule.compact <= 9, `compact capsule is ${capsule.compact}px, expected 9 or less`);
 });
 
 let failed = 0;

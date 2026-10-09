@@ -1,4 +1,5 @@
 import React from 'react'
+import { Truncate } from '../shared/ListChrome'
 
 // One attachment, as a clickable chip. Shared by the timeline's message rows,
 // the expanded email card, and the email thread dialog.
@@ -61,15 +62,9 @@ export default function AttachmentChip({ att, channelAccent = 'gray', onClick })
       >
         {attachmentIcon(att.name)}
       </span>
-      <span
-        style={{
-          minWidth: 0,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          fontSize: 'var(--text-base)', fontWeight: 500, color: 'var(--text-heading)'
-        }}
-      >
+      <Truncate style={{ fontSize: 'var(--text-base)', fontWeight: 500, color: 'var(--text-heading)' }}>
         {att.name}
-      </span>
+      </Truncate>
       {/* Only when known. An empty span left a stray gap between the name and
           the chip's right edge. */}
       {size && (

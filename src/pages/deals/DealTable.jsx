@@ -1,6 +1,6 @@
 import React from 'react'
 import { formatMoney } from '../../utils/money'
-import { DealPill } from '../shared/ListChrome'
+import { DealPill, Truncate } from '../shared/ListChrome'
 
 // The deals list as a table — the dense, scannable view.
 //
@@ -161,12 +161,9 @@ export default function DealTable({
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
               >
                 <td style={{ ...td, fontWeight: 600, color: 'var(--text-heading)', maxWidth: 260 }}>
-                  <span style={{
-                    display: 'block',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                  }}>
+                  <Truncate style={{ display: 'block' }}>
                     {d.dealTag || d.opportunityName || 'Untitled deal'}
-                  </span>
+                  </Truncate>
                 </td>
 
                 {/* STRAIGHT TO THE DEAL HUB, beside the deal it opens.
@@ -239,12 +236,9 @@ export default function DealTable({
                 </td>
 
                 <td style={{ ...td, maxWidth: 160 }}>
-                  <span style={{
-                    display: 'block', color: d.owner ? 'var(--text-body)' : 'var(--text-faint)',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                  }}>
+                  <Truncate style={{ display: 'block', color: d.owner ? 'var(--text-body)' : 'var(--text-faint)' }}>
                     {d.owner || 'Unassigned'}
-                  </span>
+                  </Truncate>
                 </td>
 
                 {/* Two tags, then a count. A deal with a dozen tags would

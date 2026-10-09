@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { aiAPI } from '../../api/ai'
 import SettingsModal from './SettingsModal'
+import { Truncate } from './ListChrome'
 
 // The Co-Pilot sidebar shell — New chat / Search / Templates / Customize,
 // the Recents list (rename/delete), and the Account entry (Settings +
@@ -434,17 +435,14 @@ function RecentRow({
           cursor: 'pointer', fontFamily: 'var(--font-sans)'
         }}
       >
-        <span style={{
-          display: 'block',
+        <Truncate style={{ display: 'block',
           fontSize: 'var(--text-base)', fontWeight: 600,
           // Selected reads as committed-to-black, matching GHL; an
           // unselected row stays a muted body grey so the active chat is
           // the one thing that visually jumps out of the list.
-          color: active ? 'var(--text-heading)' : 'var(--text-muted)',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-        }}>
+          color: active ? 'var(--text-heading)' : 'var(--text-muted)' }}>
           {conv.title}
-        </span>
+        </Truncate>
 
       </button>
 

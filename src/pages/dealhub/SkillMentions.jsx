@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { Truncate } from '../shared/ListChrome'
 
 // The @-menu in the Insights AI composer.
 //
@@ -234,13 +235,10 @@ export default function SkillMentions({
                 }}>
                   @{s.name}
                 </span>
-                <span style={{
-                  display: 'block', marginTop: 1,
-                  fontSize: 'var(--text-sm)', color: 'var(--text-muted)',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                }}>
+                <Truncate style={{ display: 'block', marginTop: 1,
+                  fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
                   {s.description}
-                </span>
+                </Truncate>
               </button>
             </li>
           ))}

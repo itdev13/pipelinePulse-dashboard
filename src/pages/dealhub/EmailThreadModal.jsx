@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useModal } from '../../hooks/useModal'
-import { RichBody } from '../shared/ListChrome'
+import { RichBody, Truncate } from '../shared/ListChrome'
 import { htmlToText } from '../../utils/sanitiseHtml'
 import AttachmentChip from './AttachmentChip'
 import AttachmentViewer from './AttachmentViewer'
@@ -102,12 +102,9 @@ export default function EmailThreadModal({ messages, initialId, subject, onClose
           <h2 className="pp-modal-title" style={{ flex: 1, minWidth: 0 }}>
             {/* The subject is the thread's name. Truncated rather than wrapped:
                 a two-line header would shift the message list down on open. */}
-            <span style={{
-              display: 'block',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-            }}>
+            <Truncate style={{ display: 'block' }}>
               {subject || '(no subject)'}
-            </span>
+            </Truncate>
           </h2>
 
           {/* Expand/collapse all. Earns its place on a long thread: opening

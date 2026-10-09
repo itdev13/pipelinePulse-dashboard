@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { dealsAPI } from '../../api/deals'
+import { Truncate } from '../shared/ListChrome'
 
 // Which deal a message is filed against, and the control to change it.
 //
@@ -221,13 +222,13 @@ export default function MessageDealPill({
             <span className="ms" style={{ fontSize: 15, flex: 'none', opacity: 0.85 }}>
               {!filed ? 'help' : manual ? 'person' : 'bolt'}
             </span>
-            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <Truncate>
               {!filed
                 ? 'No deal was open when this was sent'
                 : manual
                   ? (by ? `Moved here by ${by}` : 'Moved here by hand')
                   : 'Linked automatically — earliest open deal'}
-            </span>
+            </Truncate>
           </div>
 
           {/* The heading only earns its space when there is a list under it.
@@ -299,10 +300,7 @@ export default function MessageDealPill({
                 }} />
                 {/* min-width: 0 so a long deal name truncates instead of
                     pushing the status chip out of the popover. */}
-                <span style={{
-                  flex: 1, minWidth: 0, overflow: 'hidden',
-                  textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                }}>
+                <Truncate style={{ flex: 1 }}>
                   {/* `name` OR `label`. Two endpoints feed this control and
                       they disagree: the contact page sends `name`, the
                       deal-hub's reassignment-targets sends `label`. The
@@ -311,7 +309,7 @@ export default function MessageDealPill({
                       Tolerating both means a third caller cannot reintroduce
                       it. The id is a last resort so a row is never blank. */}
                   {t.name || t.label || t.id}
-                </span>
+                </Truncate>
                 {/* A manager may deliberately file against a won or lost deal
                     (James, 8 Sep), so those are offered — labelled, so the
                     choice is informed rather than accidental. */}

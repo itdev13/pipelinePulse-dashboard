@@ -4,7 +4,7 @@ import ContactTable from '../contacts/ContactTable'
 import ContactFilters, { activityParams, contactFilterLabels } from '../contacts/ContactFilters'
 import DealToolbar from '../deals/DealToolbar'
 import { savedViewsAPI, dealsAPI } from '../../api/deals'
-import { FollowUpChips, Panel } from '../shared/ListChrome'
+import { FollowUpChips, Panel, DealPill, Truncate } from '../shared/ListChrome'
 import { contactsAPI } from '../../api/contacts'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
@@ -696,15 +696,12 @@ function ContactCard({ c, onOpen, onOpenDeal, onSaved }) {
           <FieldLabel>Deals</FieldLabel>
           <div style={{ display: 'grid', gap: 5 }}>
             {c.deals.map((d) => (
-              <button
+              <div
                 key={d.id}
-                onClick={() => onOpenDeal?.(d.id)}
-                title="Open this deal"
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 7,
                   justifySelf: 'start', maxWidth: '100%',
-                  cursor: onOpenDeal ? 'pointer' : 'default',
-                  height: 28, padding: '0 10px',
+                  height: 28, padding: '0 4px 0 10px',
                   border: '1px solid var(--green-100)',
                   borderRadius: 'var(--radius-pill)',
                   background: 'var(--tint-pine)',
@@ -713,16 +710,11 @@ function ContactCard({ c, onOpen, onOpenDeal, onSaved }) {
                 }}
               >
                 <span className="ms" style={{ fontSize: 14, flex: 'none' }}>sell</span>
-                <span
-                  style={{
-                    minWidth: 0, overflow: 'hidden',
-                    textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                  }}
-                >
+                <Truncate>
                   {d.name}
                   {d.value != null && ` · ${money(d.value)}`}
                   {d.stage && ` · ${d.stage}`}
-                </span>
+                </Truncate>
                 {d.primary && (
                   <span
                     style={{
@@ -736,7 +728,21 @@ function ContactCard({ c, onOpen, onOpenDeal, onSaved }) {
                     PRIMARY
                   </span>
                 )}
-              </button>
+                {/* The ACTION, same control as every other surface. The row
+                    around it carries the deal's name, value, stage and
+                    whether this contact owns it — information a bare pill
+                    cannot show — so the row stays and the pill is added to
+                    it rather than replacing it.
+
+                    The row itself is no longer a button: a button inside a
+                    button is invalid HTML, and it put two stops in the tab
+                    order for one destination. */}
+                <DealPill
+                  compact
+                  name={d.name}
+                  onClick={onOpenDeal ? () => onOpenDeal(d.id) : undefined}
+                />
+              </div>
             ))}
           </div>
         </div>

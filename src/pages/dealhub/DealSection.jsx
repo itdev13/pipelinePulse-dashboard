@@ -6,6 +6,7 @@ import dayjs from 'dayjs'
 import TagSelect from '../shared/TagSelect'
 import { currencySymbol } from '../../utils/money'
 import BusinessPickerModal from '../shared/BusinessPickerModal'
+import { Truncate } from '../shared/ListChrome'
 
 // Deal Hub — Deal section (the deal's own facts).
 //
@@ -546,14 +547,9 @@ function BusinessBlock({ deal, onOpenBusiness, onBusinessLinked }) {
               }}
             >
               <span className="ms" style={{ fontSize: 17, flex: 'none' }}>domain</span>
-              <span
-                style={{
-                  minWidth: 0, overflow: 'hidden',
-                  textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                }}
-              >
+              <Truncate>
                 {b.name}
-              </span>
+              </Truncate>
               {onOpenBusiness && (
                 <span className="ms" style={{ fontSize: 15, flex: 'none' }}>
                   arrow_forward
@@ -1140,15 +1136,10 @@ function FieldPicker({ label, value, spec, saving, onChange }) {
         >
           {label}
         </span>
-        <span
-          style={{
-            fontSize: 'var(--text-md)', fontWeight: 600,
-            color: set ? 'var(--text-heading)' : 'var(--accent-gold-text)',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-          }}
-        >
+        <Truncate style={{ fontSize: 'var(--text-md)', fontWeight: 600,
+            color: set ? 'var(--text-heading)' : 'var(--accent-gold-text)' }}>
           {set ? String(value) : 'Not set'}
-        </span>
+        </Truncate>
         {/* pp-spin only while saving — the icon swapped to progress_activity
             but kept plain "ms", so it rendered as a static glyph that looked
             like a stalled spinner. Every other spinner in the app is
@@ -1586,19 +1577,13 @@ function FieldChip({ label, value }) {
       >
         {label}
       </span>
-      <span
-        style={{
-          minWidth: 0,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          fontSize: 'var(--text-md)',
+      <Truncate style={{ fontSize: 'var(--text-md)',
           fontWeight: set ? 600 : 500,
           // accent-gold-text, not accent-gold: at 11px on white the lighter
           // value is 3.25:1, below AA.
-          color: set ? 'var(--text-heading)' : 'var(--accent-gold-text)'
-        }}
-      >
+          color: set ? 'var(--text-heading)' : 'var(--accent-gold-text)' }}>
         {set ? value : 'Not set'}
-      </span>
+      </Truncate>
     </span>
   )
 }
@@ -1648,13 +1633,9 @@ function ProductFooter({ deal, siblingDeals, onOpenDeal }) {
                 }}
               >
                 <span className="ms" style={{ fontSize: 14 }}>sell</span>
-                <span
-                  style={{
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                  }}
-                >
+                <Truncate>
                   {d.name || 'Unnamed deal'}
-                </span>
+                </Truncate>
               </button>
             ))}
           </div>

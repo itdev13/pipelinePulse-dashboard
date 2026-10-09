@@ -9,7 +9,7 @@ import { OwnerFilter, TagFilter } from '../shared/ListFilters'
 import DealEditPage from '../deals/DealEditPage'
 import ViewSwitch from '../shared/ViewSwitch'
 import { savedViewsAPI } from '../../api/deals'
-import { FollowUpChips } from '../shared/ListChrome'
+import { FollowUpChips, Truncate } from '../shared/ListChrome'
 import { dealsAPI } from '../../api/deals'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
@@ -1054,15 +1054,10 @@ function PersonPill({ person }) {
         {initialsFor(person.firstName, person.lastName, name)}
       </span>
       <span style={{ minWidth: 0 }}>
-        <span
-          style={{
-            display: 'block',
-            fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-          }}
-        >
+        <Truncate style={{ display: 'block',
+            fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)' }}>
           {name}
-        </span>
+        </Truncate>
         {/* Something that distinguishes THIS person.
             The contact type alone ("lead") is identical on every pill, so it's
             the last resort. And whatever nameFor already used as the heading is
@@ -1074,15 +1069,10 @@ function PersonPill({ person }) {
               .find((v) => v && String(v).trim() && String(v).trim() !== name)
           if (!detail) return null
           return (
-            <span
-              style={{
-                display: 'block', marginTop: 1,
-                fontSize: 'var(--text-base)', color: 'var(--text-muted)',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-              }}
-            >
+            <Truncate style={{ display: 'block', marginTop: 1,
+                fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
               {detail}
-            </span>
+            </Truncate>
           )
         })()}
       </span>

@@ -1,4 +1,5 @@
 import React from 'react'
+import { Truncate } from '../shared/ListChrome'
 
 // One bar. Segments are widths in PERCENT, already scaled by the adapter
 // against whatever that chart measures against — this component does no
@@ -20,12 +21,9 @@ export default function BarRow({ row }) {
         display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
         gap: 'var(--space-3)'
       }}>
-        <span style={{
-          fontSize: 'var(--text-md)', color: 'var(--text-heading)',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-        }}>
+        <Truncate style={{ fontSize: 'var(--text-md)', color: 'var(--text-heading)' }}>
           {row.label}
-        </span>
+        </Truncate>
         {row.note && (
           <span style={{
             fontSize: 'var(--text-sm)', color: 'var(--text-faint)',

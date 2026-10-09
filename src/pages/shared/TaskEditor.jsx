@@ -13,6 +13,7 @@ const RichEditor = React.lazy(() => import('./RichEditor'))
 import {
   searchDeals, searchBusinesses, dealOption, businessOption
 } from '../../hooks/useLinkTargets'
+import { Truncate } from './ListChrome'
 
 // Create or edit one task. Shared by the Tasks page and the Deal Hub's task
 // rail so the two can't drift apart in what they accept.
@@ -458,11 +459,9 @@ export default function TaskEditor({
                   <span className="ms" style={{ fontSize: 15, color: 'var(--text-faint)' }}>
                     person
                   </span>
-                  <span style={{
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                  }}>
+                  <Truncate>
                     {task.contact.name}
-                  </span>
+                  </Truncate>
                 </div>
               </Field>
             )}

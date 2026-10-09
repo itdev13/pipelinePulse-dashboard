@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { Truncate } from './ListChrome'
 
 // A skill's rows, charted — compact under the answer, expandable to full screen.
 //
@@ -344,12 +345,9 @@ export default function SkillResult({ result }) {
           {/* Truncates rather than pushing the row count and expand button
               off the card — a long skill name is the common case, not the
               edge one. */}
-          <span style={{
-            fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-heading)',
-            minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-          }}>
+          <Truncate style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-heading)' }}>
             {humanise(result.name)}
-          </span>
+          </Truncate>
           <span style={{
             fontSize: 'var(--text-sm)', color: 'var(--text-muted)', flex: 'none'
           }}>
@@ -478,12 +476,9 @@ function Chart({ rows, shape, expanded }) {
               flexWrap: 'wrap', minWidth: 0,
               fontSize: expanded ? 'var(--text-base)' : 'var(--text-sm)'
             }}>
-              <span style={{
-                flex: '1 1 40%', minWidth: 0, color: 'var(--text-heading)',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-              }}>
+              <Truncate style={{ flex: '1 1 40%', color: 'var(--text-heading)' }}>
                 {labelOf(r[label])}
-              </span>
+              </Truncate>
               <span style={{
                 color: 'var(--text-body)', fontWeight: 600,
                 fontVariantNumeric: 'tabular-nums'

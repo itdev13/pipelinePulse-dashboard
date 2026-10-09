@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { Truncate } from './ListChrome'
 
 // Composer building blocks shared between AskDeal (the Deal Hub's own
 // Co-Pilot) and CopilotTab (the portfolio-wide one): the voice-dictation
@@ -251,16 +252,11 @@ export function ImagePreview({ attachment, onClose }) {
             borderBottom: '1px solid var(--border-default)'
           }}
         >
-          <span
-            style={{
-              flex: 1, minWidth: 0,
+          <Truncate style={{ flex: 1,
               fontSize: 'var(--text-lg)', fontWeight: 600,
-              color: 'var(--text-heading)',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-            }}
-          >
+              color: 'var(--text-heading)' }}>
             {attachment.name}
-          </span>
+          </Truncate>
           <span style={{ flex: 'none', fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
             {formatBytes(attachment.bytes)}
           </span>

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { dealsAPI } from '../../api/deals'
 import ContactPicker from '../shared/ContactPicker'
-import { nameFor } from '../shared/ListChrome'
+import { nameFor, Truncate } from '../shared/ListChrome'
 import ConfirmDialog from '../shared/ConfirmDialog'
 
 // Deal Hub — People section (opp-associated contacts).
@@ -350,17 +350,17 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove, onRemove, re
         {p.business && usedField !== 'business' && (
           <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
             <span className="ms" style={{ fontSize: 14, color: 'var(--text-faint)' }}>business</span>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <Truncate>
               {p.business}
-            </span>
+            </Truncate>
           </span>
         )}
         {p.email && usedField !== 'email' && (
           <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
             <span className="ms" style={{ fontSize: 14, color: 'var(--text-faint)' }}>mail</span>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <Truncate>
               {p.email}
-            </span>
+            </Truncate>
           </span>
         )}
         {p.phone && usedField !== 'phone' && (

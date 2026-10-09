@@ -13,6 +13,7 @@ import {
 } from '../dealhub/Skeleton'
 import { dealsAPI } from '../../api/deals'
 import { aiAPI } from '../../api/ai'
+import { Truncate } from '../shared/ListChrome'
 
 // Deal Hub tab — the core view.
 //
@@ -919,15 +920,10 @@ export default function DealHubTab({
               }}
             >
               <span className="ms" style={{ fontSize: 16, color: 'var(--accent-pine)', flex: 'none' }}>sell</span>
-              <span
-                style={{
-                  minWidth: 0, flex: 1,
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  textAlign: 'left'
-                }}
-              >
+              <Truncate style={{ flex: 1,
+                  textAlign: 'left' }}>
                 {deal ? deal.dealTag : 'Select a deal…'}
-              </span>
+              </Truncate>
               <span className="ms" style={{ fontSize: 18, color: 'var(--text-faint)', flex: 'none' }}>
                 expand_more
               </span>

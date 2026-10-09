@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useModal } from '../../hooks/useModal'
 import { attachmentIcon, formatBytes } from './AttachmentChip'
+import { Truncate } from '../shared/ListChrome'
 
 // One attachment, previewed in a dialog.
 //
@@ -106,14 +107,9 @@ export default function AttachmentViewer({
             {attachmentIcon(att.name)}
           </span>
           <h2 className="pp-modal-title" style={{ flex: 1, minWidth: 0 }}>
-            <span
-              style={{
-                display: 'block',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-              }}
-            >
+            <Truncate style={{ display: 'block' }}>
               {att.name}
-            </span>
+            </Truncate>
           </h2>
           {/* Only when known. The email endpoint gives URLs with no size, so
               this is absent for most email attachments — rendering an empty

@@ -9,7 +9,7 @@ import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
 import {
   Shell, Panel, Row, Chip, SearchInput, PrimaryAction, StateMessage,
-  SkeletonStyles, Bar, LoadMore, formatDate, DealPill } from '../shared/ListChrome'
+  SkeletonStyles, Bar, LoadMore, formatDate, DealPill, Truncate } from '../shared/ListChrome'
 import { Select } from 'antd'
 import { countryOptions } from '../../constants/countries'
 import BusinessEditor from '../shared/BusinessEditor'
@@ -919,15 +919,10 @@ function DealsPanel({ deals, onOpenDeal }) {
               sell
             </span>
             <span style={{ minWidth: 0, flex: 1 }}>
-              <span
-                style={{
-                  display: 'block', fontSize: 'var(--text-md)', fontWeight: 600,
-                  color: 'var(--text-heading)',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                }}
-              >
+              <Truncate style={{ display: 'block', fontSize: 'var(--text-md)', fontWeight: 600,
+                  color: 'var(--text-heading)' }}>
                 {d.name}
-              </span>
+              </Truncate>
               {d.stage && (
                 <span style={{ display: 'block', fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
                   {d.stage}
@@ -1085,15 +1080,10 @@ function ContactsPanel({ contacts, businessId, onOpenContact, onLinked, onUnlink
               {c.initials}
             </span>
             <span style={{ minWidth: 0, flex: 1 }}>
-              <span
-                style={{
-                  display: 'block', fontSize: 'var(--text-md)', fontWeight: 600,
-                  color: 'var(--text-heading)',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                }}
-              >
+              <Truncate style={{ display: 'block', fontSize: 'var(--text-md)', fontWeight: 600,
+                  color: 'var(--text-heading)' }}>
                 {c.name}
-              </span>
+              </Truncate>
               <span style={{ display: 'block', fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
                 {[
                   c.role,

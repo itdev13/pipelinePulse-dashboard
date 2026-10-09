@@ -80,6 +80,7 @@ function DealCard({ deal, onOpen, onOpenInHub, onDragStart, dragging }) {
              own drag on mousedown, which cancels the click. DealPill
              forwards both for exactly this case. */
           <DealPill
+            compact
             name={deal.dealTag || deal.opportunityName}
             onClick={(e) => {
               // Without this the card's own onClick fires underneath and the

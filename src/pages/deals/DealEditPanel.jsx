@@ -4,7 +4,7 @@ import dayjs from 'dayjs'
 import { dealsAPI } from '../../api/deals'
 import { contactsAPI } from '../../api/contacts'
 import ConfirmDialog from '../shared/ConfirmDialog'
-import { nameFor } from '../shared/ListChrome'
+import { nameFor, Truncate } from '../shared/ListChrome'
 import ContactPicker from '../shared/ContactPicker'
 import {
   CLOSING_STATUSES, REASON_LABEL, REASON_PLACEHOLDER
@@ -969,26 +969,16 @@ function PeopleEditor({ dealId, people = [], onChanged, onOpenContact, disabled 
                   {nameFor(p)}
                 </button>
               ) : (
-                <span
-                  style={{
-                    display: 'block',
-                    fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                  }}
-                >
+                <Truncate style={{ display: 'block',
+                    fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)' }}>
                   {nameFor(p)}
-                </span>
+                </Truncate>
               )}
               {(p.email || p.phone) && (
-                <span
-                  style={{
-                    display: 'block',
-                    fontSize: 'var(--text-sm)', color: 'var(--text-muted)',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                  }}
-                >
+                <Truncate style={{ display: 'block',
+                    fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
                   {p.email || p.phone}
-                </span>
+                </Truncate>
               )}
             </span>
 

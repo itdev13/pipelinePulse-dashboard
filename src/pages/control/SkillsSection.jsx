@@ -4,6 +4,7 @@ import { Select } from 'antd'
 import { controlAPI } from '../../api/control'
 import { useAuth } from '../../context/AuthContext'
 import SectionCard, { PrimaryButton, GhostButton } from './SectionCard'
+import { Truncate } from '../shared/ListChrome'
 
 // AI skills — point the AI at a database view.
 //
@@ -608,13 +609,10 @@ function SkillForm({ skill, views = [], onCancel, onSaved }) {
                   <span style={{ display: 'block', lineHeight: 1.3 }}>
                     <span style={{ fontFamily: 'var(--font-mono)' }}>{v.name}</span>
                     {v.comment && (
-                      <span style={{
-                        display: 'block',
-                        fontSize: 'var(--text-sm)', color: 'var(--text-muted)',
-                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
-                      }}>
+                      <Truncate style={{ display: 'block',
+                        fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
                         {v.comment}
-                      </span>
+                      </Truncate>
                     )}
                   </span>
                 )

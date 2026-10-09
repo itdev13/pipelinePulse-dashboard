@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import ConfirmDialog from '../shared/ConfirmDialog'
+import { Truncate } from '../shared/ListChrome'
 
 // The strip above the board: saved views, filters, search, view switch.
 //
@@ -67,9 +68,9 @@ function ViewTab({ view, active, onSelect, onDelete }) {
         <span className="ms" style={{ fontSize: 16, flex: 'none' }}>
           {view.isShared ? 'group' : 'bookmark'}
         </span>
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <Truncate>
           {view.name}
-        </span>
+        </Truncate>
       </button>
 
       {/* Inside the pill, and ALWAYS occupying its slot.
@@ -116,12 +117,9 @@ function FilterChip({ label, value, onClear }) {
       maxWidth: 220
     }}>
       <span style={{ color: 'var(--text-faint)' }}>{label}</span>
-      <span style={{
-        fontWeight: 600,
-        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-      }}>
+      <Truncate style={{ fontWeight: 600 }}>
         {value}
-      </span>
+      </Truncate>
       <button
         onClick={onClear}
         aria-label={`Clear ${label}`}

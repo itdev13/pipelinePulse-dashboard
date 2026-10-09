@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { contactsAPI } from '../../api/contacts'
 import CustomFieldSections from '../shared/CustomFieldSections'
 import {
-  Panel, StateMessage, SkeletonStyles, Bar, formatDate, initialsFor, nameFor, DealPill } from '../shared/ListChrome'
+  Panel, StateMessage, SkeletonStyles, Bar, formatDate, initialsFor, nameFor, DealPill, Truncate } from '../shared/ListChrome'
 import TagSelect from '../shared/TagSelect'
 import { htmlToText } from '../../utils/sanitiseHtml'
 import EmailBody from '../dealhub/EmailBody'
@@ -346,9 +346,9 @@ function BusinessLink({ contact, onSaved }) {
             }}
           >
             <span className="ms" style={{ fontSize: 16, flex: 'none' }}>domain</span>
-            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <Truncate>
               {linked.name}
-            </span>
+            </Truncate>
           </span>
           <button
             type="button"
@@ -1099,15 +1099,10 @@ function Deals({ deals = [], onOpenDeal }) {
         >
           <span className="ms" style={{ fontSize: 17, color: 'var(--accent-pine)' }}>sell</span>
           <span style={{ flex: 1, minWidth: 0 }}>
-            <span
-              style={{
-                display: 'block', fontSize: 'var(--text-lg)', fontWeight: 600,
-                color: 'var(--text-heading)',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-              }}
-            >
+            <Truncate style={{ display: 'block', fontSize: 'var(--text-lg)', fontWeight: 600,
+                color: 'var(--text-heading)' }}>
               {d.name || '(unnamed deal)'}
-            </span>
+            </Truncate>
             <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
               {[d.stage, d.pipeline].filter(Boolean).join(' · ')}
             </span>

@@ -1,4 +1,5 @@
 import React from 'react'
+import { Truncate } from '../shared/ListChrome'
 
 // The contacts list as a table — the dense, scannable view.
 //
@@ -123,12 +124,9 @@ export default function ContactTable({ contacts = [], onOpen }) {
                 <td style={{ ...td, maxWidth: 260 }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 9 }}>
                     <Avatar name={c.name} />
-                    <span style={{
-                      fontWeight: 600, color: 'var(--text-heading)',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                    }}>
+                    <Truncate style={{ fontWeight: 600, color: 'var(--text-heading)' }}>
                       {c.name || 'Unknown contact'}
-                    </span>
+                    </Truncate>
                   </span>
                 </td>
 
@@ -137,21 +135,15 @@ export default function ContactTable({ contacts = [], onOpen }) {
                 </td>
 
                 <td style={{ ...td, maxWidth: 240 }}>
-                  <span style={{
-                    display: 'block',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                  }}>
+                  <Truncate style={{ display: 'block' }}>
                     {c.email || <span style={{ color: 'var(--text-faint)' }}>—</span>}
-                  </span>
+                  </Truncate>
                 </td>
 
                 <td style={{ ...td, maxWidth: 180 }}>
-                  <span style={{
-                    display: 'block',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                  }}>
+                  <Truncate style={{ display: 'block' }}>
                     {c.business || <span style={{ color: 'var(--text-faint)' }}>—</span>}
-                  </span>
+                  </Truncate>
                 </td>
 
                 <td style={td}>

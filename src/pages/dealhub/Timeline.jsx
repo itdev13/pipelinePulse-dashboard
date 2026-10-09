@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { RichBody, StateMessage, AttachmentCount } from '../shared/ListChrome'
+import { RichBody, StateMessage, AttachmentCount, Truncate } from '../shared/ListChrome'
 import AttachmentChip, { accentVar } from './AttachmentChip'
 import AttachmentViewer from './AttachmentViewer'
 import EmailThreadModal from './EmailThreadModal'
@@ -236,15 +236,10 @@ function EventRow({ m }) {
     <Row id={`tl-${m.id}`} dim>
       <span />
       <RowIcon icon={m.channelIcon || 'info'} colour="var(--text-faint)" title="Event" />
-      <span
-        style={{
-          marginTop: 4,
-          fontSize: 'var(--text-md)', color: 'var(--text-muted)',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-        }}
-      >
+      <Truncate style={{ marginTop: 4,
+          fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
         {text}
-      </span>
+      </Truncate>
       <RowTime ts={m.ts} />
     </Row>
   )
@@ -335,14 +330,9 @@ function MessageRow({
           >
             {inbound ? 'south_west' : 'north_east'}
           </span>
-          <span
-            style={{
-              fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-            }}
-          >
+          <Truncate style={{ fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)' }}>
             {m.senderName}
-          </span>
+          </Truncate>
           <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
             {channelLabelOf(m)}
           </span>

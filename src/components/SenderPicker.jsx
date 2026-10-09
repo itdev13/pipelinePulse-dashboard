@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { providersAPI } from '../api/providers'
+import { Truncate } from '../pages/shared/ListChrome'
 
 // SenderPicker — which sender carries an outbound message.
 //
@@ -132,11 +133,9 @@ export default function SenderPicker({ channel, value, onChange, disabled = fals
         <span style={{
           width: 7, height: 7, borderRadius: 999, background: dot, flexShrink: 0,
         }} />
-        <span style={{
-          flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>
+        <Truncate style={{ flex: 1 }}>
           {selected ? labelFor(selected, channel) : 'Default sender'}
-        </span>
+        </Truncate>
         {selected && kindTag(selected, collides)}
         <span style={{ color: 'var(--text-faint)', fontSize: 10 }}>▾</span>
       </button>
@@ -177,11 +176,9 @@ export default function SenderPicker({ channel, value, onChange, disabled = fals
                   <span style={{
                     width: 7, height: 7, borderRadius: 999, background: dot, flexShrink: 0,
                   }} />
-                  <span style={{
-                    flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }}>
+                  <Truncate style={{ flex: 1 }}>
                     {labelFor(p, channel)}
-                  </span>
+                  </Truncate>
                   {p.isDefault && !collides && (
                     <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)' }}>
                       Default

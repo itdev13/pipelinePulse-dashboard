@@ -1,5 +1,6 @@
 import React from 'react'
 import { formatMoney } from '../../utils/money'
+import { Truncate } from './ListChrome'
 
 // The row data behind a Co-Pilot "list of deals" answer, rendered as a real
 // table — not text the model has to format itself.
@@ -76,20 +77,18 @@ export default function AnswerDealsTable({ deals = [], onOpenDeal }) {
                 onMouseLeave={clickable ? (e) => { e.currentTarget.style.background = 'transparent' } : undefined}
               >
                 <td style={{ ...td, fontWeight: 600, color: 'var(--text-heading)', maxWidth: 220 }}>
-                  <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <Truncate style={{ display: 'block' }}>
                     {d.name || 'Untitled deal'}
-                  </span>
+                  </Truncate>
                 </td>
                 <td style={{ ...td, maxWidth: 160 }}>
                   <span style={{
                     display: 'flex', alignItems: 'baseline', gap: 5,
                     color: d.contact ? 'var(--text-body)' : 'var(--text-faint)'
                   }}>
-                    <span style={{
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                    }}>
+                    <Truncate>
                       {d.contact || '—'}
-                    </span>
+                    </Truncate>
                     {/* A deal has ONE primary contact and can have additional
                         ones (the architect, the QS, a second decision-maker).
                         Only the primary is named: this cell is ~160px, so a
@@ -131,12 +130,9 @@ export default function AnswerDealsTable({ deals = [], onOpenDeal }) {
                   {value > 0 ? formatMoney(value) : 'Not priced'}
                 </td>
                 <td style={{ ...td, maxWidth: 140 }}>
-                  <span style={{
-                    display: 'block', color: d.owner ? 'var(--text-body)' : 'var(--text-faint)',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                  }}>
+                  <Truncate style={{ display: 'block', color: d.owner ? 'var(--text-body)' : 'var(--text-faint)' }}>
                     {d.owner || 'Unassigned'}
-                  </span>
+                  </Truncate>
                 </td>
                 <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>
                   {d.days_in_stage != null ? d.days_in_stage : '—'}

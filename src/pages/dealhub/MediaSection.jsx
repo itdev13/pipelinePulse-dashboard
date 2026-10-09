@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useModal } from '../../hooks/useModal'
-import { RichBody } from '../shared/ListChrome'
+import { RichBody, Truncate } from '../shared/ListChrome'
 import AttachmentViewer from './AttachmentViewer'
 
 // Media — every file attached to a message on this deal.
@@ -259,26 +259,21 @@ function FileCard({ file, onOpen, onJump }) {
       </span>
 
       <span style={{ display: 'grid', gap: 2, minWidth: 0 }}>
-        <span
-          style={{
-            fontSize: 'var(--text-md)', fontWeight: 600,
-            color: 'var(--text-heading)',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-          }}
-        >
+        <Truncate style={{ fontSize: 'var(--text-md)', fontWeight: 600,
+            color: 'var(--text-heading)' }}>
           {/* SMS and WhatsApp media arrive with no filename. A channel-derived
               label beats an empty line. */}
           {file.name || `${file.channel || 'File'} attachment`}
-        </span>
+        </Truncate>
         <span
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
             fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
           }}
         >
-          <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <Truncate style={{ flex: 1 }}>
             {[file.sender, formatSize(file.sizeBytes)].filter(Boolean).join(' · ')}
-          </span>
+          </Truncate>
           {/* Reads the message the file arrived in. Secondary to the tile
               itself, which previews the file — this answers the other
               question, "what was said around it?".
@@ -387,14 +382,9 @@ function MessageContextDialog({ file, onClose, onJump }) {
             {inbound ? 'south_west' : 'north_east'}
           </span>
           <h2 className="pp-modal-title" style={{ flex: 1, minWidth: 0 }}>
-            <span
-              style={{
-                display: 'block',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-              }}
-            >
+            <Truncate style={{ display: 'block' }}>
               {m.senderName || 'Unknown sender'}
-            </span>
+            </Truncate>
           </h2>
           <span className="pp-mc-meta">
             {[m.channelLabel || m.channel, formatWhen(m.ts)].filter(Boolean).join(' · ')}

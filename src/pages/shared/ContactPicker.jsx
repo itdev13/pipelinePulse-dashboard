@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Select, Spin } from 'antd'
 import { contactsAPI } from '../../api/contacts'
-import { initialsFor } from './ListChrome'
+import { initialsFor, Truncate } from './ListChrome'
 
 // Pick the contact a task or note belongs to.
 //
@@ -218,25 +218,15 @@ function ContactRow({ contact: c }) {
         {initialsFor(c.firstName, c.lastName, nameOf(c))}
       </span>
       <span style={{ display: 'block', minWidth: 0, flex: 1 }}>
-        <span
-          style={{
-            display: 'block',
-            fontSize: 'var(--text-md)', fontWeight: 500, color: 'var(--text-heading)',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-          }}
-        >
+        <Truncate style={{ display: 'block',
+            fontSize: 'var(--text-md)', fontWeight: 500, color: 'var(--text-heading)' }}>
           {nameOf(c)}
-        </span>
+        </Truncate>
         {detail && (
-          <span
-            style={{
-              display: 'block', marginTop: 1,
-              fontSize: 'var(--text-sm)', color: 'var(--text-muted)',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-            }}
-          >
+          <Truncate style={{ display: 'block', marginTop: 1,
+              fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
             {detail}
-          </span>
+          </Truncate>
         )}
       </span>
     </span>
