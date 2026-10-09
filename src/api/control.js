@@ -13,8 +13,12 @@ export const controlAPI = {
   //
   // Its own timeout: these call GHL and page through a catalogue, which can
   // outrun the client's 60s default on a large account.
+  // NO BODY ARGUMENT. Passing `null` here sent the literal string "null" as
+  // the request body, and body-parser rejects that as invalid JSON before the
+  // route is ever reached — a 500 from the error handler, not from the sync.
+  // Omitting it is what every other bodyless POST in this file does.
   runSync: (kind) =>
-    apiClient.post(`/api/control/sync/${encodeURIComponent(kind)}`, null, { timeout: 120_000 }),
+    apiClient.post(`/api/control/sync/${encodeURIComponent(kind)}`, undefined, { timeout: 120_000 }),
 
   get: () => apiClient.get('/api/control'),
   saveBusinessContext: (content, filename) =>
