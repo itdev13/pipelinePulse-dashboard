@@ -1,6 +1,6 @@
 import React from 'react'
 import { formatMoney } from '../../utils/money'
-import { DealChip } from '../shared/ListChrome'
+import { DealPill } from '../shared/ListChrome'
 
 // The deals list as a table — the dense, scannable view.
 //
@@ -182,8 +182,8 @@ export default function DealTable({
                   // would fire both and the editor would win.
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <DealChip
-                    name="DEAL"
+                  <DealPill
+                    name={d.dealTag || d.opportunityName}
                     onClick={onOpenInHub ? () => onOpenInHub(d.id) : undefined}
                   />
                 </td>

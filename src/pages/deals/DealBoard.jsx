@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { dealsAPI } from '../../api/deals'
 import { formatMoney } from '../../utils/money'
-import { Bar, SkeletonStyles, DealChip } from '../shared/ListChrome'
+import { Bar, SkeletonStyles, DealPill } from '../shared/ListChrome'
 
 // The pipeline as a board: one column per stage, deals as cards.
 //
@@ -77,10 +77,10 @@ function DealCard({ deal, onOpen, onOpenInHub, onDragStart, dragging }) {
 
              The two drag guards are NOT optional here: the card is
              draggable, and a button inside a draggable element starts its
-             own drag on mousedown, which cancels the click. DealChip
+             own drag on mousedown, which cancels the click. DealPill
              forwards both for exactly this case. */
-          <DealChip
-            name="DEAL"
+          <DealPill
+            name={deal.dealTag || deal.opportunityName}
             onClick={(e) => {
               // Without this the card's own onClick fires underneath and the
               // rep lands in the editor they were trying to skip.

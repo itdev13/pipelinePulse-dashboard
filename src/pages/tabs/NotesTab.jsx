@@ -13,7 +13,7 @@ import { useLinkTargets } from '../../hooks/useLinkTargets'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import { noteColourStyle } from '../../utils/noteColour'
 import {
-  Shell, Panel, ContactChip, DealChip, RowAction,
+  Shell, Panel, ContactChip, DealPill, RowAction,
   PrimaryAction, NoteChip, StateMessage, LoadMore, RichBody, relativeTime,
   AttachmentCount
 } from '../shared/ListChrome'
@@ -515,7 +515,7 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                     ))}
                   {/* Always rendered — "No deal" is a real state in v5, not an
                       absence to hide. */}
-                  <DealChip
+                  <DealPill
                     name={n.deal?.name || 'No deal'}
                     empty={!n.deal}
                     onClick={

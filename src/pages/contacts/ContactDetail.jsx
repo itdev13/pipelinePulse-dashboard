@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { contactsAPI } from '../../api/contacts'
 import CustomFieldSections from '../shared/CustomFieldSections'
 import {
-  Panel, StateMessage, SkeletonStyles, Bar, formatDate, initialsFor, nameFor, DealChip } from '../shared/ListChrome'
+  Panel, StateMessage, SkeletonStyles, Bar, formatDate, initialsFor, nameFor, DealPill } from '../shared/ListChrome'
 import TagSelect from '../shared/TagSelect'
 import { htmlToText } from '../../utils/sanitiseHtml'
 import EmailBody from '../dealhub/EmailBody'
@@ -1132,7 +1132,7 @@ function Deals({ deals = [], onOpenDeal }) {
               learns the chip everywhere else has to learn this separately.
               Consistency wins: the chip is unmistakably the deal control,
               and it is the row's only action either way. */}
-          <DealChip name="DEAL" onClick={() => onOpenDeal && onOpenDeal(d.id)} />
+          <DealPill name={d.name || d.opportunityName} onClick={() => onOpenDeal && onOpenDeal(d.id)} />
         </div>
       ))}
     </Panel>

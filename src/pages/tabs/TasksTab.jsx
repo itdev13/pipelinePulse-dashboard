@@ -16,7 +16,7 @@ import TaskDealsPopover from '../shared/TaskDealsPopover'
 import { useLinkTargets } from '../../hooks/useLinkTargets'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import {
-  Shell, Panel, ContactChip, DealChip, RowAction,
+  Shell, Panel, ContactChip, DealPill, RowAction,
   PrimaryAction, NoteChip, StateMessage, LoadMore,
   RichBody, formatDue, relativeTime
 } from '../shared/ListChrome'
@@ -641,7 +641,7 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                   {/* The PRIMARY deal, still one chip. A task can hold ten,
                       but ten chips on a list row is unreadable — the extra
                       ones are counted here and edited in the popover. */}
-                  <DealChip
+                  <DealPill
                     name={t.deal?.name || 'No deal'}
                     empty={!t.deal}
                     onClick={

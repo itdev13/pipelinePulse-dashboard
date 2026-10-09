@@ -243,22 +243,53 @@ export function ContactChip({ name, onClick }) {
   )
 }
 
-export function DealChip({ name, onClick, empty = false, draggable, onDragStart }) {
-  // `empty` is "no deal linked", which is a real state worth seeing — but it
-  // was rendered in the SAME green pill as a real deal, so a row with no deal
-  // looked identical to a linked one until you read the words. Now it is a
-  // dashed outline in muted grey: present, clearly not a value.
+export function DealPill({ name, onClick, empty = false, draggable, onDragStart }) {
+  const live = typeof onClick === 'function' && !empty
+  const Tag = live ? 'button' : 'span'
+  // Darkened rose rather than the alert red: this is a STATE, not a failure,
+  // and a full-strength red on every unlinked row reads as a page full of
+  // errors.
+  const fill = empty ? 'var(--status-stuck)' : 'var(--green-500)'
+
   return (
-    <Chip
-      icon={empty ? 'link_off' : 'sell'}
-      onClick={onClick}
-      title={onClick ? 'Open this deal' : (empty ? 'Not linked to a deal' : undefined)}
-      tone={empty ? 'empty' : 'deal'}
+    <Tag
+      onClick={live ? onClick : undefined}
+      title={
+        empty ? 'Not linked to a deal'
+          : live ? `Open ${name || 'this deal'}`
+          : (name || undefined)
+      }
       draggable={draggable}
       onDragStart={onDragStart}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 7,
+        height: 30, padding: '0 5px 0 12px', flex: 'none',
+        border: 'none', borderRadius: 'var(--radius-pill)',
+        background: fill,
+        fontFamily: 'var(--font-sans)',
+        fontSize: 'var(--text-base)', fontWeight: 600,
+        color: '#fff',
+        cursor: live ? 'pointer' : 'default',
+        whiteSpace: 'nowrap'
+      }}
     >
-      {name}
-    </Chip>
+      {empty ? 'No' : 'View'}
+      {/* The white capsule. Its colour matches the pill so the two read as
+          one object rather than a badge sitting on a button. */}
+      <span
+        style={{
+          display: 'inline-flex', alignItems: 'center',
+          height: 22, padding: '0 10px',
+          borderRadius: 'var(--radius-pill)',
+          background: '#fff',
+          color: fill,
+          fontSize: 'var(--text-sm)', fontWeight: 700,
+          letterSpacing: 'var(--tracking-label)'
+        }}
+      >
+        DEAL
+      </span>
+    </Tag>
   )
 }
 

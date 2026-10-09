@@ -9,7 +9,7 @@ import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
 import {
   Shell, Panel, Row, Chip, SearchInput, PrimaryAction, StateMessage,
-  SkeletonStyles, Bar, LoadMore, formatDate, DealChip } from '../shared/ListChrome'
+  SkeletonStyles, Bar, LoadMore, formatDate, DealPill } from '../shared/ListChrome'
 import { Select } from 'antd'
 import { countryOptions } from '../../constants/countries'
 import BusinessEditor from '../shared/BusinessEditor'
@@ -948,7 +948,7 @@ function DealsPanel({ deals, onOpenDeal }) {
                 the same action wearing a third different face, and the
                 faintest of the three on the one surface where a business's
                 deals are the point. */}
-            <DealChip name="DEAL" onClick={() => onOpenDeal?.(d.id)} />
+            <DealPill name={d.name || d.opportunityName} onClick={() => onOpenDeal?.(d.id)} />
           </Row>
         ))
       )}
