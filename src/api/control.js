@@ -4,6 +4,18 @@ import { API_BASE_URL } from '../constants/api'
 // Control panel — v5. One markdown file of business context, plus the
 // read-only qualification headings.
 export const controlAPI = {
+  // Run one catalogue sync now, for THIS sub-account.
+  //
+  // Businesses, tags and custom field definitions arrive by no webhook —
+  // GHL fires nothing when one is created, renamed or deleted — so without
+  // this they appear only after the 3am reconciliation. `kind` is one of
+  // 'businesses' | 'tags' | 'customFields'; the server allow-lists it.
+  //
+  // Its own timeout: these call GHL and page through a catalogue, which can
+  // outrun the client's 60s default on a large account.
+  runSync: (kind) =>
+    apiClient.post(`/api/control/sync/${encodeURIComponent(kind)}`, null, { timeout: 120_000 }),
+
   get: () => apiClient.get('/api/control'),
   saveBusinessContext: (content, filename) =>
     apiClient.put('/api/control/business-context', { content, filename }),

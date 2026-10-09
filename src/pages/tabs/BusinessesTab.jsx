@@ -3,6 +3,7 @@ import AttachmentChip from '../dealhub/AttachmentChip'
 import AttachmentViewer from '../dealhub/AttachmentViewer'
 import ViewSwitch from '../shared/ViewSwitch'
 import ContactPicker from '../shared/ContactPicker'
+import SyncButton from '../shared/SyncButton'
 import { contactsAPI } from '../../api/contacts'
 import { businessesAPI } from '../../api/businesses'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
@@ -143,6 +144,18 @@ export default function BusinessesTab({
                     { id: 'grid', icon: 'grid_view', label: 'Grid' },
                     { id: 'rows', icon: 'view_agenda', label: 'Rows' }
                   ]}
+                />
+                {/* Businesses arrive by NO webhook — GHL fires nothing when
+                    one is created, renamed or deleted — so one made in the CRM
+                    this morning is invisible here until the 3am run. This
+                    fetches them now, and reloads the list so the new row is
+                    actually on screen rather than merely in the database. */}
+                <SyncButton
+                  kind="businesses"
+                  label="Sync"
+                  noun="businesses"
+                  onSynced={reload}
+                  compact
                 />
                 <PrimaryAction onClick={() => setCreating(true)} icon="add">
                   New business

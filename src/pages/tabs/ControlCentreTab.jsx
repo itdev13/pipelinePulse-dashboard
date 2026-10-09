@@ -3,6 +3,7 @@ import { controlAPI } from '../../api/control'
 import MeddicMappingSection from '../control/MeddicMappingSection'
 import SkillsSection from '../control/SkillsSection'
 import SectionCard, { PrimaryButton, GhostButton } from '../control/SectionCard'
+import SyncButton from '../shared/SyncButton'
 import { Bar, SkeletonStyles, formatDate } from '../shared/ListChrome'
 
 // Control panel — v5.
@@ -100,6 +101,10 @@ export default function ControlCentreTab() {
       <SkillsSection />
 
       <MeddicMappingSection fields={data.meddicFields || []} />
+      {/* Last of the configuration sections: it is maintenance rather than
+          something to set up, and nobody comes to this page to press it
+          first. */}
+      <CatalogueSyncSection />
       <Footnote />
     </Shell>
   )
@@ -437,6 +442,69 @@ function SignatureSection() {
             {note || (dirty ? 'Unsaved changes' : 'Clear the box and save to remove it')}
           </span>
         </div>
+      </div>
+    </SectionCard>
+  )
+}
+
+
+// ── Catalogue sync ────────────────────────────────────────────────────
+//
+// The three things GHL sends NO webhook for. Nothing arrives when a business,
+// a tag or a custom field is created, renamed or deleted — they are picked up
+// only by the 3am reconciliation, so a field added this morning is missing
+// from every dropdown until tomorrow.
+//
+// That is the right trade for a catalogue (polling three endpoints per
+// sub-account on every change would be far more traffic than it is worth) but
+// it leaves one bad moment: somebody adds a field in the CRM, comes here to
+// use it, and it is not there. These buttons are for that moment.
+//
+// Each is scoped to the current sub-account. The nightly job still runs for
+// everyone; this is the same work, now, for one tenant.
+function CatalogueSyncSection() {
+  const ROWS = [
+    { kind: 'businesses', title: 'Businesses',
+      noun: 'businesses',
+      help: 'Companies and their details — name, address, website, logo. A business deleted in your CRM is kept here and marked inactive, because contacts still point at it.' },
+    { kind: 'tags', title: 'Tags',
+      noun: 'tags',
+      help: 'The tag list itself. Tags ON a contact arrive with the contact; this is the catalogue of what exists.' },
+    { kind: 'customFields', title: 'Custom fields',
+      noun: 'fields',
+      help: 'Field definitions for contacts and opportunities — names, types and picklist options. The values on each record arrive with the record.' }
+  ]
+
+  return (
+    <SectionCard
+      icon="sync"
+      title="Sync from your CRM"
+      accent="teal"
+      meta="Runs for this sub-account"
+      help="These three arrive by no webhook — your CRM does not tell us when one changes — so they refresh overnight. Press a button here to fetch them now, if you have just added something and want to use it straight away."
+    >
+      <div style={{ display: 'grid' }}>
+        {ROWS.map((r, i) => (
+          <div
+            key={r.kind}
+            style={{
+              display: 'flex', alignItems: 'flex-start', gap: 'var(--space-4)',
+              flexWrap: 'wrap',
+              padding: 'var(--space-3) var(--space-4)',
+              borderBottom: i === ROWS.length - 1 ? 'none' : '1px solid var(--border-default)'
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)' }}>
+                {r.title}
+              </div>
+              <p style={{ margin: '3px 0 0', fontSize: 'var(--text-base)', lineHeight: 1.5, color: 'var(--text-muted)' }}>
+                {r.help}
+              </p>
+            </div>
+            <SyncButton kind={r.kind} label="Sync now" noun={r.noun} />
+          </div>
+        ))}
       </div>
     </SectionCard>
   )
