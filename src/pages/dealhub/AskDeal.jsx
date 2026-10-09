@@ -292,7 +292,15 @@ export default function AskDeal({
           coverage: t.coverage,
           cached: true,
           runId: t.id,
-          readMessageIds: t.readMessageIds || []
+          readMessageIds: t.readMessageIds || [],
+          // The writes this turn proposed, and what became of them.
+          //
+          // Dropped here before: reopen() builds the turn field by field, so
+          // a key the server sends but this list omits is silently lost. A
+          // confirmed task's card vanished on reload and the answer offered
+          // "Create task" again, ready to make a duplicate — the server was
+          // returning the actions correctly and they never reached the turn.
+          proposedActions: t.proposedActions || []
         }
       ])
     )

@@ -85,6 +85,36 @@ t('confirming updates the turn immediately, without a reload', () => {
     'the resolved status is no longer written back into the turn');
 });
 
+
+t('a reopened chat carries its actions through to the turn', () => {
+  // THE SECOND HALF of this bug. The server returning proposedActions is not
+  // enough: reopen() builds each turn field by field, so any key it omits is
+  // silently dropped. With the server fixed and this line missing, a
+  // confirmed task's card still vanished on reload and "Create task" came
+  // back — ready to make a duplicate.
+  const at = ask.indexOf('const reopen =');
+  assert.notEqual(at, -1, 'reopen() is gone');
+  const body = ask.slice(at, ask.indexOf('setActiveChatId', at));
+  assert.match(
+    body, /proposedActions: t\.proposedActions \|\| \[\]/,
+    'reopen() drops proposedActions — reloading a chat loses what it did'
+  );
+});
+
+t('both AI surfaces carry actions through reopen', () => {
+  // The portfolio tab had this fixed already; the deal tab was missed. Pinned
+  // together so the next surface does not repeat it a third time.
+  const copilot = readFileSync(join(here, '../../tabs/CopilotTab.jsx'), 'utf8');
+  for (const [name, src] of [['AskDeal', ask], ['CopilotTab', copilot]]) {
+    const at = src.indexOf('const reopen =');
+    assert.notEqual(at, -1, `${name}: reopen() is gone`);
+    assert.match(
+      src.slice(at, at + 2000), /proposedActions: t\.proposedActions/,
+      `${name} drops proposedActions when reopening a chat`
+    );
+  }
+});
+
 let failed = 0;
 for (const [name, fn] of tests) {
   try { fn(); console.log(`  ok  ${name}`); }
