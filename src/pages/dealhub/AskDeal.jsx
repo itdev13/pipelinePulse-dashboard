@@ -1020,6 +1020,21 @@ function Answer({ turn, onJumpToMessage, onInspect, people = [], onActionResolve
   // 'note' | 'task' | null — which editor is open over this answer.
   const [saveAs, setSaveAs] = useState(null)
 
+  // Did THIS turn already create a note or a task?
+  //
+  // Only a CONFIRMED action counts. A proposal still sitting on its card is
+  // not a record yet, and a rejected or failed one never became one — in both
+  // cases the rep may well want to write it by hand, so the button stays.
+  const alreadyMade = useMemo(() => {
+    const made = { note: false, task: false }
+    for (const a of turn.proposedActions || []) {
+      if (a.status !== 'confirmed') continue
+      if (a.actionType === 'create_note') made.note = true
+      if (a.actionType === 'create_task') made.task = true
+    }
+    return made
+  }, [turn.proposedActions])
+
   const defaultContactId =
     people.find((p) => p.primary)?.id || people[0]?.id || null
   const cov = turn.coverage
@@ -1083,24 +1098,34 @@ function Answer({ turn, onJumpToMessage, onInspect, people = [], onActionResolve
             able to change it first. Deal-specific (a portfolio answer has
             no single deal to file a note/task against), styled as the same
             plain pill-button row PromptChip/ChannelScope already use. */}
-        {turn.answered && (
+        {turn.answered && (alreadyMade.note === false || alreadyMade.task === false) && (
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 9 }}>
-            <AnswerAction
-              icon="sticky_note_2"
-              label="Save as note"
-              onClick={people.length ? () => setSaveAs('note') : undefined}
-              disabledReason={
-                people.length ? null : 'This deal has no contacts, and a note is stored against one'
-              }
-            />
-            <AnswerAction
-              icon="task_alt"
-              label="Create task"
-              onClick={people.length ? () => setSaveAs('task') : undefined}
-              disabledReason={
-                people.length ? null : 'This deal has no contacts, and a task is stored against one'
-              }
-            />
+            {/* HIDDEN once this turn has already made one.
+                The agent drafts a task, the rep confirms it, the card above
+                says "Create task confirmed" — and this offered to create it
+                again, one line below. Clicking it made a SECOND task with the
+                same text, and nothing in the thread said the first one
+                existed. Same for notes. */}
+            {!alreadyMade.note && (
+              <AnswerAction
+                icon="sticky_note_2"
+                label="Save as note"
+                onClick={people.length ? () => setSaveAs('note') : undefined}
+                disabledReason={
+                  people.length ? null : 'This deal has no contacts, and a note is stored against one'
+                }
+              />
+            )}
+            {!alreadyMade.task && (
+              <AnswerAction
+                icon="task_alt"
+                label="Create task"
+                onClick={people.length ? () => setSaveAs('task') : undefined}
+                disabledReason={
+                  people.length ? null : 'This deal has no contacts, and a task is stored against one'
+                }
+              />
+            )}
           </div>
         )}
 
