@@ -437,7 +437,13 @@ export default function AskDeal({
             ? 'The AI layer is not configured on the server yet.'
             : code === 'NO_CREDIT'
             ? 'The AI account has run out of credit. Ask an admin to top it up in the Anthropic console — retrying will not help until then.'
-            : code === 'TIMEOUT'
+            // ECONNABORTED is the BROWSER giving up (axios hit
+            // ASK_TIMEOUT_MS), TIMEOUT is the SERVER saying the model did.
+            // Different causes, same thing to tell a rep — and without this
+            // first case a client-side abort fell through to apiClient's
+            // generic copy, which blames the connection for a model that was
+            // simply slow and sends the rep to check their wifi.
+            : code === 'TIMEOUT' || code === 'ECONNABORTED'
             ? 'The model took too long. Try again — long threads can be slow.'
             : code === 'MALFORMED'
             ? 'The model returned something unreadable. Try rephrasing the question.'

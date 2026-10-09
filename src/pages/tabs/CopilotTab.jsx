@@ -209,7 +209,7 @@ export default function CopilotTab({ onOpenDeal }) {
             ? 'The AI layer is not configured on the server yet.'
             : code === 'NO_CREDIT'
             ? 'The AI account has run out of credit. Ask an admin to top it up in the Anthropic console — retrying will not help until then.'
-            : code === 'TIMEOUT'
+            : code === 'TIMEOUT' || code === 'ECONNABORTED'
             ? 'The model took too long. Try a narrower question.'
             : err?.message || 'Could not get an answer.'
         )

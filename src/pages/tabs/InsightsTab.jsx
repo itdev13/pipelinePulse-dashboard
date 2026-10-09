@@ -111,12 +111,15 @@ export default function InsightsTab() {
               // page starts in. maxTagCount 0 in that case hides the chips
               // entirely so the placeholder below is all that shows.
               //
+              // Just "All", not "All sections": the field's own label sits
+              // immediately to its left, so the noun is already said.
+              //
               // Narrowed to a few, the chips ARE the useful thing — they say
               // which sections you are looking at — so 'responsive' comes
               // back and only overflow collapses.
               maxTagCount={allSelected ? 0 : 'responsive'}
               maxTagPlaceholder={(omitted) => (
-                allSelected ? 'All sections' : `+${omitted.length}`
+                allSelected ? 'All' : `+${omitted.length}`
               )}
               style={{ minWidth: 220, maxWidth: 480 }}
               styles={{ root: { height: 34 } }}

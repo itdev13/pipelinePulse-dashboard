@@ -1,5 +1,24 @@
 import apiClient from './client'
 
+// How long the browser waits for an ANSWER, as opposed to a record.
+//
+// apiClient's own 60s suits the rest of this file — those are ordinary reads
+// and writes, and a minute is already generous for one. The two `ask` calls
+// are not ordinary: each runs a tool loop of up to 6 sequential Claude calls
+// (server: toolLoop.js MAX_ROUNDS, claudeClient.js timeout 120_000,
+// maxRetries 2), so a long thread can legitimately pass a minute before the
+// first byte comes back.
+//
+// At 60s the browser gave up on work the server had already finished and
+// written — the rep saw "check your connection", retried, and got the answer
+// the first attempt had produced. The network was never the problem.
+//
+// 180s covers the common slow case (3-4 rounds) without letting a genuinely
+// stuck request hang indefinitely. It is deliberately NOT the server's own
+// worst case: past three minutes a rep needs to be told something went wrong
+// far more than they need to keep waiting.
+const ASK_TIMEOUT_MS = 180_000
+
 // Deal Hub AI. Contract mirrors pipelinePulse/server/src/routes/ai.js.
 export const aiAPI = {
   // Skills a rep can @-mention in the Insights AI composer.
@@ -27,7 +46,7 @@ export const aiAPI = {
       channels,
       images,
       conversationId
-    }, { signal }),
+    }, { signal, timeout: ASK_TIMEOUT_MS }),
   // Portfolio — one question across every deal in the sub-account. Same
   // `images` contract as `ask` above.
   // `signal` lets the Co-Pilot's stop button abandon the request client-side
@@ -36,7 +55,7 @@ export const aiAPI = {
   // immediately instead of waiting out a question they no longer want
   // answered.
   askPortfolio: ({ question, history = [], images = [], conversationId = null, signal }) =>
-    apiClient.post('/api/ai/portfolio/ask', { question, history, images, conversationId }, { signal }),
+    apiClient.post('/api/ai/portfolio/ask', { question, history, images, conversationId }, { signal, timeout: ASK_TIMEOUT_MS }),
   portfolioHistory: () => apiClient.get('/api/ai/portfolio/ask/history'),
   // `reasons` are chip ids from the negative-feedback modal (see
   // NEGATIVE_FEEDBACK_CHIPS in CopilotTab.jsx) — matching GHL's own

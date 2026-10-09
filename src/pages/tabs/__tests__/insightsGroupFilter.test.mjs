@@ -92,7 +92,8 @@ t('groups are ordered by group number, not first appearance', () => {
 // ── What the control SAYS when everything is picked ──────────────────
 // With all eight sections selected, antd collapsed them into a bare "+8"
 // chip — a number naming none of them, describing the state the page starts
-// in anyway. "All sections" says the same thing in words.
+// in anyway. "All" says the same thing in words — just "All" and not
+// "All sections", because the field's own "Section" label sits beside it.
 //
 // Mirrors the maxTagCount / maxTagPlaceholder pair in InsightsTab.
 
@@ -102,15 +103,15 @@ function tagDisplay(selected, groupDefs) {
     // 0 hides every chip so only the rest-placeholder shows; 'responsive'
     // keeps the chips and collapses only what overflows.
     maxTagCount: allSelected ? 0 : 'responsive',
-    restLabel: (omittedCount) => (allSelected ? 'All sections' : `+${omittedCount}`),
+    restLabel: (omittedCount) => (allSelected ? 'All' : `+${omittedCount}`),
   };
 }
 
-t('all sections selected reads "All sections", not "+8"', () => {
+t('all sections selected reads "All", not "+8"', () => {
   const defs = groupDefsFor(CARDS);
   const d = tagDisplay(selectedFor(undefined, defs), defs);
   assert.equal(d.maxTagCount, 0);
-  assert.equal(d.restLabel(defs.length), 'All sections');
+  assert.equal(d.restLabel(defs.length), 'All');
 });
 
 t('a narrowed selection keeps its chips', () => {
