@@ -1667,32 +1667,74 @@ function ProductFooter({ deal, siblingDeals, onOpenDeal }) {
 // Email / phone / address / timezone for the primary contact, as icon rows.
 function ContactLines({ person }) {
   if (!person) return null
-  const lines = [
-    ['mail', person.email],
-    ['call', person.phone],
-    ['location_on', person.address],
-    ['schedule', person.timezone]
-  ].filter(([, v]) => v)
-  if (lines.length === 0) return null
+
+  // The primary contact's own record, as labelled fields rather than four
+  // anonymous icon rows.
+  //
+  // It used to render email / phone / a pre-joined address / timezone with
+  // only an icon to say which was which. That is fine when every line is
+  // filled, but a rep looking for a postcode had to read the address line and
+  // pick it out, and a missing town was indistinguishable from an address
+  // that simply had none.
+  //
+  // The parts now come from the server separately (deals.js: address1, city,
+  // state, postalCode, country) — the flattened `address` string is still
+  // sent and still used by the compact surfaces, but it cannot be taken apart
+  // again, so it is not what this reads.
+  const fields = [
+    ['First Name', person.firstName],
+    ['Second Name', person.lastName],
+    ['Email Address', person.email],
+    ['Telephone', person.phone],
+    ['Street Address', person.address1],
+    ['Town', person.city],
+    ['Postcode', person.postalCode],
+    ['County', person.state],
+    ['Country', person.country],
+  ]
+
+  // Every field shown, filled or not. A blank one is a real gap in the
+  // customer's record — the thing a rep needs to notice and go and fix —
+  // and hiding it makes the record look complete when it is not. Same
+  // reasoning as the "Not set" custom-field chips below this card.
+  const anyFilled = fields.some(([, v]) => v)
+  if (!anyFilled) return null
 
   return (
-    <div style={{ display: 'grid', gap: 5, marginTop: 10 }}>
-      {lines.map(([icon, value]) => (
-        <span
-          key={icon}
-          style={{
-            display: 'flex', alignItems: 'flex-start', gap: 7,
-            fontSize: 'var(--text-base)', lineHeight: 1.4, color: 'var(--text-body)'
-          }}
-        >
+    <div
+      style={{
+        display: 'grid',
+        // Two columns on a roomy card, one when the column is narrow. The
+        // labels are short and the values usually shorter, so a single column
+        // wastes most of the width.
+        gridTemplateColumns: 'repeat(auto-fit, minmax(128px, 1fr))',
+        gap: '7px var(--space-3)',
+        marginTop: 'var(--space-3)'
+      }}
+    >
+      {fields.map(([label, value]) => (
+        <div key={label} style={{ minWidth: 0 }}>
           <span
-            className="ms"
-            style={{ fontSize: 'var(--text-lg)', color: 'var(--text-faint)', flex: 'none', marginTop: 1 }}
+            className="pp-label"
+            style={{ marginBottom: 1, display: 'block' }}
           >
-            {icon}
+            {label}
           </span>
-          <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{value}</span>
-        </span>
+          <span
+            style={{
+              display: 'block',
+              fontSize: 'var(--text-base)',
+              lineHeight: 1.35,
+              minWidth: 0,
+              // Long emails and street names must wrap inside the column
+              // rather than push the card wider.
+              overflowWrap: 'anywhere',
+              color: value ? 'var(--text-body)' : 'var(--text-faint)'
+            }}
+          >
+            {value || '—'}
+          </span>
+        </div>
       ))}
     </div>
   )

@@ -243,7 +243,7 @@ export function ContactChip({ name, onClick }) {
   )
 }
 
-export function DealChip({ name, onClick, empty = false }) {
+export function DealChip({ name, onClick, empty = false, draggable, onDragStart }) {
   // `empty` is "no deal linked", which is a real state worth seeing — but it
   // was rendered in the SAME green pill as a real deal, so a row with no deal
   // looked identical to a linked one until you read the words. Now it is a
@@ -254,13 +254,22 @@ export function DealChip({ name, onClick, empty = false }) {
       onClick={onClick}
       title={onClick ? 'Open this deal' : (empty ? 'Not linked to a deal' : undefined)}
       tone={empty ? 'empty' : 'deal'}
+      draggable={draggable}
+      onDragStart={onDragStart}
     >
       {name}
     </Chip>
   )
 }
 
-export function Chip({ icon, children, onClick, title, tone, danger }) {
+export function Chip({
+  icon, children, onClick, title, tone, danger,
+  // Forwarded for chips placed inside a DRAGGABLE card (the deal board). A
+  // button inside a draggable element starts its own drag on mousedown,
+  // which cancels the click entirely — so the board's chip has to opt out.
+  // Omitted everywhere else, where the defaults are correct.
+  draggable, onDragStart
+}) {
   // A <button> only when it DOES something. A decorative chip inside a card
   // that is itself a button nested a button in a button — invalid HTML, and
   // it put three extra stops in the tab order of every business card for
@@ -274,6 +283,8 @@ export function Chip({ icon, children, onClick, title, tone, danger }) {
     <Tag
       onClick={onClick}
       title={title}
+      draggable={draggable}
+      onDragStart={onDragStart}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6,
         maxWidth: 260,

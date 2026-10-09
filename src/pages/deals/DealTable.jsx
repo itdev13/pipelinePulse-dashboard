@@ -1,5 +1,6 @@
 import React from 'react'
 import { formatMoney } from '../../utils/money'
+import { DealChip } from '../shared/ListChrome'
 
 // The deals list as a table — the dense, scannable view.
 //
@@ -112,6 +113,10 @@ export default function DealTable({
         <thead>
           <tr>
             <th style={TH}>Deal</th>
+            {/* Deliberately unlabelled: the chip in it says "DEAL" itself, and
+                a "Hub" or "Open" heading over a one-control column is a word
+                that earns nothing. */}
+            <th style={{ ...TH, width: 1 }} aria-label="Open on the deal hub" />
             <th style={TH}>Contact</th>
             {showStage && <th style={TH}>Stage</th>}
             <SortTH
@@ -162,6 +167,25 @@ export default function DealTable({
                   }}>
                     {d.dealTag || d.opportunityName || 'Untitled deal'}
                   </span>
+                </td>
+
+                {/* STRAIGHT TO THE DEAL HUB, beside the deal it opens.
+                    Every other tab — Notes, Tasks, Businesses — reaches the
+                    hub through this same green chip. The Deals table had only
+                    a small icon at the far right of the row, past six other
+                    columns: the one list that is entirely about deals was the
+                    hardest place to open one from, and the control did not
+                    look like the control that does this everywhere else. */}
+                <td
+                  style={{ ...td, width: 1, whiteSpace: 'nowrap' }}
+                  // The row opens the EDITOR on click. Without this the chip
+                  // would fire both and the editor would win.
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <DealChip
+                    name="DEAL"
+                    onClick={onOpenInHub ? () => onOpenInHub(d.id) : undefined}
+                  />
                 </td>
 
                 <td style={{ ...td, maxWidth: 200 }}>

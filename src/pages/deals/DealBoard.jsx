@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { dealsAPI } from '../../api/deals'
 import { formatMoney } from '../../utils/money'
-import { Bar, SkeletonStyles } from '../shared/ListChrome'
+import { Bar, SkeletonStyles, DealChip } from '../shared/ListChrome'
 
 // The pipeline as a board: one column per stage, deals as cards.
 //
@@ -71,28 +71,25 @@ function DealCard({ deal, onOpen, onOpenInHub, onDragStart, dragging }) {
             the board needed that editor opened first, so the one screen a rep
             actually works a deal on was two steps behind every card. */}
         {onOpenInHub && (
-          <button
-            type="button"
-            title="Open on the deal hub"
-            aria-label="Open on the deal hub"
-            // Without this the card's own onClick fires underneath and the
-            // rep lands in the editor they were trying to skip.
-            onClick={(e) => { e.stopPropagation(); onOpenInHub(deal.id) }}
-            // A button inside a draggable card starts its own drag on
-            // mousedown, which cancels the click entirely.
+          /* The same green chip every other surface uses to open a deal —
+             Notes, Tasks, the Deals table, Businesses, Contacts. This was a
+             26px square icon button, a sixth treatment for one action.
+
+             The two drag guards are NOT optional here: the card is
+             draggable, and a button inside a draggable element starts its
+             own drag on mousedown, which cancels the click. DealChip
+             forwards both for exactly this case. */
+          <DealChip
+            name="DEAL"
+            onClick={(e) => {
+              // Without this the card's own onClick fires underneath and the
+              // rep lands in the editor they were trying to skip.
+              e.stopPropagation()
+              onOpenInHub(deal.id)
+            }}
             draggable={false}
             onDragStart={(e) => { e.preventDefault(); e.stopPropagation() }}
-            style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 26, height: 26, flex: 'none',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-sm)',
-              background: 'var(--surface-card)',
-              color: 'var(--text-muted)', cursor: 'pointer'
-            }}
-          >
-            <span className="ms" style={{ fontSize: 15 }}>space_dashboard</span>
-          </button>
+          />
         )}
       </div>
 

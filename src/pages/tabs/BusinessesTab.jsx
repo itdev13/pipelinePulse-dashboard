@@ -9,8 +9,7 @@ import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
 import {
   Shell, Panel, Row, Chip, SearchInput, PrimaryAction, StateMessage,
-  SkeletonStyles, Bar, LoadMore, formatDate
-} from '../shared/ListChrome'
+  SkeletonStyles, Bar, LoadMore, formatDate, DealChip } from '../shared/ListChrome'
 import { Select } from 'antd'
 import { countryOptions } from '../../constants/countries'
 import BusinessEditor from '../shared/BusinessEditor'
@@ -944,13 +943,12 @@ function DealsPanel({ deals, onOpenDeal }) {
             >
               {formatMoney(d.value)}
             </span>
-            <button
-              onClick={() => onOpenDeal?.(d.id)}
-              style={ghostBtn}
-            >
-              Open deal
-              <span className="ms" style={{ fontSize: 15 }}>arrow_forward</span>
-            </button>
+            {/* The same green chip Notes, Tasks and the Deals table use to
+                open a deal. This was a ghost button reading "Open deal →" —
+                the same action wearing a third different face, and the
+                faintest of the three on the one surface where a business's
+                deals are the point. */}
+            <DealChip name="DEAL" onClick={() => onOpenDeal?.(d.id)} />
           </Row>
         ))
       )}

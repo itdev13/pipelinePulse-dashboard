@@ -3,8 +3,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { contactsAPI } from '../../api/contacts'
 import CustomFieldSections from '../shared/CustomFieldSections'
 import {
-  Panel, StateMessage, SkeletonStyles, Bar, formatDate, initialsFor, nameFor
-} from '../shared/ListChrome'
+  Panel, StateMessage, SkeletonStyles, Bar, formatDate, initialsFor, nameFor, DealChip } from '../shared/ListChrome'
 import TagSelect from '../shared/TagSelect'
 import { htmlToText } from '../../utils/sanitiseHtml'
 import EmailBody from '../dealhub/EmailBody'
@@ -1123,30 +1122,17 @@ function Deals({ deals = [], onOpenDeal }) {
               {d.value}
             </span>
           )}
-          {/* The card's primary action, so it takes the brand fill rather
-              than a grey outline. Outlined it read as secondary — the same
-              weight as a Cancel — when opening the deal is the only thing
-              this row is for.
+          {/* The same green chip every other surface uses to open a deal —
+              Notes, Tasks, the Deals table, Businesses.
 
-              --brand-primary with white text is what the app already uses
-              for a primary action (BusinessesTab, AskDeal, the save button
-              above), so this matches rather than inventing a treatment. */}
-          <button
-            onClick={() => onOpenDeal && onOpenDeal(d.id)}
-            className="pp-btn-primary"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none',
-              height: 32, padding: '0 13px',
-              border: 'none',
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--brand-primary)', color: '#fff',
-              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
-              fontWeight: 600, cursor: 'pointer'
-            }}
-          >
-            Open deal
-            <span className="ms" style={{ fontSize: 15 }}>arrow_forward</span>
-          </button>
+              This was a solid brand-filled button reading "Open deal →",
+              made primary because opening the deal is the only thing this
+              row is for. That reasoning was sound in isolation, but it made
+              a fourth distinct treatment for one action, and a rep who
+              learns the chip everywhere else has to learn this separately.
+              Consistency wins: the chip is unmistakably the deal control,
+              and it is the row's only action either way. */}
+          <DealChip name="DEAL" onClick={() => onOpenDeal && onOpenDeal(d.id)} />
         </div>
       ))}
     </Panel>
