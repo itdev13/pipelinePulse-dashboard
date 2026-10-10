@@ -25,6 +25,42 @@ const picker   = read('../BusinessPickerModal.jsx')
 const contact  = read('../../contacts/ContactDetail.jsx')
 const business = read('../../tabs/BusinessesTab.jsx')
 const section  = read('../../dealhub/DealSection.jsx')
+const cards    = read('../../tabs/ContactsTab.jsx')
+const route    = read('../../../../../pipelinePulse/server/src/routes/contacts.js')
+
+test('a contact CARD links a real business, not a typed name', () => {
+  // The card offered an InlineEdit writing companyName: typing "Acme" left
+  // the word "Acme" and a contact linked to nothing, while the detail page
+  // next door offered the real thing.
+  assert.ok(
+    !/label="Business" icon="business"/.test(cards),
+    'the card still offers a free-text business field'
+  )
+  assert.match(cards, /function CardBusinessLink\(/)
+  // The SAME picker as the detail page and the Deal Hub.
+  assert.match(cards, /import BusinessPickerModal from '\.\.\/shared\/BusinessPickerModal'/)
+  assert.match(cards, /<BusinessPickerModal/)
+})
+
+test('the card can unlink, and the row updates without a reload', () => {
+  assert.match(cards, /contactsAPI\.update\(contact\.id, \{ businessId: null \}\)/)
+  // Link/unlink writes immediately, so the parent list is patched here — the
+  // card's own save cycle never runs for it.
+  assert.match(cards, /onBusinessChanged/)
+  assert.match(cards, /businessId: link\.businessId/)
+})
+
+test('the contacts LIST returns the link, not just the label', () => {
+  // The card cannot show a linked business the list never sent. company_name
+  // was returned and business_id was not, so every contact would have read
+  // "Link a business" however many were already linked.
+  assert.match(route, /businessId: c\.business_id/)
+  assert.match(route, /businessName: c\.business_name/)
+  assert.match(route, /LEFT JOIN businesses b/)
+  // is_active, or a business deleted in GHL would drop the whole contact row.
+  assert.match(route, /b\.is_active\s+= true/)
+})
+
 
 test('one shared picker serves every surface', () => {
   // Three places now make this link. Three pickers would be three sets of
@@ -46,11 +82,22 @@ test('the contact page can link, change and unlink', () => {
   assert.match(contact, /<BusinessLink contact=\{contact\} onSaved=\{onSaved\} \/>/)
 })
 
-test('the link is shown separately from the free-text company name', () => {
+test('the link is never collapsed into the free-text company name', () => {
   // `business` is companyName, a typed label; `businessId` is the record.
   // Collapsing them would make one silently overwrite the other.
-  assert.match(contact, /\['business', 'Business', 'text'\]/)
+  //
+  // This used to assert the editable ['business', 'Business', 'text'] row was
+  // PRESENT. That pinned the wrong thing: two adjacent controls both captioned
+  // about a business, only one of which linked to a record, is the confusion
+  // — not the separation. The text row is gone from Details; what still has
+  // to hold is that the link is its own concept.
   assert.match(contact, /Linked business/)
+  assert.match(contact, /businessId/)
+  // And it is NOT offered as a plain editable field beside the real control.
+  assert.ok(
+    !/\['business', 'Business', 'text'\]/.test(contact),
+    'the free-text business field is back next to "Link a business"'
+  )
 })
 
 test('the company page can link a contact back', () => {

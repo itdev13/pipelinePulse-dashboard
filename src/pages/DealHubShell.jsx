@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useClipTooltips } from '../hooks/useClipTooltips'
 import DealHubTab from './tabs/DealHubTab'
 import DealsTab from './tabs/DealsTab'
 import CopilotTab from './tabs/CopilotTab'
@@ -97,6 +98,13 @@ function readPosition(locationId) {
 }
 
 export default function DealHubShell() {
+  // Tooltips on any line the CSS has clipped — the contact-card fields, email
+  // subjects, thread names and attachment filenames all ellipsise through a
+  // class rather than an inline style, so Truncate never saw them and they
+  // had no tooltip at all. Run once here, for the whole app, rather than
+  // converting every call site.
+  useClipTooltips()
+
   const { location } = useAuth()
   // Restored once, on the first render, from where we were before a reload.
   // Lazy initialisers so localStorage is read once rather than every render.

@@ -274,10 +274,21 @@ function Fact({ icon, children, href }) {
 
 // ── Details (editable) ────────────────────────────────────────────────
 
+// NO 'business' TEXT FIELD HERE.
+//
+// It wrote GHL's `companyName` — a free-text label with no link to anything,
+// sitting directly above "Linked business", which sets the real relation
+// (contacts.business_id). Two controls, adjacent, both captioned about a
+// business, where only one of them connects the contact to a business
+// RECORD: filling the text one looked like it had worked and left the
+// contact linked to nothing.
+//
+// The field itself is untouched — contactPatch still maps business →
+// companyName, so anything already stored is preserved and the API still
+// accepts it. What is removed is the invitation to type into it.
 const FIELDS = [
   ['firstName', 'First name', 'text'],
   ['lastName', 'Last name', 'text'],
-  ['business', 'Business', 'text'],
   ['address', 'Address', 'text'],
   ['email', 'Primary email', 'email'],
   ['phone', 'Primary phone', 'tel']

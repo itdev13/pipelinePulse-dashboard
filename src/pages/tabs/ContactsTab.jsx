@@ -6,6 +6,7 @@ import DealToolbar from '../deals/DealToolbar'
 import { savedViewsAPI, dealsAPI } from '../../api/deals'
 import { FollowUpChips, Panel, DealPill, Truncate } from '../shared/ListChrome'
 import { contactsAPI } from '../../api/contacts'
+import BusinessPickerModal from '../shared/BusinessPickerModal'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
 import { useAuth } from '../../context/AuthContext'
@@ -392,6 +393,15 @@ export default function ContactsTab({
               if (onNavigate) onNavigate({ contactId: c.id })
             }}
             onOpenDeal={onOpenDeal}
+            // Link/unlink writes immediately — there is no Save on it, the
+            // way there is for the text fields — so the row is patched here
+            // rather than waiting for the card's own save cycle.
+            onBusinessChanged={(id, link) => {
+              patchItem((x) => x.id === id, {
+                businessId: link.businessId ?? null,
+                businessName: link.businessName ?? null
+              })
+            }}
             onSaved={(id, saved) => {
               // Apply what the CRM echoed rather than what was typed, so a
               // reformatted phone or trimmed name shows the stored value.
@@ -441,7 +451,117 @@ export default function ContactsTab({
 // contactType is the exception and stays read-only: it is a GHL CUSTOM FIELD,
 // not a property of the contact, so the update endpoint rejects it. The server's
 // contactPatch drops it for the same reason.
-function ContactCard({ c, onOpen, onOpenDeal, onSaved }) {
+
+// ── The contact's link to a business, on a card ───────────────────────
+//
+// Mirrors BusinessLink on the contact detail page, in the row shape the card
+// uses. Both open the SAME BusinessPickerModal, so "link a business" means
+// one thing in this app rather than three.
+//
+// Writes straight through: there is no Save button on this control, unlike
+// the text fields beside it. Linking is a single, reversible decision and
+// making a rep press Save afterwards would be ceremony — but it does mean
+// the parent row has to be patched here rather than on the card's own save.
+function CardBusinessLink({ contact, disabled, onChanged }) {
+  const [picking, setPicking] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+
+  const linked = contact.businessId
+    ? { id: contact.businessId, name: contact.businessName || 'Linked business' }
+    : null
+
+  const unlink = async () => {
+    if (busy) return
+    setBusy(true); setError(null)
+    try {
+      await contactsAPI.update(contact.id, { businessId: null })
+      onChanged && onChanged({ businessId: null, businessName: null })
+    } catch (err) {
+      setError(err?.message || 'Could not unlink')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '7px 9px', borderRadius: 'var(--radius-sm)', minWidth: 0
+      }}>
+        <span className="ms" style={{ fontSize: 16, color: 'var(--text-faint)', flex: 'none' }}>
+          business
+        </span>
+        <span className="pp-label" style={{ width: 64, flex: 'none' }}>Business</span>
+
+        {linked ? (
+          <>
+            <Truncate style={{ flex: 1, color: 'var(--text-body)' }} title={linked.name}>
+              {linked.name}
+            </Truncate>
+            <button
+              onClick={() => setPicking(true)}
+              disabled={disabled || busy}
+              title="Link a different business"
+              style={linkBtn}
+            >
+              Change
+            </button>
+            <button
+              onClick={unlink}
+              disabled={disabled || busy}
+              title="Unlink this business from the contact"
+              style={{ ...linkBtn, color: 'var(--status-stuck-text)' }}
+            >
+              {busy ? 'Working' : 'Unlink'}
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={() => setPicking(true)}
+            disabled={disabled}
+            style={{
+              flex: 1, textAlign: 'left', border: 'none', background: 'none', padding: 0,
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+              color: 'var(--text-faint)', cursor: disabled ? 'default' : 'pointer'
+            }}
+          >
+            Link a business
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <p role="alert" style={{
+          margin: '0 0 0 34px', fontSize: 'var(--text-sm)', color: 'var(--status-stuck-text)'
+        }}>
+          {error}
+        </p>
+      )}
+
+      {picking && (
+        <BusinessPickerModal
+          contact={contact}
+          blurb="Type a name to search the businesses in this sub-account."
+          onClose={() => setPicking(false)}
+          onLinked={(business) => {
+            setPicking(false)
+            onChanged && onChanged({ businessId: business.id, businessName: business.name })
+          }}
+        />
+      )}
+    </>
+  )
+}
+
+const linkBtn = {
+  flex: 'none', border: 'none', background: 'none', padding: 0,
+  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 600,
+  color: 'var(--accent-pine-text)', cursor: 'pointer'
+}
+
+function ContactCard({ c, onOpen, onOpenDeal, onSaved, onBusinessChanged }) {
   const initials = ((c.firstName?.[0] || '') + (c.lastName?.[0] || '')).toUpperCase() || '?'
 
   // name → edited value. Absent = untouched, which keeps '' (a deliberate
@@ -652,12 +772,17 @@ function ContactCard({ c, onOpen, onOpenDeal, onSaved }) {
           invalid={errorField === 'phone'}
           onChange={(v) => setField('phone', v)}
         />
-        <InlineEdit
-          label="Business" icon="business"
-          value={valueOf('business')} placeholder="Add a business"
-          disabled={saving} dirty={'business' in changes}
-          invalid={errorField === 'business'}
-          onChange={(v) => setField('business', v)}
+        {/* A LINK, not free text.
+            This was an InlineEdit writing GHL's companyName — a label someone
+            typed, connected to nothing. Typing "Acme" left you with the word
+            "Acme" and a contact linked to no business at all, while the detail
+            page right next door offered the real thing.
+            Same picker the detail page and the Deal Hub use, so there is one
+            way to link a business rather than three. */}
+        <CardBusinessLink
+          contact={c}
+          disabled={saving}
+          onChanged={(link) => onBusinessChanged && onBusinessChanged(c.id, link)}
         />
         <InlineEdit
           label="Address" icon="location_on"
