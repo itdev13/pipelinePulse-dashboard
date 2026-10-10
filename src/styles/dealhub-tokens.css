@@ -51,6 +51,13 @@
   --accent-sky: #2470c2;
   --accent-plum: #7b5cc9;
   --accent-clay: #c95d2e;
+  /* The Tasks page's own identity colour (spec §1). Deliberately its own
+     token rather than reusing --accent-clay: that is the shared clay accent
+     used for chips and icons elsewhere, and a solid header bar needs a
+     slightly deeper value to hold white text at 18px/600. */
+  --tasks-header: #c25a1f;
+  --tasks-header-border: #b5501a;
+  --tasks-header-hover: #a94d19;
   --accent-gold: #b8860b;
   --accent-rose: #c23a5f;
   --accent-teal: #0f7f8b;

@@ -71,6 +71,69 @@ const STATUS_FILTERS = [
 // endpoint to OAuth apps.
 const TASK_DEAL_EDITING = false
 
+
+// A toolbar control with its label ABOVE it.
+//
+// flex:none on the stack, so a label and its control always wrap together —
+// inline labels let a row break between "ASSIGNEE" and the select it names.
+function LabelledControl({ label, children }) {
+  return (
+    <span style={{ display: 'flex', flexDirection: 'column', gap: 5, flex: 'none' }}>
+      <span style={{
+        fontSize: 11, fontWeight: 600, letterSpacing: '.05em',
+        textTransform: 'uppercase', color: '#4a515c'
+      }}>
+        {label}
+      </span>
+      {children}
+    </span>
+  )
+}
+
+// Search by WHO a task is about, not what it is called.
+//
+// Matches contact, deal and business name — a rep hunting "Cedarstone" wants
+// that company's tasks whatever each one is titled. The filtering happens on
+// the server (routes/tasks.js): the list is paged, so a client-side filter
+// would only search the rows already loaded and silently miss page two.
+function TaskSearch({ value, onChange }) {
+  return (
+    <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+      <span className="ms" style={{
+        position: 'absolute', left: 10, fontSize: 18,
+        color: 'var(--text-faint)', pointerEvents: 'none'
+      }}>
+        search
+      </span>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Search business, contact or deal"
+        style={{
+          width: 260, maxWidth: 360, flex: '1 1 260px',
+          height: 34, padding: '0 32px 0 34px',
+          border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-md)',
+          background: '#fff', fontFamily: 'var(--font-sans)',
+          fontSize: 'var(--text-md)', color: 'var(--text-heading)'
+        }}
+      />
+      {value && (
+        <button
+          onClick={() => onChange('')}
+          title="Clear the search"
+          style={{
+            position: 'absolute', right: 8, display: 'inline-flex',
+            border: 'none', background: 'none', padding: 0,
+            color: 'var(--text-faint)', cursor: 'pointer'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 16 }}>close</span>
+        </button>
+      )}
+    </span>
+  )
+}
+
 export default function TasksTab({ onOpenDeal, onOpenContact }) {
   // Remembered across tab switches — see useTabState. Clicking a task through
   // to its deal and coming back used to reset this to 'all'.
@@ -82,6 +145,9 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
   // back as a plain object that throws the moment the picker calls .format().
   const [dueRange, setDueRange] = useTabState('tasks', 'dueRange', null)
   const [status, setStatus] = useTabState('tasks', 'status', 'open')
+  // Per TAB, like every other filter here: stepping out to a deal and back
+  // keeps the search you were in the middle of.
+  const [q, setQ] = useTabState('tasks', 'q', '')
   const [toast, setToast] = useState(null)
 
   // Rows or a grid. Persisted: a display preference, not a navigation step, so
@@ -111,6 +177,9 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
   const fetchPage = useCallback(
     ({ cursor }) => tasksAPI.list({
       status, due: dueFilter, sort, limit: 20, cursor,
+      // Omitted when empty so the request carries no q= at all, rather than
+      // an empty one the route then has to treat as "match everything".
+      ...(q.trim() ? { q: q.trim() } : {}),
       // Only sent with due=custom — the server ignores them otherwise, and
       // sending them regardless would make the request vary for no reason.
       dueFrom: dueFilter === 'custom' ? (dueRange?.[0] || undefined) : undefined,
@@ -119,13 +188,13 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
       contactId: filters.contactId || undefined,
       dealId: filters.dealId || undefined
     }),
-    [status, dueFilter, dueRange, filters, owner, session, sort]
+    [status, dueFilter, dueRange, filters, owner, session, sort, q]
   )
   // dueRange is a DEP: without it, picking a different range while already on
   // 'custom' leaves dueFilter unchanged, so page one is never refetched and
   // the list keeps showing the previous range.
   const { items, error, hasMore, loadingMore, loading, loadMore, patchItem, reload } =
-    usePagedList({ fetchPage, key: 'tasks', deps: [status, dueFilter, dueRange, filters, owner, sort] })
+    usePagedList({ fetchPage, key: 'tasks', deps: [status, dueFilter, dueRange, filters, owner, sort, q] })
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
   const tasks = items || []
@@ -216,72 +285,106 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
           nav already shows, with a subtitle explaining what a task list is —
           and everything it used to carry (Add task, the filters, the view
           switch) now lives on the panel itself. */}
-      <Panel
-        icon="task_alt"
-        title="Tasks"
-        // Status and Due live in the panel's own toolbar band, not floating
-        // above it. They narrow THIS list, so they belong to it — outside, the
-        // panel started with an unexplained header while the controls that
-        // governed it sat on the page behind.
-        toolbar={
-          // Dropdowns, not pills. Seven pills spent the width of the whole
-          // band on two choices, and the row read as a set of toggles rather
-          // than two questions with one answer each. antd Select, per the
-          // house rule — a native one renders the OS's own menu.
-          <div style={{
-            display: 'flex', alignItems: 'center',
-            gap: 'var(--space-3)', flexWrap: 'wrap'
-          }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <Label>Status</Label>
-              <Select
-                value={status}
-                onChange={setStatus}
-                options={STATUS_FILTERS.map(([value, label]) => ({ value, label }))}
-                popupClassName="pp-menu"
-                style={{ width: 150 }}
-                styles={{ root: { height: 34 } }}
-              />
+      {/* A SECTION CARD, not the shared Panel.
+          The spec gives this page its own identity: a solid burnt-orange
+          header carrying only the icon, title and count, with every control
+          in a band beneath it. The shared Panel puts controls in the header
+          and tints it rather than filling it — right for the other tabs,
+          wrong here. Built directly rather than adding a fourth mode to
+          Panel that only one page would use. */}
+      <section style={{
+        border: '1px solid var(--border-default)',
+        borderRadius: 'var(--radius-md)',
+        boxShadow: 'var(--shadow-card)',
+        background: '#fff',
+        overflow: 'hidden'
+      }}>
+        <header style={{
+          display: 'flex', alignItems: 'center', gap: 9,
+          padding: '12px 16px',
+          background: 'var(--tasks-header)',
+          borderBottom: '1px solid var(--tasks-header-border)'
+        }}>
+          <span className="ms" style={{ fontSize: 19, color: '#fff' }}>task_alt</span>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: '#fff' }}>Tasks</h2>
+          {/* The count follows the filters, so it answers "how many am I
+              looking at" rather than "how many exist". */}
+          {!loading && (
+            <span
+              title={`${openCount} ${countNoun}`}
+              style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                minWidth: 24, height: 22, padding: '0 8px', flex: 'none',
+                borderRadius: 'var(--radius-pill)',
+                background: 'rgba(255,255,255,.22)',
+                fontSize: 13, fontWeight: 600, color: '#fff',
+                fontVariantNumeric: 'tabular-nums'
+              }}
+            >
+              {openCount}{hasMore ? '+' : ''}
             </span>
-            {/* "Assignee", not "Owner": a task is assigned to someone, and
-                the unassigned option reads better as "Nobody" than as a
-                missing owner — an unassigned task is the one most likely to
-                be missed, which is worth it sounding like. */}
-            <OwnerFilter
-              value={owner}
-              onChange={setOwner}
-              label="Assignee"
-              noneLabel="Nobody"
+          )}
+        </header>
+
+        {/* The toolbar band. Darker than the list area behind the cards, so
+            the controls read as chrome rather than as another card. */}
+        <div style={{
+          display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap',
+          padding: '12px 14px',
+          background: 'var(--gray-100)',
+          borderBottom: '1px solid var(--border-default)'
+        }}>
+          <LabelledControl label="Search">
+            <TaskSearch value={q} onChange={setQ} />
+          </LabelledControl>
+
+          <LabelledControl label="Status">
+            <Select
+              value={status} onChange={setStatus}
+              options={STATUS_FILTERS.map(([value, label]) => ({ value, label }))}
+              popupClassName="pp-menu" style={{ width: 150 }}
+              styles={{ root: { height: 34 } }}
             />
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <Label>Due</Label>
-              <Select
-                value={dueFilter}
-                onChange={setDueFilter}
-                options={DUE_FILTERS.map(([value, label]) => ({ value, label }))}
-                popupClassName="pp-menu"
-                style={{ width: 180 }}
-                styles={{ root: { height: 34 } }}
-              />
-            </span>
-            {/* Only once 'Custom range' is chosen. A range picker sitting
-                permanently beside a preset select reads as a second, competing
-                filter — and most of the time it would be inert. */}
-            {dueFilter === 'custom' && (
+          </LabelledControl>
+
+          <LabelledControl label="Assignee">
+            {/* `bare`: the label is stacked above by LabelledControl, so
+                this must not draw its own beside the select. */}
+            <OwnerFilter value={owner} onChange={setOwner} width={190} bare />
+          </LabelledControl>
+
+          <LabelledControl label="Due">
+            <Select
+              value={dueFilter} onChange={setDueFilter}
+              options={DUE_FILTERS.map(([value, label]) => ({ value, label }))}
+              popupClassName="pp-menu" style={{ width: 180 }}
+              styles={{ root: { height: 34 } }}
+            />
+          </LabelledControl>
+
+          {/* Only once 'Custom range' is chosen. A range picker sitting
+              permanently beside a preset select reads as a second, competing
+              filter — and most of the time it would be inert.
+
+              Kept when the toolbar was rebuilt: the spec lists four Due
+              presets and does not mention this, but it is existing behaviour
+              a rep relies on and the presets cannot express an arbitrary
+              window. */}
+          {dueFilter === 'custom' && (
+            <LabelledControl label="Range">
               <RangePicker
-                // Same portal class as every other calendar in the app: antd
-                // renders this to document.body, outside [data-dealhub], where
-                // none of the design tokens resolve. See .pp-cal.
+                // Same portal class as every other calendar here: antd renders
+                // this to document.body, outside [data-dealhub], where none of
+                // the design tokens resolve. See .pp-cal.
                 popupClassName="pp-cal"
                 value={dueRange ? [
                   dueRange[0] ? dayjs(dueRange[0]) : null,
                   dueRange[1] ? dayjs(dueRange[1]) : null
                 ] : null}
                 onChange={(range) => {
-                  // Clearing the range keeps the filter on 'custom' with no
-                  // bounds, which the server reads as "every dated task" —
-                  // the same thing the picker now shows, rather than silently
-                  // reverting to a preset the rep did not pick.
+                  // Clearing keeps the filter on 'custom' with no bounds —
+                  // "every dated task", which is what the picker now shows,
+                  // rather than silently reverting to a preset nobody picked.
                   setDueRange(range && (range[0] || range[1])
                     ? [
                         range[0] ? range[0].format('YYYY-MM-DD') : null,
@@ -295,48 +398,60 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                 style={{ width: 260 }}
                 styles={{ root: { height: 34 } }}
               />
-            )}
+            </LabelledControl>
+          )}
+
+          {/* The SHARED control, not a second hand-rolled one: two copies
+              drift in width, height and wording the first time either is
+              touched. It also carries the direction toggle that only applies
+              to created date. */}
+          <LabelledControl label="Sort">
             <SortSelect
-              value={sort}
-              onChange={setSort}
+              value={sort} onChange={setSort}
+              // The spec lists "Due date | Created". Created keeps its
+              // direction here because a date sorted one way only is half a
+              // control — and the existing behaviour, which reps rely on.
+              // Due date has no direction: overdue first is the only order
+              // a task list is read in.
               options={[
                 { value: 'due', label: 'Due date' },
                 { value: 'created_desc', label: 'Created, newest' },
                 { value: 'created_asc', label: 'Created, oldest' }
               ]}
-              width={170}
+              width={150} bare
             />
-          </div>
-        }
-        accent="rose"
-        count={loading ? null : `${openCount}${hasMore ? '+' : ''}`}
-        // The badge is a bare number; this says WHICH number it is, since the
-        // count follows the status filter.
-        countTitle={loading ? undefined : `${openCount} ${countNoun}`}
-        // `action`, not `toolbar`: a lone button in the toolbar band drew a
-        // full-width grey strip under the title that read as its own section.
-        // In the header it sits beside the count, where it belongs.
-        action={
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <WorkFilters
-              filters={filters}
-              onChange={setFilters}
-              noun="tasks"
-            />
+          </LabelledControl>
+
+          {/* ONE GROUP, pushed right. flex:none and nowrap so that when the
+              band runs out of width the three drop to the next line together
+              rather than Add task stranding itself. */}
+          <span style={{
+            marginLeft: 'auto', flex: 'none',
+            display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap'
+          }}>
+            <WorkFilters filters={filters} onChange={setFilters} noun="tasks" />
             <ViewSwitch
-              value={view}
-              onChange={setView}
+              value={view} onChange={setView}
               options={[
                 { id: 'grid', icon: 'grid_view', label: 'Grid' },
                 { id: 'rows', icon: 'view_agenda', label: 'Rows' }
               ]}
             />
-            <PrimaryAction onClick={() => setEditor({ task: null })} icon="add">
-              Add task
-            </PrimaryAction>
+            <button
+              onClick={() => setEditor({ task: null })}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7,
+                height: 38, padding: '0 16px', flex: 'none',
+                border: 'none', borderRadius: 'var(--radius-pill)',
+                background: 'var(--tasks-header)', color: '#fff',
+                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+                fontWeight: 600, cursor: 'pointer'
+              }}
+            >
+              <span className="ms" style={{ fontSize: 17 }}>add</span>Add task
+            </button>
           </span>
-        }
-      >
+        </div>
         <StateMessage
           loading={loading}
           error={error}
@@ -761,7 +876,7 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
             noun="task"
           />
         )}
-      </Panel>
+      </section>
 
       {confirming && (
         <ConfirmDialog

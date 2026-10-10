@@ -102,6 +102,12 @@ function useTags() {
 
 export function OwnerFilter({
   value, onChange, label = 'Owner', width = 190,
+  // Render the SELECT ONLY, with no label beside it.
+  //
+  // The Tasks toolbar stacks each label above its control, so this one's own
+  // inline label would be a second "Assignee" sitting next to the stacked
+  // one. The label is not dropped — it moves to the caller.
+  bare = false,
   // What the "everyone" and "nobody" options are CALLED.
   //
   // "All owners" is right on Contacts and Deals, where a record is owned. A
@@ -172,8 +178,12 @@ export function OwnerFilter({
   }, [orphaned, value])
 
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-      <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>{label}</span>
+    <span style={bare
+      ? { display: 'inline-flex' }
+      : { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+      {!bare && (
+        <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>{label}</span>
+      )}
       <Select
         value={value}
         onChange={onChange}
@@ -260,10 +270,20 @@ export function TagFilter({ value, onChange, label = 'Tag', width = 170 }) {
 // The OPTIONS are the caller's: "Due date / Date created" means something on
 // tasks and nothing on notes, where the real choice is when it was written
 // versus when we synced it.
-export function SortSelect({ value, onChange, options, label = 'Sort', width = 160 }) {
+export function SortSelect({
+  value, onChange, options, label = 'Sort', width = 160,
+  // Select only — the Tasks toolbar stacks its label above, and this one's
+  // own inline label would be a second "Sort" beside it. Same reasoning as
+  // OwnerFilter's `bare`.
+  bare = false
+}) {
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-      <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>{label}</span>
+    <span style={bare
+      ? { display: 'inline-flex' }
+      : { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+      {!bare && (
+        <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>{label}</span>
+      )}
       <Select
         value={value}
         onChange={onChange}
