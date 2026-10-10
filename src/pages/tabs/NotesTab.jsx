@@ -210,13 +210,17 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
 
         {/* GRID wraps the same rows — see TasksTab for why the markup is
             shared rather than duplicated. */}
-        <div style={view === 'grid' ? {
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
-          gap: 'var(--space-3)',
-          padding: 'var(--space-3)'
-        } : undefined}>
-        {notes.map((n, i) => {
+        {/* Grey behind the list in BOTH views — see TasksTab for why. */}
+        <div style={{
+          background: 'var(--gray-50)',
+          padding: 'var(--space-3)',
+          display: view === 'grid' ? 'grid' : 'flex',
+          ...(view === 'grid'
+            ? { gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))' }
+            : { flexDirection: 'column' }),
+          gap: 'var(--space-3)'
+        }}>
+        {notes.map((n) => {
           // A real title wins over one derived from the body. Before migration
           // 058 there was no title column, so an author who DID title their
           // note saw it rendered as body text with a heading invented from the
@@ -239,13 +243,10 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
           return (
             <div
               key={n.id}
-              style={view === 'grid' ? undefined : {
-                paddingBottom: 'var(--space-3)',
-                marginBottom: 'var(--space-3)',
-                borderBottom: i === notes.length - 1
-                  ? 'none'
-                  : '1px solid var(--border-default)'
-              }}
+              // The divider and the spacing used to live here. The grey
+              // surface and the container's gap do both jobs now, and a rule
+              // between two cards says nothing the gap has not already said.
+              style={undefined}
             >
               <div
                 style={{
@@ -267,8 +268,9 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                   borderLeft: col.stripe ? `3px solid ${col.stripe}` : 'none',
                   // A card in the grid, a list item in rows — see TasksTab.
                   // The colour stripe on the left survives either way.
-                  ...(view === 'grid'
-                    ? {
+                  // A CARD IN BOTH VIEWS — see TasksTab. The colour stripe
+                  // on the left survives either way.
+                  ...({
                       border: '1px solid var(--border-default)',
                       // A FIXED height, so a grid row's cards all end on the
                       // same line. Without it a card with a description was
@@ -286,14 +288,6 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                         : '1px solid var(--border-default)',
                       borderRadius: 'var(--radius-md)',
                       background: 'var(--surface-card)'
-                    }
-                    : {
-                      // NO DIVIDER. Full-width rules between rows made the
-                      // list read as a dense table — nine hairlines across a
-                      // wide screen, louder than the notes themselves. The
-                      // wrapper below carries the spacing instead, because it
-                      // holds the chip row too and the gap belongs after
-                      // BOTH.
                     })
                 }}
               >

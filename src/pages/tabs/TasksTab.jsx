@@ -360,12 +360,21 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
             auto-fill with a 340px minimum: the column count follows the
             window rather than a breakpoint, so a wide screen shows four and a
             narrow one shows one, with no layout that fits neither. */}
-        <div style={view === 'grid' ? {
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
-          gap: 'var(--space-3)',
-          padding: 'var(--space-3)'
-        } : undefined}>
+        {/* GREY BEHIND THE LIST, in both views.
+            The cards were white on white, so each one's edge was carrying the
+            whole job of separating it from the page. On grey they read as
+            cards sitting on a surface, which is what they are.
+            Rows get the same padding and gap as the grid: the only difference
+            between the two views should be how many fit across. */}
+        <div style={{
+          background: 'var(--gray-50)',
+          padding: 'var(--space-3)',
+          display: view === 'grid' ? 'grid' : 'flex',
+          ...(view === 'grid'
+            ? { gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))' }
+            : { flexDirection: 'column' }),
+          gap: 'var(--space-3)'
+        }}>
         {tasks.map((t) => {
           const done = t.status !== 'open'
           // A completed task isn't overdue, whatever its due date says.
@@ -403,19 +412,20 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                   // In the grid each task is a CARD — a full border and a
                   // radius. In rows it is a list item, so only the divider
                   // below it. Same markup, different separation.
-                  ...(view === 'grid'
-                    ? {
-                      border: '1px solid var(--border-default)',
-                      // A FIXED height, so a grid row's cards all end on the
-                      // same line. Without it a card with a description was
-                      // taller than one without, and the row below started at
-                      // a different depth for every column — the zig-zag.
-                      // No min-height: the two reserved body lines align the
-                      // row from the content itself — see NotesTab.
-                      borderRadius: 'var(--radius-md)',
-                      background: 'var(--surface-card)'
-                    }
-                    : { borderBottom: hasChips ? 'none' : '1px solid var(--border-default)' }),
+                  // A CARD IN BOTH VIEWS.
+                  //
+                  // Rows used to be list items separated by a divider line.
+                  // With a grey surface behind them a divider says nothing the
+                  // gap does not already say, and it made a row look like part
+                  // of a table while the grid's own items were cards. Same
+                  // markup, same treatment — the views now differ only in how
+                  // many fit across.
+                  //
+                  // No min-height here: the two reserved body lines align a
+                  // grid row from the content itself — see NotesTab.
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--surface-card)',
                   opacity: done ? 0.6 : 1,
                   transition: 'background 120ms ease'
                 }}

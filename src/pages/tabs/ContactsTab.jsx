@@ -486,20 +486,25 @@ function CardBusinessLink({ contact, disabled, onChanged }) {
 
   return (
     <>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '7px 9px', borderRadius: 'var(--radius-sm)', minWidth: 0
-      }}>
-        <span className="ms" style={{ fontSize: 16, color: 'var(--text-faint)', flex: 'none' }}>
-          business
-        </span>
-        <span className="pp-label" style={{ width: 64, flex: 'none' }}>Business</span>
+      {/* The SHARED row classes, not hand-rolled styles.
+          This was a bespoke flex row with its own padding, a 64px label and a
+          16px icon — against .pp-cc-row's 7px/10px, 62px and 15px. Two pixels
+          out on the label pushed the value off the line the rows above it
+          sit on, and the custom background read as grey against their white.
+
+          Rendered as a <div>, not the <button> the editable rows use: this
+          row has its own controls inside it, and a button containing buttons
+          is invalid HTML. Hover is therefore set here rather than inherited. */}
+      <div
+        className="pp-cc-row"
+        style={{ cursor: 'default', background: 'var(--surface-card)' }}
+      >
+        <span className="ms pp-cc-icon">business</span>
+        <span className="pp-cc-label">Business</span>
 
         {linked ? (
           <>
-            <Truncate style={{ flex: 1, color: 'var(--text-body)' }} title={linked.name}>
-              {linked.name}
-            </Truncate>
+            <span className="pp-cc-value" title={linked.name}>{linked.name}</span>
             <button
               onClick={() => setPicking(true)}
               disabled={disabled || busy}
@@ -521,20 +526,24 @@ function CardBusinessLink({ contact, disabled, onChanged }) {
           <button
             onClick={() => setPicking(true)}
             disabled={disabled}
+            className="pp-cc-value pp-cc-value-empty"
             style={{
-              flex: 1, textAlign: 'left', border: 'none', background: 'none', padding: 0,
-              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
-              color: 'var(--text-faint)', cursor: disabled ? 'default' : 'pointer'
+              border: 'none', background: 'none', padding: 0, textAlign: 'left',
+              fontFamily: 'inherit', cursor: disabled ? 'default' : 'pointer'
             }}
           >
-            Link a business
+            Add a business
           </button>
         )}
       </div>
 
+      {/* Indented to the VALUE column: 10px row padding + 15px icon + 8px gap
+          + 62px label + 8px gap. Spelled out rather than a guessed number, so
+          it follows if .pp-cc-row's own metrics change. */}
       {error && (
         <p role="alert" style={{
-          margin: '0 0 0 34px', fontSize: 'var(--text-sm)', color: 'var(--status-stuck-text)'
+          margin: '0 0 6px calc(10px + 15px + 8px + 62px + 8px)',
+          fontSize: 'var(--text-sm)', color: 'var(--status-stuck-text)'
         }}>
           {error}
         </p>

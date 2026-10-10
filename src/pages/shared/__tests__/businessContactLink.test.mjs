@@ -152,3 +152,20 @@ test('the panel refetches after an unlink as well as a link', () => {
   // in place would leave them a link behind.
   assert.match(business, /onUnlinked=\{reload\}/)
 })
+
+test('the business row looks like every other row on the card', () => {
+  // It was a bespoke flex row: its own padding, a 64px label against
+  // .pp-cc-label's 62px, a 16px icon against 15px, and its own background.
+  // Two pixels out on the label pushed the value off the line the rows above
+  // it sit on, and the custom background read as grey beside their white.
+  const block = cards.slice(
+    cards.indexOf('function CardBusinessLink'),
+    cards.indexOf('const linkBtn')
+  )
+  for (const cls of ['pp-cc-row', 'pp-cc-icon', 'pp-cc-label', 'pp-cc-value']) {
+    assert.ok(block.includes(cls), `the business row does not use .${cls}`)
+  }
+  // And none of the hand-picked numbers that caused the mismatch.
+  assert.ok(!/padding: '7px 9px'/.test(block), 'custom row padding is back')
+  assert.ok(!/width: 64/.test(block), 'the label is 64px again, off by two')
+})
