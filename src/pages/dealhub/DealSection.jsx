@@ -51,10 +51,6 @@ export default function DealSection({
   // a rep touches often; pipeline, status, followers and the contact's own
   // details live in that editor.
   onEditRecord,
-  // The toolbar under the header — which rail is showing, and the search.
-  // Both lived outside the card; the design puts them inside it, because they
-  // act ON this card rather than beside it.
-  view, onView, search, onSearch,
   // Moves the deal when a chevron is clicked. Undefined leaves the row
   // read-only, which is what it was before.
   onMoveStage,
@@ -123,10 +119,6 @@ export default function DealSection({
           </span>
         }
       />
-
-      {onView && (
-        <CardToolbar view={view} onView={onView} search={search} onSearch={onSearch} />
-      )}
 
       <div
         style={{
@@ -291,8 +283,6 @@ export default function DealSection({
           {saveError}
         </div>
       )}
-
-      <TagRow deal={deal} />
 
       <ProductFooter
         deal={deal}
@@ -972,7 +962,7 @@ const CHIP_GROUPS = [
 // behaviour. The design puts them inside the card because they act ON it:
 // "Deal / People / Media" chooses what this card shows, and a control that
 // changes a panel belongs to that panel rather than floating beside it.
-function CardToolbar({ view, onView, search, onSearch }) {
+export function CardToolbar({ view, onView, search, onSearch }) {
   const VIEWS = [
     ['deal',   'Deal',   'sell'],
     ['people', 'People', 'group'],
@@ -1173,6 +1163,24 @@ function FieldChipRow({ deal, fieldOptions = {}, onSaveField, saving }) {
             <span style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
               {chips.map(renderChip)}
             </span>
+            {/* TAGS live under CLIENT, which is where the design groups them —
+                a tag describes the person, not the product or the lead
+                source, and as a full-width row of its own it read as a
+                fourth, unlabelled category. */}
+            {heading === 'Client' && (
+              <>
+                <span style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  marginTop: 'var(--space-2)'
+                }}>
+                  <span className="ms" style={{ fontSize: 16, color: 'var(--text-muted)' }}>
+                    sell
+                  </span>
+                  <span className="pp-label" style={{ marginBottom: 0 }}>Tags</span>
+                </span>
+                <TagRow deal={deal} embedded />
+              </>
+            )}
           </div>
         )
       })}
@@ -1185,7 +1193,10 @@ function FieldChipRow({ deal, fieldOptions = {}, onSaveField, saving }) {
 // A "Tags:" prefix rather than a stacked uppercase heading — the label sits on
 // the same line as the pills, so it reads as a sentence and costs one row
 // instead of the ~90px a full labelled section took.
-function TagRow({ deal }) {
+// `embedded` renders the pills WITHOUT the full-width row around them, for
+// the Client column that now hosts them — the design groups tags with the
+// client type rather than giving them a band of their own.
+function TagRow({ deal, embedded = false }) {
   // Local so a change shows immediately. The webhook reconciles our database a
   // moment later; re-fetching the deal to see a pill appear would be slower and
   // no more accurate.
@@ -1206,22 +1217,28 @@ function TagRow({ deal }) {
 
   return (
     <div
-      style={{
-        display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-        flexWrap: 'wrap',
-        padding: '10px var(--space-4)',
-        borderTop: '1px solid var(--border-default)'
-      }}
-    >
-      <span
-        style={{
-          flex: 'none',
-          fontSize: 'var(--text-md)', fontWeight: 600,
-          color: 'var(--text-muted)'
+      style={embedded
+        ? { display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }
+        : {
+          display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+          flexWrap: 'wrap',
+          padding: '10px var(--space-4)',
+          borderTop: '1px solid var(--border-default)'
         }}
-      >
-        Tags:
-      </span>
+    >
+      {/* The "Tags:" prefix only outside the Client column — in it, the
+          column's own TAGS heading already says what these are. */}
+      {!embedded && (
+        <span
+          style={{
+            flex: 'none',
+            fontSize: 'var(--text-md)', fontWeight: 600,
+            color: 'var(--text-muted)'
+          }}
+        >
+          Tags:
+        </span>
+      )}
       {/* NO TagList any more. TagSelect's collapsed view renders the contact
           tags AND the locked deal tags itself, so this duplicated both — the
           deal tags twice, and before that the contact tags twice.

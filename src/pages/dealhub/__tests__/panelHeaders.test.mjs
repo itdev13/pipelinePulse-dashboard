@@ -122,14 +122,19 @@ test('clicking a stage moves the deal, and a virtual stage does not', () => {
   assert.match(tab, /onMoveStage=\{\(id\) => saveDealField\('pipelineStageId', id\)\}/);
 });
 
-test('the toolbar moved INSIDE the card', () => {
-  // "Deal / People / Media" chooses what this card shows, and the search acts
-  // on it — a control that changes a panel belongs to that panel rather than
-  // floating above it.
-  const deal = read('DealSection.jsx');
-  assert.match(deal, /<CardToolbar view=/);
+test('the toolbar outlives the rail it switches', () => {
+  // It was put INSIDE DealSection, which only renders for leftRail 'deal' —
+  // so clicking People unmounted the very control you switch with, and there
+  // was no way back without a reload. It renders above all three rails.
   const tab = readFileSync(join(dealhub, '..', 'tabs', 'DealHubTab.jsx'), 'utf8');
-  assert.match(tab, /view=\{leftRail\}/);
+  assert.match(tab, /<CardToolbar/);
+  assert.ok(
+    tab.indexOf('<CardToolbar') < tab.indexOf("{leftRail === 'people' &&"),
+    'the toolbar must precede the conditional rails'
+  );
+  // And NOT inside the card, or the bug returns.
+  assert.doesNotMatch(read('DealSection.jsx'), /<CardToolbar/);
+  // The loose pills it replaced are still gone.
   assert.doesNotMatch(tab, /\['media',\s+'Media',\s+'folder_open'\]/, 'the loose pills are back');
 });
 
@@ -212,4 +217,29 @@ test('Qualification is a full-width section, not a rail item', () => {
   const copilot = tab.indexOf('<AskDeal');
   assert.ok(qual > railEnd, 'Qualification is still inside the rail');
   assert.ok(qual < copilot, 'Qualification must sit above Co-Pilot');
+});
+
+test('tags sit under CLIENT, not in a row of their own', () => {
+  // A tag describes the person, not the product or the lead source. As a
+  // full-width row it read as a fourth, unlabelled category.
+  const deal = read('DealSection.jsx');
+  assert.match(deal, /heading === 'Client' && \(/);
+  assert.match(deal, /<TagRow deal=\{deal\} embedded \/>/);
+  // The standalone row is gone — two TagRows would render the pills twice.
+  assert.doesNotMatch(deal, /<TagRow deal=\{deal\} \/>/);
+});
+
+test('the embedded tags drop the "Tags:" prefix', () => {
+  // The column's own TAGS heading already says what they are.
+  assert.match(read('DealSection.jsx'), /\{!embedded && \(/);
+});
+
+test('the card search drives the switcher, and opens it', () => {
+  // Its placeholder is "Search deals, contacts or businesses" — a lookup
+  // across records, which is what the switcher already does. Giving the card
+  // its own state meant a box that searched nothing; sharing switcherQ
+  // WITHOUT opening the dropdown meant results that landed nowhere.
+  const tab = readFileSync(join(dealhub, '..', 'tabs', 'DealHubTab.jsx'), 'utf8');
+  assert.match(tab, /setSwitcherOpen\(v\.trim\(\)\.length > 0\)/);
+  assert.doesNotMatch(tab, /const \[cardQ, setCardQ\]/, 'the dead second search state is back');
 });

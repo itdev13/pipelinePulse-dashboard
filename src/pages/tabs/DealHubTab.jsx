@@ -3,7 +3,7 @@ import PanelHead from '../dealhub/PanelHead'
 import { formatMoney } from '../../utils/money'
 import Timeline from '../dealhub/Timeline'
 import PeopleSection from '../dealhub/PeopleSection'
-import DealSection from '../dealhub/DealSection'
+import DealSection, { CardToolbar } from '../dealhub/DealSection'
 import MediaSection from '../dealhub/MediaSection'
 import AskDeal from '../dealhub/AskDeal'
 import QualificationSection from '../dealhub/QualificationSection'
@@ -1192,6 +1192,26 @@ export default function DealHubTab({
             maxWidth: 1660, margin: '0 auto', boxSizing: 'border-box'
           }}
         >
+          {/* ABOVE the three rails, not inside the Deal card.
+              It lived in DealSection, which only renders for leftRail
+              'deal' — so switching to People or Media unmounted the very
+              control you switch with, and there was no way back without a
+              reload. The toolbar belongs to whatever is showing, so it sits
+              with the container that chooses. */}
+          <CardToolbar
+            view={leftRail}
+            onView={setLeftRail}
+            search={switcherQ}
+            // The card's box and the opportunity picker are ONE search. Its
+            // placeholder is "Search deals, contacts or businesses" — a lookup
+            // across records, which is what the switcher does — so it opens
+            // that dropdown as you type rather than searching nothing.
+            onSearch={(v) => {
+              setSwitcherQ(v)
+              setSwitcherOpen(v.trim().length > 0)
+            }}
+          />
+
           {leftRail === 'people' && (
             <PeopleSection
               people={deal.people || []}
@@ -1226,7 +1246,21 @@ export default function DealHubTab({
               // or Media instead.
               onMoveStage={(id) => saveDealField('pipelineStageId', id)}
               search={switcherQ}
-              onSearch={setSwitcherQ}
+              // The card's box and the opportunity picker are ONE search.
+              //
+              // Its placeholder is "Search deals, contacts or businesses" —
+              // a lookup across records, which is exactly what the switcher
+              // does. Giving the card its own state meant a second box that
+              // searched nothing.
+              //
+              // So it opens the switcher as you type: the results have to
+              // land somewhere, and the dropdown is already built to show
+              // them. Clearing it closes the dropdown again rather than
+              // leaving an empty panel hanging over the card.
+              onSearch={(v) => {
+                setSwitcherQ(v)
+                setSwitcherOpen(v.trim().length > 0)
+              }}
               siblingDeals={siblingDeals}
               onOpenDeal={onSwitchDeal}
               onOpenBusiness={onOpenBusiness}
