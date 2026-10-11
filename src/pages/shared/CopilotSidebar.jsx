@@ -138,10 +138,12 @@ export default function CopilotSidebar({
         // expanded-state box — that mismatch was what made it look shifted
         // right of the rest of the icon rail.
         justifyContent: collapsed ? 'center' : 'space-between',
-        padding: collapsed ? '11px 8px' : '11px 13px'
+        // 16/20, not 11/13 — the design insets the whole rail more
+        // generously, and the header sets that margin for everything below.
+        padding: collapsed ? '14px 8px' : '16px 20px'
       }}>
         {!collapsed && (
-          <span className="ms" style={{ fontSize: 20, color: 'var(--accent-plum-text)' }}>
+          <span className="ms" style={{ fontSize: 22, color: 'var(--accent-plum-text)' }}>
             auto_awesome
           </span>
         )}
@@ -171,7 +173,7 @@ export default function CopilotSidebar({
           and therefore its row tracks, unchanged regardless of whether
           search is open. */}
       <div>
-        <nav style={{ display: 'grid', gap: 1, padding: '0 8px' }}>
+        <nav style={{ display: 'grid', gap: 2, padding: '0 12px' }}>
           <SidebarButton
             icon="edit_note" label="New chat" collapsed={collapsed}
             disabled={empty} onClick={onNewChat}
@@ -230,7 +232,7 @@ export default function CopilotSidebar({
         )}
       </div>
 
-      <div style={{ height: 8 }} />
+      <div style={{ height: 12 }} />
 
       {/* ── chat history ─────────────────────────────────────── */}
       {/* Collapsed still renders an (empty) div in this grid row rather than
@@ -258,7 +260,7 @@ export default function CopilotSidebar({
               aria-expanded={!recentsCollapsed}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
-                width: '100%', padding: '10px 10px 6px',
+                width: '100%', padding: '16px 20px 8px',
                 border: 'none', background: 'transparent', cursor: 'pointer',
                 fontFamily: 'var(--font-sans)'
               }}
@@ -278,11 +280,11 @@ export default function CopilotSidebar({
               </span>
             </button>
           ) : (
-            <h3 style={{ ...RECENTS_LABEL, padding: '10px 10px 6px' }}>Recents</h3>
+            <h3 style={{ ...RECENTS_LABEL, padding: '16px 20px 8px' }}>Recents</h3>
           )}
 
           {!recentsCollapsed && (
-            <div style={{ minHeight: 0, overflowY: 'auto', padding: '0 6px 6px' }}>
+            <div style={{ minHeight: 0, overflowY: 'auto', padding: '0 12px 12px' }}>
               {searchOpen && searchQuery.trim() && filteredHistory.length === 0 && (
                 <p style={{
                   margin: '8px 4px', fontSize: 'var(--text-sm)', color: 'var(--text-faint)',
@@ -333,7 +335,7 @@ export default function CopilotSidebar({
         onClick={() => setSettingsOpen(true)}
         style={{
           display: 'flex', alignItems: 'center', gap: 10,
-          width: '100%', padding: collapsed ? '10px 0' : '10px 13px',
+          width: '100%', padding: collapsed ? '14px 0' : '16px 20px',
           justifyContent: collapsed ? 'center' : 'flex-start',
           border: 'none', borderTop: '1px solid var(--border-default)',
           background: 'transparent', cursor: 'pointer',
@@ -342,10 +344,13 @@ export default function CopilotSidebar({
       >
         <span style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          width: 26, height: 26, flex: 'none',
+          width: 30, height: 30, flex: 'none',
           borderRadius: 'var(--radius-pill)',
-          background: 'var(--accent-plum)', color: '#fff',
-          fontSize: 'var(--text-sm)', fontWeight: 600
+          // A lavender disc with purple initials — the design's avatar —
+          // not a solid purple one with white. plum-text on tint-plum is
+          // 4.54:1 (computed earlier for the business pill, same pair).
+          background: 'var(--tint-plum)', color: 'var(--accent-plum-text)',
+          fontSize: 'var(--text-sm)', fontWeight: 700
         }}>
           {/* A person glyph, not the bare "·" this used to show.
               `fullName` is resolved by matching the session's user id against
@@ -358,7 +363,7 @@ export default function CopilotSidebar({
           )}
         </span>
         {!collapsed && (
-          <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-body)', fontWeight: 500 }}>
+          <span style={{ fontSize: 'var(--text-lg)', color: 'var(--text-heading)', fontWeight: 600 }}>
             Account
           </span>
         )}
@@ -479,20 +484,22 @@ function RecentRow({
         style={{
           display: 'block', flex: '1 1 auto', width: '100%', minWidth: 0,
           textAlign: 'left',
-          padding: '8px 10px',
+          padding: '10px 8px',
           // Room for the menu button so long titles don't run under it.
           paddingRight: 30,
-          height: 36,
+          // minHeight, not height: the row holds a title AND a timestamp,
+          // and a fixed 36px clipped the second line on every row.
+          minHeight: 44,
           border: 'none', background: 'transparent', borderRadius: 10,
           cursor: 'pointer', fontFamily: 'var(--font-sans)'
         }}
       >
         <Truncate style={{ display: 'block',
-          fontSize: 'var(--text-base)', fontWeight: 600,
-          // Selected reads as committed-to-black, matching GHL; an
-          // unselected row stays a muted body grey so the active chat is
-          // the one thing that visually jumps out of the list.
-          color: active ? 'var(--text-heading)' : 'var(--text-muted)' }}>
+          fontSize: 'var(--text-md)', fontWeight: 600,
+          // Every title dark, as the design sets them; the active one
+          // steps to heading-black. Unselected rows were muted grey, which
+          // read as disabled beside the design's list.
+          color: active ? 'var(--text-heading)' : 'var(--text-body)' }}>
           {conv.title}
         </Truncate>
         {/* WHEN the chat was last touched, under its title — the design shows
@@ -503,8 +510,8 @@ function RecentRow({
           <span style={{
             // 3px under its own title, against 6px between rows: the stamp
             // must belong to the title above it rather than float between two.
-            display: 'block', marginTop: 3,
-            fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
+            display: 'block', marginTop: 4,
+            fontSize: 'var(--text-sm)', color: 'var(--text-muted)'
           }}>
             {formatChatStamp(conv.lastAt)}
           </span>
@@ -597,10 +604,10 @@ function RowTooltip({ anchorRef, text }) {
         // trade against silently hiding part of the title again.
         whiteSpace: 'nowrap',
         pointerEvents: 'none',
-        padding: '9px 12px',
+        padding: '6px 12px',
         borderRadius: 'var(--radius-pill)',
         background: 'var(--gray-800)', color: '#fff',
-        fontSize: 'var(--text-md)', fontWeight: 500,
+        fontSize: 'var(--text-base)', fontWeight: 500,
         boxShadow: 'var(--shadow-raised)'
       }}
     >
@@ -797,17 +804,20 @@ function SidebarButton({ icon, label, collapsed, disabled, onClick, title }) {
       disabled={disabled}
       title={title}
       style={{
-        display: 'flex', alignItems: 'center', gap: 12,
+        display: 'flex', alignItems: 'center', gap: 14,
         justifyContent: collapsed ? 'center' : 'flex-start',
-        height: 32, padding: collapsed ? 0 : '0 10px',
-        border: 'none', borderRadius: 'var(--radius-sm)',
+        // 44px rows at text-lg. These were 32px at text-md — a compact
+        // menu, where the design draws the four items as the rail's main
+        // content with a clear line of air between each.
+        height: 44, padding: collapsed ? 0 : '0 12px',
+        border: 'none', borderRadius: 'var(--radius-md)',
         background: 'transparent',
         color: disabled ? 'var(--text-faint)' : 'var(--text-body)',
-        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
+        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)', fontWeight: 500,
         cursor: disabled ? 'default' : 'pointer'
       }}
     >
-      <span className="ms" style={{ fontSize: 18, flex: 'none' }}>{icon}</span>
+      <span className="ms" style={{ fontSize: 22, flex: 'none' }}>{icon}</span>
       {!collapsed && label}
     </button>
   )

@@ -373,7 +373,7 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove, onRemove, re
       {/* Actions row */}
       <div
         style={{
-          display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap'
+          display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap'
         }}
       >
         <GhostBtn
@@ -432,6 +432,8 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove, onRemove, re
           <GhostBtn
             icon={removing ? 'progress_activity' : 'person_remove'}
             danger
+            // Far right, away from the two that open things.
+            style={{ marginLeft: 'auto' }}
             onClick={onRemove}
             title={`Remove ${nameFor(p)} from this deal`}
           >
@@ -454,46 +456,55 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove, onRemove, re
 //   primary   blue    Open contact
 //   danger    red     Remove
 //   active    pine    Show in thread, while the filter is on
-function GhostBtn({ icon, children, onClick, active, danger, primary, title, chip }) {
+// `style` is spread last so a caller can place the button — the Remove
+// action takes marginLeft:auto to sit at the row's far right, as the design
+// separates the destructive action from the two that open things.
+function GhostBtn({ icon, children, onClick, active, danger, primary, title, chip, style }) {
   const fill = active
     ? 'var(--green-500)'
     : danger
       ? 'var(--status-stuck)'
       : primary
         ? 'var(--accent-sky)'
-        : 'var(--gray-700)';
+        // gray-600, not gray-700. 700 is the body-text colour and on a pill
+        // it read as pure black; the design's neutral pill is a mid-dark
+        // grey. White on it is 7.98:1 — AA with room.
+        : 'var(--gray-600)';
   return (
     <button
       onClick={onClick}
       title={title}
       disabled={!onClick}
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 6,
+        display: 'inline-flex', alignItems: 'center', gap: 7,
         cursor: onClick ? 'pointer' : 'default',
-        height: 30, padding: chip ? '0 4px 0 11px' : '0 11px',
+        // A size up from 30px/text-base — the design's pills are the card's
+        // footer controls, not tags.
+        height: 36, padding: chip ? '0 5px 0 14px' : '0 14px',
         border: 'none',
         borderRadius: 'var(--radius-pill)',
         background: fill,
         color: '#fff',
         fontFamily: 'var(--font-sans)',
-        fontSize: 'var(--text-base)', fontWeight: 500,
+        fontSize: 'var(--text-md)', fontWeight: 600,
         // Dimmed rather than hidden: a disabled action still says the action
         // exists, which is why these render at all when their handler is
         // missing.
-        opacity: !onClick ? 0.45 : 1
+        opacity: !onClick ? 0.45 : 1,
+        ...style
       }}
     >
-      {icon && <span className="ms" style={{ fontSize: 15 }}>{icon}</span>}
+      {icon && <span className="ms" style={{ fontSize: 17 }}>{icon}</span>}
       {children}
       {/* The design's "Open CONTACT" pairing — a white chip naming the record
           type, inside the button. */}
       {chip && (
         <span style={{
           display: 'inline-flex', alignItems: 'center',
-          height: 20, padding: '0 8px',
+          height: 24, padding: '0 10px',
           borderRadius: 'var(--radius-pill)',
           background: '#fff', color: fill,
-          fontSize: 10, fontWeight: 700,
+          fontSize: 11, fontWeight: 700,
           letterSpacing: 'var(--tracking-label)'
         }}>
           {chip}
