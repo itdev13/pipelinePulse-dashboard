@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react'
 import PanelHead from './PanelHead'
+import { FieldGrid, FieldCell } from './FieldCard'
 import { dealsAPI } from '../../api/deals'
 import ContactPicker from '../shared/ContactPicker'
-import { nameFor, Truncate } from '../shared/ListChrome'
+import { nameFor } from '../shared/ListChrome'
 import ConfirmDialog from '../shared/ConfirmDialog'
 
 // Deal Hub — People section (opp-associated contacts).
@@ -248,7 +249,10 @@ function initialsFromWords(value) {
 }
 
 function PersonCard({ p, filterActive, onShowInThread, allowRemove, onRemove, removing, onMakePrimary, settingPrimary, onViewContact }) {
-  const { name: fullName, initials, usedField } = displayFor(p)
+  // `usedField` is no longer read: the detail cells render every field
+  // unconditionally now, so there is nothing to suppress as "already shown in
+  // the heading".
+  const { name: fullName, initials } = displayFor(p)
   // Two variants, two jobs. The vivid fill is right for a 3px border; as TEXT
   // on its own tint it's 4.13:1, below AA — so the avatar initials use the
   // darkened -text pair.
@@ -326,36 +330,45 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove, onRemove, re
         </div>
       </div>
 
-      {/* Contact details */}
-      <div
-        style={{
-          display: 'grid', gap: 'var(--space-1)', marginTop: 10,
-          fontSize: 'var(--text-base)', color: 'var(--text-body)'
-        }}
-      >
-        {p.business && usedField !== 'business' && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-            <span className="ms" style={{ fontSize: 14, color: 'var(--text-faint)' }}>business</span>
-            <Truncate>
-              {p.business}
-            </Truncate>
-          </span>
-        )}
-        {p.email && usedField !== 'email' && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-            <span className="ms" style={{ fontSize: 14, color: 'var(--text-faint)' }}>mail</span>
-            <Truncate>
-              {p.email}
-            </Truncate>
-          </span>
-        )}
-        {p.phone && usedField !== 'phone' && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span className="ms" style={{ fontSize: 14, color: 'var(--text-faint)' }}>call</span>
-            {p.phone}
-          </span>
-        )}
-      </div>
+      {/* Contact details — the same bordered cells the deal card's CUSTOMER
+          block uses, so a person reads the same way wherever they appear.
+          EVERY field renders, filled or not: these lines used to be hidden
+          when empty, which made a contact with no email look complete rather
+          than incomplete. A gap is the thing a rep needs to notice.
+
+          The pencils open the CONTACT'S OWN RECORD rather than editing in
+          place. Four inline editors here would be a second copy of the form
+          that record already is — and these four fields are the ones most
+          likely to be wrong together (a contact with no email usually has no
+          business either), so the destination that shows all of them at once
+          is the useful one. */}
+      <FieldGrid style={{
+        marginTop: 10,
+        border: '1px solid var(--gray-200)',
+        borderRadius: 'var(--radius-sm)',
+        overflow: 'hidden'
+      }}>
+        <FieldCell
+          icon="mail" label="Email" value={p.email}
+          onEdit={onViewContact}
+          editTitle={onViewContact ? `Edit on ${nameFor(p)}'s record` : undefined}
+        />
+        <FieldCell
+          icon="call" label="Telephone" value={p.phone}
+          onEdit={onViewContact}
+          editTitle={onViewContact ? `Edit on ${nameFor(p)}'s record` : undefined}
+        />
+        <FieldCell
+          icon="business" label="Business" value={p.business}
+          onEdit={onViewContact}
+          editTitle={onViewContact ? `Edit on ${nameFor(p)}'s record` : undefined}
+        />
+        <FieldCell
+          icon="work" label="Role" value={p.contactType}
+          onEdit={onViewContact}
+          editTitle={onViewContact ? `Edit on ${nameFor(p)}'s record` : undefined}
+        />
+      </FieldGrid>
 
       {/* Actions row */}
       <div

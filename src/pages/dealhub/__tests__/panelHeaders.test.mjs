@@ -261,3 +261,30 @@ test('there is only ONE deal switcher', () => {
   assert.doesNotMatch(tab, /ref=\{switcherRef\} style=\{\{ position: 'relative', width: 420/,
     'the fixed 420px width is back — it overflows the toolbar slot');
 });
+
+// ---- the People view ------------------------------------------------------
+
+test('a person\'s details use the same bordered cells as the deal card', () => {
+  // So a contact reads the same way wherever they appear, rather than as
+  // icon-and-text lines here and a bordered grid two panels away.
+  const people = read('PeopleSection.jsx');
+  assert.match(people, /import \{ FieldGrid, FieldCell \} from '\.\/FieldCard'/);
+  for (const label of ['Email', 'Telephone', 'Business', 'Role']) {
+    assert.match(people, new RegExp(`label="${label}"`), `${label} cell is missing`);
+  }
+});
+
+test('every field renders, filled or not', () => {
+  // They used to be hidden when empty, which made a contact with no email
+  // look complete rather than incomplete — a gap is the thing a rep needs to
+  // notice. FieldCell draws an em dash for an empty value.
+  const people = read('PeopleSection.jsx');
+  assert.doesNotMatch(people, /\{p\.email && usedField !== 'email' &&/);
+  assert.doesNotMatch(people, /\{p\.phone && usedField !== 'phone' &&/);
+});
+
+test('the pencils say where they actually go', () => {
+  // They open the contact's own record rather than editing in place, so the
+  // default "Edit email" tooltip would name the wrong action.
+  assert.match(read('PeopleSection.jsx'), /editTitle=\{onViewContact \? `Edit on \$\{nameFor\(p\)\}'s record`/);
+});

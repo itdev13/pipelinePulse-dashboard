@@ -57,7 +57,9 @@ test('the stamp uses the house date helper, not a locale call', () => {
   // en-GB renders September as "Sept" — a different width from every other
   // month, and not what the design shows. MONTHS gives a uniform three.
   assert.match(bar, /formatDate\(at, false\)/);
-  assert.doesNotMatch(bar, /toLocaleDateString/);
+  // The phrase survives in a COMMENT explaining why — check the call, not
+  // the file.
+  assert.doesNotMatch(bar, /d\.toLocaleDateString\(/);
 });
 
 test('the Account avatar degrades to an icon, not a stray dot', () => {
