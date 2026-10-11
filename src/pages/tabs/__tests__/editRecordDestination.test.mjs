@@ -20,6 +20,8 @@ const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8')
 const deals   = read('../DealsTab.jsx')
 const shell   = read('../../DealHubShell.jsx')
 const section = read('../../dealhub/DealSection.jsx')
+// The header band — and the Edit record button on it — live in the tab now.
+const tab = read('../DealHubTab.jsx')
 
 test('the hub request opens the record page, not an inline row', () => {
   assert.match(deals, /if \(initialEditDealId\) setOpenDealId\(initialEditDealId\)/)
@@ -59,6 +61,10 @@ test('the deal id still travels from the hub', () => {
 test('the button comment no longer describes the old destination', () => {
   // A comment promising the list behaviour would send the next reader
   // looking for a bug that is not there.
-  assert.ok(!/editor already expanded/.test(section))
-  assert.match(section, /OWN RECORD PAGE/)
+  //
+  // The button moved with the header band into DealHubTab — the card's
+  // <section> is owned by the tab now, so that one wrapper can hold the
+  // header, the toolbar and whichever rail is showing.
+  assert.ok(!/editor already expanded/.test(tab))
+  assert.match(tab, /OWN RECORD PAGE/)
 })

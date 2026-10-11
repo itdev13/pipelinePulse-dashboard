@@ -57,10 +57,15 @@ test('the subtitle is not plain 85% white', () => {
 test('every Deal hub panel uses the shared header', () => {
   // Seven panels had their own <header> with the same shape. One drifting
   // from the others is how Tasks ended up needing its own token.
-  for (const f of ['DealSection.jsx', 'Timeline.jsx', 'DealTasksSection.jsx',
+  for (const f of ['Timeline.jsx', 'DealTasksSection.jsx',
     'QualificationSection.jsx', 'MediaSection.jsx', 'PeopleSection.jsx']) {
     assert.match(read(f), /import PanelHead(,| from)/, `${f} still rolls its own header`);
   }
+  // The Deal card's band is rendered by DealHubTab, not by DealSection: one
+  // <section> there wraps the header, the toolbar and whichever rail is
+  // showing, which is what the design draws.
+  const tab = readFileSync(join(dealhub, '..', 'tabs', 'DealHubTab.jsx'), 'utf8');
+  assert.match(tab, /<PanelHead\n\s+icon="grid_view"/);
 });
 
 test('no Deal hub panel renders the old pale band', () => {
