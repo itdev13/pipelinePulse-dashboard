@@ -107,17 +107,22 @@ export default function DealSection({
           <FieldCard
             icon="sell"
             label="Deal name"
-            // A "DEAL" badge, not the mockup's "Open DEAL" button.
-            //
-            // The mockup shows this pill AND "Edit record" on the header band,
-            // and both open the same editor — two buttons for one destination.
-            // Dropping the word "Open" is what makes the difference legible: a
-            // badge says what kind of record this card holds, which is the
-            // only thing the pill adds that the header does not. A pill that
-            // SAYS "Open" and does nothing would be worse than either.
+            // "Open DEAL" is a BUTTON: it opens the deal's own record page,
+            // the same destination the header band's "Edit record" uses
+            // (onEditRecord → DealEditPage). It was a static badge on the
+            // grounds that two controls for one destination is one too many
+            // — but a pill that says "Open" and does nothing is the worse
+            // trade, and the client asked for it to work. Disabled, not
+            // hidden, when no handler is threaded (the contact record's
+            // embedded card), so the card keeps its shape.
             action={(
-              <span
+              <button
+                type="button"
+                onClick={onEditRecord}
+                disabled={!onEditRecord}
+                title={onEditRecord ? "Open this deal's record" : undefined}
                 style={{
+                  cursor: onEditRecord ? 'pointer' : 'default',
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                   height: 22, padding: '0 4px 0 10px',
                   border: 'none', borderRadius: 'var(--radius-pill)',
@@ -146,7 +151,7 @@ export default function DealSection({
                 }}>
                   DEAL
                 </span>
-              </span>
+              </button>
             )}
           >
             <div style={{ padding: '10px 12px' }}>
