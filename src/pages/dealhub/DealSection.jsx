@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { FieldCard, FieldGrid, FieldCell } from './FieldCard'
+import { FieldCard, FieldGrid, FieldCell, FieldRow, NotSet } from './FieldCard'
 import StageStepper from './StageStepper'
 import { createPortal } from 'react-dom'
 import DealStatusControl from './DealStatusControl'
@@ -165,16 +165,15 @@ export default function DealSection({
             </div>
           </FieldCard>
 
-          {/* CLIENT / PRODUCT / LEAD SOURCE, stacked under the deal's name.
-              They were a three-column strip across the card's foot; the
-              design moves them here and gives that foot to the customer
-              instead — these describe the DEAL, so they belong with it. */}
+          {/* The deal's own five fields, under its name. They were a
+              three-column strip across the card's foot; the design moves them
+              here and gives that foot to the customer instead — these
+              describe the DEAL, so they belong with it. */}
           <FieldChipRow
             deal={deal}
             fieldOptions={fieldOptions}
             onSaveField={onSaveField}
             saving={saving}
-            stacked
           />
         </Column>
 
@@ -920,24 +919,21 @@ function unwrapNested(v) {
   return cleaned && !/[{}\\]/.test(cleaned) ? cleaned : v
 }
 
-const FIELD_CHIPS = [
-  ['Client type',             'clientType',         'client_type'],
-  ['Product system',          'productSystem',      'product_system'],
-  ['Product type',            'productType',        'product_type'],
-  ['First contact method',    'firstContactMethod', 'first_contact__method'],
-  ['Lead source opportunity', 'leadSource',         'lead_source_opportunity']
-]
-
-// The same five, under the three headings the design groups them into.
+// label · deal key · GHL key · icon
 //
-// They were one flat row sorted set-first, which put "Lead source" beside
-// "Client type" whenever the product fields were empty — so the row's meaning
-// changed with the data. Grouped, each chip sits under the question it answers
-// and the columns stay put.
-const CHIP_GROUPS = [
-  ['Client',      'person',   ['clientType']],
-  ['Product',     'window',   ['productSystem', 'productType']],
-  ['Lead source', 'language', ['firstContactMethod', 'leadSource']]
+// The ORDER IS THE DESIGN'S, top to bottom, and it is fixed — see the note on
+// the removed sort in FieldChipRow.
+//
+// "How they found us" is a LABEL over `lead_source_opportunity`. There is no
+// field by that name in GHL or in our tables; the design simply words it the
+// way a rep would ask the question. The key underneath is unchanged, so
+// nothing about the read or write path moves with the wording.
+const FIELD_CHIPS = [
+  ['Client type',          'clientType',         'client_type',            'person'],
+  ['Product system',       'productSystem',      'product_system',         'tune'],
+  ['Product type',         'productType',        'product_type',           'grid_view'],
+  ['First contact method', 'firstContactMethod', 'first_contact__method',  'call'],
+  ['How they found us',    'leadSource',         'lead_source_opportunity','travel_explore']
 ]
 
 // The grey band under the header: a search box and the view pills.
@@ -1023,121 +1019,68 @@ export function CardToolbar({ view, onView, children }) {
 // 023, but no route exposed them. `fieldOptions` now carries
 // { id, label, options[], multiple } per field.
 //
-// A field with no options in the response stays a plain chip: a free-text
+// A field with no options in the response stays plain TEXT: a free-text
 // custom field must not render as an empty dropdown.
-// `stacked` puts the three groups one above another, for the deal column the
-// design now hosts them in. Across the card's foot they were three side-by-
-// side columns; in a single column each group is a labelled block.
-function FieldChipRow({ deal, fieldOptions = {}, onSaveField, saving, stacked = false }) {
-  const isSet = (k) => {
-    const v = deal[k]
-    return v != null && String(v).trim() !== ''
-  }
-
-  // THE ORDER IS FROZEN ONCE, not recomputed on every render.
-  //
-  // This was the flicker, and it was not the Select's fault.
-  //
-  // Set fields sort before unset ones. Picking a value flips a field from
-  // unset to set, so the chip being edited JUMPED from the end of the row to
-  // the front — mid-interaction, because DealHubTab applies the value
-  // optimistically the moment it is picked. React then reconciles a list whose
-  // order changed, the picker's slot moves, and its `open` state resets: the
-  // dropdown snapped shut and reopened.
-  //
-  // useMemo with an empty dep list pins the order to the first render, so the
-  // row is stable for as long as the card is mounted. The sort still does its
-  // job — a rep opening a deal sees values before gaps — it just does not
-  // re-sort under the cursor. A reload picks up the new order.
-  const ordered = useMemo(() => [
-    ...FIELD_CHIPS.filter(([, k]) => isSet(k)),
-    ...FIELD_CHIPS.filter(([, k]) => !isSet(k))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [])
-
+// The deal's five custom fields, as a flat bordered table.
+//
+// WHY NOT THE GROUPED VERSION. These were chips under three headings —
+// Client / Product / Lead source — which read well but is not what the client
+// design shows, and it cost a heading row for groups of one. The design is a
+// plain table: one row per field, label in a tinted column, value beside it,
+// pencil at the right. Same shape People already uses, so the two rails now
+// look like the same application.
+//
+// THE ORDER IS THE DESIGN'S, not the data's. An earlier version sorted set
+// fields before unset ones, which meant picking a value MOVED the row being
+// edited — mid-interaction, because DealHubTab applies the value optimistically
+// the moment it is chosen. React reconciled a reordered list, the picker's slot
+// moved, and the dropdown snapped shut. A fixed order cannot do that.
+function FieldChipRow({ deal, fieldOptions = {}, onSaveField, saving }) {
   // Both spellings, for the fields where GHL's own key is inconsistent — the
   // definitions endpoint reports whatever that location has, and a lookup that
-  // misses leaves the chip read-only with no clue why.
+  // misses leaves the row read-only with no clue why.
   const specFor = (ghlKey, dealKey) =>
     fieldOptions[ghlKey]
     || fieldOptions[ghlKey.replace('__', '_')]
     || fieldOptions[dealKey.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)]
-  if (ordered.length === 0) return null
-
-  // One chip, in whichever shape the field supports.
-  const renderChip = ([label, key, ghlKey]) => {
-    const spec = specFor(ghlKey, key)
-    // The slot. Editable fields reserve the picker's width so the swap is
-    // dimensionless; a read-only chip has no open state and needs none.
-    //
-    // Without this the row jumped horizontally: a closed chip is sized to its
-    // text ("FIRST CONTACT METHOD Not set"), the open picker is a fixed
-    // 220px, so swapping them changed the slot's width and every chip after
-    // it moved. minWidth on the SLOT, not the chip — the chip keeps its own
-    // hug-the-text sizing, so a short one does not stretch to 220px and look
-    // like an empty input.
-    return spec && onSaveField ? (
-      <span
-        key={key}
-        style={{
-          display: 'inline-flex', alignItems: 'center',
-          height: 34, minWidth: 220, flex: 'none'
-        }}
-      >
-        <FieldPicker
-          label={label}
-          value={unwrapNested(deal[key])}
-          spec={spec}
-          saving={saving === spec.id}
-          // dealKey travels so the handler can update the right property
-          // optimistically — the response shape doesn't name it.
-          onChange={(v) => onSaveField('customField', { id: spec.id, value: v, dealKey: key })}
-        />
-      </span>
-    ) : (
-      <FieldChip key={key} label={label} value={unwrapNested(deal[key])} />
-    )
-  }
 
   return (
-    <div
-      style={stacked
-        ? { display: 'grid', gap: 'var(--space-4)' }
-        : {
-          display: 'grid',
-          // Three columns on a wide card, stacking as it narrows. Each keeps
-          // a picker's width plus its label, below which they read as a list.
-          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-          borderTop: '1px solid var(--border-default)'
-        }}
-    >
-      {CHIP_GROUPS.map(([heading, icon, keys], gi) => {
-        const chips = ordered.filter(([, k]) => keys.includes(k))
-        if (chips.length === 0) return null
+    <div style={{
+      border: '1px solid var(--gray-200)',
+      borderRadius: 'var(--radius-sm)',
+      background: '#fff',
+      overflow: 'hidden'
+    }}>
+      {FIELD_CHIPS.map(([label, key, ghlKey, icon], i) => {
+        const spec = specFor(ghlKey, key)
+        const value = unwrapNested(deal[key])
+        const editable = spec && onSaveField
         return (
-          <div
-            key={heading}
-            style={{
-              display: 'flex', flexDirection: 'column', gap: 'var(--space-2)',
-              minWidth: 0,
-              // In a column the card's own padding already frames these, and
-              // the dividing rules belong to the across-the-foot layout.
-              padding: stacked ? 0 : '12px var(--space-4)',
-              borderRight: stacked || gi === CHIP_GROUPS.length - 1
-                ? 'none'
-                : '1px solid var(--border-default)'
-            }}
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span className="ms" style={{ fontSize: 16, color: 'var(--text-muted)' }}>
-                {icon}
-              </span>
-              <span className="pp-label" style={{ marginBottom: 0 }}>{heading}</span>
-            </span>
-            <span style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-              {chips.map(renderChip)}
-            </span>
-          </div>
+          <FieldRow
+            key={key}
+            icon={icon}
+            label={label}
+            value={value}
+            // An editable field renders its PICKER in the value slot; a field
+            // whose definition we never resolved falls back to plain text,
+            // which is honest — it shows the value and offers no control it
+            // cannot honour.
+            control={editable ? (
+              <FieldPicker
+                bare
+                label={label}
+                value={value}
+                spec={spec}
+                saving={saving === spec.id}
+                // dealKey travels so the handler can update the right property
+                // optimistically — the response shape doesn't name it.
+                onChange={(v) =>
+                  onSaveField('customField', { id: spec.id, value: v, dealKey: key })}
+              />
+            ) : undefined}
+            notSet
+            last={i === FIELD_CHIPS.length - 1}
+          />
         )
       })}
     </div>
@@ -1234,7 +1177,12 @@ function TagRow({ deal, embedded = false }) {
 // Now the picks are held in a local draft and written once, when the dropdown
 // closes. Multi-select gets the bigger win (n saves become 1); single-select
 // still saves immediately on pick, since choosing an option IS closing it.
-function FieldPicker({ label, value, spec, saving, onChange }) {
+// `bare` drops the label the chip carries inside itself.
+//
+// The chip was built to stand alone in a wrapping row, so it prints its own
+// label as a prefix. In the flat field table the label is already the row's
+// tinted left column, and printing it again gave every row its name twice.
+function FieldPicker({ label, value, spec, saving, onChange, bare = false }) {
   const [open, setOpen] = useState(false)
   const set = value != null && String(value).trim() !== ''
 
@@ -1303,34 +1251,45 @@ function FieldPicker({ label, value, spec, saving, onChange }) {
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 7,
           maxWidth: '100%',
-          height: 34, padding: '0 12px',
-          // SOLID, matching the read-only FieldChip below. These two render
-          // side by side in the same row — a picker with options next to a
-          // plain chip without — so a dashed border on one and a solid border
-          // on the other reads as two different states rather than two
-          // different controls.
-          border: set
-            ? '1px solid var(--border-default)'
-            : '1px solid var(--accent-gold)',
+          height: 34, padding: bare ? '0 8px' : '0 12px',
+          // BARE sits inside a bordered table row, so it draws no border or
+          // fill of its own — a box inside a box reads as a nested control.
+          // The NotSet chip carries the amber instead.
+          border: bare
+            ? '1px solid transparent'
+            : set
+              ? '1px solid var(--border-default)'
+              : '1px solid var(--accent-gold)',
           borderRadius: 'var(--radius-md)',
-          background: set ? '#fff' : 'var(--tint-gold)',
+          background: bare ? 'none' : (set ? '#fff' : 'var(--tint-gold)'),
           fontFamily: 'var(--font-sans)',
           cursor: saving ? 'progress' : 'pointer'
         }}
       >
-        <span
-          style={{
-            fontSize: 'var(--text-xs)', fontWeight: 600,
-            letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase',
-            color: 'var(--text-muted)'
-          }}
-        >
-          {label}
-        </span>
-        <Truncate style={{ fontSize: 'var(--text-md)', fontWeight: 600,
-            color: set ? 'var(--text-heading)' : 'var(--accent-gold-text)' }}>
-          {set ? String(value) : 'Not set'}
-        </Truncate>
+        {/* The row's tinted column already names the field — see `bare`. */}
+        {!bare && (
+          <span
+            style={{
+              fontSize: 'var(--text-xs)', fontWeight: 600,
+              letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase',
+              color: 'var(--text-muted)'
+            }}
+          >
+            {label}
+          </span>
+        )}
+        {/* The shared NotSet chip when bare, so an empty PICKER and an empty
+            TEXT row in the same table look like one thing rather than two
+            different kinds of emptiness. */}
+        {bare && !set
+          ? <NotSet />
+          : (
+            <Truncate style={{ fontSize: 'var(--text-md)',
+                fontWeight: bare ? 400 : 600,
+                color: set ? 'var(--text-heading)' : 'var(--accent-gold-text)' }}>
+              {set ? String(value) : 'Not set'}
+            </Truncate>
+          )}
         {/* pp-spin only while saving — the icon swapped to progress_activity
             but kept plain "ms", so it rendered as a static glyph that looked
             like a stalled spinner. Every other spinner in the app is
@@ -1752,58 +1711,6 @@ function InlineText({
   )
 }
 
-function FieldChip({ label, value }) {
-  const set = value != null && String(value).trim() !== ''
-  return (
-    <span
-      title={
-        set
-          ? `${label}: ${value}`
-          : `${label} has no value on this deal`
-      }
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 7,
-        maxWidth: '100%',
-        height: 34, padding: '0 12px',
-        // SET: white, grey outline — it carries information, so it reads as
-        // content and sits quietly beside its neighbours.
-        // UNSET: a solid amber outline on an amber tint — a gap to fill, not
-        // an error.
-        //
-        // The unset chip was DASHED on transparent, which read as a
-        // drop-target rather than a field, and the tint is what the design
-        // uses to group the two "Not set" lead-source chips into one
-        // recognisable state.
-        border: set
-          ? '1px solid var(--border-default)'
-          : '1px solid var(--accent-gold)',
-        borderRadius: 'var(--radius-md)',
-        background: set ? '#fff' : 'var(--tint-gold)'
-      }}
-    >
-      <span
-        style={{
-          flex: 'none',
-          fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
-          textTransform: 'uppercase', color: 'var(--text-muted)'
-        }}
-      >
-        {label}
-      </span>
-      <Truncate style={{ fontSize: 'var(--text-md)',
-          fontWeight: set ? 600 : 500,
-          // accent-gold-text, not accent-gold: at 11px on white the lighter
-          // value is 3.25:1, below AA.
-          color: set ? 'var(--text-heading)' : 'var(--accent-gold-text)' }}>
-        {set ? value : 'Not set'}
-      </Truncate>
-    </span>
-  )
-}
-
-// Sibling deals, below the chip row. Tags used to live here too, but they now
-// share the chip row — a labelled block spent ~90px of card height on what is
-// often a single pill.
 function ProductFooter({ deal, siblingDeals, onOpenDeal }) {
   // The reassignment-targets payload includes the current deal — it's the
   // "move this message to" list. Here we only want the siblings.

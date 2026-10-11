@@ -41,8 +41,15 @@ test('non-strings pass through', () => {
   assert.equal(unwrapNested(42), 42)
 })
 
-test('the chips render through the unwrapper', () => {
-  assert.match(section, /value=\{unwrapNested\(deal\[key\]\)\}/)
+test('the field rows render through the unwrapper', () => {
+  // Pinned as the CALL, not as one spelling of it. The value is read once
+  // into a local now that each field renders a row with both a text value and
+  // a picker — the previous assertion matched the old inline JSX attribute
+  // and broke on a change that kept the unwrapping exactly as it was.
+  assert.match(section, /const value = unwrapNested\(deal\[key\]\)/)
+  // And it reaches BOTH slots — a picker that skipped it would show the raw
+  // {"value":"…"} wrapper the moment a field came back nested.
+  assert.match(section, /value=\{value\}[\s\S]{0,400}?<FieldPicker/)
 })
 
 // ── The revert ───────────────────────────────────────────────────────

@@ -19,6 +19,33 @@ import { Truncate } from '../shared/ListChrome'
 // Nine cells each drawing their own 1px line would double up where they meet
 // and leave a 2px seam down the middle of the grid.
 
+// "Not set", as a chip rather than an em dash.
+//
+// A dash is a character in the same grey as a real value, so a gap in the
+// deal's record reads as something that was filled in. The design gives it a
+// pale amber chip instead — the colour the app already uses for "needs
+// attention", and unmistakably not a value someone typed.
+//
+// Verified AA for normal text: #8f6808 on #faf3e0 is 4.57:1 light, 4.51:1
+// dark. Both are thin margins, so neither token should be lightened without
+// recomputing.
+export function NotSet() {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center',
+      height: 22, padding: '0 9px',
+      borderRadius: 'var(--radius-sm)',
+      border: '1px solid var(--accent-gold)',
+      background: 'var(--tint-gold)',
+      color: 'var(--accent-gold-text)',
+      fontSize: 'var(--text-sm)', fontWeight: 600,
+      whiteSpace: 'nowrap'
+    }}>
+      Not set
+    </span>
+  )
+}
+
 export function FieldCard({ icon, label, value, action, children, style }) {
   return (
     <div
@@ -142,7 +169,13 @@ export function FieldCell({ icon, label, value, onEdit, editTitle, tone, title }
 //
 // Same empty-value contract as FieldCell: an em dash, never a blank, because
 // a gap in a contact's record is the thing a rep needs to notice.
-export function FieldRow({ icon, label, value, onEdit, editTitle, last }) {
+// `control` replaces the value slot with an interactive element — the deal
+// rail's custom fields are pickers, not text. The label still comes from the
+// row's tinted column, so the control must not draw a label of its own;
+// FieldPicker has a `bare` mode for exactly that.
+export function FieldRow({
+  icon, label, value, onEdit, editTitle, last, notSet = false, control
+}) {
   const empty = value == null || value === ''
   return (
     <div
@@ -169,13 +202,28 @@ export function FieldRow({ icon, label, value, onEdit, editTitle, last }) {
         <span className="pp-label" style={{ marginBottom: 0 }}>{label}</span>
       </span>
 
-      <Truncate style={{
-        padding: '9px 12px',
-        fontSize: 'var(--text-md)', lineHeight: 1.35,
-        color: empty ? 'var(--text-faint)' : 'var(--text-body)'
-      }}>
-        {empty ? '—' : value}
-      </Truncate>
+      {/* `notSet` is opt-in: the Deal rail takes the chip, People keeps the
+          dash. Both say "nothing here", but the chip also says "and that is
+          worth fixing" — true of a deal's product type, not of a contact's
+          middle name. */}
+      {control
+        ? (
+          <span style={{
+            display: 'flex', alignItems: 'center',
+            padding: '5px 12px', minWidth: 0
+          }}>
+            {control}
+          </span>
+        )
+        : (
+          <Truncate style={{
+            padding: '9px 12px',
+            fontSize: 'var(--text-md)', lineHeight: 1.35,
+            color: empty ? 'var(--text-faint)' : 'var(--text-body)'
+          }}>
+            {empty ? (notSet ? <NotSet /> : '—') : value}
+          </Truncate>
+        )}
 
       <span style={{ padding: '0 10px', flex: 'none' }}>
         {onEdit && (

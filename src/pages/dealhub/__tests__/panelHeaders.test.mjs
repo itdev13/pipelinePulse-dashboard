@@ -155,7 +155,7 @@ test('the customer, deal name and stage facts all use the shared card', () => {
   // Three places wanted the same bordered box with a tinted strip. Three
   // hand-rolled copies would drift on border colour and cell padding.
   const deal = read('DealSection.jsx');
-  assert.match(deal, /import \{ FieldCard, FieldGrid, FieldCell \} from '\.\/FieldCard'/);
+  assert.match(deal, /import \{ FieldCard, FieldGrid, FieldCell, FieldRow, NotSet \} from '\.\/FieldCard'/);
   assert.match(deal, /<FieldCard[\s\S]*?label="Deal name"/);
   assert.match(deal, /<FieldCard[\s\S]*?label="Customer"/);
 });
@@ -244,13 +244,44 @@ test('tags sit under the stage facts', () => {
   assert.ok(stage.indexOf('<TagRow') > -1 && stage.indexOf('<TagRow') < stage.indexOf('</Column>'));
 });
 
-test('the customer band is full width, the chips are in the column', () => {
+test('the customer band is full width, the deal fields are in the column', () => {
   // They swapped: nine customer fields in a 300px column wrapped every value
-  // onto its own line, while CLIENT/PRODUCT/LEAD SOURCE describe the DEAL and
-  // belong beside its name.
+  // onto its own line, while the deal's own fields belong beside its name.
   const deal = read('DealSection.jsx');
-  assert.match(deal, /<FieldChipRow[\s\S]{0,200}?stacked/);
+  assert.match(deal, /<FieldChipRow/);
   assert.match(deal, /<ContactLines[\s\S]{0,200}?wide/);
+  // `stacked` is gone: the grouped three-across layout was the only other
+  // mode, and nothing rendered it. A prop with one value is not a choice.
+  assert.doesNotMatch(deal, /<FieldChipRow[\s\S]{0,200}?stacked/);
+})
+
+test('the deal fields are a FLAT TABLE, not grouped chips', () => {
+  // The client design (Oct 2026) drops the Client / Product / Lead source
+  // headings: one bordered row per field, label in a tinted column, value
+  // beside it, pencil at the right — the same shape the People rail uses, so
+  // the two rails read as one application.
+  const deal = read('DealSection.jsx');
+  assert.match(deal, /FIELD_CHIPS\.map\(\(\[label, key, ghlKey, icon\], i\)/);
+  assert.match(deal, /<FieldRow[\s\S]{0,600}?control=\{editable/);
+  // The groupings are GONE, not merely unused — dead branches drift.
+  assert.doesNotMatch(deal, /CHIP_GROUPS/);
+  assert.doesNotMatch(deal, /function FieldChip\(/);
+})
+
+test('the field order is fixed, never sorted by whether a value is set', () => {
+  // Sorting set-before-unset moved the row being edited: picking a value
+  // flips a field to set, DealHubTab applies it optimistically, React
+  // reconciles a reordered list and the open dropdown snaps shut.
+  const deal = read('DealSection.jsx');
+  assert.doesNotMatch(deal, /FIELD_CHIPS\.filter\(\(\[, k\]\) => isSet\(k\)\)/);
+})
+
+test('"How they found us" is a LABEL over lead_source_opportunity', () => {
+  // No such field exists in GHL or in our tables — the design just words the
+  // question the way a rep would ask it. The key underneath is unchanged, so
+  // the read and write paths do not move with the wording.
+  const deal = read('DealSection.jsx');
+  assert.match(deal, /\['How they found us',\s+'leadSource',\s+'lead_source_opportunity'/);
 });
 
 test('the embedded tags drop the "Tags:" prefix', () => {
@@ -426,9 +457,28 @@ test('a wrapped placeholder loses its brackets, a real one keeps them', () => {
   assert.match(read('QualificationSection.jsx'), /function unwrapParens/);
 });
 
-test('an unset field chip is a solid amber outline, not a dashed box', () => {
-  // Dashed on transparent read as a drop-target rather than a field.
+test('an unset field is an amber "Not set" chip, not a dash or a dashed box', () => {
+  // Dashed on transparent read as a drop-target rather than a field; an em
+  // dash reads as a value someone typed. The chip is neither.
   const deal = read('DealSection.jsx');
+  const card = read('FieldCard.jsx');
   assert.doesNotMatch(deal, /'1px dashed var\(--accent-gold\)'/);
-  assert.match(deal, /background: set \? '#fff' : 'var\(--tint-gold\)'/);
+  assert.match(card, /export function NotSet\(\)/);
+  assert.match(card, /border: '1px solid var\(--accent-gold\)'/);
+  assert.match(card, /background: 'var\(--tint-gold\)'/);
+  // Opt-in, so People keeps its dash: "not set" is worth flagging on a deal's
+  // product type and not on a contact's middle name.
+  assert.match(card, /notSet = false/);
+  assert.match(card, /\{empty \? \(notSet \? <NotSet \/> : '—'\) : value\}/);
+  // An empty PICKER takes the same chip — two kinds of emptiness in one
+  // table would read as two different states.
+  assert.match(deal, /bare && !set\s*\n\s*\? <NotSet \/>/);
+})
+
+test('a bare picker draws no border of its own', () => {
+  // It sits inside a bordered table row; a second box around the control
+  // reads as a nested control rather than an editable cell.
+  const deal = read('DealSection.jsx');
+  assert.match(deal, /border: bare\s*\n\s*\? '1px solid transparent'/);
+  assert.match(deal, /background: bare \? 'none'/);
 });
