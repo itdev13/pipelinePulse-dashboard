@@ -28,7 +28,7 @@ import { noteColourStyle } from '../../utils/noteColour'
 // passed in.
 
 export function DealTasksSection({ dealId, people = [], onOpenAll }) {
-  const { items, loading, error, patchItem, reload } = useDealList(
+  const { items, loading, error, patchItem, reload, reloadSoon } = useDealList(
     dealId,
     (id) => tasksAPI.list({ dealId: id, status: 'all', limit: 50 }),
     'tasks'
@@ -353,8 +353,9 @@ export function DealTasksSection({ dealId, people = [], onOpenAll }) {
               })
             } else {
               // A new task arrives via the CRM's webhook, so refetch rather
-              // than inventing a row whose id and attribution we don't know.
-              reload()
+              // than inventing a row whose id and attribution we don't know —
+              // and wait for that webhook, or the refetch beats it.
+              reloadSoon()
             }
           }}
         />
@@ -364,7 +365,7 @@ export function DealTasksSection({ dealId, people = [], onOpenAll }) {
 }
 
 export function DealNotesSection({ dealId, people = [], onOpenAll }) {
-  const { items, loading, error, patchItem, reload } = useDealList(
+  const { items, loading, error, patchItem, reload, reloadSoon } = useDealList(
     dealId,
     (id) => notesAPI.list({ dealId: id, limit: 50 }),
     'notes'
@@ -641,8 +642,9 @@ export function DealNotesSection({ dealId, people = [], onOpenAll }) {
               })
             } else {
               // A new note arrives via the webhook, so refetch rather than
-              // inventing a row whose id and attribution we don't know.
-              reload()
+              // inventing a row whose id and attribution we don't know — and
+              // wait for that webhook, or the refetch beats it.
+              reloadSoon()
             }
           }}
         />
@@ -715,7 +717,22 @@ function useDealList(dealId, fetcher, key) {
 
   const reload = useCallback(() => setNonce((n) => n + 1), [])
 
-  return { items, loading, error, patchItem, reload }
+  // RELOAD AFTER THE WEBHOOK HAS LANDED.
+  //
+  // Neither POST inserts our row: /notes and /tasks write to GHL, and the
+  // NoteCreate / TaskCreate webhook is what inserts here. An immediate
+  // refetch therefore races that insert and comes back without the row the
+  // rep just created — which is why a new note only appeared after a manual
+  // refresh.
+  //
+  // 2.5s is the delay the deal card already uses for every GHL-backed write
+  // (DealHubTab's refreshDeal). The first reload still runs straight away, so
+  // an edit to an EXISTING row stays instant; this only covers the create.
+  const reloadSoon = useCallback(() => {
+    window.setTimeout(() => setNonce((n) => n + 1), 2500)
+  }, [])
+
+  return { items, loading, error, patchItem, reload, reloadSoon }
 }
 
 function Rail({

@@ -23,6 +23,21 @@ import PanelHead from './PanelHead'
 // question nobody has answered on this deal, which is exactly what a manager
 // reviewing it wants to see first.
 
+// GHL's placeholders are written wrapped in parentheses —
+// "(What are their requirements?)" — which is the convention for a HINT in a
+// form, not for a question standing on its own line. The design shows them
+// bare, so the wrapping pair is dropped for display.
+//
+// Only a pair that wraps the WHOLE string, and only when there is no other
+// bracket inside it: "(A) or (B)" is not a wrapped string and must survive
+// intact. The stored value is untouched — this is a display rule.
+function unwrapParens(text) {
+  const t = String(text || '').trim()
+  if (!t.startsWith('(') || !t.endsWith(')')) return t
+  const inner = t.slice(1, -1)
+  return inner.includes('(') || inner.includes(')') ? t : inner
+}
+
 export default function QualificationSection({ qualification = [], onSave, savingField }) {
   // Collapsed by default. Ten rows of "Not filled yet" is the longest panel in
   // the rail and the least actionable — the counts in the header already say
@@ -89,7 +104,9 @@ export default function QualificationSection({ qualification = [], onSave, savin
         icon="checklist"
         title="Qualification"
         accent="gold"
-        subtitle={`${filled} of ${qualification.length}`}
+        // NOT a subtitle. The design puts the count on the RIGHT, beside the
+        // "N missing" pill — the two are one reading ("0 of 10, 10 missing"),
+        // and split across the band they read as unrelated facts.
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         tooltip={open ? 'Hide the headings' : 'Show all ten headings'}
@@ -98,6 +115,9 @@ export default function QualificationSection({ qualification = [], onSave, savin
         style={{ borderBottom: open ? undefined : 'none' }}
         action={
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 9 }}>
+            <span style={{ fontSize: 'var(--text-md)', color: 'rgba(255,255,255,0.92)' }}>
+              {filled} of {qualification.length}
+            </span>
             {missing.length > 0 && (
               <span
                 style={{
@@ -182,7 +202,7 @@ export default function QualificationSection({ qualification = [], onSave, savin
                       fontSize: 'var(--text-sm)', lineHeight: 1.4, color: 'var(--text-muted)'
                     }}
                   >
-                    {q.description}
+                    {unwrapParens(q.description)}
                   </span>
                 )}
               </div>

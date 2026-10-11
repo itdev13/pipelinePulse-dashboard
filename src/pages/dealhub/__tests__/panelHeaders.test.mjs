@@ -365,3 +365,51 @@ test('the chip text clears AA on its own tint', () => {
   const r = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
   assert.ok(r >= 4.5, `sky-text on tint-sky is ${r.toFixed(2)}:1`);
 });
+
+test('a NEW note or task waits for its webhook before refetching', () => {
+  // Neither POST inserts our row: /notes and /tasks write to GHL, and the
+  // NoteCreate / TaskCreate webhook is what inserts here. An immediate
+  // refetch raced that insert and came back without the row the rep had just
+  // created — so a new note only appeared after a manual refresh.
+  const rail = read('DealTasksSection.jsx');
+  assert.match(rail, /const reloadSoon = useCallback/);
+  assert.match(rail, /setNonce\(\(n\) => n \+ 1\), 2500\)/);
+  // Both rails, not just notes.
+  assert.equal((rail.match(/reloadSoon\(\)/g) || []).length, 2);
+});
+
+test('an EDIT still updates instantly', () => {
+  // The delay is for creates only — patching a row we already have needs no
+  // webhook, and 2.5s of nothing would read as a failed save.
+  assert.match(read('DealTasksSection.jsx'), /const reload = useCallback\(\(\) => setNonce\(\(n\) => n \+ 1\), \[\]\)/);
+});
+
+test('the qualification count sits on the right, with the missing pill', () => {
+  // Split across the band, "0 of 10" and "10 missing" read as unrelated
+  // facts; together they are one reading.
+  const q = read('QualificationSection.jsx');
+  assert.doesNotMatch(q, /subtitle=\{`\$\{filled\} of/);
+  assert.match(q, /\{filled\} of \{qualification\.length\}/);
+});
+
+test('a wrapped placeholder loses its brackets, a real one keeps them', () => {
+  // GHL writes these as form HINTS — "(What are their requirements?)" — and
+  // the design shows them bare. Only a pair wrapping the WHOLE string goes.
+  const unwrap = (text) => {
+    const t = String(text || '').trim();
+    if (!t.startsWith('(') || !t.endsWith(')')) return t;
+    const inner = t.slice(1, -1);
+    return inner.includes('(') || inner.includes(')') ? t : inner;
+  };
+  assert.equal(unwrap('(What are their requirements?)'), 'What are their requirements?');
+  assert.equal(unwrap('Why did we loose the deal?'), 'Why did we loose the deal?');
+  assert.equal(unwrap('(A) or (B)'), '(A) or (B)', 'a non-wrapping pair must survive');
+  assert.match(read('QualificationSection.jsx'), /function unwrapParens/);
+});
+
+test('an unset field chip is a solid amber outline, not a dashed box', () => {
+  // Dashed on transparent read as a drop-target rather than a field.
+  const deal = read('DealSection.jsx');
+  assert.doesNotMatch(deal, /'1px dashed var\(--accent-gold\)'/);
+  assert.match(deal, /background: set \? '#fff' : 'var\(--tint-gold\)'/);
+});

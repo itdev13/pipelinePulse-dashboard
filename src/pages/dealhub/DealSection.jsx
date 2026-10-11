@@ -1292,9 +1292,14 @@ function FieldPicker({ label, value, spec, saving, onChange }) {
           display: 'inline-flex', alignItems: 'center', gap: 7,
           maxWidth: '100%',
           height: 34, padding: '0 12px',
+          // SOLID, matching the read-only FieldChip below. These two render
+          // side by side in the same row — a picker with options next to a
+          // plain chip without — so a dashed border on one and a solid border
+          // on the other reads as two different states rather than two
+          // different controls.
           border: set
-            ? '1px solid var(--border-strong)'
-            : '1px dashed var(--accent-gold)',
+            ? '1px solid var(--border-default)'
+            : '1px solid var(--accent-gold)',
           borderRadius: 'var(--radius-md)',
           background: set ? '#fff' : 'var(--tint-gold)',
           fontFamily: 'var(--font-sans)',
@@ -1748,15 +1753,20 @@ function FieldChip({ label, value }) {
         display: 'inline-flex', alignItems: 'center', gap: 7,
         maxWidth: '100%',
         height: 34, padding: '0 12px',
-        // A SET field is solid and filled — it carries information, so it reads
-        // as content. An UNSET one stays dashed and amber: a gap to fill, not an
-        // error. Before, both were white outlines and the five unset chips were
-        // the loudest thing in the row.
+        // SET: white, grey outline — it carries information, so it reads as
+        // content and sits quietly beside its neighbours.
+        // UNSET: a solid amber outline on an amber tint — a gap to fill, not
+        // an error.
+        //
+        // The unset chip was DASHED on transparent, which read as a
+        // drop-target rather than a field, and the tint is what the design
+        // uses to group the two "Not set" lead-source chips into one
+        // recognisable state.
         border: set
-          ? '1px solid var(--border-strong)'
-          : '1px dashed var(--accent-gold)',
-        borderRadius: 'var(--radius-sm)',
-        background: set ? 'var(--gray-25)' : 'transparent'
+          ? '1px solid var(--border-default)'
+          : '1px solid var(--accent-gold)',
+        borderRadius: 'var(--radius-md)',
+        background: set ? '#fff' : 'var(--tint-gold)'
       }}
     >
       <span
