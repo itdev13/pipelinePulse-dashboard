@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { FieldCard, FieldGrid, FieldCell } from './FieldCard'
 import PanelHead, { PanelHeadButton } from './PanelHead'
-import StageBar from './StageBar'
 import { createPortal } from 'react-dom'
 import DealStatusControl from './DealStatusControl'
 import { DatePicker, Select } from 'antd'
@@ -267,15 +266,7 @@ export default function DealSection({
         onOpenDeal={onOpenDeal}
       />
 
-      {/* The pipeline across the card's foot. The stage PICKER above stays —
-          it is how you choose from a dozen similarly-named stages — and this
-          answers the other question: how far along is this deal. */}
-      <StageBar
-        stages={stages}
-        saving={saving === 'pipelineStageId'}
-        onMove={onSaveField ? (id) => onSaveField('pipelineStageId', id) : undefined}
-      />
-    </section>
+</section>
   )
 }
 
@@ -829,9 +820,12 @@ function StageColumn({ deal, stages, onSaveField, saving, saveError, users, onNe
           />
         )}
         {/* Keeps the last row from showing the grid's gap colour where a cell
-            would be. Owner and last contact always render; the other two
-            depend on the deal, so the count is 3, 4 or 5. */}
-        {([true, true, !!deal.source, deal.quoteRevision != null]
+            would be.
+            THREE always render — owner, days in stage, last customer contact.
+            Days in stage was missing from this count, so a deal with no source
+            had three cells and no filler, and the empty fourth slot showed as
+            a grey block. */}
+        {([true, true, true, !!deal.source, deal.quoteRevision != null]
           .filter(Boolean).length % 2 === 1) && (
           <div style={{ background: '#fff' }} />
         )}
@@ -913,6 +907,18 @@ const FIELD_CHIPS = [
   ['Lead source opportunity', 'leadSource',         'lead_source_opportunity']
 ]
 
+// The same five, under the three headings the design groups them into.
+//
+// They were one flat row sorted set-first, which put "Lead source" beside
+// "Client type" whenever the product fields were empty — so the row's meaning
+// changed with the data. Grouped, each chip sits under the question it answers
+// and the columns stay put.
+const CHIP_GROUPS = [
+  ['Client',      'person',   ['clientType']],
+  ['Product',     'window',   ['productSystem', 'productType']],
+  ['Lead source', 'language', ['firstContactMethod', 'leadSource']]
+]
+
 // The five opportunity custom fields, as editable pickers.
 //
 // These were read-only chips because nothing sent their options — GHL defines
@@ -958,59 +964,77 @@ function FieldChipRow({ deal, fieldOptions = {}, onSaveField, saving }) {
     || fieldOptions[dealKey.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)]
   if (ordered.length === 0) return null
 
+  // One chip, in whichever shape the field supports.
+  const renderChip = ([label, key, ghlKey]) => {
+    const spec = specFor(ghlKey, key)
+    // The slot. Editable fields reserve the picker's width so the swap is
+    // dimensionless; a read-only chip has no open state and needs none.
+    //
+    // Without this the row jumped horizontally: a closed chip is sized to its
+    // text ("FIRST CONTACT METHOD Not set"), the open picker is a fixed
+    // 220px, so swapping them changed the slot's width and every chip after
+    // it moved. minWidth on the SLOT, not the chip — the chip keeps its own
+    // hug-the-text sizing, so a short one does not stretch to 220px and look
+    // like an empty input.
+    return spec && onSaveField ? (
+      <span
+        key={key}
+        style={{
+          display: 'inline-flex', alignItems: 'center',
+          height: 34, minWidth: 220, flex: 'none'
+        }}
+      >
+        <FieldPicker
+          label={label}
+          value={unwrapNested(deal[key])}
+          spec={spec}
+          saving={saving === spec.id}
+          // dealKey travels so the handler can update the right property
+          // optimistically — the response shape doesn't name it.
+          onChange={(v) => onSaveField('customField', { id: spec.id, value: v, dealKey: key })}
+        />
+      </span>
+    ) : (
+      <FieldChip key={key} label={label} value={unwrapNested(deal[key])} />
+    )
+  }
+
   return (
     <div
       style={{
-        display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap',
-        padding: '11px var(--space-4)',
+        display: 'grid',
+        // Three columns on a wide card, stacking as it narrows. Each keeps a
+        // picker's width plus its label, below which they read as a list.
+        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
         borderTop: '1px solid var(--border-default)'
       }}
     >
-      {/* Each chip sits in a slot with a reserved minimum width.
-          Without this the row still jumped horizontally: a closed chip is
-          sized to its text ("FIRST CONTACT METHOD Not set"), and the open
-          picker is a fixed 220px, so swapping them changed the slot's width
-          and every chip after it moved along the wrapping row.
-
-          minWidth on the slot, not the chip — the chip keeps its own hug-the-
-          text sizing inside, so a short chip does not stretch its border to
-          220px and look like an empty input. */}
-      {ordered.map(([label, key, ghlKey]) => {
-        const spec = specFor(ghlKey, key)
-        // The slot. Editable fields reserve the picker's width so the swap is
-        // dimensionless; a read-only chip has no open state and needs none.
-        return spec && onSaveField ? (
-          <span
-            key={key}
+      {CHIP_GROUPS.map(([heading, icon, keys], gi) => {
+        const chips = ordered.filter(([, k]) => keys.includes(k))
+        if (chips.length === 0) return null
+        return (
+          <div
+            key={heading}
             style={{
-              display: 'inline-flex', alignItems: 'center',
-              height: 34,
-              // At least wide enough for a usable dropdown; wider if the
-              // closed chip's own text needs it. flex:none so the wrapping row
-              // never squeezes a slot below the width its chip established —
-              // that squeeze was itself a source of movement.
-              minWidth: 220, flex: 'none'
+              display: 'flex', flexDirection: 'column', gap: 'var(--space-2)',
+              minWidth: 0, padding: '12px var(--space-4)',
+              borderRight: gi === CHIP_GROUPS.length - 1
+                ? 'none'
+                : '1px solid var(--border-default)'
             }}
           >
-            <FieldPicker
-              label={label}
-              value={unwrapNested(deal[key])}
-              spec={spec}
-              saving={saving === spec.id}
-              // dealKey travels so the handler can update the right property
-              // optimistically — the response shape doesn't name it.
-              onChange={(v) => onSaveField('customField', { id: spec.id, value: v, dealKey: key })}
-            />
-          </span>
-        ) : (
-          <FieldChip key={key} label={label} value={unwrapNested(deal[key])} />
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span className="ms" style={{ fontSize: 16, color: 'var(--text-muted)' }}>
+                {icon}
+              </span>
+              <span className="pp-label" style={{ marginBottom: 0 }}>{heading}</span>
+            </span>
+            <span style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+              {chips.map(renderChip)}
+            </span>
+          </div>
         )
       })}
-
-      {/* Tags share this line rather than getting their own labelled block
-          below. They're the same kind of thing — small facts about the deal —
-          and a full section with a stacked TAGS heading spent ~90px of card
-          height on what is often a single pill. */}
     </div>
   )
 }

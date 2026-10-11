@@ -1207,7 +1207,24 @@ export default function DealHubTab({
             ))}
           </div>
         ) : (
-          stages && stages.length > 0 && <StageStepper stages={stages} />
+          stages && stages.length > 0 && (
+            <StageStepper
+              stages={stages}
+              // It was decorative — a row of chevrons that looked like a
+              // control and did nothing. The same write the stage PICKER on
+              // the deal card makes, so there is one path and one set of
+              // error handling.
+              //
+              // A stage with no id is the virtual entry the /stages route
+              // inserts when the pipeline no longer holds the deal's stage:
+              // GHL's update endpoint takes pipelineStageId and accepts no
+              // name, so there is nothing to send.
+              onStageClick={(st) => {
+                if (!st?.id || st.isCurrent) return
+                saveDealField('pipelineStageId', st.id)
+              }}
+            />
+          )
         )}
         </div>
       </div>

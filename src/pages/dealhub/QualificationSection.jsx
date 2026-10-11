@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import PanelHead from './PanelHead'
 
 // Qualification — the deal's own custom field values, against the headings
@@ -33,6 +33,16 @@ export default function QualificationSection({ qualification = [], onSave, savin
   // form nobody finishes.
   const [editing, setEditing] = useState(null)
   const [draft, setDraft] = useState('')
+  // Set synchronously by Escape, read by the blur handler it triggers.
+  //
+  // setEditing(null) is QUEUED, but .blur() fires onBlur in the same tick — so
+  // the handler still sees `editing === q.fieldKey` from this render's closure
+  // and would save the draft the rep just abandoned. A ref is the only value
+  // that changes before the blur is dispatched.
+  //
+  // Declared with the other hooks, above the early return: a hook after a
+  // conditional return runs in a different order on the renders that take it.
+  const abandoning = useRef(false)
 
   if (qualification.length === 0) return null
 
@@ -121,8 +131,16 @@ export default function QualificationSection({ qualification = [], onSave, savin
             // One column when the panel is narrow: side by side, a question
             // and its answer box share ~300px and both become unreadable.
             gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))',
+            // The 1px gaps ARE the separators — the background showing through
+            // between white cells. Drawn this way rather than as borders on
+            // the cells so the vertical line between the two columns and the
+            // horizontal ones between rows are the same rule, and neither
+            // doubles up where they cross.
             gap: 1,
-            background: 'var(--border-default)'
+            background: 'var(--border-default)',
+            // A rule above the first row too, so the grid meets the gold band
+            // with the same line it uses everywhere else.
+            borderTop: '1px solid var(--border-default)'
           }}
         >
           {qualification.map((q) => {
@@ -165,35 +183,70 @@ export default function QualificationSection({ qualification = [], onSave, savin
                 )}
               </div>
 
-              {editing === q.fieldKey ? (
-                <div style={{ display: 'grid', gap: 7, minWidth: 0 }}>
-                  <textarea
-                    autoFocus
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      // Escape abandons. Enter inserts a newline, as it must
-                      // in a free-text answer — Cmd/Ctrl+Enter commits, which
-                      // is the convention everywhere else in the app.
-                      if (e.key === 'Escape') { setEditing(null); setDraft('') }
-                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) commit(q)
-                    }}
-                    rows={3}
-                    style={{
-                      width: '100%', padding: '8px 10px',
-                      border: '1px solid var(--accent-gold-text)',
-                      borderRadius: 'var(--radius-sm)',
-                      fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
-                      lineHeight: 1.5, color: 'var(--text-body)',
-                      resize: 'vertical'
-                    }}
-                  />
+              {/* A REAL TEXTAREA, always — not a button that becomes one.
+                  The click-to-edit box looked like a field but was not one:
+                  a rep who clicked and started typing lost the first
+                  keystroke, because the click only opened the editor. The
+                  design shows ten boxes you can type straight into, resize
+                  handle and all, so that is what these are.
+
+                  The draft is held per-heading in `editing`/`draft`, the same
+                  state the old editor used — focus claims the row, blur
+                  commits it. */}
+              <div style={{ display: 'grid', gap: 7, minWidth: 0 }}>
+                <textarea
+                  value={editing === q.fieldKey ? draft : (q.value || '')}
+                  readOnly={!canEdit}
+                  placeholder={canEdit ? 'Add answer…' : 'Not filled yet'}
+                  onFocus={() => {
+                    if (!canEdit || editing === q.fieldKey) return
+                    setEditing(q.fieldKey)
+                    setDraft(q.value || '')
+                  }}
+                  onChange={(e) => setDraft(e.target.value)}
+                  // COMMIT ON BLUR. Focus is what opens the editor now, so
+                  // clicking from one box into another switches `editing` —
+                  // and without this the first box's typing was discarded
+                  // silently, which is data loss on a click-through.
+                  //
+                  // It costs nothing on a stray click: commit() returns
+                  // without a request when the value has not changed.
+                  onBlur={() => {
+                    if (abandoning.current) { abandoning.current = false; return }
+                    if (canEdit && editing === q.fieldKey) commit(q)
+                  }}
+                  onKeyDown={(e) => {
+                    // Escape abandons. Enter inserts a newline, as it must in
+                    // a free-text answer — Cmd/Ctrl+Enter commits, which is
+                    // the convention everywhere else in the app.
+                    if (e.key === 'Escape') {
+                      abandoning.current = true
+                      setEditing(null); setDraft('')
+                      e.currentTarget.blur()
+                    }
+                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) commit(q)
+                  }}
+                  rows={3}
+                  style={{
+                    width: '100%', minWidth: 0,
+                    padding: '9px 11px',
+                    border: `1px solid ${editing === q.fieldKey
+                      ? 'var(--accent-gold-text)'
+                      : 'var(--border-default)'}`,
+                    borderRadius: 'var(--radius-sm)',
+                    background: '#fff',
+                    fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+                    lineHeight: 1.5, color: 'var(--text-body)',
+                    resize: 'vertical'
+                  }}
+                />
+                {/* Save/Cancel appear only on the row being edited — ten
+                    permanent button pairs would be louder than the answers. */}
+                {editing === q.fieldKey && (
                   <span style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
                     <button
                       type="button"
                       onClick={() => commit(q)}
-                      // Per-FIELD, not a global "something is saving" flag:
-                      // only this row's own write should grey its own button.
                       disabled={saving}
                       style={{
                         height: 28, padding: '0 12px',
@@ -208,9 +261,9 @@ export default function QualificationSection({ qualification = [], onSave, savin
                     <button
                       type="button"
                       onClick={() => { setEditing(null); setDraft('') }}
-                      // Cancel is disabled mid-write too: abandoning the box
-                      // while the PATCH is in flight leaves the rep looking at
-                      // the old value with a save still landing behind it.
+                      // Disabled mid-write: abandoning while the PATCH is in
+                      // flight leaves the rep on the old value with a save
+                      // still landing behind it.
                       disabled={saving}
                       style={{
                         height: 28, padding: '0 12px',
@@ -224,47 +277,8 @@ export default function QualificationSection({ qualification = [], onSave, savin
                       Cancel
                     </button>
                   </span>
-                </div>
-              ) : (
-                // A BOX THAT LOOKS LIKE THE INPUT IT BECOMES, which is the
-                // design's "Add answer…" field. The dashed rose chip this
-                // replaced named the state well but did not look like
-                // somewhere you type, so the panel read as a report rather
-                // than a form.
-                //
-                // Read-only (no saver wired) renders the same box without the
-                // affordances — a button that does nothing is worse than a
-                // label.
-                <button
-                  type="button"
-                  onClick={() => { if (canEdit) { setEditing(q.fieldKey); setDraft(q.value || '') } }}
-                  disabled={!canEdit}
-                  title={canEdit ? `Edit ${q.name}` : undefined}
-                  style={{
-                    display: 'block', width: '100%', minWidth: 0,
-                    minHeight: 64, padding: '9px 11px',
-                    border: '1px solid var(--border-default)',
-                    borderRadius: 'var(--radius-sm)',
-                    background: '#fff',
-                    textAlign: 'left',
-                    cursor: canEdit ? 'text' : 'default',
-                    fontFamily: 'var(--font-sans)'
-                  }}
-                >
-                  <span
-                    style={{
-                      display: 'block',
-                      fontSize: 'var(--text-md)', lineHeight: 1.5,
-                      whiteSpace: 'pre-line',
-                      // The placeholder is faint, a real answer is not —
-                      // same contract as every input in the app.
-                      color: q.filled ? 'var(--text-body)' : 'var(--text-faint)'
-                    }}
-                  >
-                    {q.filled ? q.value : (canEdit ? 'Add answer…' : 'Not filled yet')}
-                  </span>
-                </button>
-              )}
+                )}
+              </div>
             </div>
             )
           })}

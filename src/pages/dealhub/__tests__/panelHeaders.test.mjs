@@ -8,7 +8,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -83,33 +83,40 @@ test('the loading skeleton wears the same band', () => {
   assert.match(read('Skeleton.jsx'), /var\(--panel-head-\$\{accent\}/);
 });
 
-// ---- the stage bar --------------------------------------------------------
+// ---- the stage stepper ----------------------------------------------------
+//
+// The chevron row already existed as StageStepper, rendered above the deal
+// card — it just did nothing when clicked. A second component was written for
+// the client's design before that was noticed; this pins the one that stays.
 
-test('the stage bar renders the server\'s own past/current answer', () => {
+test('the stepper renders the server\'s own past/current answer', () => {
   // /deals/:id/stages already resolves the current index against the deal's
   // stage NAME and inserts a virtual entry when the pipeline no longer holds
   // it. Recomputing here would eventually disagree with it.
-  const bar = read('StageBar.jsx');
-  assert.match(bar, /s\.isCurrent/);
-  assert.match(bar, /s\.isPast/);
+  const stepper = read('StageStepper.jsx');
+  assert.match(stepper, /isCurrent/);
+  assert.match(stepper, /isPast/);
 });
 
-test('a stage with no id is shown but not clickable', () => {
+test('clicking a stage moves the deal', () => {
+  // It was decorative: a row of chevrons that looked like a control and did
+  // nothing.
+  const tab = readFileSync(join(dealhub, '..', 'tabs', 'DealHubTab.jsx'), 'utf8');
+  assert.match(tab, /onStageClick=\{\(st\) => \{/);
+  assert.match(tab, /saveDealField\('pipelineStageId', st\.id\)/);
+});
+
+test('a stage with no id is shown but not moved to', () => {
   // The virtual entry has stage_id null — GHL's update endpoint takes
   // pipelineStageId and accepts no name, so there is nothing to send.
-  assert.match(read('StageBar.jsx'), /const movable = !!s\.id && !s\.isCurrent/);
+  const tab = readFileSync(join(dealhub, '..', 'tabs', 'DealHubTab.jsx'), 'utf8');
+  assert.match(tab, /if \(!st\?\.id \|\| st\.isCurrent\) return/);
 });
 
-test('the last chevron has a flat right edge', () => {
-  // An arrow on the final stage points out of the card at nothing, which
-  // reads as a step that is missing.
-  assert.match(read('StageBar.jsx'), /last\s*\n?\s*\? 'polygon\(0 0, 100% 0, 100% 100%, 0 100%, 14px 50%\)'/);
-});
-
-test('moving a stage goes through the deal card\'s own saver', () => {
-  // onSaveField('pipelineStageId', …) is the same write the stage PICKER
-  // makes — two paths would mean two sets of error handling.
-  assert.match(read('DealSection.jsx'), /onMove=\{onSaveField \? \(id\) => onSaveField\('pipelineStageId', id\) : undefined\}/);
+test('there is only ONE chevron component', () => {
+  // StageBar was built before StageStepper was noticed — two near-identical
+  // components, one above the card and one below it.
+  assert.ok(!existsSync(join(dealhub, 'StageBar.jsx')), 'the duplicate StageBar is back');
 });
 
 // ---- the bordered field cards --------------------------------------------
