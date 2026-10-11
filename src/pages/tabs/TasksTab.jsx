@@ -16,9 +16,9 @@ import TaskDealsPopover from '../shared/TaskDealsPopover'
 import { useLinkTargets } from '../../hooks/useLinkTargets'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import {
-  Shell, Panel, ContactChip, DealPill, RowAction,
+  Shell, Panel, DealPill, RowAction,
   PrimaryAction, NoteChip, StateMessage, LoadMore,
-  RichBody, formatDue, relativeTime
+  RichBody, Truncate, formatDue, relativeTime
 } from '../shared/ListChrome'
 
 // Tasks — v5.
@@ -134,7 +134,7 @@ function TaskSearch({ value, onChange }) {
   )
 }
 
-export default function TasksTab({ onOpenDeal, onOpenContact }) {
+export default function TasksTab({ onOpenDeal, onOpenContact, onOpenBusiness }) {
   // Remembered across tab switches — see useTabState. Clicking a task through
   // to its deal and coming back used to reset this to 'all'.
   const [dueFilter, setDueFilter] = useTabState('tasks', 'dueFilter', 'all')
@@ -510,12 +510,27 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                   // placed, and without a positioned ancestor it would anchor
                   // to the page instead.
                   position: 'relative',
-                  // ROW: title left, chips right. CARD: stacked, because at a
-                  // 340px column width the horizontal layout left the title
-                  // ~40px and it wrapped to one letter per line.
-                  display: 'flex',
-                  flexDirection: view === 'grid' ? 'column' : 'row',
-                  alignItems: view === 'grid' ? 'stretch' : 'flex-start',
+                  // ROWS: three columns — the linked records, the due date,
+                  // then the title and its description. The design reads
+                  // left-to-right as "who and what · when · what to do", and
+                  // each column keeps its own left edge down the whole list.
+                  //
+                  // CARD: stacked, because at a 340px column width the
+                  // horizontal layout left the title ~40px and it wrapped to
+                  // one letter per line.
+                  ...(view === 'grid'
+                    ? {
+                      display: 'flex', flexDirection: 'column',
+                      alignItems: 'stretch'
+                    }
+                    : {
+                      display: 'grid',
+                      // The link column is fixed so every "View CONTACT"
+                      // button lands on the same x; the due column hugs its
+                      // content; the title takes what is left.
+                      gridTemplateColumns: 'minmax(260px, 340px) minmax(110px, auto) minmax(0, 1fr)',
+                      alignItems: 'start'
+                    }),
                   gap: 'var(--space-3)',
                   // Taller rows. At space-3 the three lines of a task —
                   // title, description, due date — were closer to each other
@@ -592,7 +607,12 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                   minWidth: 0, flex: 1,
                   ...(view === 'grid'
                     ? { display: 'flex', flexDirection: 'column', alignSelf: 'stretch' }
-                    : {})
+                    // THIRD column in rows. `order` rather than moving the
+                    // JSX: the card view wants title-then-links and the rows
+                    // view wants links-then-title, and one source order with
+                    // a swap is easier to follow than two branches rendering
+                    // the same children in different places.
+                    : { order: 3 })
                 }}>
                   <button
                     onClick={() => t.deal && onOpenDeal && onOpenDeal(t.deal.id)}
@@ -727,7 +747,9 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                     // chips halfway down the row, so they no longer read as
                     // belonging to the title they describe.
                     alignItems: 'flex-start',
-                    flex: 'none'
+                    flex: 'none',
+                    // FIRST column in rows — see the `order: 3` above.
+                    ...(view === 'grid' ? {} : { order: 1, flexDirection: 'column', width: '100%' })
                   }}
                 >
                   {/* A tick, not a checkbox — a bare 17px box says nothing
@@ -747,32 +769,62 @@ export default function TasksTab({ onOpenDeal, onOpenContact }) {
                     />
                   )}
 
-                  {/* GHL names a new opportunity after its contact, so the
-                      contact chip and the deal chip below routinely printed the
-                      same string twice — "james stevens" then "James Stevens".
-                      Drop the contact chip when it's the same person; the deal
-                      chip already names them and also says which deal. */}
-                  {(t.contacts?.length ? t.contacts : t.contact ? [t.contact] : [])
-                    .filter((c) => !sameName(c.name, t.deal?.name))
-                    .map((c) => (
-                      <ContactChip
-                        key={c.id}
-                        name={c.name}
-                        onClick={onOpenContact ? () => onOpenContact(c.id) : undefined}
-                      />
-                    ))}
-                  {/* "No deal" is shown, not hidden — v5 treats an unattached
-                      task as a real state worth seeing. */}
-                  {/* The PRIMARY deal, still one chip. A task can hold ten,
-                      but ten chips on a list row is unreadable — the extra
-                      ones are counted here and edited in the popover. */}
-                  <DealPill
-                    name={t.deal?.name || 'No deal'}
-                    empty={!t.deal}
-                    onClick={
-                      t.deal && onOpenDeal ? () => onOpenDeal(t.deal.id) : undefined
-                    }
-                  />
+                  {/* The task's linked records, one row each.
+                      GHL names a new opportunity after its contact, so the
+                      contact and the deal routinely hold the same string —
+                      the contact row is dropped when it would just repeat the
+                      deal's name, since the deal row already says who it is
+                      AND which deal. */}
+                  {(() => {
+                    const contacts = (t.contacts?.length
+                      ? t.contacts
+                      : t.contact ? [t.contact] : []
+                    ).filter((c) => !sameName(c.name, t.deal?.name))
+                    const primaryContact = contacts[0] || null
+                    return (
+                      <>
+                        <LinkedRow
+                          icon="person"
+                          name={primaryContact?.name}
+                          emptyText="No contact"
+                          tone={LINK_TONES.contact}
+                          onOpen={primaryContact && onOpenContact
+                            ? () => onOpenContact(primaryContact.id)
+                            : undefined}
+                        />
+                        {/* The DEAL row takes the shared DealPill rather
+                            than a LinkedRow button. Opening a deal has one
+                            treatment across every surface in the app
+                            (dealPill.test.mjs pins it) — a fourth one here
+                            would make a rep learn the control twice. */}
+                        <LinkedRow
+                          icon="sell"
+                          name={t.deal?.name}
+                          emptyText="No deal"
+                          action={(
+                            <DealPill
+                              name={t.deal?.name || 'No deal'}
+                              empty={!t.deal}
+                              compact
+                              onClick={t.deal && onOpenDeal
+                                ? () => onOpenDeal(t.deal.id)
+                                : undefined}
+                            />
+                          )}
+                        />
+                        <LinkedRow
+                          icon="business"
+                          name={t.business?.name}
+                          emptyText="No business"
+                          tone={LINK_TONES.business}
+                          onOpen={t.business && onOpenBusiness
+                            ? () => onOpenBusiness(t.business.id)
+                            : undefined}
+                          last
+                        />
+                      </>
+                    )
+                  })()}
                   {dealCount > 1 && (
                     <span
                       title={`Linked to ${dealCount} deals`}
@@ -996,6 +1048,84 @@ function Toast({ children, tone = 'error' }) {
   )
 }
 
+
+// One linked record on a task card: icon, name, and a "View X" button.
+//
+// These were bare pills — a ContactChip and a DealPill side by side — which
+// said WHO and WHICH DEAL but not what kind of record each was, and gave no
+// affordance for opening them beyond the pill itself being clickable.
+//
+// The design makes each a row: the type is named by its icon and by the chip
+// inside the button, so "Riley Nakamura · View CONTACT" and "Brightwell ·
+// View BUSINESS" cannot be mistaken for one another at a glance.
+//
+// Rendered even when the record is MISSING (`name` null) — an unattached task
+// is a real state worth seeing, not an absence to hide. The button is then
+// inert and the row says so.
+// `action` overrides the built-in button, for a row whose control already
+// exists as a shared component — the deal row hands it a DealPill.
+function LinkedRow({ icon, name, emptyText, tone, onOpen, last, action }) {
+  const present = !!name
+  return (
+    <div
+      style={{
+        display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+        padding: '7px 0',
+        borderBottom: last ? 'none' : '1px solid var(--border-default)',
+        minWidth: 0
+      }}
+    >
+      <span className="ms" style={{ fontSize: 16, color: 'var(--text-faint)', flex: 'none' }}>
+        {icon}
+      </span>
+      <Truncate style={{
+        flex: 1, minWidth: 0,
+        fontSize: 'var(--text-md)',
+        color: present ? 'var(--text-body)' : 'var(--text-faint)'
+      }}>
+        {present ? name : emptyText}
+      </Truncate>
+      {action || (
+      <button
+        type="button"
+        onClick={present && onOpen ? onOpen : undefined}
+        disabled={!present || !onOpen}
+        title={present && onOpen ? `Open ${name}` : emptyText}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none',
+          height: 24, padding: '0 4px 0 10px',
+          border: 'none', borderRadius: 'var(--radius-pill)',
+          background: present ? tone.fill : 'var(--status-stuck)',
+          color: '#fff',
+          fontFamily: 'var(--font-sans)',
+          fontSize: 'var(--text-sm)', fontWeight: 600,
+          cursor: present && onOpen ? 'pointer' : 'default',
+          opacity: present ? 1 : 1
+        }}
+      >
+        {present ? 'View' : 'No'}
+        <span style={{
+          display: 'inline-flex', alignItems: 'center',
+          height: 18, padding: '0 7px',
+          borderRadius: 'var(--radius-pill)',
+          background: '#fff',
+          color: present ? tone.fill : 'var(--status-stuck)',
+          fontSize: 10, fontWeight: 700,
+          letterSpacing: 'var(--tracking-label)'
+        }}>
+          {tone.label}
+        </span>
+      </button>
+      )}
+    </div>
+  )
+}
+
+const LINK_TONES = {
+  contact: { fill: 'var(--accent-sky)', label: 'CONTACT' },
+  deal: { fill: 'var(--green-500)', label: 'DEAL' },
+  business: { fill: 'var(--accent-plum)', label: 'BUSINESS' }
+}
 
 // Mark complete / mark open.
 //

@@ -452,7 +452,13 @@ export default function DealHubShell() {
         {/* Deal chips on tasks + notes jump to that deal in the hub, which
             is the "click a task to see it on the deal hub" flow. */}
         {activeTab === 'tasks' && (
-          <TasksTab onOpenDeal={openDeal} onOpenContact={openContact} />
+          <TasksTab
+            onOpenDeal={openDeal}
+            onOpenContact={openContact}
+            // The task card names a business now, so it needs the route to
+            // one — the same handler the Businesses roll-up already uses.
+            onOpenBusiness={openBusiness}
+          />
         )}
         {activeTab === 'notes' && (
           <NotesTab onOpenDeal={openDeal} onOpenContact={openContact} />
