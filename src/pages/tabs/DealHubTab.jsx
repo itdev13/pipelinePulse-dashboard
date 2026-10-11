@@ -1228,6 +1228,7 @@ export default function DealHubTab({
             <DealSection
               deal={deal}
               stages={stages || []}
+              onOpenContact={onOpenContact}
               // The toolbar moved INSIDE the card — see CardToolbar. The pills
               // choose what this card shows, so they belong to it.
               view={leftRail}

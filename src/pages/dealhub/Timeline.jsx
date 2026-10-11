@@ -592,12 +592,21 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
             <span
               title={`Filed against ${m.contact.name}`}
               style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4,
+                display: 'inline-flex', alignItems: 'center', gap: 5,
                 maxWidth: '100%',
-                padding: '1px 8px',
+                height: 22, padding: '0 9px',
                 borderRadius: 'var(--radius-pill)',
-                background: 'var(--surface-sunken)',
-                fontWeight: 500, color: 'var(--text-muted)',
+                // A BLUE OUTLINED CHIP, per the client's design — and the
+                // same sky accent a contact already wears everywhere else in
+                // the app (ContactChip, the People panel's band).
+                //
+                // It was a grey fill with muted text, which made the person
+                // the row is filed against read as quieter than the row's own
+                // metadata — the opposite of what it is. -text, not the bare
+                // accent: sky on its own tint is 4.13:1, below AA.
+                border: '1px solid var(--accent-sky)',
+                background: 'var(--tint-sky)',
+                fontWeight: 500, color: 'var(--accent-sky-text)',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
               }}
             >

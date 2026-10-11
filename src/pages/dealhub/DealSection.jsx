@@ -50,6 +50,9 @@ export default function DealSection({
   // a rep touches often; pipeline, status, followers and the contact's own
   // details live in that editor.
   onEditRecord,
+  // Opens a contact's own record — the destination for the customer card's
+  // edit pencils.
+  onOpenContact,
   // Moves the deal when a chevron is clicked. Undefined leaves the row
   // read-only, which is what it was before.
   onMoveStage,
@@ -170,6 +173,7 @@ export default function DealSection({
           <ContactLines
             person={primaryPerson(deal.people)}
             fallbackName={contactIsNameless ? 'No name on this contact' : contactName}
+            onOpenContact={onOpenContact}
           />
         </Column>
 
@@ -1833,7 +1837,7 @@ function ProductFooter({ deal, siblingDeals, onOpenDeal }) {
 }
 
 // Email / phone / address / timezone for the primary contact, as icon rows.
-function ContactLines({ person, fallbackName }) {
+function ContactLines({ person, fallbackName, onOpenContact }) {
   if (!person) return null
 
   // The primary contact's own record, as labelled fields rather than four
@@ -1883,7 +1887,19 @@ function ContactLines({ person, fallbackName }) {
     >
       <FieldGrid>
         {fields.map(([label, value, icon]) => (
-          <FieldCell key={label} icon={icon} label={label} value={value} />
+          <FieldCell
+            key={label}
+            icon={icon}
+            label={label}
+            value={value}
+            // The pencil opens the CONTACT'S OWN RECORD, the same destination
+            // the People view's rows use. Nine inline editors here would be a
+            // second copy of the form that record already is — and these are
+            // the customer's fields, not the deal's, so the deal card is not
+            // where they belong.
+            onEdit={onOpenContact ? () => onOpenContact(person.id) : undefined}
+            editTitle={onOpenContact ? 'Edit on the contact record' : undefined}
+          />
         ))}
         {/* The grid is two columns and there are nine fields, so the last row
             is half empty. Without a filler the gap colour shows through as a

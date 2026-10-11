@@ -331,3 +331,37 @@ test('Open names its destination on the button', () => {
   // destination is not only in the tooltip.
   assert.match(read('PeopleSection.jsx'), /chip="CONTACT"/);
 });
+
+test('the customer card has edit pencils', () => {
+  // Nine labelled fields with no affordance at all — the design shows a
+  // pencil on each. They open the CONTACT'S record, since these are the
+  // customer's fields rather than the deal's.
+  const deal = read('DealSection.jsx');
+  assert.match(deal, /onEdit=\{onOpenContact \? \(\) => onOpenContact\(person\.id\) : undefined\}/);
+  const tab = readFileSync(join(dealhub, '..', 'tabs', 'DealHubTab.jsx'), 'utf8');
+  assert.match(tab, /onOpenContact=\{onOpenContact\}/);
+});
+
+test('a person chip is blue wherever it appears', () => {
+  // It was a grey fill with muted text, which made the person a row is filed
+  // against read as quieter than the row's own metadata — the opposite of
+  // what it is. Both panels now use the same sky chip.
+  for (const f of ['Timeline.jsx', 'DealTasksSection.jsx']) {
+    const src = read(f);
+    assert.match(src, /border: '1px solid var\(--accent-sky\)'/, `${f} chip is not blue`);
+    assert.match(src, /color: 'var\(--accent-sky-text\)'/, `${f} uses the bare accent`);
+  }
+});
+
+test('the chip text clears AA on its own tint', () => {
+  // --accent-sky on --tint-sky is 4.41:1, just below. The -text variant
+  // exists for exactly this pairing.
+  const lum = (hex) => {
+    const c = hex.replace('#', '').match(/../g).map((x) => parseInt(x, 16) / 255)
+      .map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const l1 = lum('#236ec0'); const l2 = lum('#e8f1fb');
+  const r = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+  assert.ok(r >= 4.5, `sky-text on tint-sky is ${r.toFixed(2)}:1`);
+});

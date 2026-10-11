@@ -798,13 +798,18 @@ function PersonChip({ name }) {
     <span
       title={`Filed against ${name}`}
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 4,
+        display: 'inline-flex', alignItems: 'center', gap: 5,
         maxWidth: '100%',
-        padding: '1px 8px',
+        height: 22, padding: '0 9px',
         borderRadius: 'var(--radius-pill)',
-        background: 'var(--surface-sunken)',
+        // The same blue outlined chip the timeline uses — a contact looks
+        // like a contact in both places, rather than grey here and blue one
+        // panel away. -text, not the bare accent: sky on its own tint is
+        // 4.13:1, below AA.
+        border: '1px solid var(--accent-sky)',
+        background: 'var(--tint-sky)',
         fontSize: 'var(--text-sm)', fontWeight: 500,
-        color: 'var(--text-muted)',
+        color: 'var(--accent-sky-text)',
         // A contact with no name falls back to an email address, which has no
         // spaces to wrap on.
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
