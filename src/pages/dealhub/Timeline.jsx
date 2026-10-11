@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import PanelHead from './PanelHead'
-import { RichBody, StateMessage, AttachmentCount, Truncate } from '../shared/ListChrome'
+import { RichBody, StateMessage, AttachmentCount, Truncate, formatDue } from '../shared/ListChrome'
 import AttachmentChip, { accentVar } from './AttachmentChip'
 import AttachmentViewer from './AttachmentViewer'
 import EmailThreadModal from './EmailThreadModal'
@@ -583,12 +583,14 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
             the smallest, faintest thing on screen while being the thing you
             actually came to read. */}
         {m.body && (
-          <div style={{ marginTop: 3 }}>
+          <div style={{ marginTop: 2 }}>
+            {/* Snug leading: at 1.55 on 15px the kind label, title, body and
+                meta line sat far enough apart to read as four items. */}
             <RichBody
               html={m.body}
               color="var(--text-body)"
               size="var(--text-lg)"
-              leading="var(--leading-normal)"
+              leading="var(--leading-snug)"
               maxWidth={720}
             />
           </div>
@@ -597,7 +599,7 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
         <div
           style={{
             display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
-            marginTop: 8, fontSize: 'var(--text-base)', color: 'var(--text-muted)'
+            marginTop: 6, fontSize: 'var(--text-base)', color: 'var(--text-muted)'
           }}
         >
           <span>
@@ -605,7 +607,12 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
               isNote
                 ? (m.senderName ? `by ${m.senderName}` : null)
                 : (m.assignee ? `assigned to ${m.assignee}` : 'unassigned'),
-              !isNote && m.duePhrase ? `due ${m.duePhrase}` : null,
+              // formatDue, not the server's duePhrase. That field came
+              // through as the raw ISO date, so the row read "due
+              // 2026-10-28" beside a design that says "due 29 Sep". The ISO
+              // is on the row already; the house formatter also handles
+              // today / tomorrow / N days ago the same way the Tasks tab does.
+              !isNote && m.dueAt ? formatDue(m.dueAt) : null,
               m.manual ? 'added manually' : null
             ].filter(Boolean).join(' · ')}
           </span>
