@@ -928,6 +928,18 @@ function unwrapNested(v) {
 // field by that name in GHL or in our tables; the design simply words it the
 // way a rep would ask the question. The key underneath is unchanged, so
 // nothing about the read or write path moves with the wording.
+// The three groups, as KEYS ONLY — no heading text, because the design shows
+// none. The card boundary IS the grouping; see the note on FieldChipRow.
+//
+// This replaces a CHIP_GROUPS table that also carried a label and an icon per
+// group. Those are gone; the membership is not, and it is the part that
+// matters.
+const FIELD_GROUPS = [
+  ['clientType'],
+  ['productSystem', 'productType'],
+  ['firstContactMethod', 'leadSource']
+]
+
 const FIELD_CHIPS = [
   ['Client type',          'clientType',         'client_type',            'person'],
   ['Product system',       'productSystem',      'product_system',         'tune'],
@@ -1021,14 +1033,23 @@ export function CardToolbar({ view, onView, children }) {
 //
 // A field with no options in the response stays plain TEXT: a free-text
 // custom field must not render as an empty dropdown.
-// The deal's five custom fields, as a flat bordered table.
+// The deal's five custom fields, as THREE bordered cards.
 //
-// WHY NOT THE GROUPED VERSION. These were chips under three headings —
-// Client / Product / Lead source — which read well but is not what the client
-// design shows, and it cost a heading row for groups of one. The design is a
-// plain table: one row per field, label in a tinted column, value beside it,
-// pencil at the right. Same shape People already uses, so the two rails now
-// look like the same application.
+// THE GROUPING IS REAL, AND IT IS THE GAPS THAT CARRY IT.
+//
+// Client / Product / Lead source — the same three groups as always. What the
+// design drops is the HEADING TEXT, not the grouping: each group is its own
+// bordered card with a gap above it, so the boundaries say what the headings
+// used to.
+//
+// This was briefly built as one flat five-row table, because at a glance that
+// is nearly what the mockup looks like. It is not: the gaps between the cards
+// are the only thing saying that "Product system" and "Product type" answer
+// one question while "Client type" answers another.
+//
+// Inside a card it is one row per field: label in a tinted column, value
+// beside it, pencil at the right — the same shape People uses, so the two
+// rails read as one application.
 //
 // THE ORDER IS THE DESIGN'S, not the data's. An earlier version sorted set
 // fields before unset ones, which meant picking a value MOVED the row being
@@ -1044,45 +1065,59 @@ function FieldChipRow({ deal, fieldOptions = {}, onSaveField, saving }) {
     || fieldOptions[ghlKey.replace('__', '_')]
     || fieldOptions[dealKey.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)]
 
+  const byKey = Object.fromEntries(FIELD_CHIPS.map((f) => [f[1], f]))
+
   return (
-    <div style={{
-      border: '1px solid var(--gray-200)',
-      borderRadius: 'var(--radius-sm)',
-      background: '#fff',
-      overflow: 'hidden'
-    }}>
-      {FIELD_CHIPS.map(([label, key, ghlKey, icon], i) => {
-        const spec = specFor(ghlKey, key)
-        const value = unwrapNested(deal[key])
-        const editable = spec && onSaveField
-        return (
-          <FieldRow
-            key={key}
-            icon={icon}
-            label={label}
-            value={value}
-            // An editable field renders its PICKER in the value slot; a field
-            // whose definition we never resolved falls back to plain text,
-            // which is honest — it shows the value and offers no control it
-            // cannot honour.
-            control={editable ? (
-              <FieldPicker
-                bare
+    <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
+      {FIELD_GROUPS.map((keys) => (
+        <div
+          key={keys.join('+')}
+          style={{
+            border: '1px solid var(--gray-200)',
+            borderRadius: 'var(--radius-sm)',
+            background: '#fff',
+            overflow: 'hidden'
+          }}
+        >
+          {keys.map((k, i) => {
+            const [label, key, ghlKey, icon] = byKey[k]
+            const spec = specFor(ghlKey, key)
+            const value = unwrapNested(deal[key])
+            const editable = spec && onSaveField
+            return (
+              <FieldRow
+                key={key}
+                icon={icon}
                 label={label}
                 value={value}
-                spec={spec}
-                saving={saving === spec.id}
-                // dealKey travels so the handler can update the right property
-                // optimistically — the response shape doesn't name it.
-                onChange={(v) =>
-                  onSaveField('customField', { id: spec.id, value: v, dealKey: key })}
+                // An editable field renders its PICKER in the value slot; a
+                // field whose definition we never resolved falls back to plain
+                // text, which is honest — it shows the value and offers no
+                // control it cannot honour.
+                control={editable ? (
+                  <FieldPicker
+                    bare
+                    label={label}
+                    value={value}
+                    spec={spec}
+                    saving={saving === spec.id}
+                    // dealKey travels so the handler can update the right
+                    // property optimistically — the response shape doesn't
+                    // name it.
+                    onChange={(v) =>
+                      onSaveField('customField', { id: spec.id, value: v, dealKey: key })}
+                  />
+                ) : undefined}
+                notSet
+                // Per CARD, not per list: the last row of each card drops its
+                // border, or a line would hang under the final field inside
+                // every group.
+                last={i === keys.length - 1}
               />
-            ) : undefined}
-            notSet
-            last={i === FIELD_CHIPS.length - 1}
-          />
-        )
-      })}
+            )
+          })}
+        </div>
+      ))}
     </div>
   )
 }

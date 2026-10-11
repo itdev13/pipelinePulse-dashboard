@@ -183,8 +183,20 @@ export function FieldRow({
         display: 'grid',
         // The label column is FIXED so every row's value starts at the same
         // x — ragged left edges down four rows read as a broken table.
-        gridTemplateColumns: 'minmax(110px, 150px) minmax(0, 1fr) auto',
-        alignItems: 'center',
+        //
+        // WIDER THAN IT WAS (150 → 190). "Last customer contact" and "First
+        // contact method" both wrap at 150px, and while wrapping is fine, it
+        // was wrapping further than it needed to.
+        gridTemplateColumns: 'minmax(132px, 190px) minmax(0, 1fr) auto',
+        // STRETCH, NOT CENTRE.
+        //
+        // `center` sizes each cell to its own content, so a label that wraps
+        // to two lines made the tinted cell TALLER than the value beside it —
+        // and the tint and the right-hand divider stopped short of the row's
+        // full height, leaving a ragged step. Stretching makes every cell the
+        // row's height; the centring that `center` was for now happens inside
+        // each cell, where it only affects the text.
+        alignItems: 'stretch',
         borderBottom: last ? 'none' : '1px solid var(--gray-200)'
       }}
     >
@@ -216,16 +228,27 @@ export function FieldRow({
           </span>
         )
         : (
-          <Truncate style={{
-            padding: '9px 12px',
-            fontSize: 'var(--text-md)', lineHeight: 1.35,
-            color: empty ? 'var(--text-faint)' : 'var(--text-body)'
+          /* The centring sits on a WRAPPER, not on the Truncate itself:
+             text-overflow: ellipsis needs a block container, and making the
+             truncating element a flex box silently disables the clipping it
+             exists for. */
+          <span style={{
+            display: 'flex', alignItems: 'center',
+            padding: '9px 12px', minWidth: 0
           }}>
-            {empty ? (notSet ? <NotSet /> : '—') : value}
-          </Truncate>
+            <Truncate style={{
+              fontSize: 'var(--text-md)', lineHeight: 1.35,
+              color: empty ? 'var(--text-faint)' : 'var(--text-body)'
+            }}>
+              {empty ? (notSet ? <NotSet /> : '—') : value}
+            </Truncate>
+          </span>
         )}
 
-      <span style={{ padding: '0 10px', flex: 'none' }}>
+      <span style={{
+        display: 'flex', alignItems: 'center',
+        padding: '0 10px', flex: 'none'
+      }}>
         {onEdit && (
           <button
             type="button"
