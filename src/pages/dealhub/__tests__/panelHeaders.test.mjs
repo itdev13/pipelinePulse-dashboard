@@ -288,3 +288,38 @@ test('the pencils say where they actually go', () => {
   // default "Edit email" tooltip would name the wrong action.
   assert.match(read('PeopleSection.jsx'), /editTitle=\{onViewContact \? `Edit on \$\{nameFor\(p\)\}'s record`/);
 });
+
+test('person actions are solid pills, toned by what they do', () => {
+  // They were borderless text-and-icon, so four different actions — one of
+  // them a destructive Remove — read at exactly the same weight.
+  const people = read('PeopleSection.jsx');
+  assert.match(people, /borderRadius: 'var\(--radius-pill\)'/);
+  assert.match(people, /danger\s*\n?\s*\? 'var\(--status-stuck\)'/);
+  assert.match(people, /primary\s*\n?\s*\? 'var\(--accent-sky\)'/);
+});
+
+test('every button fill carries white text at AA', () => {
+  // 13px white needs 4.5:1. Red is the tight one at 4.52:1.
+  const lum = (hex) => {
+    const c = hex.replace('#', '').match(/../g).map((x) => parseInt(x, 16) / 255)
+      .map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const ratio = (a, b) => {
+    const l1 = lum(a); const l2 = lum(b);
+    return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+  };
+  for (const [name, hex] of [
+    ['slate', '#323844'], ['sky', '#2470c2'],
+    ['red', '#d83a52'], ['pine', '#1f7a5c']
+  ]) {
+    const r = ratio(hex, '#ffffff');
+    assert.ok(r >= 4.5, `${name} (${hex}) is ${r.toFixed(2)}:1 against white`);
+  }
+});
+
+test('Open names its destination on the button', () => {
+  // "Open CONTACT" — the verb plus a chip naming the record type, so the
+  // destination is not only in the tooltip.
+  assert.match(read('PeopleSection.jsx'), /chip="CONTACT"/);
+});

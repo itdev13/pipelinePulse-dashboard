@@ -390,12 +390,16 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove, onRemove, re
         >
           {filterActive ? 'Showing in thread' : 'Show in thread'}
         </GhostBtn>
+        {/* "Open CONTACT", the design's pairing — the verb plus a chip naming
+            the record type, so the destination is on the button rather than
+            only in its tooltip. */}
         <GhostBtn
-          icon="person"
+          primary
           onClick={onViewContact}
+          chip="CONTACT"
           title={onViewContact ? `Open ${nameFor(p)}'s record` : 'Contact record unavailable here'}
         >
-          View contact
+          Open
         </GhostBtn>
         {/* MAKE PRIMARY.
             contactId is @HideApiProperty on GHL's PUT /opportunities/:id — it
@@ -439,34 +443,62 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove, onRemove, re
   )
 }
 
-function GhostBtn({ icon, children, onClick, active, danger, title }) {
+// A person-card action: a SOLID PILL, per the client's design.
+//
+// These were borderless text-and-icon, which made four different actions —
+// one of them a destructive Remove — read at exactly the same weight. The
+// design gives each a fill, so the thing you can undo and the thing you
+// cannot look different before you click.
+//
+//   default   slate   Show in thread, Make primary
+//   primary   blue    Open contact
+//   danger    red     Remove
+//   active    pine    Show in thread, while the filter is on
+function GhostBtn({ icon, children, onClick, active, danger, primary, title, chip }) {
+  const fill = active
+    ? 'var(--green-500)'
+    : danger
+      ? 'var(--status-stuck)'
+      : primary
+        ? 'var(--accent-sky)'
+        : 'var(--gray-700)';
   return (
     <button
       onClick={onClick}
       title={title}
+      disabled={!onClick}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6,
         cursor: onClick ? 'pointer' : 'default',
-        height: 30, padding: '0 10px',
-        border: active
-          ? '1px solid var(--brand-primary)'
-          : danger
-          ? '1px solid var(--border-strong)'
-          : '1px solid transparent',
-        borderRadius: 'var(--radius-md)',
-        background: active ? 'var(--surface-selected)' : 'transparent',
-        color: active
-          ? 'var(--brand-primary)'
-          : danger
-          ? 'var(--status-stuck)'
-          : 'var(--text-body)',
+        height: 30, padding: chip ? '0 4px 0 11px' : '0 11px',
+        border: 'none',
+        borderRadius: 'var(--radius-pill)',
+        background: fill,
+        color: '#fff',
         fontFamily: 'var(--font-sans)',
-        fontSize: 'var(--text-base)',
-        opacity: !onClick ? 0.55 : 1
+        fontSize: 'var(--text-base)', fontWeight: 500,
+        // Dimmed rather than hidden: a disabled action still says the action
+        // exists, which is why these render at all when their handler is
+        // missing.
+        opacity: !onClick ? 0.45 : 1
       }}
     >
       {icon && <span className="ms" style={{ fontSize: 15 }}>{icon}</span>}
       {children}
+      {/* The design's "Open CONTACT" pairing — a white chip naming the record
+          type, inside the button. */}
+      {chip && (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center',
+          height: 20, padding: '0 8px',
+          borderRadius: 'var(--radius-pill)',
+          background: '#fff', color: fill,
+          fontSize: 10, fontWeight: 700,
+          letterSpacing: 'var(--tracking-label)'
+        }}>
+          {chip}
+        </span>
+      )}
     </button>
   )
 }
