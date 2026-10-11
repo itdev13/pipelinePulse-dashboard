@@ -767,14 +767,17 @@ export default function AskDeal({
             style={{
               display: 'grid', gap: 'var(--space-2)',
               padding: '14px 16px',
-              // A pill, not a card. The composer is the one control a rep
-              // returns to after every answer, and the square-cornered box
-              // read as a form field among other form fields rather than as
-              // the place you talk to the thing.
+              // Rounded, not a pill. The composer is the one control a rep
+              // returns to after every answer, so it should not read as a form
+              // field among other form fields — but at 26px it was a lozenge,
+              // and once the panel gained a solid header band and squared-off
+              // field cards around it, that curve was the only thing on the
+              // page shaped like it. 16px is the client's, and the same corner
+              // the answer boxes above it carry.
               border: dragging
                 ? '2px dashed var(--brand-primary)'
                 : `1.5px solid ${composerFocused ? 'var(--brand-primary)' : 'var(--border-default)'}`,
-              borderRadius: 26,
+              borderRadius: 16,
               background: dragging ? 'var(--tint-pine)' : '#fff',
               // Lifted on focus rather than ringed. The 4px ring read as an
               // error state on a green-accented page; a shadow that deepens

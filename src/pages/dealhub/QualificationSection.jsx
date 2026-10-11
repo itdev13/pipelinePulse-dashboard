@@ -54,7 +54,6 @@ export default function QualificationSection({ qualification = [], onSave, savin
     setDraft('')
   }
 
-  const busy = savingField != null
 
   const missing = qualification.filter((q) => !q.filled)
   const filled = qualification.length - missing.length
@@ -112,21 +111,35 @@ export default function QualificationSection({ qualification = [], onSave, savin
       />
 
       {open && (
-        <div>
-          {qualification.map((q, i) => (
+        // TWO COLUMNS, the client's design. Ten headings in one column is a
+        // very tall panel for a section that is mostly skimmed; paired up it
+        // fits a screen. The 1px gaps are the background showing through —
+        // cells drawing their own borders would double up where they meet.
+        <div
+          style={{
+            display: 'grid',
+            // One column when the panel is narrow: side by side, a question
+            // and its answer box share ~300px and both become unreadable.
+            gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))',
+            gap: 1,
+            background: 'var(--border-default)'
+          }}
+        >
+          {qualification.map((q) => {
+            const saving = savingField === q.fieldKey
+            return (
             <div
               key={q.fieldKey}
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'minmax(150px, 210px) 1fr',
-                gap: 'var(--space-4)', alignItems: 'baseline',
-                padding: '11px var(--space-4)',
-                borderBottom: i === qualification.length - 1
-                  ? 'none'
-                  : '1px solid var(--border-default)',
-                // Faint rose wash on the rows that need attention, so the gaps
-                // read at a glance without hunting for empty cells.
-                background: q.filled ? 'transparent' : 'var(--tint-rose)'
+                // The heading column is fixed so every answer box on a row
+                // starts at the same x — ragged left edges across ten rows
+                // read as a broken grid.
+                gridTemplateColumns: 'minmax(140px, 260px) 1fr',
+                gap: 'var(--space-3)',
+                alignItems: 'start',
+                padding: '12px var(--space-4)',
+                background: '#fff'
               }}
             >
               <div style={{ minWidth: 0 }}>
@@ -144,7 +157,7 @@ export default function QualificationSection({ qualification = [], onSave, savin
                   <span
                     style={{
                       display: 'block', marginTop: 2,
-                      fontSize: 'var(--text-sm)', lineHeight: 1.4, color: 'var(--text-faint)'
+                      fontSize: 'var(--text-sm)', lineHeight: 1.4, color: 'var(--text-muted)'
                     }}
                   >
                     {q.description}
@@ -153,7 +166,7 @@ export default function QualificationSection({ qualification = [], onSave, savin
               </div>
 
               {editing === q.fieldKey ? (
-                <div style={{ display: 'grid', gap: 7, maxWidth: 620 }}>
+                <div style={{ display: 'grid', gap: 7, minWidth: 0 }}>
                   <textarea
                     autoFocus
                     value={draft}
@@ -175,108 +188,89 @@ export default function QualificationSection({ qualification = [], onSave, savin
                       resize: 'vertical'
                     }}
                   />
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
                     <button
                       type="button"
                       onClick={() => commit(q)}
-                      disabled={busy}
+                      // Per-FIELD, not a global "something is saving" flag:
+                      // only this row's own write should grey its own button.
+                      disabled={saving}
                       style={{
                         height: 28, padding: '0 12px',
-                        border: 'none', borderRadius: 'var(--radius-sm)',
-                        background: 'var(--accent-gold-text)', color: '#fff',
+                        border: 'none', borderRadius: 'var(--radius-pill)',
+                        background: 'var(--green-500)', color: '#fff',
                         fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)',
-                        fontWeight: 600, cursor: busy ? 'progress' : 'pointer'
+                        fontWeight: 600, cursor: saving ? 'progress' : 'pointer'
                       }}
                     >
-                      {busy ? 'Saving…' : 'Save'}
+                      {saving ? 'Saving…' : 'Save'}
                     </button>
                     <button
                       type="button"
                       onClick={() => { setEditing(null); setDraft('') }}
-                      disabled={busy}
+                      // Cancel is disabled mid-write too: abandoning the box
+                      // while the PATCH is in flight leaves the rep looking at
+                      // the old value with a save still landing behind it.
+                      disabled={saving}
                       style={{
                         height: 28, padding: '0 12px',
                         border: '1px solid var(--border-strong)',
-                        borderRadius: 'var(--radius-sm)',
-                        background: '#fff', color: 'var(--text-heading)',
+                        borderRadius: 'var(--radius-pill)',
+                        background: '#fff', color: 'var(--text-body)',
                         fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)',
                         cursor: 'pointer'
                       }}
                     >
                       Cancel
                     </button>
-                    <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
-                      Only the rep sees this — the AI reads the conversation, not these fields.
-                    </span>
-                  </div>
+                  </span>
                 </div>
               ) : (
+                // A BOX THAT LOOKS LIKE THE INPUT IT BECOMES, which is the
+                // design's "Add answer…" field. The dashed rose chip this
+                // replaced named the state well but did not look like
+                // somewhere you type, so the panel read as a report rather
+                // than a form.
+                //
+                // Read-only (no saver wired) renders the same box without the
+                // affordances — a button that does nothing is worse than a
+                // label.
                 <button
                   type="button"
                   onClick={() => { if (canEdit) { setEditing(q.fieldKey); setDraft(q.value || '') } }}
                   disabled={!canEdit}
                   title={canEdit ? `Edit ${q.name}` : undefined}
                   style={{
-                    display: 'block', width: '100%', maxWidth: 620,
-                    padding: 0, border: 'none', background: 'none',
+                    display: 'block', width: '100%', minWidth: 0,
+                    minHeight: 64, padding: '9px 11px',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: 'var(--radius-sm)',
+                    background: '#fff',
                     textAlign: 'left',
-                    // A text caret over prose you are about to edit, a
-                    // pointer over the Add chip — the chip is a control, and
-                    // a caret over it contradicts the border saying so.
-                    cursor: !canEdit ? 'default' : (q.filled ? 'text' : 'pointer'),
+                    cursor: canEdit ? 'text' : 'default',
                     fontFamily: 'var(--font-sans)'
                   }}
                 >
-                  {q.filled ? (
-                    <span
-                      style={{
-                        display: 'block',
-                        fontSize: 'var(--text-md)', lineHeight: 1.5,
-                        color: 'var(--text-body)', whiteSpace: 'pre-line'
-                      }}
-                    >
-                      {q.value}
-                    </span>
-                  ) : (
-                    <span
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 6,
-                        // A DASHED CHIP, not bare text. It said "click to
-                        // add" while looking like a sentence, so nothing
-                        // about it invited a click — the one hint was the
-                        // wording itself.
-                        //
-                        // Same treatment the deal card's unset field chips
-                        // already use (DealSection's FieldPicker): dashed
-                        // border, tinted fill, pill height. Rose rather than
-                        // gold because this row is already a rose wash, and a
-                        // gold chip on it reads as a second, unrelated state.
-                        //
-                        // Only when it is actually clickable — read-only, it
-                        // stays plain text, since a button that does nothing
-                        // is worse than a label.
-                        ...(canEdit ? {
-                          height: 30, padding: '0 11px',
-                          border: '1px dashed var(--status-stuck)',
-                          borderRadius: 'var(--radius-md)',
-                          background: '#fff'
-                        } : null),
-                        fontSize: 'var(--text-base)', color: 'var(--status-stuck)'
-                      }}
-                    >
-                      <span className="ms" style={{ fontSize: 15 }}>add</span>
-                      {/* "Add answer", not bare "Add": the row is a question
-                          and the panel's whole point is which ones are
-                          unanswered. "Add" alone names the action but drops
-                          the state, and a manager scanning the rail is
-                          reading for the gaps. */}
-                      {canEdit ? 'Add answer' : 'Not filled yet'}
-                    </span>
-                  )}
+                  <span
+                    style={{
+                      display: 'block',
+                      fontSize: 'var(--text-md)', lineHeight: 1.5,
+                      whiteSpace: 'pre-line',
+                      // The placeholder is faint, a real answer is not —
+                      // same contract as every input in the app.
+                      color: q.filled ? 'var(--text-body)' : 'var(--text-faint)'
+                    }}
+                  >
+                    {q.filled ? q.value : (canEdit ? 'Add answer…' : 'Not filled yet')}
+                  </span>
                 </button>
               )}
             </div>
-          ))}
+            )
+          })}
+          {/* An odd number of headings leaves half a row, where the grid's gap
+              colour would otherwise show as a grey block. */}
+          {qualification.length % 2 === 1 && <div style={{ background: '#fff' }} />}
         </div>
       )}
 
