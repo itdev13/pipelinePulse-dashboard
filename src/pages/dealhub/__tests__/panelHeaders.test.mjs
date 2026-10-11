@@ -98,19 +98,39 @@ test('the stepper renders the server\'s own past/current answer', () => {
   assert.match(stepper, /isPast/);
 });
 
-test('clicking a stage moves the deal', () => {
-  // It was decorative: a row of chevrons that looked like a control and did
-  // nothing.
+test('the stepper sits at the CARD\'s foot, not in the page header', () => {
+  // It described THIS deal while sitting above a card that might be showing
+  // People or Media instead — so it named a deal the reader was not looking
+  // at. The design puts it as the card's last row.
+  const deal = read('DealSection.jsx');
+  assert.match(deal, /<StageStepper/);
+  assert.ok(
+    deal.indexOf('<ProductFooter') < deal.indexOf('<StageStepper'),
+    'the chevrons must come after the chip strip'
+  );
   const tab = readFileSync(join(dealhub, '..', 'tabs', 'DealHubTab.jsx'), 'utf8');
-  assert.match(tab, /onStageClick=\{\(st\) => \{/);
-  assert.match(tab, /saveDealField\('pipelineStageId', st\.id\)/);
+  assert.doesNotMatch(tab, /<StageStepper/, 'the old header copy is back');
 });
 
-test('a stage with no id is shown but not moved to', () => {
-  // The virtual entry has stage_id null — GHL's update endpoint takes
-  // pipelineStageId and accepts no name, so there is nothing to send.
+test('clicking a stage moves the deal, and a virtual stage does not', () => {
+  // It was decorative: a row of chevrons that looked like a control and did
+  // nothing. The virtual entry has stage_id null — GHL's update endpoint
+  // takes pipelineStageId and accepts no name, so there is nothing to send.
+  const deal = read('DealSection.jsx');
+  assert.match(deal, /if \(st\?\.id && !st\.isCurrent\) onMoveStage\(st\.id\)/);
   const tab = readFileSync(join(dealhub, '..', 'tabs', 'DealHubTab.jsx'), 'utf8');
-  assert.match(tab, /if \(!st\?\.id \|\| st\.isCurrent\) return/);
+  assert.match(tab, /onMoveStage=\{\(id\) => saveDealField\('pipelineStageId', id\)\}/);
+});
+
+test('the toolbar moved INSIDE the card', () => {
+  // "Deal / People / Media" chooses what this card shows, and the search acts
+  // on it — a control that changes a panel belongs to that panel rather than
+  // floating above it.
+  const deal = read('DealSection.jsx');
+  assert.match(deal, /<CardToolbar view=/);
+  const tab = readFileSync(join(dealhub, '..', 'tabs', 'DealHubTab.jsx'), 'utf8');
+  assert.match(tab, /view=\{leftRail\}/);
+  assert.doesNotMatch(tab, /\['media',\s+'Media',\s+'folder_open'\]/, 'the loose pills are back');
 });
 
 test('there is only ONE chevron component', () => {
@@ -170,12 +190,15 @@ test('the stage select is a green outline, not a green block', () => {
   assert.doesNotMatch(tokens, /background: var\(--tint-pine\) !important/);
 });
 
-test('the deal badge does not claim to open anything', () => {
-  // The mockup's pill reads "Open DEAL" and sits beside "Edit record", which
-  // opens the same editor. A pill that says Open and does nothing is worse
-  // than either, so it is a badge.
+test('the deal badge reads STATUS + type, and is not a button', () => {
+  // "Open DEAL" is the deal's STATUS followed by the record type — not a
+  // verb. Read as an instruction it would duplicate "Edit record" on the
+  // header band, which opens the same editor, so the badge is a <span>:
+  // nothing on the card should look clickable and do nothing.
   const deal = read('DealSection.jsx');
-  assert.doesNotMatch(deal, />\s*Open\s*<span[\s\S]{0,400}?DEAL/);
+  assert.match(deal, /\{deal\.status \|\| 'Open'\}/);
+  const badge = deal.slice(deal.indexOf('// A "DEAL" badge'), deal.indexOf('</FieldCard>'));
+  assert.doesNotMatch(badge, /<button/, 'the badge became a button again');
 });
 
 test('Qualification is a full-width section, not a rail item', () => {

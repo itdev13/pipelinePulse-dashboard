@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import PanelHead from '../dealhub/PanelHead'
 import { formatMoney } from '../../utils/money'
 import Timeline from '../dealhub/Timeline'
-import StageStepper from '../dealhub/StageStepper'
 import PeopleSection from '../dealhub/PeopleSection'
 import DealSection from '../dealhub/DealSection'
 import MediaSection from '../dealhub/MediaSection'
@@ -10,7 +9,7 @@ import AskDeal from '../dealhub/AskDeal'
 import QualificationSection from '../dealhub/QualificationSection'
 import { DealTasksSection, DealNotesSection } from '../dealhub/DealTasksSection'
 import {
-  DealHubSkeleton, DealBodySkeleton, SkeletonStyles
+  DealHubSkeleton, DealBodySkeleton
 } from '../dealhub/Skeleton'
 import { dealsAPI } from '../../api/deals'
 import { aiAPI } from '../../api/ai'
@@ -1182,50 +1181,6 @@ export default function DealHubTab({
           )}
         </div>
 
-        {/* Stage stepper — per pipeline, current stage highlighted. `stages`
-            is cleared on switch, so hold the row's height with a placeholder
-            instead of letting the header collapse and rebound. */}
-        {loading ? (
-          // Shaped like the stepper it stands in for: 40px tall (StageStepper's
-          // own height) and full width, with flex:1 segments. The old version
-          // was 26px fixed-width pills covering half the card, so the header
-          // visibly collapsed and rebounded on every deal switch — which is the
-          // one thing a skeleton exists to prevent.
-          <div style={{ display: 'flex', gap: 2, paddingTop: 10 }}>
-            <SkeletonStyles />
-            {[0, 1, 2, 3, 4].map((i) => (
-              <span
-                key={i}
-                className="pp-sk"
-                style={{
-                  display: 'block', flex: 1, minWidth: 0, height: 40,
-                  // Square-ish, like the stepper's chevrons — pill ends read as
-                  // a row of tags rather than a segmented bar.
-                  borderRadius: 'var(--radius-sm)'
-                }}
-              />
-            ))}
-          </div>
-        ) : (
-          stages && stages.length > 0 && (
-            <StageStepper
-              stages={stages}
-              // It was decorative — a row of chevrons that looked like a
-              // control and did nothing. The same write the stage PICKER on
-              // the deal card makes, so there is one path and one set of
-              // error handling.
-              //
-              // A stage with no id is the virtual entry the /stages route
-              // inserts when the pipeline no longer holds the deal's stage:
-              // GHL's update endpoint takes pipelineStageId and accepts no
-              // name, so there is nothing to send.
-              onStageClick={(st) => {
-                if (!st?.id || st.isCurrent) return
-                saveDealField('pipelineStageId', st.id)
-              }}
-            />
-          )
-        )}
         </div>
       </div>
 
@@ -1237,42 +1192,6 @@ export default function DealHubTab({
             maxWidth: 1660, margin: '0 auto', boxSizing: 'border-box'
           }}
         >
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-            {[
-              ['deal',   'Deal',   'person'],
-              ['people', 'People', 'group'],
-              ['media',  'Media',  'folder_open']
-            ].map(([id, label, icon]) => {
-              const active = leftRail === id
-              return (
-                <button
-                  key={id}
-                  onClick={() => setLeftRail(id)}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 7,
-                    cursor: 'pointer',
-                    height: 32, padding: '0 var(--space-3)',
-                    border: active
-                      ? '1.5px solid var(--brand-primary)'
-                      : '1px solid var(--border-strong)',
-                    borderRadius: 'var(--radius-pill)',
-                    background: active ? 'var(--brand-primary)' : '#fff',
-                    // White on the solid brand fill. This was
-                    // 'var(--brand-primary)' — brand text on a brand
-                    // background, so the active tab rendered as an empty green
-                    // pill with no label.
-                    color: active ? '#fff' : 'var(--text-body)',
-                    fontFamily: 'var(--font-sans)',
-                    fontSize: 'var(--text-base)', fontWeight: active ? 600 : 400
-                  }}
-                >
-                  <span className="ms" style={{ fontSize: 16 }}>{icon}</span>
-                  {label}
-                </button>
-              )
-            })}
-          </div>
-
           {leftRail === 'people' && (
             <PeopleSection
               people={deal.people || []}
@@ -1297,6 +1216,17 @@ export default function DealHubTab({
             <DealSection
               deal={deal}
               stages={stages || []}
+              // The toolbar moved INSIDE the card — see CardToolbar. The pills
+              // choose what this card shows, so they belong to it.
+              view={leftRail}
+              onView={setLeftRail}
+              // The chevrons moved from the sticky header to the card's foot,
+              // where the design puts them — they describe THIS deal, and in
+              // the header they sat above a card that might be showing People
+              // or Media instead.
+              onMoveStage={(id) => saveDealField('pipelineStageId', id)}
+              search={switcherQ}
+              onSearch={setSwitcherQ}
               siblingDeals={siblingDeals}
               onOpenDeal={onSwitchDeal}
               onOpenBusiness={onOpenBusiness}

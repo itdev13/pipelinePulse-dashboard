@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { FieldCard, FieldGrid, FieldCell } from './FieldCard'
 import PanelHead, { PanelHeadButton } from './PanelHead'
+import StageStepper from './StageStepper'
 import { createPortal } from 'react-dom'
 import DealStatusControl from './DealStatusControl'
 import { DatePicker, Select } from 'antd'
@@ -50,6 +51,13 @@ export default function DealSection({
   // a rep touches often; pipeline, status, followers and the contact's own
   // details live in that editor.
   onEditRecord,
+  // The toolbar under the header — which rail is showing, and the search.
+  // Both lived outside the card; the design puts them inside it, because they
+  // act ON this card rather than beside it.
+  view, onView, search, onSearch,
+  // Moves the deal when a chevron is clicked. Undefined leaves the row
+  // read-only, which is what it was before.
+  onMoveStage,
   // { client_type: { id, label, options[], multiple }, ... } from
   // GET /api/deals/custom-field-options.
   fieldOptions = {},
@@ -116,6 +124,10 @@ export default function DealSection({
         }
       />
 
+      {onView && (
+        <CardToolbar view={view} onView={onView} search={search} onSearch={onSearch} />
+      )}
+
       <div
         style={{
           display: 'grid',
@@ -152,16 +164,34 @@ export default function DealSection({
             action={(
               <span
                 style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 7,
-                  height: 20, padding: '0 9px',
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  height: 22, padding: '0 4px 0 10px',
                   border: 'none', borderRadius: 'var(--radius-pill)',
                   background: 'var(--panel-head-pine, var(--accent-pine))',
                   color: '#fff', fontFamily: 'var(--font-sans)',
                   fontSize: 'var(--text-sm)', fontWeight: 600,
-                  flex: 'none'
+                  flex: 'none', textTransform: 'capitalize'
                 }}
               >
-                DEAL
+                {/* STATUS, then the record type. The status pill used to
+                    render only on a closed deal — an open one needs no
+                    warning — but the design pairs it with the type here, so
+                    "Open" earns its place as the first half of the badge
+                    rather than as a pill of its own. A closed deal still gets
+                    its coloured StatusPill on the header band. */}
+                {deal.status || 'Open'}
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center',
+                  height: 18, padding: '0 8px',
+                  borderRadius: 'var(--radius-pill)',
+                  background: '#fff',
+                  color: 'var(--panel-head-pine, var(--accent-pine))',
+                  fontSize: 10, fontWeight: 700,
+                  letterSpacing: 'var(--tracking-label)',
+                  textTransform: 'none'
+                }}>
+                  DEAL
+                </span>
               </span>
             )}
           >
@@ -270,7 +300,19 @@ export default function DealSection({
         onOpenDeal={onOpenDeal}
       />
 
-</section>
+      {/* The pipeline across the card's foot — the design's last row. It was
+          in the sticky page header, above a card that might be showing People
+          or Media instead, so it described a deal the reader was not looking
+          at. */}
+      {stages.length > 0 && (
+        <StageStepper
+          stages={stages}
+          onStageClick={onMoveStage
+            ? (st) => { if (st?.id && !st.isCurrent) onMoveStage(st.id) }
+            : undefined}
+        />
+      )}
+    </section>
   )
 }
 
@@ -922,6 +964,101 @@ const CHIP_GROUPS = [
   ['Product',     'window',   ['productSystem', 'productType']],
   ['Lead source', 'language', ['firstContactMethod', 'leadSource']]
 ]
+
+// The grey band under the header: a search box and the view pills.
+//
+// Both existed already — the search behind the opportunity picker at the top
+// of the page, the pills loose above the card — so this is a MOVE, not new
+// behaviour. The design puts them inside the card because they act ON it:
+// "Deal / People / Media" chooses what this card shows, and a control that
+// changes a panel belongs to that panel rather than floating beside it.
+function CardToolbar({ view, onView, search, onSearch }) {
+  const VIEWS = [
+    ['deal',   'Deal',   'sell'],
+    ['people', 'People', 'group'],
+    ['media',  'Media',  'folder_open']
+  ]
+  return (
+    <div
+      style={{
+        display: 'flex', alignItems: 'flex-end', gap: 'var(--space-3)',
+        flexWrap: 'wrap',
+        padding: '12px 14px',
+        borderBottom: '1px solid var(--border-default)',
+        background: 'var(--gray-100)'
+      }}
+    >
+      {onSearch && (
+        <span style={{
+          display: 'inline-flex', flexDirection: 'column', gap: 5,
+          flex: '1 1 260px', maxWidth: 360
+        }}>
+          <span className="pp-label" style={{ marginBottom: 0 }}>Search</span>
+          <span style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            height: 34, padding: '0 11px',
+            border: '1px solid var(--border-strong)',
+            borderRadius: 'var(--radius-md)',
+            background: '#fff', boxSizing: 'border-box', width: '100%'
+          }}>
+            <span className="ms" style={{ fontSize: 18, color: 'var(--text-muted)', flex: 'none' }}>
+              search
+            </span>
+            <input
+              type="search"
+              value={search || ''}
+              onChange={(e) => onSearch(e.target.value)}
+              placeholder="Search deals, contacts or businesses"
+              style={{
+                flex: 1, minWidth: 0,
+                border: 'none', outline: 'none', background: 'transparent',
+                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+                color: 'var(--text-body)'
+              }}
+            />
+          </span>
+        </span>
+      )}
+
+      <span style={{
+        display: 'inline-flex', flexDirection: 'column',
+        alignItems: 'flex-start', gap: 5, flex: 'none'
+      }}>
+        <span className="pp-label" style={{ marginBottom: 0 }}>View</span>
+        <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {VIEWS.map(([id, label, icon]) => {
+            const active = view === id
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => onView(id)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 7,
+                  height: 34, padding: '0 12px',
+                  border: active
+                    ? '1.5px solid var(--brand-primary)'
+                    : '1px solid var(--border-strong)',
+                  borderRadius: 'var(--radius-pill)',
+                  background: active ? 'var(--brand-primary)' : '#fff',
+                  // White on the solid brand fill. Brand text on a brand
+                  // background rendered as an empty green pill with no label.
+                  color: active ? '#fff' : 'var(--text-body)',
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 'var(--text-base)', fontWeight: active ? 600 : 400,
+                  cursor: 'pointer'
+                }}
+              >
+                <span className="ms" style={{ fontSize: 16 }}>{icon}</span>
+                {label}
+              </button>
+            )
+          })}
+        </span>
+      </span>
+    </div>
+  )
+}
 
 // The five opportunity custom fields, as editable pickers.
 //
