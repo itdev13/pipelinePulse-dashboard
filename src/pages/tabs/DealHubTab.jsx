@@ -1628,7 +1628,10 @@ export default function DealHubTab({
             >
             <PanelHead
               icon="auto_awesome"
-              title="Deal AI"
+              // "Co-Pilot", per the client design (Oct 2026). The working
+              // name in planning talk is still "Deal AI"; the Control panel
+              // labels it that way too, pending a decision there.
+              title="Co-Pilot"
               subtitle="Ask about this deal"
               accent="plum"
             />
