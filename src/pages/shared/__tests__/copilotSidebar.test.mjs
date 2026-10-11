@@ -45,3 +45,26 @@ test('collapsibility is declared, not sniffed from the handler', () => {
   // and silently flips under minification.
   assert.doesNotMatch(bar, /onToggleRecentsCollapsed\.toString\(\)/);
 });
+
+test('a Recents row shows WHEN, not just the title', () => {
+  // Four chats that all begin "create a task title:" are indistinguishable
+  // without it. `lastAt` was on every conversation already.
+  assert.match(bar, /conv\.lastAt && \(/);
+  assert.match(bar, /formatChatStamp\(conv\.lastAt\)/);
+});
+
+test('the stamp uses the house date helper, not a locale call', () => {
+  // en-GB renders September as "Sept" — a different width from every other
+  // month, and not what the design shows. MONTHS gives a uniform three.
+  assert.match(bar, /formatDate\(at, false\)/);
+  assert.doesNotMatch(bar, /toLocaleDateString/);
+});
+
+test('the Account avatar degrades to an icon, not a stray dot', () => {
+  // fullName comes from matching the session's user id against the location's
+  // users list, and the session carries only an id — so an agency user who is
+  // not a member of the sub-account has no name to initial, and the avatar
+  // rendered as a lone "·" that read as a rendering fault.
+  assert.match(bar, /if \(!name\) return null/);
+  assert.match(bar, /initialsOf\(fullName\) \|\| \(/);
+});

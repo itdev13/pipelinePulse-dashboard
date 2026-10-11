@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { aiAPI } from '../../api/ai'
 import SettingsModal from './SettingsModal'
-import { Truncate } from './ListChrome'
+import { Truncate, formatDate } from './ListChrome'
 
 // The Co-Pilot sidebar shell — New chat / Search / Templates / Customize,
 // the Recents list (rename/delete), and the Account entry (Settings +
@@ -347,7 +347,15 @@ export default function CopilotSidebar({
           background: 'var(--accent-plum)', color: '#fff',
           fontSize: 'var(--text-sm)', fontWeight: 600
         }}>
-          {initialsOf(fullName)}
+          {/* A person glyph, not the bare "·" this used to show.
+              `fullName` is resolved by matching the session's user id against
+              the location's users list, and the session carries only an id —
+              so an agency user who is not a member of the sub-account has no
+              name to initial, and the avatar rendered as a lone dot that read
+              as a rendering fault. */}
+          {initialsOf(fullName) || (
+            <span className="ms" style={{ fontSize: 15 }}>person</span>
+          )}
         </span>
         {!collapsed && (
           <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-body)', fontWeight: 500 }}>
@@ -365,8 +373,27 @@ export default function CopilotSidebar({
 // "JS" from "James Smith" — first + last initial, matching the GHL
 // reference's avatar. Falls back to a generic mark when the name hasn't
 // resolved yet (the same lookup the caller uses for its own greeting).
+// "21 Sep · 22:42" — the design's format. Date AND time, because a Recents
+// list spans days and a bare time would read as "today" on every row.
+//
+// formatDate, not toLocaleDateString: en-GB renders September as "Sept",
+// which is a different width from every other month and does not match the
+// design. The house helper's MONTHS table gives a uniform three letters, and
+// it is already what every other date in the app uses. No year — these are
+// recent chats, and the year on all four rows is noise.
+function formatChatStamp(at) {
+  const date = formatDate(at, false)
+  if (!date) return null
+  const d = new Date(at)
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  return `${date} · ${hh}:${mm}`
+}
+
+// Null when there is no name — the caller decides what to show instead,
+// rather than this inventing a placeholder glyph of its own.
 function initialsOf(name) {
-  if (!name) return '·'
+  if (!name) return null
   const parts = name.trim().split(/\s+/)
   const first = parts[0]?.[0] || ''
   const last = parts.length > 1 ? parts[parts.length - 1][0] : ''
@@ -464,6 +491,18 @@ function RecentRow({
           color: active ? 'var(--text-heading)' : 'var(--text-muted)' }}>
           {conv.title}
         </Truncate>
+        {/* WHEN the chat was last touched, under its title — the design shows
+            it, and without it a Recents list of four questions that all begin
+            "create a task title:" gives the reader nothing to tell them
+            apart. `lastAt` has been on every conversation all along. */}
+        {conv.lastAt && (
+          <span style={{
+            display: 'block', marginTop: 1,
+            fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
+          }}>
+            {formatChatStamp(conv.lastAt)}
+          </span>
+        )}
 
       </button>
 
