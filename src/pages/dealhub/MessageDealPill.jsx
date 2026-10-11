@@ -134,11 +134,12 @@ export default function MessageDealPill({
               : 'Linked automatically by the linking rule — click to move it'
         }
         style={{
-          display: 'inline-flex', alignItems: 'center', gap: 3,
-          padding: '1px 6px', flex: 'none',
-          fontSize: 10.5, fontWeight: 600,
-          letterSpacing: 'var(--tracking-label)',
-          textTransform: 'uppercase',
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          padding: '4px 11px', flex: 'none',
+          // Sentence case at the metadata size. It was 10.5px uppercase,
+          // which beside "Outbound" and the time read as a tag rather than
+          // as the word it is.
+          fontSize: 'var(--text-base)', fontWeight: 600,
           // NO border by default. This sits beside OUTBOUND and the time —
           // metadata, not an action — and an outlined pill on every row read
           // as a button competing with the message itself. The border comes
@@ -160,7 +161,7 @@ export default function MessageDealPill({
             person for a human decision, the automation mark for the rule.
             Colour alone would not survive a greyscale print or a
             colour-blind reader. */}
-        <span className="ms" style={{ fontSize: 13 }}>
+        <span className="ms" style={{ fontSize: 15 }}>
           {!filed ? 'help' : manual ? 'person' : 'bolt'}
         </span>
         {/* On the contact record the deal NAME is the useful label — the

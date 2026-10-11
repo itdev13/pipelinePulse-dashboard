@@ -20,6 +20,17 @@ import { noteColourStyle } from '../../utils/noteColour'
 // group messages stay visible under every recipient, so filtering here is a
 // simple boolean check per row, not a de-duplication.
 
+// The soft fill behind a row's icon square and the darker accent that reads
+// on it. accentVar gives the bare accent, which is fine for a glyph on
+// gray-50 and NOT fine on its own tint — sky on tint-sky is 4.13:1, below AA.
+// The -text variants exist for exactly this.
+function tintVar(accent) {
+  return !accent || accent === 'gray' ? 'var(--gray-50)' : `var(--tint-${accent})`
+}
+function accentTextVar(accent) {
+  return !accent || accent === 'gray' ? 'var(--text-muted)' : `var(--accent-${accent}-text)`
+}
+
 const CH_LABEL = {
   EMAIL: 'Email', SMS: 'SMS', WHATSAPP: 'WhatsApp', IMESSAGE: 'iMessage',
   CALL: 'Call', NOTE: 'Note', ANALYSIS: 'Analysis', TASK: 'Task', SYSTEM: 'System',
@@ -96,11 +107,13 @@ function DayHeader({ iso }) {
     <div
       style={{
         position: 'sticky', top: 0, zIndex: 1,
-        padding: '6px 12px',
+        // A heading, not a caption: the design sets the day in the heading
+        // colour at body size, on a grey band with room around it.
+        padding: '12px 16px',
         borderBottom: '1px solid var(--border-default)',
         background: 'var(--gray-50)',
-        fontSize: 'var(--text-sm)', fontWeight: 600,
-        color: 'var(--text-muted)'
+        fontSize: 'var(--text-md)', fontWeight: 600,
+        color: 'var(--text-heading)'
       }}
     >
       {label}
@@ -128,7 +141,8 @@ function sameDay(a, b) {
 // twenty-message thread was six rows per screen and a wall of coloured
 // stripes, when what a rep needs is to read the thread quickly.
 
-const ROW_GRID = '26px 30px minmax(0, 1fr) auto'
+// 20px tick · 36px icon square · content · time
+const ROW_GRID = '20px 36px minmax(0, 1fr) auto'
 
 // Shared row frame. `tone` shifts the background for the non-message kinds so
 // a note doesn't read as something the customer said.
@@ -147,13 +161,15 @@ function Row({ id, children, highlighted, tone, dim }) {
       style={{
         display: 'grid',
         gridTemplateColumns: ROW_GRID,
-        gap: 'var(--space-2)',
+        gap: 'var(--space-3)',
         alignItems: 'start',
-        padding: '9px 12px',
+        padding: '14px 16px',
         borderBottom: '1px solid var(--border-default)',
-        background: highlighted
-          ? 'var(--tint-gold)'
-          : tone === 'internal' ? 'var(--gray-25)' : 'transparent',
+        // Every row on white. `tone="internal"` used to put notes and tasks
+        // on gray-25 so an internal record read apart from the customer's
+        // words; the design keeps one ground and lets the kind label and the
+        // tinted icon square carry that distinction instead.
+        background: highlighted ? 'var(--tint-gold)' : 'transparent',
         opacity: dim ? 0.6 : 1,
         transition: 'background 0.4s ease-out'
       }}
@@ -165,25 +181,28 @@ function Row({ id, children, highlighted, tone, dim }) {
 
 // The channel/kind icon. Colour carries the channel; there is no stripe, box or
 // tint behind it, so six SMS rows no longer read as a wall of orange.
-function RowIcon({ icon, colour, title, tint = null }) {
+// `soft` is the kind's own tint (tintVar) — the design fills every square
+// with its channel's pastel. `tint` is still the note author's chosen colour
+// and wins when present.
+function RowIcon({ icon, colour, title, tint = null, soft = null }) {
   return (
     <span
       title={title}
       style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: 26, height: 26, marginTop: 1,
-        borderRadius: 'var(--radius-sm)',
+        width: 36, height: 36,
+        borderRadius: 'var(--radius-md)',
         // `tint` is ONLY passed for a note whose author actually set a colour
         // — see the note on EntryRow. The neutral gray-50 default is what
         // keeps six SMS rows from reading as a wall of orange, so this stays
         // an exception rather than becoming the rule.
-        background: tint || 'var(--gray-50)',
-        // On a pastel tint the channel accent loses contrast, so the glyph
-        // goes dark. Only a normalised hex ever reaches here.
+        background: tint || soft || 'var(--gray-50)',
+        // On an author's pastel the channel accent loses contrast, so the
+        // glyph goes dark. Only a normalised hex ever reaches here.
         color: tint ? 'var(--text-heading)' : colour
       }}
     >
-      <span className="ms" style={{ fontSize: 16 }}>{icon}</span>
+      <span className="ms" style={{ fontSize: 18 }}>{icon}</span>
     </span>
   )
 }
@@ -197,7 +216,7 @@ function SelectBox({ selected, onToggle, title }) {
       onChange={onToggle}
       title={title}
       style={{
-        width: 16, height: 16, marginTop: 6,
+        width: 18, height: 18, marginTop: 9,
         accentColor: 'var(--brand-primary)', cursor: 'pointer'
       }}
     />
@@ -215,7 +234,7 @@ function RowTime({ ts, inline = false }) {
     <span
       style={{
         marginTop: inline ? 0 : 3, flex: 'none',
-        fontSize: 'var(--text-sm)', color: 'var(--text-faint)',
+        fontSize: 'var(--text-base)', color: 'var(--text-muted)',
         fontVariantNumeric: 'tabular-nums'
       }}
     >
@@ -234,11 +253,13 @@ function EventRow({ m }) {
     : label
 
   return (
-    <Row id={`tl-${m.id}`} dim>
+    // Not dimmed. It is set in the muted colour, which is quiet enough;
+    // fading the whole row on top made system events look disabled.
+    <Row id={`tl-${m.id}`}>
       <span />
-      <RowIcon icon={m.channelIcon || 'info'} colour="var(--text-faint)" title="Event" />
-      <Truncate style={{ marginTop: 4,
-          fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
+      <RowIcon icon={m.channelIcon || 'info'} colour="var(--text-body)" title="Event" />
+      <Truncate style={{ marginTop: 7,
+          fontSize: 'var(--text-lg)', color: 'var(--text-muted)' }}>
         {text}
       </Truncate>
       <RowTime ts={m.ts} />
@@ -278,7 +299,6 @@ function MessageRow({
   // what to do once a message has been moved.
   dealId, dealTargets, onMessageMoved
 }) {
-  const channelCol = accentVar(m.channelAccent)
   const senderCol = accentVar(m.senderAccent)
   const inbound = m.direction === 'inbound'
   const outbound = m.direction === 'outbound'
@@ -297,7 +317,8 @@ function MessageRow({
       />
       <RowIcon
         icon={m.channelIcon}
-        colour={channelCol}
+        colour={accentTextVar(m.channelAccent)}
+        soft={tintVar(m.channelAccent)}
         title={channelLabelOf(m)}
       />
 
@@ -321,7 +342,7 @@ function MessageRow({
             className="ms"
             title={inbound ? 'Received from the customer' : 'Sent by us'}
             style={{
-              flex: 'none', fontSize: 15,
+              flex: 'none', fontSize: 18,
               // INBOUND keeps the sender's own accent — that colour is how a
               // rep tells three customers apart down a long thread, and
               // dropping it to a generic green would lose that. Outbound is
@@ -331,10 +352,10 @@ function MessageRow({
           >
             {inbound ? 'south_west' : 'north_east'}
           </span>
-          <Truncate style={{ fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)' }}>
+          <Truncate style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)' }}>
             {m.senderName}
           </Truncate>
-          <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
+          <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
             {channelLabelOf(m)}
           </span>
 
@@ -390,7 +411,7 @@ function MessageRow({
         ) : m.body ? (
           <div
             style={{
-              fontSize: 'var(--text-md)', lineHeight: 'var(--leading-snug)',
+              fontSize: 'var(--text-lg)', lineHeight: 'var(--leading-normal)',
               color: 'var(--text-body)',
               whiteSpace: 'pre-line', overflowWrap: 'anywhere'
             }}
@@ -463,9 +484,11 @@ function MessageRow({
         {(inbound || outbound) && (
           <span
             style={{
-              fontSize: 'var(--text-xs)', fontWeight: 600,
-              letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase',
-              color: inbound ? 'var(--accent-pine-text)' : 'var(--text-faint)'
+              // A word, not a label: "Outbound" in sentence case at the
+              // metadata size, as the design sets it — the tiny uppercase
+              // version read as a tag rather than as a fact about the row.
+              fontSize: 'var(--text-base)', fontWeight: 500,
+              color: inbound ? 'var(--accent-pine-text)' : 'var(--text-muted)'
             }}
           >
             {inbound ? 'Inbound' : 'Outbound'}
@@ -480,7 +503,6 @@ function MessageRow({
 // Notes and tasks: the same row, on a tinted ground so an internal record is
 // distinguishable from something the customer said.
 function EntryRow({ m, highlighted, selected, onToggleSelect }) {
-  const col = accentVar(m.channelAccent)
   const isNote = m.kind === 'note'
   // A note's own colour, when its author set one.
   //
@@ -508,7 +530,8 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
       />
       <RowIcon
         icon={m.channelIcon}
-        colour={col}
+        colour={accentTextVar(m.channelAccent)}
+        soft={tintVar(m.channelAccent)}
         tint={noteCol.tint}
         title={
           noteCol.name
@@ -528,7 +551,9 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
             style={{
               fontSize: 'var(--text-sm)', fontWeight: 600,
               letterSpacing: 'var(--tracking-label)',
-              textTransform: 'uppercase', color: col
+              // The -text accent, not the bare one: the design's NOTE is a
+              // readable dark gold, and bare gold on white is 3.4:1.
+              textTransform: 'uppercase', color: accentTextVar(m.channelAccent)
             }}
           >
             {isNote ? 'Note' : 'Task'}
@@ -545,7 +570,7 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
 
         <div
           style={{
-            fontSize: 'var(--text-md)', fontWeight: 600,
+            fontSize: 'var(--text-lg)', fontWeight: 600,
             lineHeight: 'var(--leading-snug)', color: 'var(--text-heading)'
           }}
         >
@@ -571,8 +596,8 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
 
         <div
           style={{
-            display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap',
-            marginTop: 3, fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
+            display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+            marginTop: 6, fontSize: 'var(--text-base)', color: 'var(--text-muted)'
           }}
         >
           <span>
@@ -594,7 +619,7 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
                 maxWidth: '100%',
-                height: 22, padding: '0 9px',
+                height: 26, padding: '0 11px',
                 borderRadius: 'var(--radius-pill)',
                 // A BLUE OUTLINED CHIP, per the client's design — and the
                 // same sky accent a contact already wears everywhere else in
@@ -610,7 +635,7 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
               }}
             >
-              <span className="ms" style={{ fontSize: 13, flex: 'none' }}>person</span>
+              <span className="ms" style={{ fontSize: 15, flex: 'none' }}>person</span>
               {m.contact.name}
             </span>
           )}
@@ -752,9 +777,9 @@ export default function Timeline({
       <div
         style={{
           display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-          padding: '8px 12px',
+          padding: '14px 16px',
           borderBottom: '1px solid var(--border-default)',
-          background: 'var(--gray-25)'
+          background: '#fff'
         }}
       >
         <input
@@ -765,12 +790,12 @@ export default function Timeline({
           disabled={!onSelectAll}
           title={allSelected ? 'Deselect every message' : 'Select every message'}
           style={{
-            width: 16, height: 16,
+            width: 18, height: 18,
             accentColor: 'var(--brand-primary)',
             cursor: onSelectAll ? 'pointer' : 'default'
           }}
         />
-        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+        <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-body)' }}>
           Ticked messages are the ones Deal AI reads
         </span>
       </div>
