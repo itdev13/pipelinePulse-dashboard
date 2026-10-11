@@ -528,7 +528,11 @@ export default function TasksTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
                       // The link column is fixed so every "View CONTACT"
                       // button lands on the same x; the due column hugs its
                       // content; the title takes what is left.
-                      gridTemplateColumns: 'minmax(260px, 340px) minmax(110px, auto) minmax(0, 1fr)',
+                      // Four: records · due · title+body · actions. The
+                      // actions used to live INSIDE the records block, so
+                      // they stacked under it in column one instead of
+                      // sitting at the row's right edge.
+                      gridTemplateColumns: 'minmax(260px, 340px) minmax(110px, auto) minmax(0, 1fr) auto',
                       alignItems: 'start'
                     }),
                   gap: 'var(--space-3)',
@@ -577,11 +581,18 @@ export default function TasksTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
                     linked records are fixed-height rows now, so the card has
                     a stable footer and the design puts them in it, beside the
                     due date they act on. */}
-                {view === 'grid' && (
-                  <span style={{
-                    order: 4, marginLeft: 'auto',
-                    display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none'
-                  }}>
+                <span style={{
+                  order: 4,
+                  display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none',
+                  // GRID: pushed to the footer's right, beside the due date.
+                  // ROWS: its own column, so it lands at the row's right edge
+                  // whatever the title's length.
+                  ...(view === 'grid' ? { marginLeft: 'auto' } : { alignSelf: 'center' })
+                }}>
+                    {/* The tick only in the CARD — in rows it leads the row
+                        as a labelled "Mark complete" button (see above), and
+                        two of them would be two ways to do one thing. */}
+                    {view === 'grid' && (
                     <CompleteToggle
                       done={done}
                       busy={saving.has(t.id)}
@@ -589,6 +600,7 @@ export default function TasksTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
                       onToggle={() => toggle(t)}
                       compact
                     />
+                    )}
                     <RowAction
                           icon="edit"
                           title="Edit this task"
@@ -600,8 +612,7 @@ export default function TasksTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
                           title="Delete this task"
                           onClick={() => { setConfirmError(null); setConfirming(t) }}
                         />
-                  </span>
-                )}
+                </span>
 
                 {/* A column that fills the stretched card — see NotesTab.
                     Without it the content bunched at the top and left a ragged
@@ -907,30 +918,7 @@ export default function TasksTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
                     )}
                   </span>
                   )}
-                  {/* Edit/delete belong to the ROW, not to whether it happens to
-                      have chips. This used to live inside the `hasChips` block
-                      below, which only renders when a task has a note chip — so
-                      a task with a deal but no linked note (the common case)
-                      silently lost its edit/delete controls in rows view, while
-                      grid view (which renders them unconditionally, see above)
-                      kept them. Moved up here, into the row's own
-                      always-rendered chip line, so both views behave the same
-                      regardless of what the task happens to be linked to. */}
-                  {view !== 'grid' && (
-                    <>
-                      <RowAction
-                        icon="edit"
-                        title="Edit this task"
-                        onClick={() => setEditor({ task: t })}
-                      />
-                      <RowAction
-                        icon="close"
-                        danger
-                        title="Delete this task"
-                        onClick={() => { setConfirmError(null); setConfirming(t) }}
-                      />
-                    </>
-                  )}
+
                 </div>
               </div>
 

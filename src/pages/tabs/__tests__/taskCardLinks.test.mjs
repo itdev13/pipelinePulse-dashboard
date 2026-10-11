@@ -45,14 +45,23 @@ test('the business row can actually open something', () => {
   assert.match(shell, /onOpenBusiness=\{openBusiness\}/);
 });
 
-test('rows view is three columns, card view is stacked', () => {
+test('rows view is four columns, card view is stacked', () => {
   // Left to right the design reads "who and what · when · what to do", and
   // each column keeps its own left edge down the whole list. At a 340px card
   // width the same layout left the title ~40px.
-  assert.match(tab, /gridTemplateColumns: 'minmax\(260px, 340px\) minmax\(110px, auto\) minmax\(0, 1fr\)'/);
-  assert.match(tab, /order: 1/);
-  assert.match(tab, /order: 2/);
-  assert.match(tab, /order: 3/);
+  // FOUR columns: records · due · title+body · actions. The actions used to
+  // live inside the records block, so they stacked under it in column one
+  // instead of sitting at the row's right edge.
+  assert.match(tab, /gridTemplateColumns: 'minmax\(260px, 340px\) minmax\(110px, auto\) minmax\(0, 1fr\) auto'/);
+  for (const n of [1, 2, 3, 4]) {
+    assert.match(tab, new RegExp(`order: ${n},`), `column ${n} has no explicit order`);
+  }
+});
+
+test('the complete toggle is not rendered twice in rows', () => {
+  // Rows lead with a labelled "Mark complete" button; a second tick in the
+  // actions column would be two ways to do one thing.
+  assert.match(tab, /\{view === 'grid' && \(\s*\n\s*<CompleteToggle/);
 });
 
 test('the due date is labelled in BOTH views', () => {
@@ -71,6 +80,7 @@ test('the card has a footer: due date left, actions right', () => {
   // card has a stable footer and the design puts them in it.
   assert.doesNotMatch(tab, /position: 'absolute', top: 12, right: 12/);
   assert.match(tab, /order: 3, width: '100%'/);
-  assert.match(tab, /order: 4, marginLeft: 'auto'/);
+  assert.match(tab, /order: 4,/);
+  assert.match(tab, /view === 'grid' \? \{ marginLeft: 'auto' \} : \{ alignSelf: 'center' \}/);
   assert.match(tab, /borderTop: '1px solid var\(--border-default\)',\s*\n\s*justifyContent: 'space-between'/);
 });
