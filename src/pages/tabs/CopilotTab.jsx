@@ -82,11 +82,13 @@ export default function CopilotTab({ onOpenDeal }) {
   useEffect(() => {
     const userId = session?.user?.id
     if (!userId) return
-    dealsAPI.users()
+    // /me, not /users: that list is the rep picker and excludes agency
+    // staff, so an agency admin — who is often the one signed in — could
+    // never be found in it, and the greeting stayed generic.
+    dealsAPI.me()
       .then((r) => {
-        const match = (r?.users || []).find((u) => u.id === userId)
-        if (!match?.name) return
-        const name = titleCase(match.name)
+        if (!r?.user?.name) return
+        const name = titleCase(r.user.name)
         setFullName(name)
         setFirstName(name.split(' ')[0])
       })

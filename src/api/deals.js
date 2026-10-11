@@ -88,6 +88,10 @@ export const dealsAPI = {
   // Active CRM users, for the Owner and Followers pickers. Both take a GHL user
   // id. Location-wide; fetch once per session.
   users: () => apiClient.get('/api/deals/users'),
+  // The SIGNED-IN user, by id and with no type filter — `users` above is the
+  // rep picker and excludes agency staff, which is often exactly who is
+  // holding the session.
+  me: () => apiClient.get('/api/deals/me'),
 
   create: (fields) => apiClient.post('/api/deals', fields),
   remove: (id) => apiClient.delete(`/api/deals/${encodeURIComponent(id)}`),

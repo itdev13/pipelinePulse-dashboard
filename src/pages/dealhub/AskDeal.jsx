@@ -181,10 +181,12 @@ export default function AskDeal({
   useEffect(() => {
     const userId = session?.user?.id
     if (!userId) return
-    dealsAPI.users()
+    // /me, not /users: that list is the rep picker and excludes agency
+    // staff, so an agency admin — who is often the one signed in — could
+    // never be found in it, and the avatar fell back to an icon.
+    dealsAPI.me()
       .then((r) => {
-        const match = (r?.users || []).find((u) => u.id === userId)
-        if (match?.name) setFullName(titleCase(match.name))
+        if (r?.user?.name) setFullName(titleCase(r.user.name))
       })
       .catch(() => {})
   }, [session?.user?.id])

@@ -70,3 +70,40 @@ test('the Account avatar degrades to an icon, not a stray dot', () => {
   assert.match(bar, /if \(!name\) return null/);
   assert.match(bar, /initialsOf\(fullName\) \|\| \(/);
 });
+
+test('Recents rows are spaced apart, not run together', () => {
+  // At 1px a title sat closer to the NEXT row's title than to its own
+  // timestamp, so four chats read as one block of text — exactly what a list
+  // of near-identical questions must not do.
+  assert.match(bar, /marginBottom: 6,/);
+  assert.match(bar, /display: 'block', marginTop: 3,/);
+});
+
+test('the signed-in name comes from /me, not the rep picker', () => {
+  // /deals/users is filtered to active ACCOUNT users attached to this
+  // sub-account. The person holding the session is often an agency admin who
+  // owns the location without being a member of it, so a name resolved from
+  // that list could never be found — and the avatar fell back to an icon.
+  const askDeal = readFileSync(
+    new URL('../../dealhub/AskDeal.jsx', import.meta.url), 'utf8'
+  );
+  const copilot = readFileSync(
+    new URL('../../tabs/CopilotTab.jsx', import.meta.url), 'utf8'
+  );
+  for (const [name, src] of [['AskDeal', askDeal], ['CopilotTab', copilot]]) {
+    assert.match(src, /dealsAPI\.me\(\)/, `${name} still reads the rep list`);
+    assert.doesNotMatch(src, /\(r\?\.users \|\| \[\]\)\.find/, `${name} still filters the rep list`);
+  }
+});
+
+test('/me answers for ANY user type', () => {
+  // A filter here would reintroduce the bug it exists to fix.
+  const deals = readFileSync(
+    new URL('../../../../../pipelinePulse/server/src/routes/deals.js', import.meta.url), 'utf8'
+  );
+  const route = deals.slice(deals.indexOf("dealsRouter.get('/me'"), deals.indexOf("dealsRouter.get('/users'"));
+  assert.match(route, /WHERE location_id = \$1 AND user_id = \$2/);
+  assert.doesNotMatch(route, /user_type = 'account'/);
+  // null, not 404: an unsynced user is a normal answer.
+  assert.match(route, /res\.json\(\{ user: null \}\)/);
+});

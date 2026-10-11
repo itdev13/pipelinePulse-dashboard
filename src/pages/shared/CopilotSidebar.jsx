@@ -462,7 +462,11 @@ function RecentRow({
         position: 'relative', display: 'flex', alignItems: 'center',
         width: '100%', minWidth: 0,
         borderRadius: 10,
-        marginBottom: 1,
+        // 6px, not 1px. At one pixel a title and the NEXT row's title were
+        // closer to each other than each title was to its own timestamp, so
+        // four chats read as one block of text — which is exactly what a list
+        // of near-identical questions must not do.
+        marginBottom: 6,
         // Neutral grey, matching GHL — not the app's plum accent. This row
         // means "which chat you're on", not "AI-branded", so it takes the
         // same quiet grey a hovered/selected row gets everywhere else.
@@ -497,7 +501,9 @@ function RecentRow({
             apart. `lastAt` has been on every conversation all along. */}
         {conv.lastAt && (
           <span style={{
-            display: 'block', marginTop: 1,
+            // 3px under its own title, against 6px between rows: the stamp
+            // must belong to the title above it rather than float between two.
+            display: 'block', marginTop: 3,
             fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
           }}>
             {formatChatStamp(conv.lastAt)}
