@@ -140,68 +140,87 @@ export default function QualificationSection({ qualification = [], onSave, savin
         }
       />
 
-      {open && (
-        // TWO COLUMNS, the client's design. Ten headings in one column is a
-        // very tall panel for a section that is mostly skimmed; paired up it
-        // fits a screen. The 1px gaps are the background showing through —
-        // cells drawing their own borders would double up where they meet.
+      {open && (() => {
+        // TWO COLUMNS, READ DOWN THEN ACROSS — 1 to 5 on the left, 6 to 10
+        // on the right, as the design numbers them. A single grid fills
+        // row-major (1,2 / 3,4 / …), so the columns are two explicit
+        // stacks instead. That also keeps the order right on a narrow panel,
+        // where .pp-qual-grid drops to one column: the stacks follow each
+        // other, 1–5 then 6–10, rather than interleaving.
+        const half = Math.ceil(qualification.length / 2)
+        const columns = [qualification.slice(0, half), qualification.slice(half)]
+        return (
         <div
           className="pp-qual-grid"
           style={{
             display: 'grid',
-            // TWO columns, never three — see .pp-qual-grid in the tokens
-            // file, which drops to one on a narrow panel.
-            //
-            // repeat(auto-fit, minmax(420px, 1fr)) packed in as many as fit,
-            // so a wide screen got three: the design shows two, and at three
-            // the heading column is squeezed until every question wraps.
-            // The 1px gaps ARE the separators — the background showing through
-            // between white cells. Drawn this way rather than as borders on
-            // the cells so the vertical line between the two columns and the
-            // horizontal ones between rows are the same rule, and neither
-            // doubles up where they cross.
-            gap: 1,
-            background: 'var(--border-default)',
-            // A rule above the first row too, so the grid meets the gold band
-            // with the same line it uses everywhere else.
+            gap: 'var(--space-3)',
+            // A grey panel with SEPARATE CARDS on it, not a seamless grid of
+            // white cells divided by 1px rules. The design's ten headings are
+            // ten boxes; the gaps between them are what make each one a
+            // thing you can see the edges of.
+            padding: 'var(--space-4)',
+            background: 'var(--gray-50)',
             borderTop: '1px solid var(--border-default)'
           }}
         >
-          {qualification.map((q) => {
+          {columns.map((col, ci) => (
+          <div key={ci} style={{ display: 'grid', gap: 'var(--space-3)', alignContent: 'start' }}>
+          {col.map((q, i) => {
+            const n = ci * half + i + 1
             const saving = savingField === q.fieldKey
+            const active = editing === q.fieldKey
             return (
             <div
               key={q.fieldKey}
               style={{
                 display: 'grid',
-                // The heading column is fixed so every answer box on a row
-                // starts at the same x — ragged left edges across ten rows
-                // read as a broken grid.
-                gridTemplateColumns: 'minmax(140px, 260px) 1fr',
-                gap: 'var(--space-3)',
-                alignItems: 'start',
-                padding: '12px var(--space-4)',
-                background: '#fff'
+                // The heading panel is a third of the card — fixed by
+                // proportion so every answer box in a column starts at the
+                // same x.
+                gridTemplateColumns: 'minmax(150px, 34%) minmax(0, 1fr)',
+                border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-md)',
+                background: '#fff',
+                overflow: 'hidden'
               }}
             >
-              <div style={{ minWidth: 0 }}>
-                <span
-                  style={{
-                    display: 'block',
-                    fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)'
-                  }}
-                >
-                  {q.name}
-                </span>
-                {/* The heading's own question, from GHL's placeholder — so a rep
-                    filling a gap knows what's being asked. */}
+              {/* The heading panel: tinted, with the number and name on one
+                  line, a rule under them, and the question beneath. */}
+              <div style={{
+                minWidth: 0, padding: '12px 14px',
+                background: 'var(--gray-25)',
+                borderRight: '1px solid var(--border-default)'
+              }}>
+                <div style={{
+                  display: 'flex', alignItems: 'baseline', gap: 7,
+                  paddingBottom: 8,
+                  borderBottom: '1px solid var(--border-default)'
+                }}>
+                  <span style={{
+                    flex: 'none',
+                    fontSize: 'var(--text-sm)', fontWeight: 500,
+                    fontVariantNumeric: 'tabular-nums',
+                    color: 'var(--text-muted)'
+                  }}>
+                    {n}.
+                  </span>
+                  <span style={{
+                    minWidth: 0,
+                    fontSize: 'var(--text-lg)', fontWeight: 600,
+                    color: 'var(--text-heading)'
+                  }}>
+                    {q.name}
+                  </span>
+                </div>
+                {/* The heading's own question, from GHL's placeholder — so a
+                    rep filling a gap knows what's being asked. */}
                 {q.description && (
-                  <span
-                    style={{
-                      display: 'block', marginTop: 2,
-                      fontSize: 'var(--text-sm)', lineHeight: 1.4, color: 'var(--text-muted)'
-                    }}
-                  >
+                  <span style={{
+                    display: 'block', marginTop: 8,
+                    fontSize: 'var(--text-base)', lineHeight: 1.45,
+                    color: 'var(--text-muted)'
+                  }}>
                     {unwrapParens(q.description)}
                   </span>
                 )}
@@ -214,16 +233,24 @@ export default function QualificationSection({ qualification = [], onSave, savin
                   design shows ten boxes you can type straight into, resize
                   handle and all, so that is what these are.
 
+                  BORDERLESS: the card is the border. A second box inside it
+                  read as a field inside a field. The editing state shows as
+                  a gold rule instead — same colour the border used to turn.
+
                   The draft is held per-heading in `editing`/`draft`, the same
                   state the old editor used — focus claims the row, blur
                   commits it. */}
-              <div style={{ display: 'grid', gap: 7, minWidth: 0 }}>
+              <div style={{
+                position: 'relative', minWidth: 0,
+                display: 'grid', gap: 7, alignContent: 'start',
+                padding: '10px 12px'
+              }}>
                 <textarea
-                  value={editing === q.fieldKey ? draft : (q.value || '')}
+                  value={active ? draft : (q.value || '')}
                   readOnly={!canEdit}
                   placeholder={canEdit ? 'Add answer…' : 'Not filled yet'}
                   onFocus={() => {
-                    if (!canEdit || editing === q.fieldKey) return
+                    if (!canEdit || active) return
                     setEditing(q.fieldKey)
                     setDraft(q.value || '')
                   }}
@@ -237,7 +264,7 @@ export default function QualificationSection({ qualification = [], onSave, savin
                   // without a request when the value has not changed.
                   onBlur={() => {
                     if (abandoning.current) { abandoning.current = false; return }
-                    if (canEdit && editing === q.fieldKey) commit(q)
+                    if (canEdit && active) commit(q)
                   }}
                   onKeyDown={(e) => {
                     // Escape abandons. Enter inserts a newline, as it must in
@@ -253,20 +280,39 @@ export default function QualificationSection({ qualification = [], onSave, savin
                   rows={3}
                   style={{
                     width: '100%', minWidth: 0,
-                    padding: '9px 11px',
-                    border: `1px solid ${editing === q.fieldKey
-                      ? 'var(--accent-gold-text)'
-                      : 'var(--border-default)'}`,
+                    // Room on the right for the pencil, so a long first line
+                    // does not run underneath it.
+                    padding: '2px 28px 2px 2px',
+                    // A transparent border that turns gold when active —
+                    // same box either way, so nothing shifts on focus.
+                    border: `1px solid ${active ? 'var(--accent-gold-text)' : 'transparent'}`,
                     borderRadius: 'var(--radius-sm)',
-                    background: '#fff',
+                    background: 'transparent', outline: 'none',
                     fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
                     lineHeight: 1.5, color: 'var(--text-body)',
                     resize: 'vertical'
                   }}
                 />
+                {/* The pencil says "editable" before a rep tries. It sits
+                    over the textarea's padding and takes no clicks, so it
+                    never gets between the cursor and the text. Hidden while
+                    editing — the Save/Cancel pair says it louder. */}
+                {canEdit && !active && (
+                  <span
+                    className="ms"
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute', top: 12, right: 14,
+                      fontSize: 16, color: 'var(--text-faint)',
+                      pointerEvents: 'none'
+                    }}
+                  >
+                    edit
+                  </span>
+                )}
                 {/* Save/Cancel appear only on the row being edited — ten
                     permanent button pairs would be louder than the answers. */}
-                {editing === q.fieldKey && (
+                {active && (
                   <span style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
                     <button
                       type="button"
@@ -306,11 +352,11 @@ export default function QualificationSection({ qualification = [], onSave, savin
             </div>
             )
           })}
-          {/* An odd number of headings leaves half a row, where the grid's gap
-              colour would otherwise show as a grey block. */}
-          {qualification.length % 2 === 1 && <div style={{ background: '#fff' }} />}
+          </div>
+          ))}
         </div>
-      )}
+        )
+      })()}
 
       {/* The footnote explains the rows, so it belongs with them — showing it
           under a collapsed header would describe a list nobody can see. */}
