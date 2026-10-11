@@ -1087,7 +1087,10 @@ function FieldChipRow({ deal, fieldOptions = {}, onSaveField, saving }) {
   const byKey = Object.fromEntries(FIELD_CHIPS.map((f) => [f[1], f]))
 
   return (
-    <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
+    // marginTop matches the gap BETWEEN the groups. Column is a plain block,
+    // so without it the first group sat flush under the deal-name card while
+    // the second and third had a gap above — one join in a stack of four.
+    <div style={{ display: 'grid', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
       {FIELD_GROUPS.map((keys) => (
         <div
           key={keys.join('+')}

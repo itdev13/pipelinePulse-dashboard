@@ -522,3 +522,35 @@ test('a bare picker draws no border of its own', () => {
   assert.match(deal, /border: bare\s*\n\s*\? '1px solid transparent'/);
   assert.match(deal, /background: bare \? 'none'/);
 });
+
+test('the view buttons are rounded rectangles, not pills', () => {
+  // They share the search box's corner radius beside them; full pills next to
+  // a square-cornered input read as two different control families.
+  const deal = read('DealSection.jsx');
+  const toolbar = deal.slice(deal.indexOf('VIEWS.map'), deal.indexOf('VIEWS.map') + 1200);
+  assert.match(toolbar, /borderRadius: 'var\(--radius-md\)'/);
+  assert.doesNotMatch(toolbar, /borderRadius: 'var\(--radius-pill\)'/);
+})
+
+test('the business pill is PLUM, matching every other business affordance', () => {
+  // It rendered sky-blue — the one place in the app where "business" was not
+  // plum. Scoped to BusinessBlock so a sky token elsewhere does not trip it.
+  const deal = read('DealSection.jsx');
+  const block = deal.slice(deal.indexOf('function BusinessBlock('), deal.indexOf('function ValueColumn('));
+  assert.match(block, /border: '1px solid var\(--accent-plum\)'/);
+  assert.match(block, /background: 'var\(--tint-plum\)'/);
+  assert.match(block, /color: 'var\(--accent-plum-text\)'/);
+  assert.match(block, /borderRadius: 'var\(--radius-pill\)'/);
+  assert.doesNotMatch(block, /accent-sky|tint-sky/);
+})
+
+test('the initial enquiry is a tinted, bordered block', () => {
+  // Bare on the card's white it read as prose WE wrote; the frame says it
+  // was received from the customer.
+  const deal = read('DealSection.jsx');
+  const at = deal.indexOf('<FieldLabel>Initial enquiry</FieldLabel>');
+  const block = deal.slice(at, at + 900);
+  assert.match(block, /border: '1px solid var\(--gray-200\)'/);
+  assert.match(block, /background: 'var\(--gray-25\)'/);
+  assert.match(block, /padding: '12px 14px'/);
+})
