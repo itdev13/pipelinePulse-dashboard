@@ -403,7 +403,9 @@ export default function DealHubShell() {
 
       {/* Tab content */}
       <main>
-        {activeTab === 'home' && <HomeTab />}
+        {activeTab === 'home' && (
+          <HomeTab counts={counts} onOpenTab={(tab) => navigate({ tab })} />
+        )}
         {activeTab === 'hub' && (
           <DealHubTab
             dealId={selectedDealId}
