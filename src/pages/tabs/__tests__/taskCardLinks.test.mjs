@@ -50,6 +50,27 @@ test('rows view is three columns, card view is stacked', () => {
   // each column keeps its own left edge down the whole list. At a 340px card
   // width the same layout left the title ~40px.
   assert.match(tab, /gridTemplateColumns: 'minmax\(260px, 340px\) minmax\(110px, auto\) minmax\(0, 1fr\)'/);
-  assert.match(tab, /order: 3/);
   assert.match(tab, /order: 1/);
+  assert.match(tab, /order: 2/);
+  assert.match(tab, /order: 3/);
+});
+
+test('the due date is labelled in BOTH views', () => {
+  // A bare date says nothing about what it is — "14 Oct" could be when the
+  // task was created — and the calendar icon is what the design leads the
+  // line with.
+  assert.match(tab, /calendar_today<\/span>/);
+  assert.match(tab, />\s*Due date\s*</);
+  assert.doesNotMatch(tab, /view !== 'grid' && \(\s*\n\s*<span style=\{\{\s*\n\s*display: 'flex', alignItems: 'center', gap: 5,/);
+});
+
+test('the card has a footer: due date left, actions right', () => {
+  // The actions were absolutely positioned at the top-right, level with the
+  // title — where they went to escape trailing a chip row whose height
+  // changed per card. The linked records are fixed-height rows now, so the
+  // card has a stable footer and the design puts them in it.
+  assert.doesNotMatch(tab, /position: 'absolute', top: 12, right: 12/);
+  assert.match(tab, /order: 3, width: '100%'/);
+  assert.match(tab, /order: 4, marginLeft: 'auto'/);
+  assert.match(tab, /borderTop: '1px solid var\(--border-default\)',\s*\n\s*justifyContent: 'space-between'/);
 });

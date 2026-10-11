@@ -570,14 +570,17 @@ export default function TasksTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
                   e.currentTarget.style.background = 'transparent'
                 }}
               >
-                {/* Complete, edit and delete — top-right, the same corner the
-                    note cards use. They used to trail the chips at the card's
-                    bottom, which put them in a different place depending on
-                    how many chips wrapped. */}
+                {/* Complete, edit and delete.
+                    They sat ABSOLUTELY POSITIONED at the card's top-right,
+                    level with the title — which is where they went to escape
+                    trailing a chip row whose height changed per card. The
+                    linked records are fixed-height rows now, so the card has
+                    a stable footer and the design puts them in it, beside the
+                    due date they act on. */}
                 {view === 'grid' && (
                   <span style={{
-                    position: 'absolute', top: 12, right: 12,
-                    display: 'inline-flex', gap: 6, flex: 'none'
+                    order: 4, marginLeft: 'auto',
+                    display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none'
                   }}>
                     <CompleteToggle
                       done={done}
@@ -695,9 +698,41 @@ export default function TasksTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
                       display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
                       marginTop: view === 'grid' ? 'auto' : 3,
                       paddingTop: view === 'grid' ? 6 : 0,
-                      flexWrap: 'wrap'
+                      flexWrap: 'wrap',
+                      // GRID: the card's FOOTER — below the linked records,
+                      // with a rule above it. It sat above them, so the date
+                      // read as part of the description rather than as the
+                      // card's bottom line, and the links had nothing under
+                      // them to close the card.
+                      //
+                      // ROWS: the SECOND column, between the linked records
+                      // and the title. See the `order` notes above.
+                      ...(view === 'grid'
+                        ? {
+                          order: 3, width: '100%',
+                          marginTop: 'var(--space-3)',
+                          paddingTop: 'var(--space-3)',
+                          borderTop: '1px solid var(--border-default)',
+                          justifyContent: 'space-between'
+                        }
+                        : { order: 2, flexDirection: 'column', alignItems: 'flex-start' })
                     }}
                   >
+                    {/* LABELLED in both views. A bare date says nothing about
+                        what it is — "14 Oct" could be when the task was made
+                        — and the calendar icon is what the design leads the
+                        line with. */}
+                    {(
+                      <span style={{
+                        display: 'flex', alignItems: 'center', gap: 5,
+                        color: overdue ? 'var(--status-stuck)' : 'var(--text-muted)'
+                      }}>
+                        <span className="ms" style={{ fontSize: 15 }}>calendar_today</span>
+                        <span className="pp-label" style={{ marginBottom: 0, color: 'inherit' }}>
+                          Due date
+                        </span>
+                      </span>
+                    )}
                     {/* Overdue is COLOUR on the due date, not a separate pill.
                         With every task overdue, three red badges carried no
                         information and were the loudest thing on the page —
