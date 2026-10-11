@@ -104,25 +104,19 @@ export default function QualificationSection({ qualification = [], onSave, savin
         icon="checklist"
         title="Qualification"
         accent="gold"
-        // NOT a subtitle. The design puts the count on the RIGHT, beside the
-        // "N missing" pill — the two are one reading ("0 of 10, 10 missing"),
-        // and split across the band they read as unrelated facts.
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        tooltip={open ? 'Hide the headings' : 'Show all ten headings'}
-        // Closed, the header IS the whole panel — a bottom rule would read as
-        // an empty body below it.
-        style={{ borderBottom: open ? undefined : 'none' }}
-        action={
+        // The count and the "N missing" pill sit BESIDE THE TITLE, as the
+        // design places them — one reading, "Qualification · 0 of 10 · 10
+        // missing", in the subtitle slot. They were in the right-hand action
+        // slot next to the chevron, which an earlier mockup showed; the
+        // current one leaves only the chevron on the right.
+        subtitle={
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 9 }}>
-            <span style={{ fontSize: 'var(--text-md)', color: 'rgba(255,255,255,0.92)' }}>
-              {filled} of {qualification.length}
-            </span>
+            <span>{filled} of {qualification.length}</span>
             {missing.length > 0 && (
               <span
                 style={{
                   display: 'inline-flex', alignItems: 'center',
-                  height: 22, padding: '0 9px',
+                  height: 24, padding: '0 10px',
                   borderRadius: 'var(--radius-pill)',
                   // Inverted on the solid band: rose-on-gold is unreadable,
                   // and a white chip is how the count badge reads elsewhere.
@@ -133,9 +127,17 @@ export default function QualificationSection({ qualification = [], onSave, savin
                 {missing.length} missing
               </span>
             )}
-            <span className="ms" style={{ fontSize: 'var(--text-xl)', color: '#fff' }}>
-              {open ? 'expand_less' : 'expand_more'}
-            </span>
+          </span>
+        }
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        tooltip={open ? 'Hide the headings' : 'Show all ten headings'}
+        // Closed, the header IS the whole panel — a bottom rule would read as
+        // an empty body below it.
+        style={{ borderBottom: open ? undefined : 'none' }}
+        action={
+          <span className="ms" style={{ fontSize: 'var(--text-xl)', color: '#fff' }}>
+            {open ? 'expand_less' : 'expand_more'}
           </span>
         }
       />
