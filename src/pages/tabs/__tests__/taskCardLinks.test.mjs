@@ -45,23 +45,65 @@ test('the business row can actually open something', () => {
   assert.match(shell, /onOpenBusiness=\{openBusiness\}/);
 });
 
-test('rows view is four columns, card view is stacked', () => {
-  // Left to right the design reads "who and what · when · what to do", and
-  // each column keeps its own left edge down the whole list. At a 340px card
-  // width the same layout left the title ~40px.
-  // FOUR columns: records · due · title+body · actions. The actions used to
-  // live inside the records block, so they stacked under it in column one
-  // instead of sitting at the row's right edge.
-  assert.match(tab, /gridTemplateColumns: 'minmax\(260px, 340px\) minmax\(110px, auto\) minmax\(0, 1fr\) auto'/);
-  for (const n of [1, 2, 3, 4]) {
-    assert.match(tab, new RegExp(`order: ${n},`), `column ${n} has no explicit order`);
-  }
+test('rows view is five columns, card view is stacked', () => {
+  // Left to right the design reads "done · who and what · when · what to do ·
+  // act on it", and each column keeps its own left edge down the whole list.
+  // At a 340px card width the same layout left the title ~40px.
+  assert.match(
+    tab,
+    /gridTemplateColumns: 'auto minmax\(240px, 320px\) minmax\(104px, auto\) minmax\(0, 1fr\) auto'/
+  );
 });
 
-test('the complete toggle is not rendered twice in rows', () => {
-  // Rows lead with a labelled "Mark complete" button; a second tick in the
-  // actions column would be two ways to do one thing.
-  assert.match(tab, /\{view === 'grid' && \(\s*\n\s*<CompleteToggle/);
+test('THE DUE DATE IS A SIBLING OF THE TITLE COLUMN, NOT A CHILD', () => {
+  // THE BUG THIS FILE EXISTS FOR.
+  //
+  // The due block was written INSIDE the title column's <div> and carried
+  // `order: 2`, which does nothing: `order` sorts SIBLINGS, and its siblings
+  // were the title and the description. So the row grid received three items
+  // where it declared columns for more, and the date rendered under the title
+  // with the edit and delete buttons beside it — exactly what the screenshot
+  // showed.
+  //
+  // It is a `const dueBlock` placed by each view now. Asserted structurally,
+  // because the markup was VALID and rendered without complaint; only the
+  // position was wrong, and no assertion on the elements themselves would
+  // have caught it.
+  const open = tab.indexOf('const dueBlock = (');
+  assert.ok(open > 0, 'the due block must be hoisted out of the title column');
+
+  // The title column opens at `minWidth: 0, flex: 1,` — the due block must
+  // NOT fall between that and the column's close.
+  const col = tab.indexOf('minWidth: 0, flex: 1,');
+  assert.ok(col > 0, 'title column not found');
+  const rowsDue = tab.indexOf("{view !== 'grid' && dueBlock}");
+  assert.ok(rowsDue > 0, 'rows must render the due block as its own item');
+  assert.ok(rowsDue < col, 'the rows due column must precede the title column');
+});
+
+test('no `order` is used to place the row grid columns', () => {
+  // The columns are written in the order they appear. Reaching for `order`
+  // here is what hid the nesting bug above: the style said four columns while
+  // the DOM held three, and the two disagreed silently.
+  //
+  // Matched on the rows branch specifically — the GRID card is a flex column
+  // whose three children really are siblings, and `order` is sound there.
+  const rows = tab.slice(tab.indexOf('gridTemplateColumns: \'auto minmax'));
+  assert.doesNotMatch(
+    rows.slice(0, 400),
+    /order: [0-9]/,
+    'the rows grid must not position its columns with order'
+  );
+});
+
+test('each view has exactly one complete toggle', () => {
+  // Rows show a standalone tick in their own leading column, as the design
+  // does. The card shows a labelled one in its footer. Two in either view
+  // would be two ways to do one thing.
+  const ticks = tab.match(/<CompleteToggle/g) || [];
+  assert.equal(ticks.length, 2, 'one toggle per view, no more');
+  // The rows one is compact — a bare circle, not a labelled button.
+  assert.match(tab, /view !== 'grid' && \(\s*\n[\s\S]{0,300}?<CompleteToggle[\s\S]{0,200}?compact/);
 });
 
 test('the due date is labelled in BOTH views', () => {
@@ -80,7 +122,18 @@ test('the card has a footer: due date left, actions right', () => {
   // card has a stable footer and the design puts them in it.
   assert.doesNotMatch(tab, /position: 'absolute', top: 12, right: 12/);
   assert.match(tab, /order: 3, width: '100%'/);
-  assert.match(tab, /order: 4,/);
-  assert.match(tab, /view === 'grid' \? \{ marginLeft: 'auto' \} : \{ alignSelf: 'center' \}/);
   assert.match(tab, /borderTop: '1px solid var\(--border-default\)',\s*\n\s*justifyContent: 'space-between'/);
+  // Right-hand group inside the footer, pushed over by auto margin.
+  assert.match(tab, /marginLeft: 'auto',\s*\n\s*display: 'inline-flex'/);
+});
+
+test('the card footer sits BELOW the linked records', () => {
+  // The design closes the card with the due date under the records. While
+  // the footer lived inside the title column it could only ever render
+  // above them, whatever order it was given — the same nesting mistake as
+  // the rows bug, in the other view.
+  const links = tab.indexOf("order: 2 }");
+  const footer = tab.indexOf("{view === 'grid' && dueBlock}");
+  assert.ok(links > 0 && footer > 0, 'links block or grid footer not found');
+  assert.match(tab, /order: 1 \}/, 'the title column must lead the card');
 });

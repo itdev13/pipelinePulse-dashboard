@@ -499,6 +499,135 @@ export default function TasksTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
           // for an ordinary single-deal task and 0 for an unlinked one.
           const dealCount = t.deals?.length || 0
           const hasChips = t.noteChips?.length > 0
+          // THE DUE DATE IS A SIBLING, NOT A CHILD OF THE TITLE COLUMN.
+          //
+          // It lived inside that column with `order: 2` on it, which did
+          // nothing: `order` sorts SIBLINGS, and its siblings were the title
+          // and the description. So the rows view rendered three grid items,
+          // not four, and the date landed under the title with the edit and
+          // delete buttons beside it — the reported bug.
+          //
+          // Hoisted to a variable so one definition serves both views: a real
+          // grid item in rows, the card's footer line in grid.
+          // Edit and delete, shared by both views. The grid puts them in
+          // the card's footer beside the due date; rows give them their own
+          // column at the right edge.
+          const actions = (
+            <>
+              <RowAction
+                icon="edit"
+                title="Edit this task"
+                onClick={() => setEditor({ task: t })}
+              />
+              <RowAction
+                icon="close"
+                danger
+                title="Delete this task"
+                onClick={() => { setConfirmError(null); setConfirming(t) }}
+              />
+            </>
+          )
+
+          //
+          // In the GRID it is pinned to the card's floor, so the due date
+          // sits at the same depth on every card in the row — see NotesTab.
+          const dueBlock = (
+          <div
+            style={{
+              display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+              marginTop: view === 'grid' ? 'auto' : 3,
+              paddingTop: view === 'grid' ? 6 : 0,
+              flexWrap: 'wrap',
+              // GRID: the card's FOOTER — below the linked records,
+              // with a rule above it. It sat above them, so the date
+              // read as part of the description rather than as the
+              // card's bottom line, and the links had nothing under
+              // them to close the card.
+              //
+              // ROWS: the SECOND grid column — the label above the date,
+              // which is how the design stacks it. No `order` here: it is
+              // a direct child of the row grid now and falls in source
+              // position, which is already second.
+              ...(view === 'grid'
+                ? {
+                  order: 3, width: '100%',
+                  marginTop: 'var(--space-3)',
+                  paddingTop: 'var(--space-3)',
+                  borderTop: '1px solid var(--border-default)',
+                  justifyContent: 'space-between'
+                }
+                : {
+                  flexDirection: 'column', alignItems: 'flex-start',
+                  gap: 2, marginTop: 0
+                })
+            }}
+          >
+            {/* LABELLED in both views. A bare date says nothing about
+                what it is — "14 Oct" could be when the task was made
+                — and the calendar icon is what the design leads the
+                line with. */}
+            {(
+              <span style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                color: overdue ? 'var(--status-stuck)' : 'var(--text-muted)'
+              }}>
+                <span className="ms" style={{ fontSize: 15 }}>calendar_today</span>
+                <span className="pp-label" style={{ marginBottom: 0, color: 'inherit' }}>
+                  Due date
+                </span>
+              </span>
+            )}
+            {/* Overdue is COLOUR on the due date, not a separate pill.
+                With every task overdue, three red badges carried no
+                information and were the loudest thing on the page —
+                while the date they referred to sat in grey beside
+                them. */}
+            {/* A finished task doesn't owe a due date. Showing "due 12
+                days ago" on something already done reads as a task
+                still outstanding — say when it was completed instead. */}
+            <span
+              style={{
+                fontSize: 'var(--text-base)',
+                fontWeight: overdue ? 600 : 400,
+                color: done
+                  ? 'var(--accent-pine-text)'
+                  : overdue
+                    ? 'var(--status-stuck-text)'
+                    : dueToday ? 'var(--accent-gold-text)' : 'var(--text-muted)'
+              }}
+            >
+              {done
+                ? (t.completedAt
+                    ? `completed ${relativeTime(t.completedAt)}`
+                    : 'completed')
+                : formatDue(t.dueAt) || 'No due date'}
+            </span>
+            {t.owner && (
+              <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-faint)' }}>
+                · {t.owner}
+              </span>
+            )}
+
+            {/* The CARD's footer carries its own actions on the right, which
+                is what the design shows: due date left, "Mark complete" and
+                the two icon buttons right, on one line. Rows place the same
+                controls as separate columns instead. */}
+            {view === 'grid' && (
+              <span style={{
+                marginLeft: 'auto',
+                display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none'
+              }}>
+                <CompleteToggle
+                  done={done}
+                  busy={saving.has(t.id)}
+                  label={t.title || 'task'}
+                  onToggle={() => toggle(t)}
+                />
+                {actions}
+              </span>
+            )}
+          </div>
+          )
           return (
             // No position/zIndex here: the popover renders in a body
             // portal, because this list's Panel sets `overflow: hidden` to
@@ -528,11 +657,15 @@ export default function TasksTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
                       // The link column is fixed so every "View CONTACT"
                       // button lands on the same x; the due column hugs its
                       // content; the title takes what is left.
-                      // Four: records · due · title+body · actions. The
-                      // actions used to live INSIDE the records block, so
-                      // they stacked under it in column one instead of
-                      // sitting at the row's right edge.
-                      gridTemplateColumns: 'minmax(260px, 340px) minmax(110px, auto) minmax(0, 1fr) auto',
+                      // Five: tick · records · due · title+body · actions.
+                      //
+                      // NO `order` ANYWHERE. The children are written in the
+                      // order they appear. The previous version moved them
+                      // with `order` and shipped broken, because the due
+                      // date was NESTED inside the title column — `order`
+                      // sorts siblings, so it never became a column at all
+                      // and the row rendered three items instead of five.
+                      gridTemplateColumns: 'auto minmax(240px, 320px) minmax(104px, auto) minmax(0, 1fr) auto',
                       alignItems: 'start'
                     }),
                   gap: 'var(--space-3)',
@@ -574,25 +707,16 @@ export default function TasksTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
                   e.currentTarget.style.background = 'transparent'
                 }}
               >
-                {/* Complete, edit and delete.
-                    They sat ABSOLUTELY POSITIONED at the card's top-right,
-                    level with the title — which is where they went to escape
-                    trailing a chip row whose height changed per card. The
-                    linked records are fixed-height rows now, so the card has
-                    a stable footer and the design puts them in it, beside the
-                    due date they act on. */}
-                <span style={{
-                  order: 4,
-                  display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none',
-                  // GRID: pushed to the footer's right, beside the due date.
-                  // ROWS: its own column, so it lands at the row's right edge
-                  // whatever the title's length.
-                  ...(view === 'grid' ? { marginLeft: 'auto' } : { alignSelf: 'center' })
-                }}>
-                    {/* The tick only in the CARD — in rows it leads the row
-                        as a labelled "Mark complete" button (see above), and
-                        two of them would be two ways to do one thing. */}
-                    {view === 'grid' && (
+                {/* ROWS lead with a standalone tick in its own column, as the
+                    design does — a circle at the row's left edge, vertically
+                    centred, separate from the edit and delete buttons at the
+                    right. The GRID has no tick here: its card carries one in
+                    the footer, labelled, beside the due date. */}
+                {view !== 'grid' && (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center',
+                    alignSelf: 'center', flex: 'none'
+                  }}>
                     <CompleteToggle
                       done={done}
                       busy={saving.has(t.id)}
@@ -600,182 +724,8 @@ export default function TasksTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
                       onToggle={() => toggle(t)}
                       compact
                     />
-                    )}
-                    <RowAction
-                          icon="edit"
-                          title="Edit this task"
-                          onClick={() => setEditor({ task: t })}
-                        />
-                        <RowAction
-                          icon="close"
-                          danger
-                          title="Delete this task"
-                          onClick={() => { setConfirmError(null); setConfirming(t) }}
-                        />
-                </span>
-
-                {/* A column that fills the stretched card — see NotesTab.
-                    Without it the content bunched at the top and left a ragged
-                    gap that differed on every card. */}
-                <div style={{
-                  minWidth: 0, flex: 1,
-                  ...(view === 'grid'
-                    ? { display: 'flex', flexDirection: 'column', alignSelf: 'stretch' }
-                    // THIRD column in rows. `order` rather than moving the
-                    // JSX: the card view wants title-then-links and the rows
-                    // view wants links-then-title, and one source order with
-                    // a swap is easier to follow than two branches rendering
-                    // the same children in different places.
-                    : { order: 3 })
-                }}>
-                  <button
-                    onClick={() => t.deal && onOpenDeal && onOpenDeal(t.deal.id)}
-                    title={t.deal ? 'Open this task on the deal hub' : undefined}
-                    style={{
-                      border: 'none', background: 'none', padding: 0,
-                      textAlign: 'left',
-                      cursor: t.deal ? 'pointer' : 'default',
-                      fontFamily: 'var(--font-sans)',
-                      // 17px against a 12px description — a 1.4x ratio, which
-                      // is where a size difference starts reading as a
-                      // hierarchy rather than a wobble. At 14px it didn't.
-                      fontSize: 'var(--text-xl)', fontWeight: 600,
-                      lineHeight: 1.3, letterSpacing: '-0.01em',
-                      color: 'var(--text-heading)',
-                      textDecoration: done ? 'line-through' : 'none',
-                      // A title is whatever GHL holds, and that is not always
-                      // prose — a task named with a raw record id
-                      // ("Kf2bBEEvu8aJZ4Mo0Ikj") is one unbroken 20-character
-                      // word that pushed the chips off the row. Wrap it rather
-                      // than let it set the row's width.
-                      maxWidth: '100%',
-                      overflowWrap: 'anywhere'
-                    }}
-                  >
-                    {t.title || '(untitled task)'}
-                  </button>
-
-                  {/* Muted, not near-black. Size alone wasn't enough — the two
-                      lines sat at the same colour weight and read as one block
-                      of text. */}
-                  {/* Two reserved lines in a card — see NotesTab. The slot
-                      renders whether or not a task has a description, which is
-                      what makes every card in a row the same height. */}
-                  {(t.body || view === 'grid') && (
-                    <div style={{
-                      marginTop: 3,
-                      ...(view === 'grid' ? {
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                        minHeight: 'calc(var(--text-md) * 1.5 * 2)'
-                      } : {})
-                    }}>
-                      <RichBody
-                        html={t.body || ''}
-                        size="var(--text-md)"
-                        color="var(--text-muted)"
-                        maxWidth={680}
-                        showPlainToggle={view !== 'grid'}
-                      />
-                    </div>
-                  )}
-
-                  {/* Opens the EDITOR, which already shows the whole
-                      description — a read-only modal here would be a second
-                      surface showing the same text, and a task's description
-                      is something a rep usually wants to change anyway. */}
-                  {view === 'grid' && htmlToText(t.body || '').length > 60 && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setEditor({ task: t }) }}
-                      style={{
-                        alignSelf: 'flex-start', marginTop: 2,
-                        border: 'none', background: 'none', padding: 0,
-                        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
-                        fontWeight: 600, color: 'var(--text-link)',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Read more
-                    </button>
-                  )}
-
-                  {/* Pinned to the card's floor in a grid, so the due date
-                      sits at the same depth on every card in the row — see
-                      NotesTab. */}
-                  <div
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-                      marginTop: view === 'grid' ? 'auto' : 3,
-                      paddingTop: view === 'grid' ? 6 : 0,
-                      flexWrap: 'wrap',
-                      // GRID: the card's FOOTER — below the linked records,
-                      // with a rule above it. It sat above them, so the date
-                      // read as part of the description rather than as the
-                      // card's bottom line, and the links had nothing under
-                      // them to close the card.
-                      //
-                      // ROWS: the SECOND column, between the linked records
-                      // and the title. See the `order` notes above.
-                      ...(view === 'grid'
-                        ? {
-                          order: 3, width: '100%',
-                          marginTop: 'var(--space-3)',
-                          paddingTop: 'var(--space-3)',
-                          borderTop: '1px solid var(--border-default)',
-                          justifyContent: 'space-between'
-                        }
-                        : { order: 2, flexDirection: 'column', alignItems: 'flex-start' })
-                    }}
-                  >
-                    {/* LABELLED in both views. A bare date says nothing about
-                        what it is — "14 Oct" could be when the task was made
-                        — and the calendar icon is what the design leads the
-                        line with. */}
-                    {(
-                      <span style={{
-                        display: 'flex', alignItems: 'center', gap: 5,
-                        color: overdue ? 'var(--status-stuck)' : 'var(--text-muted)'
-                      }}>
-                        <span className="ms" style={{ fontSize: 15 }}>calendar_today</span>
-                        <span className="pp-label" style={{ marginBottom: 0, color: 'inherit' }}>
-                          Due date
-                        </span>
-                      </span>
-                    )}
-                    {/* Overdue is COLOUR on the due date, not a separate pill.
-                        With every task overdue, three red badges carried no
-                        information and were the loudest thing on the page —
-                        while the date they referred to sat in grey beside
-                        them. */}
-                    {/* A finished task doesn't owe a due date. Showing "due 12
-                        days ago" on something already done reads as a task
-                        still outstanding — say when it was completed instead. */}
-                    <span
-                      style={{
-                        fontSize: 'var(--text-base)',
-                        fontWeight: overdue ? 600 : 400,
-                        color: done
-                          ? 'var(--accent-pine-text)'
-                          : overdue
-                            ? 'var(--status-stuck-text)'
-                            : dueToday ? 'var(--accent-gold-text)' : 'var(--text-muted)'
-                      }}
-                    >
-                      {done
-                        ? (t.completedAt
-                            ? `completed ${relativeTime(t.completedAt)}`
-                            : 'completed')
-                        : formatDue(t.dueAt) || 'No due date'}
-                    </span>
-                    {t.owner && (
-                      <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-faint)' }}>
-                        · {t.owner}
-                      </span>
-                    )}
-                  </div>
-                </div>
+                  </span>
+                )}
 
                 <div
                   style={{
@@ -786,7 +736,7 @@ export default function TasksTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
                     // Fills the card's remaining height so the actions below
                     // can be pushed to its bottom with margin-top:auto.
                     ...(view === 'grid'
-                      ? { flex: 1, alignContent: 'flex-start', width: '100%' }
+                      ? { flex: 1, alignContent: 'flex-start', width: '100%', order: 2 }
                       : {}),
                     // Aligned to the TITLE's line rather than centred against
                     // the whole row: a task with a long description pushed its
@@ -794,27 +744,10 @@ export default function TasksTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
                     // belonging to the title they describe.
                     alignItems: 'flex-start',
                     flex: 'none',
-                    // FIRST column in rows — see the `order: 3` above.
-                    ...(view === 'grid' ? {} : { order: 1, flexDirection: 'column', width: '100%' })
+                    // SECOND column in rows — placed by source order.
+                    ...(view === 'grid' ? {} : { flexDirection: 'column', width: '100%' })
                   }}
                 >
-                  {/* A tick, not a checkbox — a bare 17px box says nothing
-                      about what ticking it does.
-
-                      It sits with the chips on the RIGHT, not at the head of
-                      the row. Leading the row it indented every title behind a
-                      140px control, so no task name started at the row's left
-                      edge and the list lost the column a reader scans down.
-                      The card view already groups it with its actions. */}
-                  {view !== 'grid' && (
-                    <CompleteToggle
-                      done={done}
-                      busy={saving.has(t.id)}
-                      label={t.title || 'task'}
-                      onToggle={() => toggle(t)}
-                    />
-                  )}
-
                   {/* The task's linked records, one row each.
                       GHL names a new opportunity after its contact, so the
                       contact and the deal routinely hold the same string —
@@ -920,6 +853,121 @@ export default function TasksTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
                   )}
 
                 </div>
+                {/* ROWS: the SECOND column, a sibling of the links block and
+                    the title column so the grid can actually place it. */}
+                {view !== 'grid' && dueBlock}
+
+                {/* A column that fills the stretched card — see NotesTab.
+                    Without it the content bunched at the top and left a ragged
+                    gap that differed on every card. */}
+                <div style={{
+                  minWidth: 0, flex: 1,
+                  ...(view === 'grid'
+                    // GRID: the card leads with the title, so this column is
+                    // ordered ahead of the links it is written after. These
+                    // three ARE siblings of the card, so `order` is sound
+                    // here — unlike the due date, which was a child.
+                    ? { display: 'flex', flexDirection: 'column', alignSelf: 'stretch', order: 1 }
+                    // FOURTH column in rows — placed by source order.
+                    : {})
+                }}>
+                  <button
+                    onClick={() => t.deal && onOpenDeal && onOpenDeal(t.deal.id)}
+                    title={t.deal ? 'Open this task on the deal hub' : undefined}
+                    style={{
+                      border: 'none', background: 'none', padding: 0,
+                      textAlign: 'left',
+                      cursor: t.deal ? 'pointer' : 'default',
+                      fontFamily: 'var(--font-sans)',
+                      // 17px against a 12px description — a 1.4x ratio, which
+                      // is where a size difference starts reading as a
+                      // hierarchy rather than a wobble. At 14px it didn't.
+                      fontSize: 'var(--text-xl)', fontWeight: 600,
+                      lineHeight: 1.3, letterSpacing: '-0.01em',
+                      color: 'var(--text-heading)',
+                      textDecoration: done ? 'line-through' : 'none',
+                      // A title is whatever GHL holds, and that is not always
+                      // prose — a task named with a raw record id
+                      // ("Kf2bBEEvu8aJZ4Mo0Ikj") is one unbroken 20-character
+                      // word that pushed the chips off the row. Wrap it rather
+                      // than let it set the row's width.
+                      maxWidth: '100%',
+                      overflowWrap: 'anywhere'
+                    }}
+                  >
+                    {t.title || '(untitled task)'}
+                  </button>
+
+                  {/* Muted, not near-black. Size alone wasn't enough — the two
+                      lines sat at the same colour weight and read as one block
+                      of text. */}
+                  {/* Two reserved lines in a card — see NotesTab. The slot
+                      renders whether or not a task has a description, which is
+                      what makes every card in a row the same height. */}
+                  {(t.body || view === 'grid') && (
+                    <div style={{
+                      marginTop: 3,
+                      ...(view === 'grid' ? {
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        minHeight: 'calc(var(--text-md) * 1.5 * 2)'
+                      } : {})
+                    }}>
+                      <RichBody
+                        html={t.body || ''}
+                        size="var(--text-md)"
+                        color="var(--text-muted)"
+                        maxWidth={680}
+                        showPlainToggle={view !== 'grid'}
+                      />
+                    </div>
+                  )}
+
+                  {/* Opens the EDITOR, which already shows the whole
+                      description — a read-only modal here would be a second
+                      surface showing the same text, and a task's description
+                      is something a rep usually wants to change anyway. */}
+                  {view === 'grid' && htmlToText(t.body || '').length > 60 && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setEditor({ task: t }) }}
+                      style={{
+                        alignSelf: 'flex-start', marginTop: 2,
+                        border: 'none', background: 'none', padding: 0,
+                        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
+                        fontWeight: 600, color: 'var(--text-link)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Read more
+                    </button>
+                  )}
+
+                </div>
+
+                {/* GRID: the card's FOOTER — last, under the linked records,
+                    which is where the design closes the card. It cannot live
+                    inside the title column: a child of that column renders
+                    ABOVE the links, however it is ordered, because `order`
+                    only sorts siblings. That mistake is what broke the rows
+                    view, so it is not repeated here. */}
+                {view === 'grid' && dueBlock}
+
+                {/* ROWS: the actions are the LAST grid column, so they land
+                    at the row's right edge whatever the title's length. In
+                    the GRID they are not here at all — they sit inside the
+                    card's footer beside the due date, which is where the
+                    design puts them. */}
+                {view !== 'grid' && (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    flex: 'none', alignSelf: 'center'
+                  }}>
+                    {actions}
+                  </span>
+                )}
+
               </div>
 
               {hasChips && (
