@@ -1,15 +1,18 @@
 import React from 'react'
 
 // Chevron stage stepper — one segment per stage in the deal's pipeline.
-// Past stages fill green-600, current fills gray-800 (dark), future fills
-// gray-100. Chevron shape is a clip-path polygon; each segment overlaps
-// the next by 14px (the notch depth) so the arrows nest cleanly.
+// Past stages fill green-600, the current one green-700 (the darkest fill),
+// future stages gray-100. The chevron is a clip-path polygon; each segment
+// overlaps the next by the notch depth so the arrows nest cleanly.
 //
 // stages: [{ name, isCurrent, isPast }]
 export default function StageStepper({ stages, onStageClick }) {
   if (!stages || stages.length === 0) return null
 
-  const notch = 14
+  // The chevron's point depth. 14px against a 40px band gave a shallow
+  // arrow that read as a rectangle with a bevel; the design's is a clear
+  // arrowhead.
+  const notch = 18
   const seg = stages.length
 
   return (
@@ -36,28 +39,35 @@ export default function StageStepper({ stages, onStageClick }) {
           ? `polygon(0 0, 100% 0, 100% 100%, 0 100%, ${notch}px 50%)`
           : `polygon(0 0, calc(100% - ${notch}px) 0, 100% 50%, calc(100% - ${notch}px) 100%, 0 100%, ${notch}px 50%)`
 
-        // Progression reads left to right: completed stages are a light tint,
-        // the current one is solid brand, upcoming ones are grey.
+        // Progression reads left to right, and the CURRENT stage is the
+        // darkest thing in the row — which is the design's ordering and the
+        // opposite of what shipped.
         //
-        // Previously "current" was near-black and past stages were solid dark
-        // green, which made the stepper the heaviest element on the page — two
-        // dark blocks shouting above the deal it describes. Inverting it (tint
-        // for done, solid for now) puts the emphasis on where the deal IS.
-        // Three states, three real fills.
+        //   done    — mid green. Complete, and visibly so, but it yields to
+        //             the stage the deal is actually on.
+        //   current — deep green, the darkest fill. "Where is this deal" is
+        //             the question the stepper exists to answer.
+        //   upcoming— grey, the only pale state of the three.
         //
-        //   done    — solid deep green. It IS complete, so it should look it.
-        //             green-50 (1.13:1 against white) was effectively invisible;
-        //             a completed stage looked the same as an untouched one.
-        //   current — the brightest green, so "where the deal is" wins.
-        //   upcoming— grey, and the only pale state of the three.
+        // These were the other way round (past darker than current), so the
+        // eye landed on work already finished.
+        //
+        // Contrast, computed:
+        //   #fff on green-600 #186349 = 7.19:1
+        //   #fff on green-700 #124d39 = 9.78:1
+        //   gray-600 on gray-100      = 6.87:1 light, 8.32:1 dark
+        //
+        // That last one is a FIX, not a restatement: upcoming stages were
+        // --text-muted on --gray-100, which is 4.36:1 — under AA for text
+        // this size. gray-600 clears it in both themes.
         const bg = s.isCurrent
-          ? 'var(--brand-primary)'
-          : s.isPast
           ? 'var(--green-700)'
+          : s.isPast
+          ? 'var(--green-600)'
           : 'var(--gray-100)'
         const fg = s.isCurrent || s.isPast
           ? '#fff'
-          : 'var(--text-muted)'
+          : 'var(--gray-600)'
 
         return (
           <button
@@ -75,14 +85,14 @@ export default function StageStepper({ stages, onStageClick }) {
               minWidth: 0,
               cursor: onStageClick ? 'pointer' : 'default',
               border: 'none',
-              height: 40,
+              height: 52,
               padding: `0 12px 0 ${isFirst ? 12 : 24}px`,
               marginLeft: isFirst ? 0 : -notch,
               clipPath: clip,
               background: bg,
               color: fg,
               fontFamily: 'var(--font-sans)',
-              fontSize: 'var(--text-md)',
+              fontSize: 'var(--text-base)',
               fontWeight: s.isCurrent ? 600 : 500,
               whiteSpace: 'nowrap',
               overflow: 'hidden',

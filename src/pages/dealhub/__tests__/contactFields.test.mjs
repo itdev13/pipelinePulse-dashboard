@@ -29,12 +29,17 @@ const tests = [];
 const t = (name, fn) => tests.push([name, fn]);
 
 // Every field the card labels, and the person key it reads for it.
+//
+// SENTENCE CASE. `.pp-label` uppercases these for display, so the capital in
+// "First Name" was invisible on screen and wrong everywhere else it went —
+// the edit tooltip and the aria-label both say "Edit first name", built from
+// this string.
 const FIELDS = [
-  ['First Name', 'firstName'],
-  ['Second Name', 'lastName'],
-  ['Email Address', 'email'],
+  ['First name', 'firstName'],
+  ['Second name', 'lastName'],
+  ['Email address', 'email'],
   ['Telephone', 'phone'],
-  ['Street Address', 'address1'],
+  ['Street address', 'address1'],
   ['Town', 'city'],
   ['Postcode', 'postalCode'],
   ['County', 'state'],
@@ -53,6 +58,31 @@ t('the card labels every contact field', () => {
     assert.ok(body.includes(`'${label}'`), `"${label}" is not shown on the card`);
     assert.ok(body.includes(`person.${key}`), `"${label}" reads no value (person.${key})`);
   }
+});
+
+t('the customer band lays each field out SIDE BY SIDE', () => {
+  // FieldRow, not FieldCell. The design puts the label in a tinted column
+  // beside its value rather than stacked above it — the same shape the deal's
+  // own fields and the People rail use, so all three read as one application.
+  const body = contactLines();
+  assert.ok(body.includes('<FieldRow'), 'the customer band must use FieldRow');
+  assert.ok(!body.includes('<FieldCell'), 'FieldCell stacks the label above the value');
+  // Three across when wide — nine fields, three rows, as the design shows.
+  assert.ok(
+    body.includes("'repeat(3, minmax(0, 1fr))'"),
+    'the wide band must be three columns'
+  );
+});
+
+t('only the LAST ROW of the band drops its bottom border', () => {
+  // `last` is about the column, not the grid: with three across, the final
+  // row is the last THREE fields. Passing it per-field would leave two
+  // borders hanging mid-band.
+  const body = contactLines();
+  assert.ok(
+    body.includes('last={i >= fields.length - (wide ? 3 : 2)}'),
+    'the last-row test must account for the column count'
+  );
 });
 
 t('the server actually sends each part', () => {

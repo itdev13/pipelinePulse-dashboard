@@ -1789,12 +1789,15 @@ function ContactLines({ person, fallbackName, onOpenContact, wide = false }) {
   // The icon per row is the client's, and it is what makes a nine-row grid
   // scannable — a rep hunting for the postcode finds the envelope-box before
   // they finish reading the labels.
+  // Sentence case, uppercased by `.pp-label`. Written "First name", not
+  // "First Name" — the capital N survived into tooltips and aria-labels,
+  // where it reads as a proper noun.
   const fields = [
-    ['First Name', person.firstName, 'badge'],
-    ['Second Name', person.lastName, 'badge'],
-    ['Email Address', person.email, 'mail'],
+    ['First name', person.firstName, 'badge'],
+    ['Second name', person.lastName, 'badge'],
+    ['Email address', person.email, 'mail'],
     ['Telephone', person.phone, 'call'],
-    ['Street Address', person.address1, 'home'],
+    ['Street address', person.address1, 'home'],
     ['Town', person.city, 'location_city'],
     ['Postcode', person.postalCode, 'markunread_mailbox'],
     ['County', person.state, 'map'],
@@ -1820,21 +1823,40 @@ function ContactLines({ person, fallbackName, onOpenContact, wide = false }) {
         ? { border: 'none', borderRadius: 0 }
         : { marginTop: 'var(--space-3)' }}
     >
-      <FieldGrid columns={wide ? 3 : 2}>
-        {fields.map(([label, value, icon]) => (
-          <FieldCell
-            key={label}
-            icon={icon}
-            label={label}
-            value={value}
-            // The pencil opens the CONTACT'S OWN RECORD, the same destination
-            // the People view's rows use. Nine inline editors here would be a
-            // second copy of the form that record already is — and these are
-            // the customer's fields, not the deal's, so the deal card is not
-            // where they belong.
-            onEdit={onOpenContact ? () => onOpenContact(person.id) : undefined}
-            editTitle={onOpenContact ? 'Edit on the contact record' : undefined}
-          />
+      {/* FieldRow, not FieldCell: the design lays each field out SIDE BY SIDE
+          — tinted label column, value, pencil — rather than stacking the
+          label above the value. Same component the deal's own fields and the
+          People rail use, so all three read as one application.
+
+          The 1px gaps are the grid's background showing through; the rows
+          draw no border of their own, or they would double up where they
+          meet. The last row in each COLUMN still draws its bottom border,
+          because `last` is about the column, not the grid — so it is only
+          dropped for the final three. */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: wide
+          ? 'repeat(3, minmax(0, 1fr))'
+          : 'repeat(2, minmax(0, 1fr))',
+        gap: 1,
+        background: 'var(--gray-200)'
+      }}>
+        {fields.map(([label, value, icon], i) => (
+          <div key={label} style={{ background: '#fff', minWidth: 0 }}>
+            <FieldRow
+              icon={icon}
+              label={label}
+              value={value}
+              // The pencil opens the CONTACT'S OWN RECORD, the same
+              // destination the People view's rows use. Nine inline editors
+              // here would be a second copy of the form that record already
+              // is — and these are the customer's fields, not the deal's, so
+              // the deal card is not where they belong.
+              onEdit={onOpenContact ? () => onOpenContact(person.id) : undefined}
+              editTitle={onOpenContact ? 'Edit on the contact record' : undefined}
+              last={i >= fields.length - (wide ? 3 : 2)}
+            />
+          </div>
         ))}
         {/* A part-filled last row would show the grid's gap colour as a grey
             block. Nine fields divide exactly by three and leave one over at
@@ -1843,7 +1865,7 @@ function ContactLines({ person, fallbackName, onOpenContact, wide = false }) {
           { length: (wide ? (3 - (fields.length % 3)) % 3 : fields.length % 2) },
           (_, i) => <div key={`filler-${i}`} style={{ background: '#fff' }} />
         )}
-      </FieldGrid>
+      </div>
     </FieldCard>
   )
 }
