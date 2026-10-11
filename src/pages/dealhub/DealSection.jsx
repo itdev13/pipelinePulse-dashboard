@@ -9,6 +9,7 @@ import TagSelect from '../shared/TagSelect'
 import { currencySymbol } from '../../utils/money'
 import BusinessPickerModal from '../shared/BusinessPickerModal'
 import { Truncate } from '../shared/ListChrome'
+import { dealsAPI } from '../../api/deals'
 
 // Deal Hub — Deal section (the deal's own facts).
 //
@@ -718,7 +719,32 @@ function ValueColumn({ deal, onSaveField, saving, onOpenBusiness, onBusinessLink
   )
 }
 
+// Every pipeline with its stages, fetched once per session. A location has
+// single-digit pipelines and they change rarely, so one request serves every
+// deal card opened afterwards — same reasoning as ListFilters' USER_CACHE.
+const PIPELINE_CACHE = { list: null, promise: null }
+
+function usePipelines() {
+  const [list, setList] = useState(PIPELINE_CACHE.list || [])
+  useEffect(() => {
+    // Set, not return, when the cache is already warm — the initialiser can
+    // run before the shared fetch resolves and an early return would leave
+    // this instance holding [] for good (the ListFilters bug, verbatim).
+    if (PIPELINE_CACHE.list) { setList(PIPELINE_CACHE.list); return }
+    if (!PIPELINE_CACHE.promise) {
+      PIPELINE_CACHE.promise = dealsAPI.pipelines()
+        .then((r) => { PIPELINE_CACHE.list = r?.pipelines || []; return PIPELINE_CACHE.list })
+        .catch(() => { PIPELINE_CACHE.list = []; return [] })
+    }
+    let alive = true
+    PIPELINE_CACHE.promise.then((l) => { if (alive) setList(l) })
+    return () => { alive = false }
+  }, [])
+  return list
+}
+
 function StageColumn({ deal, stages, onSaveField, saving, saveError, users, onNeedUsers, lostReasons, onNeedLostReasons }) {
+  const pipelines = usePipelines()
   // Days in stage comes from the stage the deal currently sits on. The
   // stages endpoint carries enteredAt on the current entry when available;
   // otherwise fall back to the deal's own updated_at, which moves on every
@@ -805,6 +831,48 @@ function StageColumn({ deal, stages, onSaveField, saving, saveError, users, onNe
             : deal.stage ? [{ value: deal.stage, label: deal.stage, disabled: true }] : []
         }
       />
+
+      {/* PIPELINE, under the stage — the design's third control in this
+          column, and the one the card never had: a deal could be moved
+          between stages here but not between pipelines, which meant going
+          to the Deals tab's edit panel for a move that belongs beside the
+          stage it lands on.
+
+          A pipeline move is TWO fields in one write. GHL rejects a
+          pipelineId whose pipelineStageId belongs to another pipeline, so
+          picking a pipeline also picks its FIRST stage — the deal lands at
+          the start of the new pipeline and the stage control above updates
+          to let the rep place it. A pipeline with no stages is offered but
+          disabled: there is nowhere in it to land. */}
+      <div style={{ marginTop: 'var(--space-3)' }}>
+        <FieldLabel>Pipeline</FieldLabel>
+        <Select
+          value={deal.pipelineId || undefined}
+          onChange={(id) => {
+            const target = pipelines.find((x) => x.id === id)
+            const first = target?.stages?.[0]
+            if (!target || !first?.id || !onSaveField) return
+            onSaveField('pipeline', {
+              pipelineId: id, pipelineStageId: first.id,
+              pipelineName: target.name, stages: target.stages
+            })
+          }}
+          placeholder={deal.pipelineName || 'No pipeline'}
+          size="large"
+          showSearch
+          optionFilterProp="label"
+          style={{ width: '100%' }}
+          disabled={saving === 'pipeline' || !onSaveField}
+          loading={saving === 'pipeline'}
+          popupClassName="pp-menu"
+          notFoundContent="Couldn't load pipelines"
+          options={pipelines.map((x) => ({
+            value: x.id,
+            label: x.stages?.length ? x.name : `${x.name} (no stages)`,
+            disabled: !x.stages?.length
+          }))}
+        />
+      </div>
 
       {/* Owner, days in stage, last contact and source — ONE ROW EACH,
           stacked. The design's facts table is a single column of label |

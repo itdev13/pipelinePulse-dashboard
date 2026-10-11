@@ -490,6 +490,29 @@ export default function DealHubTab({
           outcomeReason: r?.reasonSaved ? (value?.reason || null) : (d.outcomeReason ?? null)
         })
         if (r?.reasonError) throw new Error(r.reasonError)
+      } else if (field === 'pipeline') {
+        // A pipeline move: pipelineId AND the target's first stage in ONE
+        // request — GHL rejects a stage that is not in the pipeline it is
+        // sent with, so the two cannot go as separate writes. Painted
+        // first, like a stage change: the stage picker and stepper swap to
+        // the new pipeline's stages immediately, and the 2.5s reconcile
+        // below replaces this guess with the server's own stage rows
+        // (isPast, enteredAt and the rest). The catch block restores
+        // `beforeStages` if the write fails.
+        setDeal((d) => d && {
+          ...d,
+          pipelineId: value.pipelineId,
+          pipelineName: value.pipelineName,
+          stageId: value.pipelineStageId
+        })
+        setStages((value.stages || []).map((st) => ({
+          id: st.id, name: st.name, isActive: true,
+          isCurrent: st.id === value.pipelineStageId, isPast: false
+        })))
+        res = await dealsAPI.update(dealId, {
+          pipelineId: value.pipelineId,
+          pipelineStageId: value.pipelineStageId
+        })
       } else {
         res = await dealsAPI.update(dealId, { [field]: value })
         // Apply what GHL echoed rather than what was sent — it truncates the
@@ -545,7 +568,7 @@ export default function DealHubTab({
       // A GET issued microseconds after the PUT resolves returns the OLD
       // stage/status and would silently revert the optimistic UI that was
       // already correct.
-      if (field === 'pipelineStageId' || field === 'status') {
+      if (field === 'pipelineStageId' || field === 'status' || field === 'pipeline') {
         window.setTimeout(() => {
           Promise.all([dealsAPI.get(dealId), dealsAPI.stages(dealId)])
             .then(([d, s]) => {
