@@ -471,7 +471,7 @@ function RecentRow({
         // closer to each other than each title was to its own timestamp, so
         // four chats read as one block of text — which is exactly what a list
         // of near-identical questions must not do.
-        marginBottom: 6,
+        marginBottom: 2,
         // Neutral grey, matching GHL — not the app's plum accent. This row
         // means "which chat you're on", not "AI-branded", so it takes the
         // same quiet grey a hovered/selected row gets everywhere else.
@@ -484,12 +484,13 @@ function RecentRow({
         style={{
           display: 'block', flex: '1 1 auto', width: '100%', minWidth: 0,
           textAlign: 'left',
-          padding: '10px 8px',
+          // 6px vertical. 10px plus a 44px floor stacked to ~70px a row,
+          // half again what the design draws; the two lines of text set the
+          // height on their own now, with just enough air between rows to
+          // tell them apart.
+          padding: '5px 8px',
           // Room for the menu button so long titles don't run under it.
           paddingRight: 30,
-          // minHeight, not height: the row holds a title AND a timestamp,
-          // and a fixed 36px clipped the second line on every row.
-          minHeight: 44,
           border: 'none', background: 'transparent', borderRadius: 10,
           cursor: 'pointer', fontFamily: 'var(--font-sans)'
         }}
@@ -510,7 +511,7 @@ function RecentRow({
           <span style={{
             // 3px under its own title, against 6px between rows: the stamp
             // must belong to the title above it rather than float between two.
-            display: 'block', marginTop: 4,
+            display: 'block', marginTop: 2,
             fontSize: 'var(--text-sm)', color: 'var(--text-muted)'
           }}>
             {formatChatStamp(conv.lastAt)}
