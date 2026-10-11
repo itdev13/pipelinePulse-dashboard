@@ -312,8 +312,15 @@ function EnquiryBlock({ deal }) {
     <div style={{ marginTop: 'var(--space-4)' }}>
       <FieldLabel>Initial enquiry</FieldLabel>
 
+      {/* A tinted, bordered block — the customer's words quoted, not the
+          card's own prose. Bare on the card's white it read as a paragraph
+          WE wrote; the frame says it was received. */}
       <p style={{
         margin: 0,
+        padding: '12px 14px',
+        border: '1px solid var(--gray-200)',
+        borderRadius: 'var(--radius-md)',
+        background: 'var(--gray-25)',
         fontSize: 'var(--text-md)', lineHeight: 'var(--leading-normal)',
         color: current ? 'var(--text-body)' : 'var(--text-faint)',
         // The customer's own words, so line breaks they typed are kept.
@@ -555,13 +562,21 @@ function BusinessBlock({ deal, onOpenBusiness, onBusinessLinked }) {
                 display: 'inline-flex', alignItems: 'center', gap: 7,
                 maxWidth: '100%',
                 cursor: onOpenBusiness ? 'pointer' : 'default',
-                padding: '7px 12px',
-                border: '1px solid var(--accent-sky)',
-                borderRadius: 'var(--radius-md)',
-                background: 'var(--tint-sky)',
+                padding: '7px 14px',
+                // PLUM, not sky. Plum is what "business" is everywhere else
+                // in the app — the Tasks link badge, the People rail — and
+                // this pill was the one place it rendered blue. A full pill,
+                // matching the design.
+                //
+                // Contrast, computed: plum-text on tint-plum is 4.54:1 light,
+                // 4.58:1 dark. AA for normal text, by a thin margin — neither
+                // token should be lightened without recomputing.
+                border: '1px solid var(--accent-plum)',
+                borderRadius: 'var(--radius-pill)',
+                background: 'var(--tint-plum)',
                 fontFamily: 'var(--font-sans)',
                 fontSize: 'var(--text-md)', fontWeight: 600,
-                color: 'var(--accent-sky-text)',
+                color: 'var(--accent-plum-text)',
                 textAlign: 'left'
               }}
             >
@@ -1003,7 +1018,11 @@ export function CardToolbar({ view, onView, children }) {
                   border: active
                     ? '1.5px solid var(--brand-primary)'
                     : '1px solid var(--border-strong)',
-                  borderRadius: 'var(--radius-pill)',
+                  // A rounded RECTANGLE, not a pill. The design's three view
+                  // buttons share the search box's corner radius beside them;
+                  // full pills next to a square-cornered input read as two
+                  // different control families.
+                  borderRadius: 'var(--radius-md)',
                   background: active ? 'var(--brand-primary)' : '#fff',
                   // White on the solid brand fill. Brand text on a brand
                   // background rendered as an empty green pill with no label.
