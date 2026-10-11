@@ -111,3 +111,47 @@ test('moving a stage goes through the deal card\'s own saver', () => {
   // makes — two paths would mean two sets of error handling.
   assert.match(read('DealSection.jsx'), /onMove=\{onSaveField \? \(id\) => onSaveField\('pipelineStageId', id\) : undefined\}/);
 });
+
+// ---- the bordered field cards --------------------------------------------
+
+test('the customer, deal name and stage facts all use the shared card', () => {
+  // Three places wanted the same bordered box with a tinted strip. Three
+  // hand-rolled copies would drift on border colour and cell padding.
+  const deal = read('DealSection.jsx');
+  assert.match(deal, /import \{ FieldCard, FieldGrid, FieldCell \} from '\.\/FieldCard'/);
+  assert.match(deal, /<FieldCard[\s\S]*?label="Deal name"/);
+  assert.match(deal, /<FieldCard[\s\S]*?label="Customer"/);
+});
+
+test('an empty value still renders as a dash', () => {
+  // A gap in the customer's record is the thing a rep is meant to notice —
+  // hiding it makes a half-filled record look complete.
+  assert.match(read('FieldCard.jsx'), /\{empty \? '—' : value\}/);
+});
+
+test('the odd field count does not leave a grey hole', () => {
+  // Nine fields in a two-column grid leaves half a row. Without a filler the
+  // grid's gap colour shows through where a tenth cell would be.
+  assert.match(read('DealSection.jsx'), /fields\.length % 2 === 1 && <div style=\{\{ background: '#fff' \}\} \/>/);
+});
+
+test('the stale-contact warning survived the move into cells', () => {
+  // 14 days of silence on an open deal is a signal the date alone cannot
+  // give. It was a Row prop before these became FieldCells.
+  assert.match(read('FieldCard.jsx'), /tone === 'danger'/);
+  assert.match(read('DealSection.jsx'), /tone=\{stale \? 'danger' : undefined\}/);
+});
+
+test('the owner keeps its picker rather than becoming a cell', () => {
+  // A cell shows a value and an edit pencil; the owner needs a searchable
+  // list of users, which is why OwnerRow stays.
+  assert.match(read('DealSection.jsx'), /<OwnerRow/);
+});
+
+test('the deal badge does not claim to open anything', () => {
+  // The mockup's pill reads "Open DEAL" and sits beside "Edit record", which
+  // opens the same editor. A pill that says Open and does nothing is worse
+  // than either, so it is a badge.
+  const deal = read('DealSection.jsx');
+  assert.doesNotMatch(deal, />\s*Open\s*<span[\s\S]{0,400}?DEAL/);
+});

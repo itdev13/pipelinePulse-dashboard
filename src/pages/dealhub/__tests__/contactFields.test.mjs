@@ -83,7 +83,10 @@ t('the joined address line is kept for other surfaces', () => {
 
 t('an empty field is shown as a gap, not hidden', () => {
   const body = contactLines();
-  assert.match(body, /value \|\| '—'/, 'a missing value is not rendered as a gap');
+  // The dash now lives in the shared FieldCell, which every one of these rows
+  // renders through — the rows themselves no longer format their own value.
+  const cell = read('../FieldCard.jsx');
+  assert.match(cell, /\{empty \? '—' : value\}/, 'a missing value is not rendered as a gap');
   // Hiding empties would make a half-filled record look complete — the same
   // reasoning as the "Not set" custom-field chips.
   assert.ok(

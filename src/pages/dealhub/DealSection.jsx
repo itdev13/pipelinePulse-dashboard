@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { FieldCard, FieldGrid, FieldCell } from './FieldCard'
 import PanelHead, { PanelHeadButton } from './PanelHead'
 import StageBar from './StageBar'
 import { createPortal } from 'react-dom'
@@ -132,30 +133,60 @@ export default function DealSection({
           {/* Editable. It was plain text, so renaming a deal meant opening its
               row on the Deals tab or going to the CRM — even though `name` has
               been in the PATCH path since the deal writes landed. */}
-          <InlineText
+          {/* The deal's name in a card of its own, so it reads as the
+              record's identity rather than as the first of nine fields. */}
+          <FieldCard
+            icon="sell"
             label="Deal name"
-            value={dealName}
-            placeholder="Unnamed deal"
-            fontSize="var(--text-3xl)"
-            saving={saving === 'name'}
-            onSave={(v) => onSaveField && onSaveField('name', v)}
-          />
-
-          <div style={{ marginTop: 'var(--space-3)' }}>
-            <span className="pp-label" style={{ marginBottom: 3 }}>Customer</span>
-            <div
-              style={{
-                fontSize: 'var(--text-lg)', fontWeight: 500,
-                color: contactIsNameless ? 'var(--text-muted)' : 'var(--text-heading)'
-              }}
-            >
-              {/* No name on the contact — say so rather than printing the phone
-                  number twice (it already appears in the detail lines below). */}
-              {contactIsNameless ? 'No name on this contact' : contactName}
+            // A "DEAL" badge, not the mockup's "Open DEAL" button.
+            //
+            // The mockup shows this pill AND "Edit record" on the header band,
+            // and both open the same editor — two buttons for one destination.
+            // Dropping the word "Open" is what makes the difference legible: a
+            // badge says what kind of record this card holds, which is the
+            // only thing the pill adds that the header does not. A pill that
+            // SAYS "Open" and does nothing would be worse than either.
+            action={(
+              <span
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 7,
+                  height: 20, padding: '0 9px',
+                  border: 'none', borderRadius: 'var(--radius-pill)',
+                  background: 'var(--panel-head-pine, var(--accent-pine))',
+                  color: '#fff', fontFamily: 'var(--font-sans)',
+                  fontSize: 'var(--text-sm)', fontWeight: 600,
+                  flex: 'none'
+                }}
+              >
+                DEAL
+              </span>
+            )}
+          >
+            <div style={{ padding: '10px 12px' }}>
+              {/* Editable. It was plain text, so renaming a deal meant opening
+                  its row on the Deals tab or going to the CRM — even though
+                  `name` has been in the PATCH path since the deal writes
+                  landed. */}
+              <InlineText
+                label="Deal name"
+                value={dealName}
+                placeholder="Unnamed deal"
+                fontSize="var(--text-2xl)"
+                saving={saving === 'name'}
+                onSave={(v) => onSaveField && onSaveField('name', v)}
+              />
             </div>
-          </div>
+          </FieldCard>
 
-          <ContactLines person={primaryPerson(deal.people)} />
+          {/* The customer's own record. Its name rides in the card's header —
+              it used to sit above as a separate "Customer" line, which said
+              the same thing twice once the card gained a header of its own.
+              A nameless contact still has to say so rather than leave the
+              strip blank. */}
+          <ContactLines
+            person={primaryPerson(deal.people)}
+            fallbackName={contactIsNameless ? 'No name on this contact' : contactName}
+          />
         </Column>
 
         {/* Businesses sits INSIDE this column, under Expected close. As its own
@@ -746,13 +777,16 @@ function StageColumn({ deal, stages, onSaveField, saving, saveError, users, onNe
         }
       />
 
+      {/* Owner is EDITABLE — `assignedTo` has been in the deal patch path all
+          along, but this row rendered static text, so reassigning meant going
+          to the Deals tab or the CRM. It keeps its own picker rather than
+          becoming a FieldCell: a cell shows a value and an edit pencil, and
+          this one needs a searchable list of users.
+
+          The facts below it are read-only because they are not fields: days in
+          stage is computed from stage_history, last customer contact is
+          derived from messages, and GHL has no writable `source`. */}
       <dl style={{ margin: '12px 0 0', display: 'grid', gap: 7 }}>
-        {/* Owner is EDITABLE — `assignedTo` has been in the deal patch path all
-            along, but this row rendered static text, so reassigning meant
-            going to the Deals tab or the CRM.
-            The other rows below stay read-only because they are not fields:
-            Days in stage is computed from stage_history, Last customer contact
-            is derived from messages, and GHL has no writable `source`. */}
         <OwnerRow
           deal={deal}
           users={users}
@@ -760,26 +794,47 @@ function StageColumn({ deal, stages, onSaveField, saving, saveError, users, onNe
           saving={saving === 'assignedTo'}
           onSave={(v) => onSaveField && onSaveField('assignedTo', v)}
         />
-        <Row
+      </dl>
+
+      <FieldGrid style={{
+        marginTop: 'var(--space-3)',
+        border: '1px solid var(--gray-200)',
+        borderRadius: 'var(--radius-sm)',
+        overflow: 'hidden'
+      }}>
+        <FieldCell
+          icon="schedule"
           label="Days in stage"
-          value={daysInStage != null ? daysInStage : null}
-          mono
+          value={daysInStage != null ? String(daysInStage) : null}
         />
-        <Row
+        <FieldCell
+          icon="forum"
           label="Last customer contact"
           value={lastContact ? formatDate(lastContact) : null}
+          // 14 days of silence on an open deal is the point it reads as
+          // stale — the date alone does not say that.
           tone={stale ? 'danger' : undefined}
-          title={
-            stale
-              ? `${lastContactDays} days since the customer last made contact`
-              : undefined
-          }
+          title={stale
+            ? `${lastContactDays} days since the customer last made contact`
+            : undefined}
         />
-        {deal.source && <Row label="Source" value={deal.source} />}
-        {deal.quoteRevision != null && (
-          <Row label="Quote revision" value={`Rev ${deal.quoteRevision}`} mono />
+        {deal.source && (
+          <FieldCell icon="language" label="Source" value={deal.source} />
         )}
-      </dl>
+        {deal.quoteRevision != null && (
+          <FieldCell
+            icon="receipt_long"
+            label="Quote revision"
+            value={`Rev ${deal.quoteRevision}`}
+          />
+        )}
+        {/* Keeps the last row from showing the grid's gap colour where a cell
+            would be — the count here is 2, 3 or 4 depending on the deal. */}
+        {([daysInStage != null, true, !!deal.source, deal.quoteRevision != null]
+          .filter(Boolean).length % 2 === 1) && (
+          <div style={{ background: '#fff' }} />
+        )}
+      </FieldGrid>
     </Column>
   )
 }
@@ -1638,7 +1693,7 @@ function ProductFooter({ deal, siblingDeals, onOpenDeal }) {
 }
 
 // Email / phone / address / timezone for the primary contact, as icon rows.
-function ContactLines({ person }) {
+function ContactLines({ person, fallbackName }) {
   if (!person) return null
 
   // The primary contact's own record, as labelled fields rather than four
@@ -1654,16 +1709,19 @@ function ContactLines({ person }) {
   // state, postalCode, country) — the flattened `address` string is still
   // sent and still used by the compact surfaces, but it cannot be taken apart
   // again, so it is not what this reads.
+  // The icon per row is the client's, and it is what makes a nine-row grid
+  // scannable — a rep hunting for the postcode finds the envelope-box before
+  // they finish reading the labels.
   const fields = [
-    ['First Name', person.firstName],
-    ['Second Name', person.lastName],
-    ['Email Address', person.email],
-    ['Telephone', person.phone],
-    ['Street Address', person.address1],
-    ['Town', person.city],
-    ['Postcode', person.postalCode],
-    ['County', person.state],
-    ['Country', person.country],
+    ['First Name', person.firstName, 'badge'],
+    ['Second Name', person.lastName, 'badge'],
+    ['Email Address', person.email, 'mail'],
+    ['Telephone', person.phone, 'call'],
+    ['Street Address', person.address1, 'home'],
+    ['Town', person.city, 'location_city'],
+    ['Postcode', person.postalCode, 'markunread_mailbox'],
+    ['County', person.state, 'map'],
+    ['Country', person.country, 'public'],
   ]
 
   // Every field shown, filled or not. A blank one is a real gap in the
@@ -1673,43 +1731,26 @@ function ContactLines({ person }) {
   const anyFilled = fields.some(([, v]) => v)
   if (!anyFilled) return null
 
+  const name = [person.firstName, person.lastName].filter(Boolean).join(' ')
+    || fallbackName
+
   return (
-    <div
-      style={{
-        display: 'grid',
-        // Two columns on a roomy card, one when the column is narrow. The
-        // labels are short and the values usually shorter, so a single column
-        // wastes most of the width.
-        gridTemplateColumns: 'repeat(auto-fit, minmax(128px, 1fr))',
-        gap: '7px var(--space-3)',
-        marginTop: 'var(--space-3)'
-      }}
+    <FieldCard
+      icon="person"
+      label="Customer"
+      value={name || undefined}
+      style={{ marginTop: 'var(--space-3)' }}
     >
-      {fields.map(([label, value]) => (
-        <div key={label} style={{ minWidth: 0 }}>
-          <span
-            className="pp-label"
-            style={{ marginBottom: 1, display: 'block' }}
-          >
-            {label}
-          </span>
-          <span
-            style={{
-              display: 'block',
-              fontSize: 'var(--text-base)',
-              lineHeight: 1.35,
-              minWidth: 0,
-              // Long emails and street names must wrap inside the column
-              // rather than push the card wider.
-              overflowWrap: 'anywhere',
-              color: value ? 'var(--text-body)' : 'var(--text-faint)'
-            }}
-          >
-            {value || '—'}
-          </span>
-        </div>
-      ))}
-    </div>
+      <FieldGrid>
+        {fields.map(([label, value, icon]) => (
+          <FieldCell key={label} icon={icon} label={label} value={value} />
+        ))}
+        {/* The grid is two columns and there are nine fields, so the last row
+            is half empty. Without a filler the gap colour shows through as a
+            grey block where a tenth cell would be. */}
+        {fields.length % 2 === 1 && <div style={{ background: '#fff' }} />}
+      </FieldGrid>
+    </FieldCard>
   )
 }
 
@@ -1760,62 +1801,6 @@ function FieldLabel({ children }) {
     >
       {children}
     </span>
-  )
-}
-
-function Row({ label, value, mono, tone, title, suffix }) {
-  const danger = tone === 'danger'
-  return (
-    <div
-      title={title}
-      style={{
-        display: 'flex', alignItems: 'baseline', gap: 10,
-        // A tinted band on the row that needs attention. Four rows at identical
-        // weight meant a stale "last contact" read exactly like a healthy
-        // "4 days in stage" — the colour was on the value alone, which is a
-        // detail you have to already be looking at to notice.
-        padding: danger ? '3px 8px' : '3px 0',
-        margin: danger ? '0 -8px' : 0,
-        borderRadius: 'var(--radius-sm)',
-        background: danger ? 'var(--tint-rose)' : 'transparent',
-        fontSize: 'var(--text-md)'
-      }}
-    >
-      <dt
-        style={{
-          flex: 1, minWidth: 0,
-          // status-stuck is a FILL colour — 3.81:1 as text on the rose tint
-          // this row now sits on. status-stuck-text is the AA-passing pair.
-          color: danger ? 'var(--status-stuck-text)' : 'var(--text-muted)',
-          fontWeight: danger ? 600 : 400
-        }}
-      >
-        {label}
-      </dt>
-      <dd
-        style={{
-          margin: 0, flex: 'none', textAlign: 'right',
-          fontFamily: mono ? 'var(--font-mono)' : 'var(--font-sans)',
-          fontWeight: 600,
-          color: danger ? 'var(--status-stuck-text)' : 'var(--text-heading)'
-        }}
-      >
-        {value != null && value !== '' ? value : <span style={{ color: 'var(--text-faint)' }}>—</span>}
-        {suffix && (
-          <span
-            style={{
-              marginLeft: 6,
-              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-xs)', fontWeight: 600,
-              letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase',
-              padding: '2px 6px', borderRadius: 'var(--radius-sm)',
-              background: 'var(--gray-100)', color: 'var(--text-muted)'
-            }}
-          >
-            {suffix}
-          </span>
-        )}
-      </dd>
-    </div>
   )
 }
 
