@@ -173,7 +173,7 @@ export default function CopilotSidebar({
           and therefore its row tracks, unchanged regardless of whether
           search is open. */}
       <div>
-        <nav style={{ display: 'grid', gap: 2, padding: '0 12px' }}>
+        <nav style={{ display: 'grid', gap: 1, padding: '0 12px' }}>
           <SidebarButton
             icon="edit_note" label="New chat" collapsed={collapsed}
             disabled={empty} onClick={onNewChat}
@@ -807,10 +807,10 @@ function SidebarButton({ icon, label, collapsed, disabled, onClick, title }) {
       style={{
         display: 'flex', alignItems: 'center', gap: 14,
         justifyContent: collapsed ? 'center' : 'flex-start',
-        // 44px rows at text-lg. These were 32px at text-md — a compact
-        // menu, where the design draws the four items as the rail's main
-        // content with a clear line of air between each.
-        height: 44, padding: collapsed ? 0 : '0 12px',
+        // 38px rows at text-lg. 32px/text-md read as a compact menu; 44px
+        // overshot into a list of buttons. The design's pitch sits between,
+        // with the air coming from the row height alone.
+        height: 38, padding: collapsed ? 0 : '0 12px',
         border: 'none', borderRadius: 'var(--radius-md)',
         background: 'transparent',
         color: disabled ? 'var(--text-faint)' : 'var(--text-body)',
