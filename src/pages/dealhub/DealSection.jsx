@@ -210,7 +210,14 @@ export default function DealSection({
           Nine fields in a 300px column wrapped every value onto its own line;
           across the whole card they fit three to a row, which is what the
           design shows. */}
-      <div style={{ borderTop: '1px solid var(--border-default)' }}>
+      {/* INSET, not full-bleed. The band is a bordered card sitting on the
+          panel with margin on every side — the design's spacing — and the
+          stepper below it runs edge to edge. Flush against the panel's edges
+          it read as part of the frame rather than as a record inside it. */}
+      <div style={{
+        borderTop: '1px solid var(--border-default)',
+        padding: 'var(--space-4) var(--space-5) var(--space-5)'
+      }}>
         <ContactLines
           person={primaryPerson(deal.people)}
           fallbackName={contactIsNameless ? 'No name on this contact' : contactName}
@@ -1861,8 +1868,11 @@ function ContactLines({ person, fallbackName, onOpenContact, wide = false }) {
       icon="person"
       label="Customer"
       value={name || undefined}
+      // A bordered card in BOTH layouts. `wide` used to strip the border
+      // and radius so the band could run flush to the panel's edges; it is
+      // inset with margin now, so the edges are its own to draw.
       style={wide
-        ? { border: 'none', borderRadius: 0 }
+        ? { borderRadius: 'var(--radius-md)' }
         : { marginTop: 'var(--space-3)' }}
     >
       {/* FieldRow, not FieldCell: the design lays each field out SIDE BY SIDE
