@@ -878,32 +878,34 @@ export default function DealHubTab({
 
   return (
     <div>
-      {/* Deal-switcher dropdown + opportunity header + stage stepper */}
-      <div style={{ padding: 'var(--space-4) 20px 0' }}>
-        <div
-          style={{
-            border: '1px solid var(--border-default)',
-            borderRadius: 'var(--radius-md)',
-            background: '#fff', boxShadow: 'var(--shadow-card)'
-          }}
-        >
-        <div
-          style={{
-            padding: '10px 14px',
-            display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap'
-          }}
-        >
-          <span
-            style={{
-              fontSize: 'var(--text-sm)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
-              textTransform: 'uppercase', color: 'var(--text-muted)'
-            }}
-          >
-            Opportunity
-          </span>
+      {/* The OPPORTUNITY row that sat here is gone. Its switcher IS the
+          toolbar's SEARCH control now — keeping both would be two ways to do
+          one thing, one of them outside the card it changes, and the empty
+          bordered box left behind read as a panel that failed to load. */}
 
+      {/* Left-rail tabs (Deal / People / Media). Media comes next. */}
+      {deal && !loading && (
+        <div
+          style={{
+            padding: 'var(--space-4) 20px 0',
+            maxWidth: 1660, margin: '0 auto', boxSizing: 'border-box'
+          }}
+        >
+          {/* ABOVE the three rails, not inside the Deal card.
+              It lived in DealSection, which only renders for leftRail
+              'deal' — so switching to People or Media unmounted the very
+              control you switch with, and there was no way back without a
+              reload. The toolbar belongs to whatever is showing, so it sits
+              with the container that chooses. */}
+          {/* The SEARCH slot holds the DEAL SWITCHER, not a plain input.
+              A text box would have been a second search beside the picker,
+              and the picker already searches every deal in the location —
+              this is the one control, in the place the design puts it. */}
+          <CardToolbar view={leftRail} onView={setLeftRail}>
           {/* Deal switcher */}
-          <div ref={switcherRef} style={{ position: 'relative', width: 420, flex: 'none' }}>
+          {/* Fluid, not a fixed 420px: it fills the toolbar's SEARCH slot
+              now, and a hard width overflowed that slot on a narrow card. */}
+          <div ref={switcherRef} style={{ position: 'relative', width: '100%', minWidth: 0 }}>
             <button
               onClick={() => setSwitcherOpen((o) => !o)}
               title={deal ? deal.dealTag : undefined}
@@ -1159,58 +1161,7 @@ export default function DealHubTab({
               )
             })()}
           </div>
-
-          {/* Header facts belong to the loaded deal — during a switch `deal`
-              still holds the previous one, so gate on !loading or the value
-              briefly reads as the new deal's. */}
-          {deal && !loading && deal.value && (
-            <span
-              style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-lg)', color: 'var(--text-muted)' }}
-            >
-              {deal.value}
-            </span>
-          )}
-          {deal && !loading && (
-            <span
-              style={{
-                fontSize: 'var(--text-base)', color: 'var(--text-muted)', marginLeft: 'auto'
-              }}
-            >
-              {[deal.location, deal.owner].filter(Boolean).join(' · ')}
-            </span>
-          )}
-        </div>
-
-        </div>
-      </div>
-
-      {/* Left-rail tabs (Deal / People / Media). Media comes next. */}
-      {deal && !loading && (
-        <div
-          style={{
-            padding: 'var(--space-4) 20px 0',
-            maxWidth: 1660, margin: '0 auto', boxSizing: 'border-box'
-          }}
-        >
-          {/* ABOVE the three rails, not inside the Deal card.
-              It lived in DealSection, which only renders for leftRail
-              'deal' — so switching to People or Media unmounted the very
-              control you switch with, and there was no way back without a
-              reload. The toolbar belongs to whatever is showing, so it sits
-              with the container that chooses. */}
-          <CardToolbar
-            view={leftRail}
-            onView={setLeftRail}
-            search={switcherQ}
-            // The card's box and the opportunity picker are ONE search. Its
-            // placeholder is "Search deals, contacts or businesses" — a lookup
-            // across records, which is what the switcher does — so it opens
-            // that dropdown as you type rather than searching nothing.
-            onSearch={(v) => {
-              setSwitcherQ(v)
-              setSwitcherOpen(v.trim().length > 0)
-            }}
-          />
+          </CardToolbar>
 
           {leftRail === 'people' && (
             <PeopleSection

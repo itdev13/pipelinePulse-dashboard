@@ -962,7 +962,10 @@ const CHIP_GROUPS = [
 // behaviour. The design puts them inside the card because they act ON it:
 // "Deal / People / Media" chooses what this card shows, and a control that
 // changes a panel belongs to that panel rather than floating beside it.
-export function CardToolbar({ view, onView, search, onSearch }) {
+// `children` fill the SEARCH slot. The Deal hub passes its opportunity
+// switcher there: a plain input would be a second search beside a picker that
+// already searches every deal in the location.
+export function CardToolbar({ view, onView, children }) {
   const VIEWS = [
     ['deal',   'Deal',   'sell'],
     ['people', 'People', 'group'],
@@ -978,35 +981,13 @@ export function CardToolbar({ view, onView, search, onSearch }) {
         background: 'var(--gray-100)'
       }}
     >
-      {onSearch && (
+      {children && (
         <span style={{
           display: 'inline-flex', flexDirection: 'column', gap: 5,
-          flex: '1 1 260px', maxWidth: 360
+          flex: '1 1 260px', maxWidth: 440, minWidth: 0
         }}>
           <span className="pp-label" style={{ marginBottom: 0 }}>Search</span>
-          <span style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            height: 34, padding: '0 11px',
-            border: '1px solid var(--border-strong)',
-            borderRadius: 'var(--radius-md)',
-            background: '#fff', boxSizing: 'border-box', width: '100%'
-          }}>
-            <span className="ms" style={{ fontSize: 18, color: 'var(--text-muted)', flex: 'none' }}>
-              search
-            </span>
-            <input
-              type="search"
-              value={search || ''}
-              onChange={(e) => onSearch(e.target.value)}
-              placeholder="Search deals, contacts or businesses"
-              style={{
-                flex: 1, minWidth: 0,
-                border: 'none', outline: 'none', background: 'transparent',
-                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
-                color: 'var(--text-body)'
-              }}
-            />
-          </span>
+          {children}
         </span>
       )}
 
