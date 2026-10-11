@@ -68,7 +68,11 @@ export default function QualificationSection({ qualification = [], onSave, savin
         ['--panel-tint']: 'var(--tint-gold)',
         borderRadius: 'var(--radius-md)',
         background: '#fff',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        // Its own spacing now that it is a full-width section rather than an
+        // item in the rail's gap-14 column — without this it sat flush
+        // against Co-Pilot's band below it.
+        marginTop: 14
       }}
     >
       <PanelHead

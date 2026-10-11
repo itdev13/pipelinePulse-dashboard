@@ -155,3 +155,16 @@ test('the deal badge does not claim to open anything', () => {
   const deal = read('DealSection.jsx');
   assert.doesNotMatch(deal, />\s*Open\s*<span[\s\S]{0,400}?DEAL/);
 });
+
+test('Qualification is a full-width section, not a rail item', () => {
+  // It used to sit in the 320px right column under Notes, where ten long
+  // free-text headings each wrapped to four or five lines. Full width it is a
+  // row per heading — and it is where the design puts it, between the rail
+  // and Co-Pilot.
+  const tab = readFileSync(join(dealhub, '..', 'tabs', 'DealHubTab.jsx'), 'utf8');
+  const railEnd = tab.indexOf('<DealNotesSection');
+  const qual = tab.indexOf('<QualificationSection');
+  const copilot = tab.indexOf('<AskDeal');
+  assert.ok(qual > railEnd, 'Qualification is still inside the rail');
+  assert.ok(qual < copilot, 'Qualification must sit above Co-Pilot');
+});

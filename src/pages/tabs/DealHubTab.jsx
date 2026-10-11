@@ -1618,17 +1618,24 @@ export default function DealHubTab({
                   people={deal?.people || []}
                   onOpenAll={onOpenTab ? () => onOpenTab('notes') : undefined}
                 />
-                <QualificationSection
-                  qualification={deal?.qualification || []}
-                  // The same saver the deal card's custom-field pickers use,
-                  // so a qualification answer is written exactly like any
-                  // other opportunity custom field — one write path, one set
-                  // of error handling.
-                  onSave={saveDealField}
-                  savingField={savingField}
-                />
               </div>
             </div>
+            {/* FULL WIDTH, below the timeline/rail grid — not inside the
+                narrow right column under Notes, where it used to sit.
+                Ten qualification headings are long free-text answers, and in a
+                320px rail each one wrapped to four or five lines; across the
+                page they read as a row per heading. It is also what the design
+                shows: its own band between the rail and Co-Pilot. */}
+            <QualificationSection
+              qualification={deal?.qualification || []}
+              // The same saver the deal card's custom-field pickers use, so a
+              // qualification answer is written exactly like any other
+              // opportunity custom field — one write path, one set of error
+              // handling.
+              onSave={saveDealField}
+              savingField={savingField}
+            />
+
             {/* Co-Pilot in a panel of its own, so it carries the same solid
                 header band as every other section rather than starting as a
                 bare grid of sidebar + transcript. */}
@@ -1639,7 +1646,9 @@ export default function DealHubTab({
                 borderRadius: 'var(--radius-md)',
                 background: '#fff',
                 overflow: 'hidden',
-                marginTop: 'var(--space-4)'
+                // Matches Qualification's own 14 above it, so the stacked
+                // full-width bands are evenly spaced.
+                marginTop: 14
               }}
             >
             <PanelHead
