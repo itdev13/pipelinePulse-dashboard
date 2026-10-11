@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { FieldCard, FieldGrid, FieldCell, FieldRow, NotSet } from './FieldCard'
+import { FieldCard, FieldRow, NotSet } from './FieldCard'
 import StageStepper from './StageStepper'
 import { createPortal } from 'react-dom'
 import DealStatusControl from './DealStatusControl'
@@ -321,8 +321,12 @@ function EnquiryBlock({ deal }) {
         border: '1px solid var(--gray-200)',
         borderRadius: 'var(--radius-md)',
         background: 'var(--gray-25)',
-        fontSize: 'var(--text-md)', lineHeight: 'var(--leading-normal)',
-        color: current ? 'var(--text-body)' : 'var(--text-faint)',
+        // Larger and SOFTER than the card's own text. These are the
+        // customer's words, quoted — set in the body colour at the field
+        // size they read as one more field. gray-600 on gray-25 is 7.70:1
+        // light, 9.33:1 dark — computed.
+        fontSize: 'var(--text-lg)', lineHeight: 'var(--leading-normal)',
+        color: current ? 'var(--gray-600)' : 'var(--text-faint)',
         // The customer's own words, so line breaks they typed are kept.
         whiteSpace: 'pre-wrap',
         overflowWrap: 'anywhere'
@@ -788,22 +792,26 @@ function StageColumn({ deal, stages, onSaveField, saving, saveError, users, onNe
         }
       />
 
-      {/* Owner, days in stage, last contact and source in one grid — the
-          design's 2x2 of facts under the stage picker.
+      {/* Owner, days in stage, last contact and source — ONE ROW EACH,
+          stacked. The design's facts table is a single column of label |
+          value rows, not the 2x2 grid this was: two per row left an empty
+          cell whenever the count was odd, and the stacked label-over-value
+          cells read differently from every other table on the card.
 
           Owner is EDITABLE: `assignedTo` has been in the deal patch path all
           along, but this row rendered static text, so reassigning meant going
-          to the Deals tab or the CRM. It renders INSIDE the grid rather than
-          as a FieldCell, because a cell shows a value and a pencil while this
-          one swaps into a searchable list of users.
+          to the Deals tab or the CRM. It passes its own control into the
+          row's value slot, because it swaps the whole value for a searchable
+          list of users rather than opening a text editor.
 
           The other three are read-only because they are not fields: days in
           stage is computed from stage_history, last customer contact is
           derived from messages, and GHL has no writable `source`. */}
-      <FieldGrid style={{
+      <div style={{
         marginTop: 'var(--space-3)',
         border: '1px solid var(--gray-200)',
         borderRadius: 'var(--radius-sm)',
+        background: '#fff',
         overflow: 'hidden'
       }}>
         <OwnerRow
@@ -813,12 +821,12 @@ function StageColumn({ deal, stages, onSaveField, saving, saveError, users, onNe
           saving={saving === 'assignedTo'}
           onSave={(v) => onSaveField && onSaveField('assignedTo', v)}
         />
-        <FieldCell
+        <FieldRow
           icon="schedule"
           label="Days in stage"
           value={daysInStage != null ? String(daysInStage) : null}
         />
-        <FieldCell
+        <FieldRow
           icon="forum"
           label="Last customer contact"
           value={lastContact ? formatDate(lastContact) : null}
@@ -828,28 +836,25 @@ function StageColumn({ deal, stages, onSaveField, saving, saveError, users, onNe
           title={stale
             ? `${lastContactDays} days since the customer last made contact`
             : undefined}
+          last={!deal.source && deal.quoteRevision == null}
         />
         {deal.source && (
-          <FieldCell icon="language" label="Source" value={deal.source} />
+          <FieldRow
+            icon="language"
+            label="Source"
+            value={deal.source}
+            last={deal.quoteRevision == null}
+          />
         )}
         {deal.quoteRevision != null && (
-          <FieldCell
+          <FieldRow
             icon="receipt_long"
             label="Quote revision"
             value={`Rev ${deal.quoteRevision}`}
+            last
           />
         )}
-        {/* Keeps the last row from showing the grid's gap colour where a cell
-            would be.
-            THREE always render — owner, days in stage, last customer contact.
-            Days in stage was missing from this count, so a deal with no source
-            had three cells and no filler, and the empty fourth slot showed as
-            a grey block. */}
-        {([true, true, true, !!deal.source, deal.quoteRevision != null]
-          .filter(Boolean).length % 2 === 1) && (
-          <div style={{ background: '#fff' }} />
-        )}
-      </FieldGrid>
+      </div>
 
       {/* TAGS, under the stage facts — where the design puts them.
           They were inside the CLIENT chip group at the card's foot; that foot
@@ -1489,69 +1494,12 @@ function OwnerRow({ deal, users, onNeedUsers, saving, onSave }) {
     setOpen(true)
   }
 
-  // A CELL in the facts grid, matching FieldCell's shape — icon + label above,
-  // value below. It cannot BE a FieldCell: that renders a value and a pencil,
-  // and this swaps the whole value for a searchable Select.
-  const cell = { minWidth: 0, padding: '8px 12px', background: '#fff' }
-  const head = { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }
-
-  if (!open) {
-    return (
-      <div style={cell}>
-        <div style={head}>
-          <span className="ms" style={{ fontSize: 15, color: 'var(--text-muted)', flex: 'none' }}>
-            person
-          </span>
-          <span className="pp-label" style={{ marginBottom: 0 }}>Owner</span>
-        </div>
-        <button
-          onClick={begin}
-          disabled={saving}
-          title="Reassign this deal"
-          className="pp-inline-edit"
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            width: '100%', padding: 0,
-            border: 'none', borderRadius: 'var(--radius-sm)',
-            background: 'none', textAlign: 'left',
-            fontFamily: 'var(--font-sans)',
-            fontSize: 'var(--text-base)', lineHeight: 1.35,
-            color: deal.owner ? 'var(--text-body)' : 'var(--text-faint)',
-            cursor: saving ? 'progress' : 'pointer'
-          }}
-        >
-          {/* GHL stores whatever the user typed — this came through as
-              "jaladanki srinivas". Title-cased for display only. */}
-          <span>{titleCase(deal.owner) || 'Unassigned'}</span>
-          {/* A deal still belongs to its owner after they leave the account —
-              flag it rather than hiding it, so it reads as reassignable. */}
-          {deal.ownerActive === false && (
-            <span
-              title="This user is no longer active on the sub-account"
-              style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-faint)' }}
-            >
-              left account
-            </span>
-          )}
-          <span
-            className="ms pp-inline-pencil"
-            style={{ fontSize: 15, color: 'var(--text-faint)', flex: 'none', marginLeft: 'auto' }}
-          >
-            {saving ? 'progress_activity' : 'edit'}
-          </span>
-        </button>
-      </div>
-    )
-  }
-
-  return (
-    <div style={cell}>
-      <div style={head}>
-        <span className="ms" style={{ fontSize: 15, color: 'var(--text-muted)', flex: 'none' }}>
-          person
-        </span>
-        <span className="pp-label" style={{ marginBottom: 0 }}>Owner</span>
-      </div>
+  // A FieldRow whose value slot holds its own control — the closed button
+  // (which carries its own pencil) or the open Select. It cannot use the
+  // row's `onEdit` pencil, because that opens nothing; the whole value is
+  // what swaps.
+  const control = open
+    ? (
       <Select
         autoFocus
         defaultOpen
@@ -1568,12 +1516,49 @@ function OwnerRow({ deal, users, onNeedUsers, saving, onSave }) {
         popupClassName="pp-menu"
         popupMatchSelectWidth={false}
         styles={{ popup: { root: { minWidth: 240 } } }}
-        // Fills the cell rather than hanging off its right edge — the cell is
-        // already as narrow as a grid column gets.
         style={{ width: '100%' }}
       />
-    </div>
-  )
+    )
+    : (
+      <button
+        onClick={begin}
+        disabled={saving}
+        title="Reassign this deal"
+        className="pp-inline-edit"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          width: '100%', padding: 0,
+          border: 'none', borderRadius: 'var(--radius-sm)',
+          background: 'none', textAlign: 'left',
+          fontFamily: 'var(--font-sans)',
+          fontSize: 'var(--text-md)', lineHeight: 1.35,
+          color: deal.owner ? 'var(--text-body)' : 'var(--text-faint)',
+          cursor: saving ? 'progress' : 'pointer'
+        }}
+      >
+        {/* GHL stores whatever the user typed — this came through as
+            "jaladanki srinivas". Title-cased for display only. */}
+        <span>{titleCase(deal.owner) || 'Unassigned'}</span>
+        {/* A deal still belongs to its owner after they leave the account —
+            flag it rather than hiding it, so it reads as reassignable. */}
+        {deal.ownerActive === false && (
+          <span
+            title="This user is no longer active on the sub-account"
+            style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-faint)' }}
+          >
+            left account
+          </span>
+        )}
+        <span
+          className="ms pp-inline-pencil"
+          style={{ fontSize: 16, color: 'var(--text-faint)', flex: 'none', marginLeft: 'auto' }}
+        >
+          {saving ? 'progress_activity' : 'edit'}
+        </span>
+      </button>
+    )
+
+  return <FieldRow icon="person" label="Owner" value={deal.owner} control={control} />
 }
 
 // The monetary value, editable.

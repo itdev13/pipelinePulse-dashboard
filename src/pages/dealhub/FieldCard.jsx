@@ -174,7 +174,10 @@ export function FieldCell({ icon, label, value, onEdit, editTitle, tone, title }
 // row's tinted column, so the control must not draw a label of its own;
 // FieldPicker has a `bare` mode for exactly that.
 export function FieldRow({
-  icon, label, value, onEdit, editTitle, last, notSet = false, control
+  icon, label, value, onEdit, editTitle, last, notSet = false, control,
+  // Same contract as FieldCell: `tone` carries a warning the value cannot
+  // say on its own, `title` puts it in words for a screen reader.
+  tone, title
 }) {
   const empty = value == null || value === ''
   return (
@@ -236,9 +239,12 @@ export function FieldRow({
             display: 'flex', alignItems: 'center',
             padding: '9px 12px', minWidth: 0
           }}>
-            <Truncate style={{
+            <Truncate title={title} style={{
               fontSize: 'var(--text-md)', lineHeight: 1.35,
-              color: empty ? 'var(--text-faint)' : 'var(--text-body)'
+              fontWeight: tone === 'danger' ? 600 : 400,
+              color: tone === 'danger'
+                ? 'var(--status-stuck-text)'
+                : (empty ? 'var(--text-faint)' : 'var(--text-body)')
             }}>
               {empty ? (notSet ? <NotSet /> : '—') : value}
             </Truncate>
