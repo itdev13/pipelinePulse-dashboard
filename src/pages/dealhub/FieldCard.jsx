@@ -127,3 +127,74 @@ export function FieldCell({ icon, label, value, onEdit, editTitle, tone, title }
     </div>
   )
 }
+
+// A field as a FULL-WIDTH ROW: tinted label column, value, edit affordance.
+//
+//   ┌──────────────┬────────────────────────────┬────┐
+//   │ ✉ EMAIL      │ alex.morgan@example.com    │ ✎  │
+//   └──────────────┴────────────────────────────┴────┘
+//
+// FieldCell stacks its label ABOVE the value, which suits the deal card's
+// two-column grid where each cell is ~150px wide. A person card is the full
+// width of its column, and at that width a stacked pair wastes the right two
+// thirds of every row — so the label moves beside the value and takes a tint
+// to hold the eye at the left edge.
+//
+// Same empty-value contract as FieldCell: an em dash, never a blank, because
+// a gap in a contact's record is the thing a rep needs to notice.
+export function FieldRow({ icon, label, value, onEdit, editTitle, last }) {
+  const empty = value == null || value === ''
+  return (
+    <div
+      style={{
+        display: 'grid',
+        // The label column is FIXED so every row's value starts at the same
+        // x — ragged left edges down four rows read as a broken table.
+        gridTemplateColumns: 'minmax(110px, 150px) minmax(0, 1fr) auto',
+        alignItems: 'center',
+        borderBottom: last ? 'none' : '1px solid var(--gray-200)'
+      }}
+    >
+      <span style={{
+        display: 'flex', alignItems: 'center', gap: 7,
+        padding: '9px 12px', minWidth: 0,
+        background: 'var(--gray-25)',
+        borderRight: '1px solid var(--gray-200)'
+      }}>
+        {icon && (
+          <span className="ms" style={{ fontSize: 15, color: 'var(--text-muted)', flex: 'none' }}>
+            {icon}
+          </span>
+        )}
+        <span className="pp-label" style={{ marginBottom: 0 }}>{label}</span>
+      </span>
+
+      <Truncate style={{
+        padding: '9px 12px',
+        fontSize: 'var(--text-md)', lineHeight: 1.35,
+        color: empty ? 'var(--text-faint)' : 'var(--text-body)'
+      }}>
+        {empty ? '—' : value}
+      </Truncate>
+
+      <span style={{ padding: '0 10px', flex: 'none' }}>
+        {onEdit && (
+          <button
+            type="button"
+            onClick={onEdit}
+            title={editTitle || `Edit ${String(label).toLowerCase()}`}
+            aria-label={editTitle || `Edit ${String(label).toLowerCase()}`}
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 22, height: 22, padding: 0,
+              border: 'none', background: 'none',
+              color: 'var(--text-faint)', cursor: 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 16 }}>edit</span>
+          </button>
+        )}
+      </span>
+    </div>
+  )
+}

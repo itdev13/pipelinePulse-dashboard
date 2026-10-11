@@ -264,14 +264,22 @@ test('there is only ONE deal switcher', () => {
 
 // ---- the People view ------------------------------------------------------
 
-test('a person\'s details use the same bordered cells as the deal card', () => {
-  // So a contact reads the same way wherever they appear, rather than as
-  // icon-and-text lines here and a bordered grid two panels away.
+test('a person\'s details are FULL-WIDTH rows, not a two-column grid', () => {
+  // FieldCell stacks its label above the value, which suits the deal card's
+  // narrow cells. A person card is the full width of its column, and a
+  // stacked pair there wastes the right two thirds of every row — so the
+  // label sits beside the value in its own tinted column.
   const people = read('PeopleSection.jsx');
-  assert.match(people, /import \{ FieldGrid, FieldCell \} from '\.\/FieldCard'/);
+  assert.match(people, /import \{ FieldRow \} from '\.\/FieldCard'/);
+  assert.doesNotMatch(people, /<FieldGrid/, 'the two-column grid is back');
   for (const label of ['Email', 'Telephone', 'Business', 'Role']) {
-    assert.match(people, new RegExp(`label="${label}"`), `${label} cell is missing`);
+    assert.match(people, new RegExp(`'${label}'`), `${label} row is missing`);
   }
+});
+
+test('the label column is fixed, so values line up down the card', () => {
+  // Ragged left edges down four rows read as a broken table.
+  assert.match(read('FieldCard.jsx'), /gridTemplateColumns: 'minmax\(110px, 150px\) minmax\(0, 1fr\) auto'/);
 });
 
 test('every field renders, filled or not', () => {

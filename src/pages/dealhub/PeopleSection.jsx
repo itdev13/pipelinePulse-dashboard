@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import PanelHead from './PanelHead'
-import { FieldGrid, FieldCell } from './FieldCard'
+import { FieldRow } from './FieldCard'
 import { dealsAPI } from '../../api/deals'
 import ContactPicker from '../shared/ContactPicker'
 import { nameFor } from '../shared/ListChrome'
@@ -342,33 +342,29 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove, onRemove, re
           likely to be wrong together (a contact with no email usually has no
           business either), so the destination that shows all of them at once
           is the useful one. */}
-      <FieldGrid style={{
+      <div style={{
         marginTop: 10,
         border: '1px solid var(--gray-200)',
         borderRadius: 'var(--radius-sm)',
         overflow: 'hidden'
       }}>
-        <FieldCell
-          icon="mail" label="Email" value={p.email}
-          onEdit={onViewContact}
-          editTitle={onViewContact ? `Edit on ${nameFor(p)}'s record` : undefined}
-        />
-        <FieldCell
-          icon="call" label="Telephone" value={p.phone}
-          onEdit={onViewContact}
-          editTitle={onViewContact ? `Edit on ${nameFor(p)}'s record` : undefined}
-        />
-        <FieldCell
-          icon="business" label="Business" value={p.business}
-          onEdit={onViewContact}
-          editTitle={onViewContact ? `Edit on ${nameFor(p)}'s record` : undefined}
-        />
-        <FieldCell
-          icon="work" label="Role" value={p.contactType}
-          onEdit={onViewContact}
-          editTitle={onViewContact ? `Edit on ${nameFor(p)}'s record` : undefined}
-        />
-      </FieldGrid>
+        {[
+          ['mail', 'Email', p.email],
+          ['call', 'Telephone', p.phone],
+          ['business', 'Business', p.business],
+          ['work', 'Role', p.contactType]
+        ].map(([icon, label, value], i, all) => (
+          <FieldRow
+            key={label}
+            icon={icon}
+            label={label}
+            value={value}
+            last={i === all.length - 1}
+            onEdit={onViewContact}
+            editTitle={onViewContact ? `Edit on ${nameFor(p)}'s record` : undefined}
+          />
+        ))}
+      </div>
 
       {/* Actions row */}
       <div
