@@ -234,12 +234,25 @@ test('the embedded tags drop the "Tags:" prefix', () => {
   assert.match(read('DealSection.jsx'), /\{!embedded && \(/);
 });
 
-test('the card search drives the switcher, and opens it', () => {
-  // Its placeholder is "Search deals, contacts or businesses" — a lookup
-  // across records, which is what the switcher already does. Giving the card
-  // its own state meant a box that searched nothing; sharing switcherQ
-  // WITHOUT opening the dropdown meant results that landed nowhere.
+test('the SEARCH slot holds the deal switcher, not an input', () => {
+  // A text box there would be a second search beside a picker that already
+  // searches every deal in the location.
   const tab = readFileSync(join(dealhub, '..', 'tabs', 'DealHubTab.jsx'), 'utf8');
-  assert.match(tab, /setSwitcherOpen\(v\.trim\(\)\.length > 0\)/);
-  assert.doesNotMatch(tab, /const \[cardQ, setCardQ\]/, 'the dead second search state is back');
+  const open = tab.indexOf('<CardToolbar');
+  const close = tab.indexOf('</CardToolbar>');
+  const sw = tab.indexOf('{/* Deal switcher */}');
+  assert.ok(open > -1 && close > open, 'the toolbar lost its children slot');
+  assert.ok(open < sw && sw < close, 'the switcher is not in the SEARCH slot');
+  // The toolbar renders whatever it is given there; it owns no input.
+  assert.doesNotMatch(read('DealSection.jsx'), /type="search"/);
+});
+
+test('there is only ONE deal switcher', () => {
+  // It used to sit in an OPPORTUNITY row above the card. Keeping both would
+  // be two ways to do one thing, one of them outside the card it changes —
+  // and the empty bordered box left behind read as a panel that failed.
+  const tab = readFileSync(join(dealhub, '..', 'tabs', 'DealHubTab.jsx'), 'utf8');
+  assert.equal((tab.match(/\{\/\* Deal switcher \*\/\}/g) || []).length, 1);
+  assert.doesNotMatch(tab, /ref=\{switcherRef\} style=\{\{ position: 'relative', width: 420/,
+    'the fixed 420px width is back — it overflows the toolbar slot');
 });

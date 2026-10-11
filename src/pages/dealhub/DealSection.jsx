@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { FieldCard, FieldGrid, FieldCell } from './FieldCard'
-import PanelHead, { PanelHeadButton } from './PanelHead'
 import StageStepper from './StageStepper'
 import { createPortal } from 'react-dom'
 import DealStatusControl from './DealStatusControl'
@@ -64,8 +63,6 @@ export default function DealSection({
 }) {
   if (!deal) return null
 
-  const accent = 'var(--accent-pine-text)'
-  const tint = 'var(--tint-pine)'
   // What the card leads with.
   //
   // The contact is often nameless — GHL creates one from an inbound SMS with
@@ -80,45 +77,7 @@ export default function DealSection({
   const dealName = deal.opportunityName || null
 
   return (
-    <section
-      style={{
-        border: '1px solid var(--border-default)',
-        boxShadow: 'var(--shadow-card)',
-        ['--panel-accent']: accent,
-        ['--panel-tint']: tint,
-        borderRadius: 'var(--radius-md)',
-        background: '#fff',
-        overflow: 'hidden'
-      }}
-    >
-      <PanelHead
-        icon="grid_view"
-        title="Deal hub"
-        accent="pine"
-        subtitle={dealName || undefined}
-        action={
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 9 }}>
-            {deal.status && deal.status !== 'open' && (
-              <StatusPill status={deal.status} />
-            )}
-            {/* The way to everything the card cannot edit inline — pipeline,
-                status, followers, and the primary contact's own fields. Opens
-                THIS DEAL'S OWN RECORD PAGE. It used to expand the deal's row
-                inside the Deals list instead, which landed the rep on the list
-                with a row open somewhere in it; the request names one deal, so
-                the destination is that deal. */}
-            {onEditRecord && (
-              <PanelHeadButton
-                icon="edit_note"
-                onClick={onEditRecord}
-                title="Open the full editor for this deal"
-              >
-                Edit record
-              </PanelHeadButton>
-            )}
-          </span>
-        }
-      />
+    <>
 
       <div
         style={{
@@ -302,7 +261,7 @@ export default function DealSection({
             : undefined}
         />
       )}
-    </section>
+    </>
   )
 }
 
@@ -2004,7 +1963,9 @@ function RevisionBadge({ revision, provisional }) {
   )
 }
 
-function StatusPill({ status }) {
+// Exported: the Deal hub's header band moved into DealHubTab, and it is the
+// band that shows a closed deal's status.
+export function StatusPill({ status }) {
   const tone = {
     won: { bg: 'var(--tint-pine)', fg: 'var(--green-600)' },
     lost: { bg: 'var(--tint-rose)', fg: 'var(--status-stuck)' },

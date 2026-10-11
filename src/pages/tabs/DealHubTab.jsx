@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
-import PanelHead from '../dealhub/PanelHead'
+import PanelHead, { PanelHeadButton } from '../dealhub/PanelHead'
 import { formatMoney } from '../../utils/money'
 import Timeline from '../dealhub/Timeline'
 import PeopleSection from '../dealhub/PeopleSection'
-import DealSection, { CardToolbar } from '../dealhub/DealSection'
+import DealSection, { CardToolbar, StatusPill } from '../dealhub/DealSection'
 import MediaSection from '../dealhub/MediaSection'
 import AskDeal from '../dealhub/AskDeal'
 import QualificationSection from '../dealhub/QualificationSection'
@@ -891,6 +891,47 @@ export default function DealHubTab({
             maxWidth: 1660, margin: '0 auto', boxSizing: 'border-box'
           }}
         >
+          {/* ONE card around the header, the toolbar and whichever rail is
+              showing — which is what the design draws. The toolbar cannot
+              live inside DealSection: that only renders for leftRail 'deal',
+              so switching to People unmounted the control you switch with. */}
+          <section
+            style={{
+              border: '1px solid var(--border-default)',
+              boxShadow: 'var(--shadow-card)',
+              borderRadius: 'var(--radius-md)',
+              background: '#fff',
+              overflow: 'hidden'
+            }}
+          >
+      <PanelHead
+        icon="grid_view"
+        title="Deal hub"
+        accent="pine"
+        subtitle={deal.dealTag || undefined}
+        action={
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 9 }}>
+            {deal.status && deal.status !== 'open' && (
+              <StatusPill status={deal.status} />
+            )}
+            {/* The way to everything the card cannot edit inline — pipeline,
+                status, followers, and the primary contact's own fields. Opens
+                THIS DEAL'S OWN RECORD PAGE. It used to expand the deal's row
+                inside the Deals list instead, which landed the rep on the list
+                with a row open somewhere in it; the request names one deal, so
+                the destination is that deal. */}
+            {onEditDealRecord && (
+              <PanelHeadButton
+                icon="edit_note"
+                onClick={() => onEditDealRecord(dealId)}
+                title="Open the full editor for this deal"
+              >
+                Edit record
+              </PanelHeadButton>
+            )}
+          </span>
+        }
+      />
           {/* ABOVE the three rails, not inside the Deal card.
               It lived in DealSection, which only renders for leftRail
               'deal' — so switching to People or Media unmounted the very
@@ -1302,6 +1343,7 @@ export default function DealHubTab({
               onJumpToMessage={jumpToMessage}
             />
           )}
+          </section>
         </div>
       )}
 
