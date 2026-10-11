@@ -128,7 +128,11 @@ export default function DealSection({
             substituted into the "Customer" slot when the contact had no name,
             so the label described the wrong thing and the deal name had nowhere
             of its own. */}
-        <Column label="Deal">
+        {/* No column label. VALUE and STAGE keep theirs — they head a loose
+            stack of fields — but this column's first child is a card whose
+            own header reads DEAL NAME, so a "DEAL" label above it labels the
+            label. */}
+        <Column>
           {/* Editable. It was plain text, so renaming a deal meant opening its
               row on the Deals tab or going to the CRM — even though `name` has
               been in the PATCH path since the deal writes landed. */}
@@ -1821,12 +1825,14 @@ function Column({ label, children, last }) {
         borderRight: last ? 'none' : '1px solid var(--gray-300)'
       }}
     >
-      <span
-        className="pp-label"
-        style={{ marginBottom: 'var(--space-3)' }}
-      >
-        {label}
-      </span>
+      {label && (
+        <span
+          className="pp-label"
+          style={{ marginBottom: 'var(--space-3)' }}
+        >
+          {label}
+        </span>
+      )}
       {children}
     </div>
   )
