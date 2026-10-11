@@ -352,7 +352,11 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove, onRemove, re
           ['mail', 'Email', p.email],
           ['call', 'Telephone', p.phone],
           ['business', 'Business', p.business],
-          ['work', 'Role', p.contactType]
+          // The CUSTOM field, not p.contactType. That one is GHL's built-in
+          // lead/customer type and is already the badge beside the name;
+          // showing it again here as "Role" repeated one fact and hid the
+          // other. This is {{contact.contact_type}} — "Homeowner", "Partner".
+          ['work', 'Contact type', p.contactTypeField]
         ].map(([icon, label, value], i, all) => (
           <FieldRow
             key={label}
@@ -582,17 +586,21 @@ function AddContactFooter({ dealId, people = [], onAdded }) {
                 : 'Add someone to this deal'
           }
           style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            height: 30, padding: '0 12px 0 10px',
-            border: '1px dashed var(--border-strong)',
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            height: 40, padding: '0 18px 0 14px',
+            // A SOLID yellow pill, the design's one loud control on the rail.
+            // It was a dashed-outline ghost, which read as a drop target. Flat
+            // grey when it cannot act, so the disabled state is not a
+            // slightly paler yellow nobody would notice.
+            border: 'none',
             borderRadius: 'var(--radius-pill)',
-            background: 'var(--surface-card)',
-            color: full ? 'var(--text-faint)' : 'var(--text-body)',
-            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 500,
+            background: (dealId && !full) ? 'var(--accent-sun)' : 'var(--gray-100)',
+            color: (dealId && !full) ? 'var(--accent-sun-text)' : 'var(--text-faint)',
+            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
             cursor: (dealId && !full) ? 'pointer' : 'not-allowed'
           }}
         >
-          <span className="ms" style={{ fontSize: 16 }}>person_add</span>
+          <span className="ms" style={{ fontSize: 18 }}>person_add</span>
           {/* Says WHY it is disabled. A greyed "Add someone" with no
               explanation reads as broken. */}
           {full ? `${MAX_PEOPLE} people — limit reached` : 'Add someone'}

@@ -126,28 +126,29 @@ export function DealTasksSection({ dealId, people = [], onOpenAll }) {
       // tab it links to read as the same thing.
       accent="clay"
       meta={loading ? null : `${counts.open} open`}
-      blurb="Yours and the agent's, in one list. The agent creates a task only when an action is agreed in chat and you confirm it. Syncs two-way with your CRM — most recently updated wins."
+      // No blurb: the design goes straight from the band to the filters.
+      // The explanatory paragraph lived here; the agent's role in creating
+      // tasks is covered by the "AI" badge on rows it made.
       toolbar={
-        !loading && items.length > 0 ? (
-          <>
-            <Segment
-              options={[
-                ['open', 'Open', counts.open],
-                ['completed', 'Completed', counts.completed],
-                ['all', 'All', counts.all]
-              ]}
-              value={status}
-              onChange={setStatus}
-            />
-            <span style={{ flex: 1 }} />
-            <SortControl
-              label="Sort"
-              options={[['due', 'Due date'], ['created', 'Created']]}
-              value={sort}
-              onChange={setSort}
-            />
-          </>
-        ) : null
+        !loading && items.length > 0 ? [
+          <Segment
+            key="status"
+            options={[
+              ['open', 'Open', counts.open],
+              ['completed', 'Completed', counts.completed],
+              ['all', 'All', counts.all]
+            ]}
+            value={status}
+            onChange={setStatus}
+          />,
+          <SortControl
+            key="sort"
+            label="Sort"
+            options={[['due', 'Due date'], ['created', 'Created']]}
+            value={sort}
+            onChange={setSort}
+          />
+        ] : null
       }
       footer={
         !loading ? (
@@ -190,30 +191,38 @@ export function DealTasksSection({ dealId, people = [], onOpenAll }) {
             }
             style={{
               flex: 'none', marginTop: 1,
-              width: 18, height: 18, padding: 0,
-              border: `1.5px solid ${
-                t.status !== 'open'
-                  ? 'var(--status-done)'
-                  : t.overdue
-                    ? 'var(--status-stuck)'
-                    : 'var(--border-strong)'
-              }`,
-              borderRadius: t.status === 'open' ? '50%' : 'var(--radius-sm)',
-              background: t.status !== 'open' ? 'var(--status-done)' : '#fff',
+              width: 24, height: 24, padding: 0,
+              border: 'none', background: 'none',
               cursor: saving.has(t.id) ? 'progress' : 'pointer',
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              // A GLYPH, not a drawn ring. The design's open task shows an
+              // outlined check-circle in grey — the tick is already there,
+              // waiting to be filled — and the done state fills it green.
+              // The hand-drawn ring (empty when open, solid when done) read as
+              // a radio button beside the design's icon. Overdue keeps its
+              // red so the row still warns before the date is read.
+              color: t.status !== 'open'
+                ? 'var(--status-done)'
+                : t.overdue ? 'var(--status-stuck)' : 'var(--text-muted)'
             }}
           >
-            {t.status !== 'open' && (
-              <span className="ms" style={{ fontSize: 13, color: '#fff' }}>check</span>
-            )}
+            <span
+              className="ms"
+              style={{
+                fontSize: 24,
+                // Material Symbols fill axis: 1 = solid, 0 = outlined.
+                fontVariationSettings: t.status !== 'open' ? "'FILL' 1" : "'FILL' 0"
+              }}
+            >
+              check_circle
+            </span>
           </button>
 
           <div style={{ minWidth: 0, flex: 1 }}>
             <span
               style={{
                 display: 'block',
-                fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)',
+                fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)',
                 textDecoration: t.status === 'open' ? 'none' : 'line-through'
               }}
             >
@@ -225,7 +234,7 @@ export function DealTasksSection({ dealId, people = [], onOpenAll }) {
                 <RichBody
                   html={t.body}
                   color="var(--text-muted)"
-                  size="var(--text-md)"
+                  size="var(--text-lg)"
                   leading="var(--leading-normal)"
                   maxWidth={480}
                 />
@@ -234,9 +243,9 @@ export function DealTasksSection({ dealId, people = [], onOpenAll }) {
 
             <span
               style={{
-                display: 'flex', alignItems: 'center', gap: 7,
-                marginTop: 5, flexWrap: 'wrap',
-                fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
+                display: 'flex', alignItems: 'center', gap: 8,
+                marginTop: 6, flexWrap: 'wrap',
+                fontSize: 'var(--text-base)', color: 'var(--text-muted)'
               }}
             >
               {[
@@ -265,9 +274,9 @@ export function DealTasksSection({ dealId, people = [], onOpenAll }) {
             style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               flex: 'none',
-              width: 28, height: 28, padding: 0,
+              width: 40, height: 40, padding: 0,
               border: '1px solid var(--border-strong)',
-              borderRadius: 'var(--radius-sm)',
+              borderRadius: 'var(--radius-md)',
               background: '#fff',
               cursor: deleting === t.id ? 'progress' : 'pointer',
               color: 'var(--status-stuck-text)'
@@ -275,7 +284,7 @@ export function DealTasksSection({ dealId, people = [], onOpenAll }) {
           >
             <span
               className={deleting === t.id ? 'ms pp-spin' : 'ms'}
-              style={{ fontSize: 15 }}
+              style={{ fontSize: 18 }}
             >
               {deleting === t.id ? 'progress_activity' : 'close'}
             </span>
@@ -433,22 +442,14 @@ export function DealNotesSection({ dealId, people = [], onOpenAll }) {
       meta={loading ? null : `${items.length} ${items.length === 1 ? 'note' : 'notes'}`}
       toolbar={
         !loading && items.length > 0 ? (
-          <>
-            <span
-              style={{
-                fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
-                textTransform: 'uppercase', color: 'var(--text-muted)'
-              }}
-            >
-              Sort by created
-            </span>
-            <span style={{ flex: 1 }} />
-            <SortControl
-              options={[['newest', 'Newest'], ['oldest', 'Oldest']]}
-              value={sort}
-              onChange={setSort}
-            />
-          </>
+          // The label is SortControl's own, beside the pills — not a
+          // separate span with a spacer shoving the pills to the far edge.
+          <SortControl
+            label="Sort by created"
+            options={[['newest', 'Newest'], ['oldest', 'Oldest']]}
+            value={sort}
+            onChange={setSort}
+          />
         ) : null
       }
       footer={
@@ -490,8 +491,8 @@ export function DealNotesSection({ dealId, people = [], onOpenAll }) {
               title={col.name ? `${col.name} note` : undefined}
               style={{
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                width: 28, height: 28, flex: 'none',
-                borderRadius: 'var(--radius-sm)',
+                width: 36, height: 36, flex: 'none',
+                borderRadius: 'var(--radius-md)',
                 // The note's own colour when it has one, so the square and the
                 // stripe read as one object. Falls back to the rail's gold —
                 // NOT to grey, which would make every uncoloured note look
@@ -503,14 +504,14 @@ export function DealNotesSection({ dealId, people = [], onOpenAll }) {
                 color: col.hex ? 'var(--text-heading)' : 'var(--accent-gold-text)'
               }}
             >
-              <span className="ms" style={{ fontSize: 15 }}>sticky_note_2</span>
+              <span className="ms" style={{ fontSize: 18 }}>sticky_note_2</span>
             </span>
 
             <div style={{ minWidth: 0, flex: 1 }}>
               <span
                 style={{
                   display: 'block',
-                  fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)'
+                  fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)'
                 }}
               >
                 {heading}
@@ -523,7 +524,7 @@ export function DealNotesSection({ dealId, people = [], onOpenAll }) {
                   <RichBody
                     html={rest}
                     color="var(--text-body)"
-                    size="var(--text-md)"
+                    size="var(--text-lg)"
                     leading="var(--leading-normal)"
                     maxWidth={480}
                   />
@@ -535,7 +536,7 @@ export function DealNotesSection({ dealId, people = [], onOpenAll }) {
                   marginTop: 5
                 }}
               >
-                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
+                <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
                   {[n.author, relativeTime(n.createdAt)].filter(Boolean).join(' · ')}
                 </span>
                 {/* The contact the note is filed against — the author is who
@@ -557,9 +558,9 @@ export function DealNotesSection({ dealId, people = [], onOpenAll }) {
               style={{
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 flex: 'none',
-                width: 28, height: 28, padding: 0,
+                width: 40, height: 40, padding: 0,
                 border: '1px solid var(--border-strong)',
-                borderRadius: 'var(--radius-sm)',
+                borderRadius: 'var(--radius-md)',
                 background: '#fff',
                 cursor: busy === n.id ? 'progress' : 'pointer',
                 color: 'var(--status-stuck-text)'
@@ -567,7 +568,7 @@ export function DealNotesSection({ dealId, people = [], onOpenAll }) {
             >
               <span
                 className={busy === n.id ? 'ms pp-spin' : 'ms'}
-                style={{ fontSize: 15 }}
+                style={{ fontSize: 18 }}
               >
                 {busy === n.id ? 'progress_activity' : 'close'}
               </span>
@@ -768,17 +769,22 @@ function Rail({
         </p>
       )}
 
-      {toolbar && (
+      {/* One bordered row per toolbar entry. The design stacks the Tasks
+          rail's status pills and its SORT row as two rows with a rule
+          between; a single flex row with a spacer put them side by side. An
+          array renders a row each; a single node is still one row. */}
+      {toolbar && (Array.isArray(toolbar) ? toolbar : [toolbar]).filter(Boolean).map((row, i) => (
         <div
+          key={i}
           style={{
-            display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap',
-            padding: '9px 14px',
+            display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap',
+            padding: '12px 16px',
             borderBottom: '1px solid var(--border-default)'
           }}
         >
-          {toolbar}
+          {row}
         </div>
-      )}
+      ))}
 
       {loading && <Muted>Loading…</Muted>}
       {error && (
@@ -817,7 +823,7 @@ function PersonChip({ name }) {
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 5,
         maxWidth: '100%',
-        height: 22, padding: '0 9px',
+        height: 26, padding: '0 11px',
         borderRadius: 'var(--radius-pill)',
         // The same blue outlined chip the timeline uses — a contact looks
         // like a contact in both places, rather than grey here and blue one
@@ -825,14 +831,14 @@ function PersonChip({ name }) {
         // 4.13:1, below AA.
         border: '1px solid var(--accent-sky)',
         background: 'var(--tint-sky)',
-        fontSize: 'var(--text-sm)', fontWeight: 500,
+        fontSize: 'var(--text-base)', fontWeight: 500,
         color: 'var(--accent-sky-text)',
         // A contact with no name falls back to an email address, which has no
         // spaces to wrap on.
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
       }}
     >
-      <span className="ms" style={{ fontSize: 13, flex: 'none' }}>person</span>
+      <span className="ms" style={{ fontSize: 15, flex: 'none' }}>person</span>
       {name}
     </span>
   )
@@ -842,11 +848,11 @@ function Row({ children, last, dim, stripe = null }) {
   return (
     <div
       style={{
-        display: 'flex', alignItems: 'flex-start', gap: 10,
+        display: 'flex', alignItems: 'flex-start', gap: 12,
         // The stripe replaces the left padding rather than adding to it, so a
         // coloured row and an uncoloured one keep their text on the same
         // vertical line — otherwise a mixed list looks ragged.
-        padding: stripe ? '11px 14px 11px 11px' : '11px 14px',
+        padding: stripe ? '14px 16px 14px 13px' : '14px 16px',
         // THE NOTE'S COLOUR, as a 3px left edge.
         //
         // borderLeft, not a positioned child: it participates in layout, so it
@@ -880,7 +886,7 @@ function Segment({ options, value, onChange }) {
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               cursor: 'pointer',
-              height: 27, padding: '0 10px',
+              height: 34, padding: '0 14px',
               border: active
                 ? '1.5px solid var(--brand-primary)'
                 : '1px solid var(--border-strong)',
@@ -888,16 +894,18 @@ function Segment({ options, value, onChange }) {
               background: active ? 'var(--brand-primary)' : '#fff',
               color: active ? '#fff' : 'var(--text-body)',
               fontFamily: 'var(--font-sans)',
-              fontSize: 'var(--text-base)', fontWeight: active ? 600 : 400
+              fontSize: 'var(--text-md)', fontWeight: active ? 600 : 400
             }}
           >
             {label}
             {count != null && (
               <span
                 style={{
-                  fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)',
+                  // The same face as the label, one step down — the design
+                  // sets "Open 1" as one phrase, not a label with a code.
+                  fontSize: 'var(--text-base)', fontWeight: active ? 600 : 500,
                   // Brand digits on a now-solid-brand chip would be invisible.
-                  color: active ? 'rgba(255,255,255,0.85)' : 'var(--text-muted)'
+                  color: active ? 'rgba(255,255,255,0.9)' : 'var(--text-muted)'
                 }}
               >
                 {count}
@@ -917,14 +925,14 @@ function SortControl({ label, options, value, onChange }) {
       {label && (
         <span
           style={{
-            fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
+            fontSize: 'var(--text-sm)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
             textTransform: 'uppercase', color: 'var(--text-muted)'
           }}
         >
           {label}
         </span>
       )}
-      <span style={{ display: 'inline-flex', gap: 5 }}>
+      <span style={{ display: 'inline-flex', gap: 8 }}>
         {options.map(([id, text]) => {
           const active = value === id
           return (
@@ -933,15 +941,17 @@ function SortControl({ label, options, value, onChange }) {
               onClick={() => onChange(id)}
               style={{
                 cursor: 'pointer',
-                height: 27, padding: '0 10px',
+                height: 34, padding: '0 14px',
                 border: active
                   ? '1.5px solid var(--brand-primary)'
                   : '1px solid var(--border-strong)',
-                borderRadius: 'var(--radius-sm)',
+                // Pills, like the status filters above them — one shape for
+                // every toggle on the rail.
+                borderRadius: 'var(--radius-pill)',
                 background: active ? 'var(--brand-primary)' : '#fff',
                 color: active ? '#fff' : 'var(--text-body)',
                 fontFamily: 'var(--font-sans)',
-                fontSize: 'var(--text-base)', fontWeight: active ? 600 : 400
+                fontSize: 'var(--text-md)', fontWeight: active ? 600 : 400
               }}
             >
               {text}
@@ -972,8 +982,8 @@ function RailFooter({ newLabel, allLabel, onNew, onAll, newDisabledReason }) {
   return (
     <div
       style={{
-        display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
-        padding: '10px 14px',
+        display: 'flex', alignItems: 'center', gap: 'var(--space-4)',
+        padding: '12px 16px',
         borderTop: '1px solid var(--border-default)'
       }}
     >
@@ -987,11 +997,11 @@ function RailFooter({ newLabel, allLabel, onNew, onAll, newDisabledReason }) {
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
           cursor: live ? 'pointer' : 'not-allowed',
-          height: 30, padding: '0 13px',
+          height: 40, padding: '0 16px',
           border: '1px solid var(--border-strong)',
           borderRadius: 'var(--radius-pill)',
           background: '#fff',
-          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
+          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
           color: live ? 'var(--text-body)' : 'var(--text-faint)',
           opacity: live ? 1 : 0.7
         }}
@@ -1007,14 +1017,14 @@ function RailFooter({ newLabel, allLabel, onNew, onAll, newDisabledReason }) {
           display: 'inline-flex', alignItems: 'center', gap: 5,
           cursor: allLive ? 'pointer' : 'not-allowed',
           border: 'none', background: 'none', padding: 0,
-          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
+          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)',
           color: allLive ? 'var(--text-link)' : 'var(--text-faint)',
           fontWeight: allLive ? 600 : 400,
           opacity: allLive ? 1 : 0.75
         }}
       >
         {allLabel}
-        <span className="ms" style={{ fontSize: 16 }}>arrow_forward</span>
+        <span className="ms" style={{ fontSize: 18 }}>arrow_forward</span>
       </button>
     </div>
   )
@@ -1034,16 +1044,16 @@ function EditButton({ title, onClick }) {
       style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         flex: 'none',
-        width: 28, height: 28, padding: 0,
+        width: 40, height: 40, padding: 0,
         border: `1px solid ${live ? 'var(--border-strong)' : 'var(--border-default)'}`,
-        borderRadius: 'var(--radius-sm)',
+        borderRadius: 'var(--radius-md)',
         background: '#fff',
         cursor: live ? 'pointer' : 'not-allowed',
         color: live ? 'var(--text-muted)' : 'var(--text-faint)',
         opacity: live ? 1 : 0.7
       }}
     >
-      <span className="ms" style={{ fontSize: 15 }}>edit</span>
+      <span className="ms" style={{ fontSize: 18 }}>edit</span>
     </button>
   )
 }
