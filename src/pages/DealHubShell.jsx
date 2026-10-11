@@ -9,6 +9,7 @@ import ContactsTab from './tabs/ContactsTab'
 import TasksTab from './tabs/TasksTab'
 import NotesTab from './tabs/NotesTab'
 import ControlCentreTab from './tabs/ControlCentreTab'
+import HomeTab from './tabs/HomeTab'
 import { summaryAPI } from '../api/summary'
 import { useAuth } from '../context/AuthContext'
 
@@ -28,6 +29,10 @@ import { useAuth } from '../context/AuthContext'
 // Businesses comes second because it's the widest lens: a business rolls up the
 // deals, contacts and conversations that every tab after it shows one slice of.
 const TABS = [
+  // Home leads, per the client's nav. Its page is a placeholder for now —
+  // see HomeTab — but the tab is real so position, history and Back all
+  // treat it as a place.
+  { id: 'home',       label: 'Home',         icon: 'home' },
   { id: 'hub',        label: 'Deal hub',     icon: 'space_dashboard' },
   { id: 'copilot',    label: 'Insights AI',  icon: 'auto_awesome' },
   // Next to Insights AI deliberately: one ANSWERS a question you type, the
@@ -312,11 +317,17 @@ export default function DealHubShell() {
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
             flex: 'none',
-            height: 34, padding: '0 13px 0 10px',
-            border: '1px solid var(--border-strong)',
+            height: 34, padding: '0 14px 0 11px',
+            // DARK when it can act, ghost when it cannot. The design fills
+            // Back in gray-800 beside the green active tab — the two
+            // "where you are / where you were" controls, both solid, and
+            // everything else outlined. A white Back read as one more tab.
+            border: history.length === 0
+              ? '1px solid var(--border-strong)'
+              : '1px solid var(--gray-800)',
             borderRadius: 'var(--radius-pill)',
-            background: '#fff',
-            color: history.length === 0 ? 'var(--text-faint)' : 'var(--text-body)',
+            background: history.length === 0 ? '#fff' : 'var(--gray-800)',
+            color: history.length === 0 ? 'var(--text-faint)' : '#fff',
             fontFamily: 'var(--font-sans)',
             fontSize: 'var(--text-md)', fontWeight: 600,
             cursor: history.length === 0 ? 'default' : 'pointer',
@@ -392,6 +403,7 @@ export default function DealHubShell() {
 
       {/* Tab content */}
       <main>
+        {activeTab === 'home' && <HomeTab />}
         {activeTab === 'hub' && (
           <DealHubTab
             dealId={selectedDealId}
