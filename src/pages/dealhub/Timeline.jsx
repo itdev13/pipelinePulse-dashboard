@@ -163,7 +163,7 @@ function Row({ id, children, highlighted, tone, dim }) {
         gridTemplateColumns: ROW_GRID,
         gap: 'var(--space-3)',
         alignItems: 'start',
-        padding: '14px 16px',
+        padding: '16px',
         borderBottom: '1px solid var(--border-default)',
         // Every row on white. `tone="internal"` used to put notes and tasks
         // on gray-25 so an internal record read apart from the customer's
@@ -216,7 +216,7 @@ function SelectBox({ selected, onToggle, title }) {
       onChange={onToggle}
       title={title}
       style={{
-        width: 18, height: 18, marginTop: 9,
+        width: 20, height: 20, marginTop: 8,
         accentColor: 'var(--brand-primary)', cursor: 'pointer'
       }}
     />
@@ -597,7 +597,7 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
         <div
           style={{
             display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
-            marginTop: 6, fontSize: 'var(--text-base)', color: 'var(--text-muted)'
+            marginTop: 8, fontSize: 'var(--text-base)', color: 'var(--text-muted)'
           }}
         >
           <span>
@@ -790,7 +790,7 @@ export default function Timeline({
           disabled={!onSelectAll}
           title={allSelected ? 'Deselect every message' : 'Select every message'}
           style={{
-            width: 18, height: 18,
+            width: 20, height: 20,
             accentColor: 'var(--brand-primary)',
             cursor: onSelectAll ? 'pointer' : 'default'
           }}

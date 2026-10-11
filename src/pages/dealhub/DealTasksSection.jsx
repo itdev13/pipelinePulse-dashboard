@@ -206,13 +206,12 @@ export function DealTasksSection({ dealId, people = [], onOpenAll }) {
                 : t.overdue ? 'var(--status-stuck)' : 'var(--text-muted)'
             }}
           >
+            {/* .ms-fill is the house filled variant — it keeps the weight,
+                grade and optical-size axes the base .ms rule sets, which an
+                inline FILL-only override would silently drop. */}
             <span
-              className="ms"
-              style={{
-                fontSize: 24,
-                // Material Symbols fill axis: 1 = solid, 0 = outlined.
-                fontVariationSettings: t.status !== 'open' ? "'FILL' 1" : "'FILL' 0"
-              }}
+              className={t.status !== 'open' ? 'ms ms-fill' : 'ms'}
+              style={{ fontSize: 24 }}
             >
               check_circle
             </span>
@@ -222,7 +221,8 @@ export function DealTasksSection({ dealId, people = [], onOpenAll }) {
             <span
               style={{
                 display: 'block',
-                fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)',
+                fontSize: 'var(--text-lg)', fontWeight: 600, lineHeight: 1.3,
+                color: 'var(--text-heading)',
                 textDecoration: t.status === 'open' ? 'none' : 'line-through'
               }}
             >
@@ -230,12 +230,17 @@ export function DealTasksSection({ dealId, people = [], onOpenAll }) {
             </span>
 
             {t.body && (
-              <div style={{ marginTop: 2 }}>
+              <div style={{ marginTop: 1 }}>
+                {/* Body grey, not muted: the description is the task's own
+                    text and the design sets it one step down from the title,
+                    not at the meta line's grey. Snug leading — at 1.55 on
+                    15px the three lines drifted apart and the row read as
+                    three items. */}
                 <RichBody
                   html={t.body}
-                  color="var(--text-muted)"
+                  color="var(--text-body)"
                   size="var(--text-lg)"
-                  leading="var(--leading-normal)"
+                  leading="var(--leading-snug)"
                   maxWidth={480}
                 />
               </div>
@@ -244,7 +249,7 @@ export function DealTasksSection({ dealId, people = [], onOpenAll }) {
             <span
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
-                marginTop: 6, flexWrap: 'wrap',
+                marginTop: 4, flexWrap: 'wrap',
                 fontSize: 'var(--text-base)', color: 'var(--text-muted)'
               }}
             >

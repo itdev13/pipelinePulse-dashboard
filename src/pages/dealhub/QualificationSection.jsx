@@ -198,14 +198,6 @@ export default function QualificationSection({ qualification = [], onSave, savin
                   borderBottom: '1px solid var(--border-default)'
                 }}>
                   <span style={{
-                    flex: 'none',
-                    fontSize: 'var(--text-sm)', fontWeight: 500,
-                    fontVariantNumeric: 'tabular-nums',
-                    color: 'var(--text-muted)'
-                  }}>
-                    {n}.
-                  </span>
-                  <span style={{
                     minWidth: 0,
                     fontSize: 'var(--text-lg)', fontWeight: 600,
                     color: 'var(--text-heading)'
