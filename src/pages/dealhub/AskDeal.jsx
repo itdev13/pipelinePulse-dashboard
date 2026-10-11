@@ -592,11 +592,13 @@ export default function AskDeal({
             absolutely, so it never overlaps a wrapped second row of chips. */}
         <div
           style={{
-            display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)',
-            padding: '11px 0'
+            display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)',
+            // 14 above, not 11: the design floats the chips a clear step
+            // below the band rather than tucking them against it.
+            padding: '14px 0 12px'
           }}
         >
-          <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', flex: 1 }}>
+          <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', flex: 1 }}>
             {PROMPTS.map((p) => (
               <PromptChip
                 key={p.id}
@@ -1428,7 +1430,7 @@ function ChannelScope({ value, onChange, scope }) {
   if (scope && available.length === 0) return null
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
       <span
         style={{
           fontSize: 'var(--text-sm)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
@@ -1454,16 +1456,19 @@ function ChannelScope({ value, onChange, scope }) {
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 5,
               cursor: 'pointer',
-              height: 26, padding: '0 10px',
+              // The prompt chips' size. These sat a step smaller (26px,
+              // text-sm) and read as tags under the composer rather than as
+              // the scope controls the design draws them as.
+              height: 30, padding: '0 12px',
               border: on ? '1.5px solid var(--accent-teal)' : '1px solid var(--border-strong)',
               borderRadius: 'var(--radius-pill)',
               background: on ? 'var(--tint-teal)' : '#fff',
               color: on ? 'var(--accent-teal)' : 'var(--text-muted)',
               fontFamily: 'var(--font-sans)',
-              fontSize: 'var(--text-sm)', fontWeight: on ? 600 : 400
+              fontSize: 'var(--text-md)', fontWeight: on ? 600 : 400
             }}
           >
-            <span className="ms" style={{ fontSize: 13 }}>{icon}</span>
+            <span className="ms" style={{ fontSize: 15 }}>{icon}</span>
             {label}
             {n != null && (
               <span

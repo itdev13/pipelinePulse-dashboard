@@ -170,6 +170,16 @@ export default function QualificationSection({ qualification = [], onSave, savin
           <div key={ci} style={{ display: 'grid', gap: 'var(--space-3)', alignContent: 'start' }}>
           {col.map((q, i) => {
             const n = ci * half + i + 1
+            // THE ORDINAL COMES OFF THE NAME. GHL's own field names carry it
+            // — "1. Project Scope" — so a number rendered in front of the
+            // name doubled it ("1. 1. Project Scope"), and that span was
+            // removed. But with the number left inside the title it took the
+            // title's weight and colour, and the design sets it light and
+            // regular. Split it off here; fall back to the card's position
+            // for a name that has none.
+            const om = /^\s*(\d+)\s*[.)]\s*(.+)$/.exec(q.name || '')
+            const ordinal = om ? om[1] : String(n)
+            const name = om ? om[2] : q.name
             const saving = savingField === q.fieldKey
             const active = editing === q.fieldKey
             return (
@@ -200,11 +210,26 @@ export default function QualificationSection({ qualification = [], onSave, savin
                   borderBottom: '1px solid var(--border-default)'
                 }}>
                   <span style={{
+                    flex: 'none',
+                    fontSize: 'var(--text-sm)', fontWeight: 400,
+                    fontVariantNumeric: 'tabular-nums',
+                    // The design's light ordinal. gray-450 on this panel's
+                    // gray-25 is 4.36:1 — under AA (4.5) by a hair; it
+                    // clears 4.52 on white, which is where that token's
+                    // "faintest readable" reputation comes from. Accepted
+                    // because the number is redundant with the card's
+                    // position and the title beside it carries the meaning.
+                    // text-muted is the AA fallback if this is contested.
+                    color: 'var(--gray-450)'
+                  }}>
+                    {ordinal}.
+                  </span>
+                  <span style={{
                     minWidth: 0,
                     fontSize: 'var(--text-lg)', fontWeight: 600,
                     color: 'var(--text-heading)'
                   }}>
-                    {q.name}
+                    {name}
                   </span>
                 </div>
                 {/* The heading's own question, from GHL's placeholder — so a

@@ -597,10 +597,10 @@ function RowTooltip({ anchorRef, text }) {
         // trade against silently hiding part of the title again.
         whiteSpace: 'nowrap',
         pointerEvents: 'none',
-        padding: '6px 12px',
+        padding: '9px 12px',
         borderRadius: 'var(--radius-pill)',
         background: 'var(--gray-800)', color: '#fff',
-        fontSize: 'var(--text-base)', fontWeight: 500,
+        fontSize: 'var(--text-md)', fontWeight: 500,
         boxShadow: 'var(--shadow-raised)'
       }}
     >
