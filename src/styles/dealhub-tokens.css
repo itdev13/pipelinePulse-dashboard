@@ -2870,3 +2870,26 @@
   text-align: left;
 }
 [data-dealhub] .pp-md th { background: var(--gray-25); font-weight: 600; }
+
+/* ── Qualification's two-column grid ──────────────────────────────────────
+ *
+ * TWO columns, never three. repeat(auto-fit, minmax(420px, 1fr)) packs in as
+ * many as fit, so a wide screen got three — the design shows two, and at three
+ * the heading column is squeezed until every question wraps to three lines.
+ *
+ * A media query rather than a JS breakpoint: this is a layout rule, and
+ * matchMedia state would re-render all ten rows on every resize tick.
+ *
+ * Both selectors, because the panel is NOT portalled but the rule has to hold
+ * wherever the grid renders — see the .pp-portal note at the top of this file.
+ */
+[data-dealhub] .pp-qual-grid,
+.pp-portal     .pp-qual-grid {
+  grid-template-columns: 1fr;
+}
+@media (min-width: 900px) {
+  [data-dealhub] .pp-qual-grid,
+  .pp-portal     .pp-qual-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -13,9 +13,22 @@ import { Truncate } from './ListChrome'
 // deal's own. Extracted from CopilotTab.jsx rather than duplicated, so a
 // future tweak to this shell only has to happen once.
 
+// Icons are the client's (Oct 2026 design): an open book for Templates and
+// the four-squares-plus for Customize. auto_stories and grid_view read as a
+// magazine and a plain grid — close enough to be wrong rather than obviously
+// different, which is the worst kind of mismatch to leave in.
+// Uppercase, as the design shows — it reads as a section divider rather than
+// as another nav row above the chat titles it heads.
+const RECENTS_LABEL = {
+  margin: 0, flex: 1, textAlign: 'left',
+  fontSize: 'var(--text-sm)', fontWeight: 600,
+  letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase',
+  color: 'var(--text-muted)'
+}
+
 const NAV_ITEMS = [
-  { key: 'templates', icon: 'auto_stories', label: 'Templates' },
-  { key: 'customize', icon: 'grid_view',    label: 'Customize' }
+  { key: 'templates', icon: 'menu_book',           label: 'Templates' },
+  { key: 'customize', icon: 'dashboard_customize', label: 'Customize' }
 ]
 
 export default function CopilotSidebar({
@@ -25,6 +38,10 @@ export default function CopilotSidebar({
   // shrinks the whole sidebar to an icon rail). Matches the GHL reference's
   // chevron on the "Recents" header.
   recentsCollapsed, onToggleRecentsCollapsed,
+  // Whether Recents can be collapsed at all. Explicit rather than inferred
+  // from the handler: sniffing a function's source to guess if it is a no-op
+  // works in dev and silently flips under minification.
+  recentsCollapsible = true,
   // Positioning only — everything else about the sidebar's own look is
   // fixed. Absolute + a width in the empty state (it overlays rather than
   // sharing a grid track, so the greeting can center on the full page); a
@@ -156,7 +173,7 @@ export default function CopilotSidebar({
       <div>
         <nav style={{ display: 'grid', gap: 1, padding: '0 8px' }}>
           <SidebarButton
-            icon="edit_square" label="New chat" collapsed={collapsed}
+            icon="edit_note" label="New chat" collapsed={collapsed}
             disabled={empty} onClick={onNewChat}
             title={empty ? 'Already on a new chat' : 'Start a fresh conversation'}
           />
@@ -230,35 +247,39 @@ export default function CopilotSidebar({
           display: 'grid', gridTemplateRows: 'auto 1fr',
           borderTop: '1px solid var(--border-default)'
         }}>
-          <button
-            onClick={onToggleRecentsCollapsed}
-            aria-expanded={!recentsCollapsed}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              width: '100%', padding: '10px 10px 6px',
-              border: 'none', background: 'transparent', cursor: 'pointer',
-              fontFamily: 'var(--font-sans)'
-            }}
-          >
-            <h3 style={{
-              margin: 0, flex: 1, textAlign: 'left',
-              fontSize: 'var(--text-base)', fontWeight: 500, color: 'var(--text-muted)'
-            }}>
-              Recents
-            </h3>
-            <span
-              className="ms"
+          {/* A HEADING when nothing can collapse, a button when something can.
+              Deal hub passes recentsCollapsed={false} with a no-op toggle, so
+              the chevron there was a control that looked interactive and did
+              nothing — worse than the plain label the design shows. The
+              portfolio Co-Pilot tab wires a real toggle and keeps it. */}
+          {recentsCollapsible ? (
+            <button
+              onClick={onToggleRecentsCollapsed}
+              aria-expanded={!recentsCollapsed}
               style={{
-                fontSize: 18, color: 'var(--text-faint)',
-                transition: 'transform 120ms ease',
-                // Right when collapsed, down when open — same chevron,
-                // rotated, rather than swapping icon glyphs.
-                transform: recentsCollapsed ? 'rotate(-90deg)' : 'none'
+                display: 'flex', alignItems: 'center', gap: 8,
+                width: '100%', padding: '10px 10px 6px',
+                border: 'none', background: 'transparent', cursor: 'pointer',
+                fontFamily: 'var(--font-sans)'
               }}
             >
-              expand_more
-            </span>
-          </button>
+              <h3 style={RECENTS_LABEL}>Recents</h3>
+              <span
+                className="ms"
+                style={{
+                  fontSize: 18, color: 'var(--text-faint)',
+                  transition: 'transform 120ms ease',
+                  // Right when collapsed, down when open — same chevron,
+                  // rotated, rather than swapping icon glyphs.
+                  transform: recentsCollapsed ? 'rotate(-90deg)' : 'none'
+                }}
+              >
+                expand_more
+              </span>
+            </button>
+          ) : (
+            <h3 style={{ ...RECENTS_LABEL, padding: '10px 10px 6px' }}>Recents</h3>
+          )}
 
           {!recentsCollapsed && (
             <div style={{ minHeight: 0, overflowY: 'auto', padding: '0 6px 6px' }}>

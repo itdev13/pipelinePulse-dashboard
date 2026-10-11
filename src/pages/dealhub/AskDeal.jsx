@@ -529,6 +529,10 @@ export default function AskDeal({
         onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
         recentsCollapsed={false}
         onToggleRecentsCollapsed={() => {}}
+        // No collapse here — the toggle above is a no-op, so the chevron
+        // would be a control that does nothing. The design shows a plain
+        // RECENTS label.
+        recentsCollapsible={false}
         empty={turns.length === 0}
         onNewChat={newChat}
         history={history}

@@ -54,10 +54,26 @@ test('Save and Cancel show only on the row being edited', () => {
   assert.match(src, /\{editing === q\.fieldKey && \(/)
 })
 
-test('the two-column grid collapses rather than crushing the box', () => {
-  // Side by side in a narrow panel, a question and its answer box share about
-  // 300px and both become unreadable.
-  assert.match(src, /repeat\(auto-fit, minmax\(420px, 1fr\)\)/)
+test('the grid is TWO columns, never three', () => {
+  // auto-fit packs in as many columns as fit, so a wide screen got three: the
+  // design shows two, and at three the heading column is squeezed until every
+  // question wraps — and the odd-row filler, which assumes two, left a grey
+  // block where the two empty slots were.
+  // No inline grid-template — the class governs, or an inline value would
+  // win over the media query. (The phrase still appears in a COMMENT
+  // explaining the old behaviour, so this checks the property, not the file.)
+  assert.doesNotMatch(src, /gridTemplateColumns: 'repeat\(auto-fit/)
+  assert.match(src, /className="pp-qual-grid"/)
+  const css = readFileSync(
+    new URL('../../../styles/dealhub-tokens.css', import.meta.url), 'utf8'
+  )
+  // One column by default, two above the breakpoint — and never more.
+  const rule = css.slice(css.indexOf('.pp-qual-grid'))
+  assert.match(rule, /grid-template-columns: 1fr;/)
+  assert.match(rule, /@media \(min-width: 900px\)/)
+  assert.match(rule, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/)
+  // Both scopes, since tokens do not reach a portalled surface.
+  assert.match(rule, /\.pp-portal\s+\.pp-qual-grid/)
 })
 
 test('an odd heading count does not leave a grey hole', () => {

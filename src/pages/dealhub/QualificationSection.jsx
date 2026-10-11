@@ -126,11 +126,15 @@ export default function QualificationSection({ qualification = [], onSave, savin
         // fits a screen. The 1px gaps are the background showing through —
         // cells drawing their own borders would double up where they meet.
         <div
+          className="pp-qual-grid"
           style={{
             display: 'grid',
-            // One column when the panel is narrow: side by side, a question
-            // and its answer box share ~300px and both become unreadable.
-            gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))',
+            // TWO columns, never three — see .pp-qual-grid in the tokens
+            // file, which drops to one on a narrow panel.
+            //
+            // repeat(auto-fit, minmax(420px, 1fr)) packed in as many as fit,
+            // so a wide screen got three: the design shows two, and at three
+            // the heading column is squeezed until every question wraps.
             // The 1px gaps ARE the separators — the background showing through
             // between white cells. Drawn this way rather than as borders on
             // the cells so the vertical line between the two columns and the
