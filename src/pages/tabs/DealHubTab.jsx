@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
+import PanelHead from '../dealhub/PanelHead'
 import { formatMoney } from '../../utils/money'
 import Timeline from '../dealhub/Timeline'
 import StageStepper from '../dealhub/StageStepper'
@@ -1628,6 +1629,25 @@ export default function DealHubTab({
                 />
               </div>
             </div>
+            {/* Co-Pilot in a panel of its own, so it carries the same solid
+                header band as every other section rather than starting as a
+                bare grid of sidebar + transcript. */}
+            <section
+              style={{
+                border: '1px solid var(--border-default)',
+                boxShadow: 'var(--shadow-card)',
+                borderRadius: 'var(--radius-md)',
+                background: '#fff',
+                overflow: 'hidden',
+                marginTop: 'var(--space-4)'
+              }}
+            >
+            <PanelHead
+              icon="auto_awesome"
+              title="Deal AI"
+              subtitle="Ask about this deal"
+              accent="plum"
+            />
             <AskDeal
               dealId={dealId}
               onJumpToMessage={jumpToMessage}
@@ -1646,6 +1666,7 @@ export default function DealHubTab({
               // contacts" on deals that plainly had one.
               people={deal?.people || []}
             />
+            </section>
           </>
         )}
       </div>

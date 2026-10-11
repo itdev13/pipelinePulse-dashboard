@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react'
+import PanelHead from './PanelHead'
 import { RichBody, StateMessage, AttachmentCount, Truncate } from '../shared/ListChrome'
 import AttachmentChip, { accentVar } from './AttachmentChip'
 import AttachmentViewer from './AttachmentViewer'
@@ -729,25 +730,7 @@ export default function Timeline({
         background: '#fff',
       }}
     >
-      <header
-        style={{
-          display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-          padding: '13px var(--space-4)',
-          borderBottom: '1px solid var(--border-default)',
-          background: 'var(--panel-tint, var(--gray-25))',
-        }}
-      >
-        <span className="ms" style={{ fontSize: 20, color: 'var(--accent-teal)' }}>forum</span>
-        <h3
-          style={{
-            fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--accent-teal)',
-            margin: 0, flex: 1,
-          }}
-        >
-          Timeline
-        </h3>
-        <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>{summary}</span>
-      </header>
+      <PanelHead icon="forum" title="Timeline" subtitle={summary} accent="teal" />
 
       {/* A bar that says what the checkboxes are for. They were unlabelled, so
           nothing on screen explained that ticking one changes what the agent

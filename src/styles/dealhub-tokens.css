@@ -61,6 +61,48 @@
   --accent-gold: #b8860b;
   --accent-rose: #c23a5f;
   --accent-teal: #0f7f8b;
+  --accent-brown: #8a5a2b;
+
+  /* SOLID PANEL HEADERS (client design, Oct 2026).
+   *
+   * Every Deal hub section header is a solid band of its own accent with white
+   * text, replacing the pale tint + coloured text it used before.
+   *
+   * These are separate tokens rather than the --accent-* values above for the
+   * reason --tasks-header already documents: an accent tuned as a chip fill or
+   * a large heading is not always dark enough to hold white text.
+   *
+   * MEASURED against white, not estimated:
+   *
+   *   brown #8a5a2b  5.87:1  AA     plum  #7759c2  5.26:1  AA
+   *   pine  #1f7a5c  5.25:1  AA     teal  #0e7985  5.13:1  AA
+   *   sky   #2470c2  5.03:1  AA     clay  #c25a1f  4.40:1  large only
+   *   gold  #b8860b  3.25:1  large only
+   *
+   * The 18px/600 title clears AA-large (3:1) on every one of them. GOLD AND
+   * CLAY DO NOT clear 4.5:1, so the 13px subtitle beside the title cannot be
+   * plain white on those two — it uses --panel-head-sub, an opaque white that
+   * the header sets to full white where the band is dark enough and leaves
+   * alone where it is not. Kept as the client's colours rather than darkened:
+   * the palette is theirs, and the fix belongs on the text that fails.
+   *
+   * The -border value is one step darker, for the 1px rule under the band —
+   * without it the header bleeds into the panel body on a white background.
+   */
+  --panel-head-pine: #1f7a5c;
+  --panel-head-pine-border: #186349;
+  --panel-head-teal: #0e7985;
+  --panel-head-teal-border: #0b616b;
+  --panel-head-clay: #c25a1f;
+  --panel-head-clay-border: #b5501a;
+  --panel-head-brown: #8a5a2b;
+  --panel-head-brown-border: #744a22;
+  --panel-head-gold: #b8860b;
+  --panel-head-gold-border: #a4790a;
+  --panel-head-plum: #7759c2;
+  --panel-head-plum-border: #5f45a3;
+  --panel-head-sky: #2470c2;
+  --panel-head-sky-border: #1d5da3;
 
   /* The same accents as TEXT.
    *
@@ -78,6 +120,10 @@
   --accent-gold-text: #8f6808;
   --accent-rose-text: #c0395e;
   --accent-teal-text: #0e7985;
+  /* Notes' own accent in the client's Deal hub palette. The body text variant
+     is the band colour itself (#8a5a2b, 5.87:1 on white) — unlike gold or
+     clay it is already dark enough to use as small text without a shift. */
+  --accent-brown-text: #8a5a2b;
   /* 'gray' is the server's fallback accent when a record has no id
    * (accentFor() in routes/contacts.js and routes/deals.js). Without this the
    * dynamic `var(--accent-${accent}-text)` resolves to nothing and the avatar
@@ -92,6 +138,7 @@
   --tint-gold: #faf3e0;
   --tint-rose: #fbe9ee;
   --tint-teal: #e6f4f6;
+  --tint-brown: #f5eee6;
   --tint-gray: var(--gray-50);
 
   /* Status */

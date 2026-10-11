@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import PanelHead from './PanelHead'
 import { useModal } from '../../hooks/useModal'
 import { RichBody, Truncate } from '../shared/ListChrome'
 import AttachmentViewer from './AttachmentViewer'
@@ -75,32 +76,14 @@ export default function MediaSection({ messages = [], onJumpToMessage }) {
         overflow: 'hidden'
       }}
     >
-      <header
-        style={{
-          display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-          padding: '13px var(--space-4)',
-          borderBottom: '1px solid var(--border-default)',
-          background: 'var(--panel-tint, var(--gray-25))'
-        }}
-      >
-        <span className="ms" style={{ fontSize: 20, color: 'var(--accent-plum-text)' }}>
-          folder_open
-        </span>
-        <h3
-          style={{
-            fontSize: 'var(--text-xl)', fontWeight: 600,
-            color: 'var(--accent-plum-text)', margin: 0, flex: 1,
-            letterSpacing: '-0.01em'
-          }}
-        >
-          Media
-        </h3>
-        <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
-          {files.length === 0
-            ? 'No files'
-            : `${files.length} ${files.length === 1 ? 'file' : 'files'}`}
-        </span>
-      </header>
+      <PanelHead
+        icon="folder_open"
+        title="Media"
+        accent="plum"
+        subtitle={files.length === 0
+          ? 'No files'
+          : `${files.length} ${files.length === 1 ? 'file' : 'files'}`}
+      />
 
       {files.length === 0 ? (
         <p

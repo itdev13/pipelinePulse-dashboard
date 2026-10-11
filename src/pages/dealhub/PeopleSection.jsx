@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react'
+import PanelHead from './PanelHead'
 import { dealsAPI } from '../../api/deals'
 import ContactPicker from '../shared/ContactPicker'
 import { nameFor, Truncate } from '../shared/ListChrome'
@@ -101,27 +102,12 @@ export default function PeopleSection({
         overflow: 'hidden'
       }}
     >
-      <header
-        style={{
-          display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-          padding: '13px var(--space-4)',
-          borderBottom: '1px solid var(--border-default)',
-          background: 'var(--panel-tint, var(--gray-25))'
-        }}
-      >
-        <span className="ms" style={{ fontSize: 20, color: 'var(--accent-sky-text)' }}>group</span>
-        <h3
-          style={{
-            fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--accent-sky-text)',
-            margin: 0, flex: 1
-          }}
-        >
-          People
-        </h3>
-        <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
-          {people.length} {people.length === 1 ? 'person' : 'people'}
-        </span>
-      </header>
+      <PanelHead
+        icon="group"
+        title="People"
+        accent="sky"
+        subtitle={`${people.length} ${people.length === 1 ? 'person' : 'people'}`}
+      />
 
       <div
         style={{

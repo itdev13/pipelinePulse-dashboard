@@ -79,16 +79,21 @@ function PanelShell({ accent, children, titleW = 90 }) {
         background: '#fff', overflow: 'hidden'
       }}
     >
+      {/* The SOLID band, matching the loaded panel. A pale skeleton header
+          that turns coloured the moment data arrives reads as the layout
+          changing under the reader, not as the same panel filling in. */}
       <header
         style={{
           display: 'flex', alignItems: 'center', gap: 9,
           padding: '13px var(--space-4)',
-          borderBottom: '1px solid var(--border-default)',
-          background: 'var(--panel-tint, var(--gray-25))'
+          borderBottom: `1px solid var(--panel-head-${accent}-border, var(--border-default))`,
+          background: `var(--panel-head-${accent}, var(--accent-${accent}))`
         }}
       >
-        <Bar w={20} h={20} />
-        <Bar w={titleW} h={14} />
+        {/* Translucent white, so the placeholder bars read ON the band rather
+            than as grey holes cut out of it. */}
+        <Bar w={20} h={20} style={{ background: 'rgba(255,255,255,0.35)' }} />
+        <Bar w={titleW} h={14} style={{ background: 'rgba(255,255,255,0.35)' }} />
       </header>
       {children}
     </section>

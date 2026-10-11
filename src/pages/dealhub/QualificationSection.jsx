@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import PanelHead from './PanelHead'
 
 // Qualification — the deal's own custom field values, against the headings
 // configured in GoHighLevel.
@@ -70,56 +71,41 @@ export default function QualificationSection({ qualification = [], onSave, savin
         overflow: 'hidden'
       }}
     >
-      <button
+      <PanelHead
+        as="button"
+        icon="checklist"
+        title="Qualification"
+        accent="gold"
+        subtitle={`${filled} of ${qualification.length}`}
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        title={open ? 'Hide the headings' : 'Show all ten headings'}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 9,
-          width: '100%', cursor: 'pointer', textAlign: 'left',
-          padding: 'var(--space-3) var(--space-4)',
-          border: 'none',
-          // The divider belongs to the open state — closed, the header IS the
-          // whole panel and a bottom rule would read as an empty body.
-          borderBottom: open ? '1px solid var(--border-default)' : 'none',
-          background: '#fff',
-          fontFamily: 'var(--font-sans)'
-        }}
-      >
-        <span className="ms" style={{ fontSize: 20, color: 'var(--accent-gold)' }}>
-          checklist
-        </span>
-        <h3
-          style={{
-            fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--accent-gold)',
-            margin: 0, flex: 1
-          }}
-        >
-          Qualification
-        </h3>
-        <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
-          {filled} of {qualification.length}
-        </span>
-        {missing.length > 0 && (
-          <span
-            style={{
-              display: 'inline-flex', alignItems: 'center',
-              height: 22, padding: '0 9px',
-              borderRadius: 'var(--radius-pill)',
-              background: 'var(--tint-rose)', color: 'var(--status-stuck)',
-              fontSize: 'var(--text-sm)', fontWeight: 600
-            }}
-          >
-            {missing.length} missing
+        tooltip={open ? 'Hide the headings' : 'Show all ten headings'}
+        // Closed, the header IS the whole panel — a bottom rule would read as
+        // an empty body below it.
+        style={{ borderBottom: open ? undefined : 'none' }}
+        action={
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 9 }}>
+            {missing.length > 0 && (
+              <span
+                style={{
+                  display: 'inline-flex', alignItems: 'center',
+                  height: 22, padding: '0 9px',
+                  borderRadius: 'var(--radius-pill)',
+                  // Inverted on the solid band: rose-on-gold is unreadable,
+                  // and a white chip is how the count badge reads elsewhere.
+                  background: '#fff', color: 'var(--status-stuck)',
+                  fontSize: 'var(--text-sm)', fontWeight: 600
+                }}
+              >
+                {missing.length} missing
+              </span>
+            )}
+            <span className="ms" style={{ fontSize: 'var(--text-xl)', color: '#fff' }}>
+              {open ? 'expand_less' : 'expand_more'}
+            </span>
           </span>
-        )}
-        <span
-          className="ms"
-          style={{ fontSize: 'var(--text-xl)', color: 'var(--text-faint)', flex: 'none' }}
-        >
-          {open ? 'expand_less' : 'expand_more'}
-        </span>
-      </button>
+        }
+      />
 
       {open && (
         <div>

@@ -78,7 +78,11 @@ t('an empty email is allowed through — clearing is not invalid', () => {
 
 t('the message is red and announced, not muted grey', () => {
   assert.match(chrome, /metaTone = 'muted'/);
-  assert.match(chrome, /metaTone === 'error'\s*\n?\s*\? 'var\(--status-stuck-text\)'/);
+  // Red on the PALE panel, which is what every tab but Deal hub renders. On a
+  // solid header band (--panel-head-*) red on clay or plum is unreadable, so
+  // the failure stays white there and leans on its icon, weight and the
+  // role="alert" below — which is what actually reports it in both cases.
+  assert.match(chrome, /solidHeader \? '#fff' : 'var\(--status-stuck-text\)'/);
   assert.match(chrome, /role=\{metaTone === 'error' \? 'alert' : undefined\}/,
     'a screen reader user gets no colour — the failure must be announced');
   assert.match(detail, /metaTone=\{state === 'error' \? 'error' : 'muted'\}/);

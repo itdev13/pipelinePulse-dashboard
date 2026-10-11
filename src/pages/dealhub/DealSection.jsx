@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import PanelHead, { PanelHeadButton } from './PanelHead'
+import StageBar from './StageBar'
 import { createPortal } from 'react-dom'
 import DealStatusControl from './DealStatusControl'
 import { DatePicker, Select } from 'antd'
@@ -85,53 +87,34 @@ export default function DealSection({
         overflow: 'hidden'
       }}
     >
-      <header
-        style={{
-          display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-          padding: '13px var(--space-4)',
-          borderBottom: '1px solid var(--border-default)',
-          background: 'var(--panel-tint, var(--gray-25))'
-        }}
-      >
-        <span className="ms" style={{ fontSize: 20, color: accent }}>person</span>
-        <h3
-          style={{
-            fontSize: 'var(--text-xl)', fontWeight: 600, color: accent,
-            margin: 0, flex: 1, letterSpacing: '-0.01em'
-          }}
-        >
-          Deal
-        </h3>
-        {deal.status && deal.status !== 'open' && (
-          <StatusPill status={deal.status} />
-        )}
-        {/* The way to everything the card cannot edit inline — pipeline,
-            status, followers, and the primary contact's own fields. Opens
-            THIS DEAL'S OWN RECORD PAGE. It used to expand the deal's row
-            inside the Deals list instead, which landed the rep on the list
-            with a row open somewhere in it; the request names one deal, so
-            the destination is that deal.
-            In the header, not beside a field: it is about the whole record. */}
-        {onEditRecord && (
-          <button
-            onClick={onEditRecord}
-            title="Open the full editor for this deal"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              flex: 'none',
-              height: 28, padding: '0 11px 0 9px',
-              border: '1px solid var(--border-strong)',
-              borderRadius: 'var(--radius-pill)',
-              background: 'var(--surface-card)', color: 'var(--text-body)',
-              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)',
-              fontWeight: 600, cursor: 'pointer'
-            }}
-          >
-            <span className="ms" style={{ fontSize: 15 }}>edit_note</span>
-            Edit record
-          </button>
-        )}
-      </header>
+      <PanelHead
+        icon="grid_view"
+        title="Deal hub"
+        accent="pine"
+        subtitle={dealName || undefined}
+        action={
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 9 }}>
+            {deal.status && deal.status !== 'open' && (
+              <StatusPill status={deal.status} />
+            )}
+            {/* The way to everything the card cannot edit inline — pipeline,
+                status, followers, and the primary contact's own fields. Opens
+                THIS DEAL'S OWN RECORD PAGE. It used to expand the deal's row
+                inside the Deals list instead, which landed the rep on the list
+                with a row open somewhere in it; the request names one deal, so
+                the destination is that deal. */}
+            {onEditRecord && (
+              <PanelHeadButton
+                icon="edit_note"
+                onClick={onEditRecord}
+                title="Open the full editor for this deal"
+              >
+                Edit record
+              </PanelHeadButton>
+            )}
+          </span>
+        }
+      />
 
       <div
         style={{
@@ -251,6 +234,15 @@ export default function DealSection({
         deal={deal}
         siblingDeals={siblingDeals}
         onOpenDeal={onOpenDeal}
+      />
+
+      {/* The pipeline across the card's foot. The stage PICKER above stays —
+          it is how you choose from a dozen similarly-named stages — and this
+          answers the other question: how far along is this deal. */}
+      <StageBar
+        stages={stages}
+        saving={saving === 'pipelineStageId'}
+        onMove={onSaveField ? (id) => onSaveField('pipelineStageId', id) : undefined}
       />
     </section>
   )

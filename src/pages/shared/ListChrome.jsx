@@ -69,10 +69,27 @@ export function Panel({
   // 'error' when it is a failure the reader has to act on: at --text-muted a
   // rejected save sat in the same grey as "Editable", which is how "That
   // email address is not valid" went unnoticed in the corner of the header.
-  metaTone = 'muted'
+  metaTone = 'muted',
+  // SOLID HEADER BAND — the client's Deal hub design (Oct 2026).
+  //
+  // Opt-in, and deliberately so: Panel is the shared chrome for seven tabs,
+  // so flipping the default here would restyle Businesses, Contacts, Tasks,
+  // Notes and the rest at the same time. Deal hub passes it; nothing else
+  // does, until the same design lands on those tabs too.
+  solidHeader = false
 }) {
-  const color = `var(--accent-${accent}-text)`
-  const tint = `var(--tint-${accent})`
+  // On a solid band the title and icon are white and the band carries the
+  // accent; on the pale default the band is the tint and the TEXT carries the
+  // accent. Both read from the same `accent` name.
+  const color = solidHeader ? '#fff' : `var(--accent-${accent}-text)`
+  const tint = solidHeader
+    ? `var(--panel-head-${accent}, var(--accent-${accent}))`
+    : `var(--tint-${accent})`
+  // 13px white on clay (4.40:1) and gold (3.25:1) misses AA for normal text —
+  // see the measured table in dealhub-tokens.css. The title is 18px/600 and
+  // clears AA-large on every band; the smaller meta beside it does not, so on
+  // a solid header it gets full white rather than the 85% the design shows.
+  const metaColor = solidHeader ? 'rgba(255,255,255,0.92)' : 'var(--text-muted)'
   return (
     <section
       style={{
@@ -99,12 +116,20 @@ export function Panel({
           flexWrap: 'wrap',
           alignItems: 'center',
           padding: 'var(--space-3) var(--space-4)',
+          // The band itself. Pale tint by default; the accent at full
+          // strength when solidHeader is set.
+          background: tint,
           // A line under the title, separating the header from whatever
           // follows — the filter band or the list itself. Always drawn now:
           // the toolbar used to bring its own top border, but it is white
           // rather than tinted, so without this line the header and the
           // filter row ran together as one white block.
-          borderBottom: '1px solid var(--border-default)'
+          //
+          // On a solid band the default grey rule disappears into the colour,
+          // so it steps to a darker shade of the band's own accent.
+          borderBottom: solidHeader
+            ? `1px solid var(--panel-head-${accent}-border, var(--border-default))`
+            : '1px solid var(--border-default)'
         }}
       >
         <span className="ms" style={{ fontSize: 20, color }}>{icon}</span>
@@ -120,10 +145,15 @@ export function Panel({
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             minWidth: 24, height: 22, padding: '0 8px', flex: 'none',
             borderRadius: 'var(--radius-pill)',
-            background: 'var(--gray-100)',
+            // On a solid band the grey pill disappears into the colour, so it
+            // inverts: white chip, accent text — the same pairing the design
+            // uses for the "DEAL" pill on the deal-name card.
+            background: solidHeader ? '#fff' : 'var(--gray-100)',
             fontSize: 'var(--text-base)', fontWeight: 600,
             fontVariantNumeric: 'tabular-nums',
-            color: 'var(--text-muted)'
+            color: solidHeader
+              ? `var(--panel-head-${accent}, var(--accent-${accent}))`
+              : 'var(--text-muted)'
           }}>
             {count}
           </span>
@@ -141,9 +171,13 @@ export function Panel({
               display: 'inline-flex', alignItems: 'center', gap: 5,
               fontSize: 'var(--text-md)',
               fontWeight: metaTone === 'error' ? 600 : 400,
+              // An error keeps its red on a pale band. On a SOLID one red on
+              // clay or plum is unreadable, so the failure stays white and
+              // leans on its icon and weight instead — the role="alert" above
+              // is what actually reports it either way.
               color: metaTone === 'error'
-                ? 'var(--status-stuck-text)'
-                : 'var(--text-muted)'
+                ? (solidHeader ? '#fff' : 'var(--status-stuck-text)')
+                : metaColor
             }}
           >
             {metaTone === 'error' && (

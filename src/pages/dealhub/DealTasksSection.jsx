@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import PanelHead from './PanelHead'
 import { tasksAPI } from '../../api/tasks'
 import { notesAPI } from '../../api/notes'
 import { formatDue, relativeTime, RichBody, AttachmentCount } from '../shared/ListChrome'
@@ -120,7 +121,10 @@ export function DealTasksSection({ dealId, people = [], onOpenAll }) {
     <Rail
       icon="task_alt"
       title="Tasks"
-      accent="rose"
+      // clay, not rose — the client's header palette (#c25a1f), which is also
+      // the --tasks-header the Tasks TAB already wears, so the panel and the
+      // tab it links to read as the same thing.
+      accent="clay"
       meta={loading ? null : `${counts.open} open`}
       blurb="Yours and the agent's, in one list. The agent creates a task only when an action is agreed in chat and you confirm it. Syncs two-way with your CRM — most recently updated wins."
       toolbar={
@@ -422,7 +426,9 @@ export function DealNotesSection({ dealId, people = [], onOpenAll }) {
     <Rail
       icon="sticky_note_2"
       title="Notes"
-      accent="gold"
+      // brown (#8a5a2b) in the client's palette. Gold is Qualification's
+      // band — two adjacent panels in the same yellow read as one section.
+      accent="brown"
       meta={loading ? null : `${items.length} ${items.length === 1 ? 'note' : 'notes'}`}
       toolbar={
         !loading && items.length > 0 ? (
@@ -730,22 +736,7 @@ function Rail({
         overflow: 'hidden'
       }}
     >
-      <header
-        style={{
-          display: 'flex', alignItems: 'center', gap: 9,
-          padding: 'var(--space-3) 14px',
-          borderBottom: '1px solid var(--border-default)',
-          background: 'var(--panel-tint, var(--gray-25))'
-        }}
-      >
-        <span className="ms" style={{ fontSize: 19, color }}>{icon}</span>
-        <h3 style={{ fontSize: 'var(--text-xl)', fontWeight: 600, color, margin: 0, flex: 1 }}>
-          {title}
-        </h3>
-        {meta != null && (
-          <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>{meta}</span>
-        )}
-      </header>
+      <PanelHead icon={icon} title={title} subtitle={meta} accent={accent} />
 
       {blurb && (
         <p
