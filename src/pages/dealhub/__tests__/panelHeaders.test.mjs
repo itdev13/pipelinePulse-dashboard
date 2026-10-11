@@ -166,10 +166,17 @@ test('an empty value still renders as a dash', () => {
   assert.match(read('FieldCard.jsx'), /\{empty \? '—' : value\}/);
 });
 
-test('the odd field count does not leave a grey hole', () => {
-  // Nine fields in a two-column grid leaves half a row. Without a filler the
-  // grid's gap colour shows through where a tenth cell would be.
-  assert.match(read('DealSection.jsx'), /fields\.length % 2 === 1 && <div style=\{\{ background: '#fff' \}\} \/>/);
+test('a part-filled last row never shows the gap colour', () => {
+  // Nine fields leave one over at two columns and none at three, so the
+  // filler count depends on the layout — the customer band is three columns
+  // wide at the card's foot and two in a narrow column.
+  const deal = read('DealSection.jsx');
+  assert.match(deal, /wide \? \(3 - \(fields\.length % 3\)\) % 3 : fields\.length % 2/);
+  // The maths, not just its presence.
+  const filler = (cols, n) => (cols === 3 ? (3 - (n % 3)) % 3 : n % 2);
+  for (const cols of [2, 3]) {
+    assert.equal((9 + filler(cols, 9)) % cols, 0, `${cols} columns leaves a ragged row`);
+  }
 });
 
 test('the stale-contact warning survived the move into cells', () => {
@@ -224,14 +231,26 @@ test('Qualification is a full-width section, not a rail item', () => {
   assert.ok(qual < copilot, 'Qualification must sit above Co-Pilot');
 });
 
-test('tags sit under CLIENT, not in a row of their own', () => {
-  // A tag describes the person, not the product or the lead source. As a
-  // full-width row it read as a fourth, unlabelled category.
+test('tags sit under the stage facts', () => {
+  // They were inside the CLIENT chip group at the card's foot; that foot
+  // belongs to the customer now, and a tag is a fact about the deal's STATE
+  // rather than about the client's type.
   const deal = read('DealSection.jsx');
-  assert.match(deal, /heading === 'Client' && \(/);
   assert.match(deal, /<TagRow deal=\{deal\} embedded \/>/);
-  // The standalone row is gone — two TagRows would render the pills twice.
-  assert.doesNotMatch(deal, /<TagRow deal=\{deal\} \/>/);
+  // Still exactly one — two would render the pills twice.
+  assert.equal((deal.match(/<TagRow /g) || []).length, 1);
+  // And inside the Stage column, after its facts grid.
+  const stage = deal.slice(deal.indexOf("<Column label=\"Stage\">"));
+  assert.ok(stage.indexOf('<TagRow') > -1 && stage.indexOf('<TagRow') < stage.indexOf('</Column>'));
+});
+
+test('the customer band is full width, the chips are in the column', () => {
+  // They swapped: nine customer fields in a 300px column wrapped every value
+  // onto its own line, while CLIENT/PRODUCT/LEAD SOURCE describe the DEAL and
+  // belong beside its name.
+  const deal = read('DealSection.jsx');
+  assert.match(deal, /<FieldChipRow[\s\S]{0,200}?stacked/);
+  assert.match(deal, /<ContactLines[\s\S]{0,200}?wide/);
 });
 
 test('the embedded tags drop the "Tags:" prefix', () => {

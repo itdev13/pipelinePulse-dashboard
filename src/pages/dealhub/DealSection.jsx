@@ -165,15 +165,16 @@ export default function DealSection({
             </div>
           </FieldCard>
 
-          {/* The customer's own record. Its name rides in the card's header —
-              it used to sit above as a separate "Customer" line, which said
-              the same thing twice once the card gained a header of its own.
-              A nameless contact still has to say so rather than leave the
-              strip blank. */}
-          <ContactLines
-            person={primaryPerson(deal.people)}
-            fallbackName={contactIsNameless ? 'No name on this contact' : contactName}
-            onOpenContact={onOpenContact}
+          {/* CLIENT / PRODUCT / LEAD SOURCE, stacked under the deal's name.
+              They were a three-column strip across the card's foot; the
+              design moves them here and gives that foot to the customer
+              instead — these describe the DEAL, so they belong with it. */}
+          <FieldChipRow
+            deal={deal}
+            fieldOptions={fieldOptions}
+            onSaveField={onSaveField}
+            saving={saving}
+            stacked
           />
         </Column>
 
@@ -206,12 +207,18 @@ export default function DealSection({
           unset one is a real gap in the record rather than something we failed
           to fetch — hence the dashed amber "Not set" treatment instead of
           hiding the chip. */}
-      <FieldChipRow
-        deal={deal}
-        fieldOptions={fieldOptions}
-        onSaveField={onSaveField}
-        saving={saving}
-      />
+      {/* THE CUSTOMER, full width across the card's foot.
+          Nine fields in a 300px column wrapped every value onto its own line;
+          across the whole card they fit three to a row, which is what the
+          design shows. */}
+      <div style={{ borderTop: '1px solid var(--border-default)' }}>
+        <ContactLines
+          person={primaryPerson(deal.people)}
+          fallbackName={contactIsNameless ? 'No name on this contact' : contactName}
+          onOpenContact={onOpenContact}
+          wide
+        />
+      </div>
 
       {/* Confirms a write. The controls on this card commit as soon as you pick
           a date or a stage — correct for a dropdown, but it meant a successful
@@ -829,6 +836,21 @@ function StageColumn({ deal, stages, onSaveField, saving, saveError, users, onNe
           <div style={{ background: '#fff' }} />
         )}
       </FieldGrid>
+
+      {/* TAGS, under the stage facts — where the design puts them.
+          They were inside the CLIENT chip group at the card's foot; that foot
+          belongs to the customer now, and a tag is a fact about the deal's
+          state rather than about the client's type. */}
+      <span style={{
+        display: 'flex', alignItems: 'center', gap: 6,
+        marginTop: 'var(--space-4)'
+      }}>
+        <span className="ms" style={{ fontSize: 16, color: 'var(--text-muted)' }}>sell</span>
+        <span className="pp-label" style={{ marginBottom: 0 }}>Tags</span>
+      </span>
+      <div style={{ marginTop: 'var(--space-2)' }}>
+        <TagRow deal={deal} embedded />
+      </div>
     </Column>
   )
 }
@@ -1003,7 +1025,10 @@ export function CardToolbar({ view, onView, children }) {
 //
 // A field with no options in the response stays a plain chip: a free-text
 // custom field must not render as an empty dropdown.
-function FieldChipRow({ deal, fieldOptions = {}, onSaveField, saving }) {
+// `stacked` puts the three groups one above another, for the deal column the
+// design now hosts them in. Across the card's foot they were three side-by-
+// side columns; in a single column each group is a labelled block.
+function FieldChipRow({ deal, fieldOptions = {}, onSaveField, saving, stacked = false }) {
   const isSet = (k) => {
     const v = deal[k]
     return v != null && String(v).trim() !== ''
@@ -1076,13 +1101,15 @@ function FieldChipRow({ deal, fieldOptions = {}, onSaveField, saving }) {
 
   return (
     <div
-      style={{
-        display: 'grid',
-        // Three columns on a wide card, stacking as it narrows. Each keeps a
-        // picker's width plus its label, below which they read as a list.
-        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-        borderTop: '1px solid var(--border-default)'
-      }}
+      style={stacked
+        ? { display: 'grid', gap: 'var(--space-4)' }
+        : {
+          display: 'grid',
+          // Three columns on a wide card, stacking as it narrows. Each keeps
+          // a picker's width plus its label, below which they read as a list.
+          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+          borderTop: '1px solid var(--border-default)'
+        }}
     >
       {CHIP_GROUPS.map(([heading, icon, keys], gi) => {
         const chips = ordered.filter(([, k]) => keys.includes(k))
@@ -1092,8 +1119,11 @@ function FieldChipRow({ deal, fieldOptions = {}, onSaveField, saving }) {
             key={heading}
             style={{
               display: 'flex', flexDirection: 'column', gap: 'var(--space-2)',
-              minWidth: 0, padding: '12px var(--space-4)',
-              borderRight: gi === CHIP_GROUPS.length - 1
+              minWidth: 0,
+              // In a column the card's own padding already frames these, and
+              // the dividing rules belong to the across-the-foot layout.
+              padding: stacked ? 0 : '12px var(--space-4)',
+              borderRight: stacked || gi === CHIP_GROUPS.length - 1
                 ? 'none'
                 : '1px solid var(--border-default)'
             }}
@@ -1107,24 +1137,6 @@ function FieldChipRow({ deal, fieldOptions = {}, onSaveField, saving }) {
             <span style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
               {chips.map(renderChip)}
             </span>
-            {/* TAGS live under CLIENT, which is where the design groups them —
-                a tag describes the person, not the product or the lead
-                source, and as a full-width row of its own it read as a
-                fourth, unlabelled category. */}
-            {heading === 'Client' && (
-              <>
-                <span style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  marginTop: 'var(--space-2)'
-                }}>
-                  <span className="ms" style={{ fontSize: 16, color: 'var(--text-muted)' }}>
-                    sell
-                  </span>
-                  <span className="pp-label" style={{ marginBottom: 0 }}>Tags</span>
-                </span>
-                <TagRow deal={deal} embedded />
-              </>
-            )}
           </div>
         )
       })}
@@ -1847,7 +1859,11 @@ function ProductFooter({ deal, siblingDeals, onOpenDeal }) {
 }
 
 // Email / phone / address / timezone for the primary contact, as icon rows.
-function ContactLines({ person, fallbackName, onOpenContact }) {
+// `wide` renders the nine fields as FULL-WIDTH ROWS, three to a line, for the
+// band across the card's foot the design now gives them. In the old 300px
+// column a stacked label-over-value pair was right; at full width it would
+// leave two thirds of every row empty.
+function ContactLines({ person, fallbackName, onOpenContact, wide = false }) {
   if (!person) return null
 
   // The primary contact's own record, as labelled fields rather than four
@@ -1893,9 +1909,11 @@ function ContactLines({ person, fallbackName, onOpenContact }) {
       icon="person"
       label="Customer"
       value={name || undefined}
-      style={{ marginTop: 'var(--space-3)' }}
+      style={wide
+        ? { border: 'none', borderRadius: 0 }
+        : { marginTop: 'var(--space-3)' }}
     >
-      <FieldGrid>
+      <FieldGrid columns={wide ? 3 : 2}>
         {fields.map(([label, value, icon]) => (
           <FieldCell
             key={label}
@@ -1911,10 +1929,13 @@ function ContactLines({ person, fallbackName, onOpenContact }) {
             editTitle={onOpenContact ? 'Edit on the contact record' : undefined}
           />
         ))}
-        {/* The grid is two columns and there are nine fields, so the last row
-            is half empty. Without a filler the gap colour shows through as a
-            grey block where a tenth cell would be. */}
-        {fields.length % 2 === 1 && <div style={{ background: '#fff' }} />}
+        {/* A part-filled last row would show the grid's gap colour as a grey
+            block. Nine fields divide exactly by three and leave one over at
+            two columns, so the filler count depends on the layout. */}
+        {Array.from(
+          { length: (wide ? (3 - (fields.length % 3)) % 3 : fields.length % 2) },
+          (_, i) => <div key={`filler-${i}`} style={{ background: '#fff' }} />
+        )}
       </FieldGrid>
     </FieldCard>
   )
