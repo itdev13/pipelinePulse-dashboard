@@ -676,8 +676,14 @@
  * reads as the least important thing in the column.
  */
 [data-dealhub] .pp-stage-select .ant-select-selector {
-  border: 2px solid var(--brand-primary) !important;
-  background: var(--tint-pine) !important;
+  /* 1.5px on WHITE, not 2px on a pine tint (client design, Oct 2026).
+     The tinted fill made this the only green block in a column of white
+     controls, which read as a selected state rather than as the field that
+     matters most. The green border and bold green text carry that on their
+     own, and the status select directly above it stays plain — so the two
+     still read as a pair rather than as one control. */
+  border: 1.5px solid var(--brand-primary) !important;
+  background: #fff !important;
 }
 [data-dealhub] .pp-stage-select .ant-select-selection-item {
   font-weight: var(--weight-semibold);

@@ -777,16 +777,24 @@ function StageColumn({ deal, stages, onSaveField, saving, saveError, users, onNe
         }
       />
 
-      {/* Owner is EDITABLE — `assignedTo` has been in the deal patch path all
-          along, but this row rendered static text, so reassigning meant going
-          to the Deals tab or the CRM. It keeps its own picker rather than
-          becoming a FieldCell: a cell shows a value and an edit pencil, and
-          this one needs a searchable list of users.
+      {/* Owner, days in stage, last contact and source in one grid — the
+          design's 2x2 of facts under the stage picker.
 
-          The facts below it are read-only because they are not fields: days in
+          Owner is EDITABLE: `assignedTo` has been in the deal patch path all
+          along, but this row rendered static text, so reassigning meant going
+          to the Deals tab or the CRM. It renders INSIDE the grid rather than
+          as a FieldCell, because a cell shows a value and a pencil while this
+          one swaps into a searchable list of users.
+
+          The other three are read-only because they are not fields: days in
           stage is computed from stage_history, last customer contact is
           derived from messages, and GHL has no writable `source`. */}
-      <dl style={{ margin: '12px 0 0', display: 'grid', gap: 7 }}>
+      <FieldGrid style={{
+        marginTop: 'var(--space-3)',
+        border: '1px solid var(--gray-200)',
+        borderRadius: 'var(--radius-sm)',
+        overflow: 'hidden'
+      }}>
         <OwnerRow
           deal={deal}
           users={users}
@@ -794,14 +802,6 @@ function StageColumn({ deal, stages, onSaveField, saving, saveError, users, onNe
           saving={saving === 'assignedTo'}
           onSave={(v) => onSaveField && onSaveField('assignedTo', v)}
         />
-      </dl>
-
-      <FieldGrid style={{
-        marginTop: 'var(--space-3)',
-        border: '1px solid var(--gray-200)',
-        borderRadius: 'var(--radius-sm)',
-        overflow: 'hidden'
-      }}>
         <FieldCell
           icon="schedule"
           label="Days in stage"
@@ -829,8 +829,9 @@ function StageColumn({ deal, stages, onSaveField, saving, saveError, users, onNe
           />
         )}
         {/* Keeps the last row from showing the grid's gap colour where a cell
-            would be — the count here is 2, 3 or 4 depending on the deal. */}
-        {([daysInStage != null, true, !!deal.source, deal.quoteRevision != null]
+            would be. Owner and last contact always render; the other two
+            depend on the deal, so the count is 3, 4 or 5. */}
+        {([true, true, !!deal.source, deal.quoteRevision != null]
           .filter(Boolean).length % 2 === 1) && (
           <div style={{ background: '#fff' }} />
         )}
@@ -1329,24 +1330,34 @@ function OwnerRow({ deal, users, onNeedUsers, saving, onSave }) {
     setOpen(true)
   }
 
+  // A CELL in the facts grid, matching FieldCell's shape — icon + label above,
+  // value below. It cannot BE a FieldCell: that renders a value and a pencil,
+  // and this swaps the whole value for a searchable Select.
+  const cell = { minWidth: 0, padding: '8px 12px', background: '#fff' }
+  const head = { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }
+
   if (!open) {
     return (
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-3)' }}>
-        <FieldLabel>Owner</FieldLabel>
+      <div style={cell}>
+        <div style={head}>
+          <span className="ms" style={{ fontSize: 15, color: 'var(--text-muted)', flex: 'none' }}>
+            person
+          </span>
+          <span className="pp-label" style={{ marginBottom: 0 }}>Owner</span>
+        </div>
         <button
           onClick={begin}
           disabled={saving}
           title="Reassign this deal"
           className="pp-inline-edit"
           style={{
-            display: 'inline-flex', alignItems: 'baseline', gap: 6,
-            marginLeft: 'auto',
-            padding: '1px 5px', margin: '-1px -5px -1px auto',
+            display: 'flex', alignItems: 'center', gap: 6,
+            width: '100%', padding: 0,
             border: 'none', borderRadius: 'var(--radius-sm)',
-            background: 'none',
+            background: 'none', textAlign: 'left',
             fontFamily: 'var(--font-sans)',
-            fontSize: 'var(--text-md)', fontWeight: 600,
-            color: deal.owner ? 'var(--text-heading)' : 'var(--text-faint)',
+            fontSize: 'var(--text-base)', lineHeight: 1.35,
+            color: deal.owner ? 'var(--text-body)' : 'var(--text-faint)',
             cursor: saving ? 'progress' : 'pointer'
           }}
         >
@@ -1365,7 +1376,7 @@ function OwnerRow({ deal, users, onNeedUsers, saving, onSave }) {
           )}
           <span
             className="ms pp-inline-pencil"
-            style={{ fontSize: 14, color: 'var(--text-faint)', flex: 'none' }}
+            style={{ fontSize: 15, color: 'var(--text-faint)', flex: 'none', marginLeft: 'auto' }}
           >
             {saving ? 'progress_activity' : 'edit'}
           </span>
@@ -1375,8 +1386,13 @@ function OwnerRow({ deal, users, onNeedUsers, saving, onSave }) {
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-      <FieldLabel>Owner</FieldLabel>
+    <div style={cell}>
+      <div style={head}>
+        <span className="ms" style={{ fontSize: 15, color: 'var(--text-muted)', flex: 'none' }}>
+          person
+        </span>
+        <span className="pp-label" style={{ marginBottom: 0 }}>Owner</span>
+      </div>
       <Select
         autoFocus
         defaultOpen
@@ -1393,7 +1409,9 @@ function OwnerRow({ deal, users, onNeedUsers, saving, onSave }) {
         popupClassName="pp-menu"
         popupMatchSelectWidth={false}
         styles={{ popup: { root: { minWidth: 240 } } }}
-        style={{ marginLeft: 'auto', minWidth: 190 }}
+        // Fills the cell rather than hanging off its right edge — the cell is
+        // already as narrow as a grid column gets.
+        style={{ width: '100%' }}
       />
     </div>
   )

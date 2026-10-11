@@ -142,10 +142,25 @@ test('the stale-contact warning survived the move into cells', () => {
   assert.match(read('DealSection.jsx'), /tone=\{stale \? 'danger' : undefined\}/);
 });
 
-test('the owner keeps its picker rather than becoming a cell', () => {
-  // A cell shows a value and an edit pencil; the owner needs a searchable
-  // list of users, which is why OwnerRow stays.
-  assert.match(read('DealSection.jsx'), /<OwnerRow/);
+test('the owner sits IN the facts grid, with its picker intact', () => {
+  // The design shows Owner as the first of four facts, not as a row above
+  // them. It still cannot BE a FieldCell — that renders a value and a pencil,
+  // while this swaps the whole value for a searchable Select — so it renders
+  // its own cell with the same shape.
+  const deal = read('DealSection.jsx');
+  const grid = deal.slice(deal.indexOf('<FieldGrid style={{'), deal.indexOf('</FieldGrid>'));
+  assert.match(grid, /<OwnerRow/, 'Owner is not inside the facts grid');
+  assert.match(deal, /showSearch/, 'the user picker was lost in the move');
+  // The cell shape FieldCell uses, so the five cells line up.
+  assert.match(deal, /const cell = \{ minWidth: 0, padding: '8px 12px', background: '#fff' \}/);
+});
+
+test('the stage select is a green outline, not a green block', () => {
+  // A tinted fill made it the only coloured control in a column of white
+  // ones, which read as a selected state rather than as the field that
+  // matters most.
+  assert.match(tokens, /border: 1\.5px solid var\(--brand-primary\) !important/);
+  assert.doesNotMatch(tokens, /background: var\(--tint-pine\) !important/);
 });
 
 test('the deal badge does not claim to open anything', () => {
