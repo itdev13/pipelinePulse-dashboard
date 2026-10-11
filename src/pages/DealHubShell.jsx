@@ -275,37 +275,14 @@ export default function DealHubShell() {
   const openBusiness = (businessId) =>
     navigate({ tab: 'businesses', businessId, contactId: null })
 
-  return (
-    <div data-dealhub style={{ minHeight: '100vh', background: 'var(--surface-page)' }}>
-      {/* Header bar: brand + tabs + search */}
-      {/* Sticky: the section tabs are how you move around the app, so they
-          shouldn't scroll away on a long deal. zIndex clears the Timeline's
-          sticky day headers, which would otherwise ride over this bar. */}
-      <header
-        style={{
-          position: 'sticky', top: 0, zIndex: 20,
-          display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
-          minHeight: 60, padding: '10px 20px',
-          borderBottom: '1px solid var(--border-default)',
-          background: '#fff',
-          // A shadow only once it's over content, so it reads as a layer
-          // rather than a permanent band.
-          boxShadow: '0 1px 2px rgba(23, 33, 46, 0.06)'
-        }}
-      >
-        {/* NO SUB-ACCOUNT NAME HERE.
-            It sat to the left of Back with a vertical rule after it, and the
-            pair was removed deliberately: GHL's own sidebar already names the
-            sub-account directly above this header, so the row repeated what
-            was on screen an inch away and spent ~290px of a wrapping header
-            doing it. The divider went with it — a rule separating a heading
-            from a nav has nothing to separate once the heading is gone.
-            `location` itself is still used — location.id keys the saved
-            position and useTabState's location check — but nothing reads the
-            NAME any more, so the binding went with the markup. */}
-        {/* Back. Disabled rather than hidden on the first screen: a control
-            that appears and disappears makes the whole header jump sideways
-            every time you navigate, and the tabs beside it move with it. */}
+  // Back, as a chip that sits SECOND in the nav — after Home, before the
+  // rest — which is the order the client's design draws. It used to lead
+  // the row as a control of its own; now Home is the row's first chip and
+  // Back follows it, so "start again" and "go back one" sit together.
+  // Disabled rather than hidden on the first screen: a control that appears
+  // and disappears makes the whole header jump sideways every time you
+  // navigate, and the tabs beside it move with it.
+  const backButton = (
         <button
           onClick={goBack}
           disabled={history.length === 0}
@@ -337,7 +314,36 @@ export default function DealHubShell() {
           <span className="ms" style={{ fontSize: 18 }}>arrow_back</span>
           Back
         </button>
+  )
 
+  return (
+    <div data-dealhub style={{ minHeight: '100vh', background: 'var(--surface-page)' }}>
+      {/* Header bar: brand + tabs + search */}
+      {/* Sticky: the section tabs are how you move around the app, so they
+          shouldn't scroll away on a long deal. zIndex clears the Timeline's
+          sticky day headers, which would otherwise ride over this bar. */}
+      <header
+        style={{
+          position: 'sticky', top: 0, zIndex: 20,
+          display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+          minHeight: 60, padding: '10px 20px',
+          borderBottom: '1px solid var(--border-default)',
+          background: '#fff',
+          // A shadow only once it's over content, so it reads as a layer
+          // rather than a permanent band.
+          boxShadow: '0 1px 2px rgba(23, 33, 46, 0.06)'
+        }}
+      >
+        {/* NO SUB-ACCOUNT NAME HERE.
+            It sat to the left of Back with a vertical rule after it, and the
+            pair was removed deliberately: GHL's own sidebar already names the
+            sub-account directly above this header, so the row repeated what
+            was on screen an inch away and spent ~290px of a wrapping header
+            doing it. The divider went with it — a rule separating a heading
+            from a nav has nothing to separate once the heading is gone.
+            `location` itself is still used — location.id keys the saved
+            position and useTabState's location check — but nothing reads the
+            NAME any more, so the binding went with the markup. */}
         {/* Tab chips */}
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {TABS.map((t) => {
@@ -353,8 +359,8 @@ export default function DealHubShell() {
             }
             const count = countMap[t.id]
             return (
+              <React.Fragment key={t.id}>
               <button
-                key={t.id}
                 onClick={() => navigate({ tab: t.id })}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 7,
@@ -392,6 +398,8 @@ export default function DealHubShell() {
                   </span>
                 )}
               </button>
+              {t.id === 'home' && backButton}
+              </React.Fragment>
             )
           })}
         </div>
