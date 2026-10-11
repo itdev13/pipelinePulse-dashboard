@@ -85,7 +85,7 @@ export default function StageStepper({ stages, onStageClick }) {
               minWidth: 0,
               cursor: onStageClick ? 'pointer' : 'default',
               border: 'none',
-              height: 52,
+              height: 56,
               padding: `0 12px 0 ${isFirst ? 12 : 24}px`,
               marginLeft: isFirst ? 0 : -notch,
               clipPath: clip,

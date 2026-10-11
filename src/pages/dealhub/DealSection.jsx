@@ -216,7 +216,9 @@ export default function DealSection({
           it read as part of the frame rather than as a record inside it. */}
       <div style={{
         borderTop: '1px solid var(--border-default)',
-        padding: 'var(--space-4) var(--space-5) var(--space-5)'
+        // 16px all round — measured off the design, where the band's inset
+        // is the same on every side.
+        padding: 'var(--space-4)'
       }}>
         <ContactLines
           person={primaryPerson(deal.people)}
