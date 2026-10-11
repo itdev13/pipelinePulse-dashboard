@@ -255,17 +255,38 @@ test('the customer band is full width, the deal fields are in the column', () =>
   assert.doesNotMatch(deal, /<FieldChipRow[\s\S]{0,200}?stacked/);
 })
 
-test('the deal fields are a FLAT TABLE, not grouped chips', () => {
+test('the deal fields are THREE GROUPED CARDS, not one flat table', () => {
   // The client design (Oct 2026) drops the Client / Product / Lead source
-  // headings: one bordered row per field, label in a tinted column, value
-  // beside it, pencil at the right — the same shape the People rail uses, so
-  // the two rails read as one application.
+  // HEADINGS — not the grouping. Each group is its own bordered card with a
+  // gap above it, and those gaps are the only thing saying that "Product
+  // system" and "Product type" answer one question.
+  //
+  // This shipped briefly as one flat five-row table, because at a glance that
+  // is nearly what the mockup looks like. It is not, and the difference is
+  // invisible unless you measure the gaps.
   const deal = read('DealSection.jsx');
-  assert.match(deal, /FIELD_CHIPS\.map\(\(\[label, key, ghlKey, icon\], i\)/);
-  assert.match(deal, /<FieldRow[\s\S]{0,600}?control=\{editable/);
-  // The groupings are GONE, not merely unused — dead branches drift.
-  assert.doesNotMatch(deal, /CHIP_GROUPS/);
+  assert.match(deal, /const FIELD_GROUPS = \[/);
+  assert.match(deal, /\['productSystem', 'productType'\]/);
+  assert.match(deal, /\['firstContactMethod', 'leadSource'\]/);
+  assert.match(deal, /FIELD_GROUPS\.map\(\(keys\)/);
+  // A gap BETWEEN the cards is the grouping; without it they re-merge into
+  // the flat table this test exists to prevent.
+  assert.match(deal, /display: 'grid', gap: 'var\(--space-3\)'/);
+  // No heading text — the design shows none. Asserted as the DECLARATION and
+  // the USE, not as the bare word: a comment explaining why CHIP_GROUPS was
+  // replaced contains the word, and matching the whole file fails on prose.
+  assert.doesNotMatch(deal, /const CHIP_GROUPS = /);
+  assert.doesNotMatch(deal, /CHIP_GROUPS\.map/);
   assert.doesNotMatch(deal, /function FieldChip\(/);
+})
+
+test('each group card closes its own last row', () => {
+  // `last` is per CARD, not per list. Keyed off the flat FIELD_CHIPS index it
+  // would leave a border hanging under the final field of every group but the
+  // last one.
+  const deal = read('DealSection.jsx');
+  assert.match(deal, /last=\{i === keys\.length - 1\}/);
+  assert.doesNotMatch(deal, /last=\{i === FIELD_CHIPS\.length - 1\}/);
 })
 
 test('the field order is fixed, never sorted by whether a value is set', () => {
@@ -329,7 +350,26 @@ test('a person\'s details are FULL-WIDTH rows, not a two-column grid', () => {
 
 test('the label column is fixed, so values line up down the card', () => {
   // Ragged left edges down four rows read as a broken table.
-  assert.match(read('FieldCard.jsx'), /gridTemplateColumns: 'minmax\(110px, 150px\) minmax\(0, 1fr\) auto'/);
+  assert.match(read('FieldCard.jsx'), /gridTemplateColumns: 'minmax\(132px, 190px\) minmax\(0, 1fr\) auto'/);
+})
+
+test('row cells STRETCH, so a wrapped label does not leave a ragged step', () => {
+  // `alignItems: center` sizes each cell to its own content. A label that
+  // wraps to two lines ("Last customer contact") then made the tinted cell
+  // taller than the value beside it, and the tint and the divider stopped
+  // short of the row's height.
+  const card = read('FieldCard.jsx');
+  assert.match(card, /alignItems: 'stretch'/);
+  // The centring moves INSIDE each cell, where it only affects the text.
+  assert.doesNotMatch(card, /gridTemplateColumns: 'minmax\(132px[^\n]*\n[^\n]*\n\s*alignItems: 'center'/);
+})
+
+test('the truncating element is never made a flex box', () => {
+  // text-overflow: ellipsis needs a block container. Putting display:flex on
+  // the Truncate to centre it silently disables the clipping it exists for,
+  // so the centring sits on a wrapper around it.
+  const card = read('FieldCard.jsx');
+  assert.doesNotMatch(card, /<Truncate style=\{\{\s*\n\s*display: 'flex'/);
 });
 
 test('every field renders, filled or not', () => {
