@@ -271,8 +271,12 @@ export default function CopilotTab({ onOpenDeal }) {
   // `turns` is persisted (useTabState), so this is what survives a tab switch
   // or a remount. Without it a confirmed send reverts to a pending draft the
   // moment the component unmounts — see the comment on the ActionCard below.
+  // BOTH the transcript and the Recents history — see AskDeal's note. Only
+  // `turns` was patched, and Recents reopens from `history`, a snapshot
+  // taken before the rep confirmed; switching chats and back rebuilt a sent
+  // card as a live draft.
   const onActionResolved = useCallback((actionId, outcome) => {
-    setTurns((cur) => cur.map((t) => (
+    const patch = (list) => (list || []).map((t) => (
       t.proposedActions?.some((a) => a.actionId === actionId)
         ? {
             ...t,
@@ -281,6 +285,10 @@ export default function CopilotTab({ onOpenDeal }) {
             ))
           }
         : t
+    ))
+    setTurns(patch)
+    setHistory((cur) => (cur || []).map((c) => (
+      c.turns?.length ? { ...c, turns: patch(c.turns) } : patch([c])[0]
     )))
   }, [setTurns])
 
