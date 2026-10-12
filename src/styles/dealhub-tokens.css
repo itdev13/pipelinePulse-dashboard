@@ -62,6 +62,10 @@
      --tasks-header: deep enough to hold white 18px/600 text (about 6:1). */
   --notes-header: #8b5a2b;
   --notes-header-border: #7a4e24;
+  /* The Contacts page's header — the design's blue band, a step deeper than
+     --accent-sky so white 18px/600 text holds (about 5.6:1). */
+  --contacts-header: #1f69bd;
+  --contacts-header-border: #1a5ca6;
   --accent-gold: #b8860b;
   /* The People rail's "Add someone" fill — the design's bright yellow,
      which is not --accent-gold (a dark goldenrod used for text and badges).
@@ -2451,9 +2455,10 @@
 
 /* ── Contact cards ────────────────────────────────────────────────────────
  *
- * The card rendered six permanently-open inputs, so a page of twenty
- * contacts was eighty boxes and read as a form rather than a list of people.
- * Each field is now a readable line that becomes an input on click. */
+ * The October 2026 design: the contact's fields as a bordered two-column
+ * table — icon and label in a ruled key column, the value beside it, and a
+ * pencil at the end of every row. Each row is a readable line that becomes an
+ * input on click, so a page of twenty contacts does not read as a form. */
 
 [data-dealhub] .pp-cc-fields {
   display: grid;
@@ -2468,10 +2473,10 @@
 
 [data-dealhub] .pp-cc-row {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: stretch;
   width: 100%;
-  padding: 7px 10px;
+  min-height: 36px;
+  padding: 0;
   border: none;
   background: var(--surface-card);
   font-family: inherit;
@@ -2499,32 +2504,42 @@
   cursor: text;
 }
 
-[data-dealhub] .pp-cc-icon {
+/* The KEY column — icon and label, ruled off from the value. A fixed width so
+ * every value in the card starts on the same vertical line. */
+[data-dealhub] .pp-cc-key {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex: none;
-  font-size: 15px;
-  color: var(--text-faint);
+  width: 118px;
+  padding: 8px 10px;
+  border-right: 1px solid var(--border-default);
 }
 
-/* Small and quiet. The icon carries the field's identity, so the label does
- * not need to shout — it was the loudest thing in every row before. */
-[data-dealhub] .pp-cc-label {
+[data-dealhub] .pp-cc-icon {
   flex: none;
-  width: 62px;
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+[data-dealhub] .pp-cc-label {
   font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: #4a515c;
 }
 
 [data-dealhub] .pp-cc-value {
   flex: 1;
   min-width: 0;
+  align-self: center;
+  padding: 8px 12px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: var(--text-md);
-  color: var(--text-body);
+  font-size: var(--text-lg);
+  color: var(--text-heading);
 }
 
 /* An unset field reads as a prompt, not as data. */
@@ -2533,19 +2548,93 @@
   color: var(--text-faint);
 }
 
-/* Hidden until the row is hovered or focused — six pencils per card, times
- * twenty cards, is 120 pencils on one screen. */
+/* At the end of every row, as the design draws it. */
 [data-dealhub] .pp-cc-pencil {
   flex: none;
-  font-size: 14px;
+  align-self: center;
+  padding: 0 12px;
+  font-size: 15px;
   color: var(--text-faint);
-  opacity: 0;
-  transition: opacity 120ms ease;
+  transition: color 120ms ease;
 }
 
 [data-dealhub] .pp-cc-row:hover .pp-cc-pencil,
 [data-dealhub] .pp-cc-row:focus-visible .pp-cc-pencil {
+  color: var(--text-muted);
+}
+
+/* A row's own small control — the business row's unlink, the tag row's add.
+ * Rendered as a real button inside a <div> row, never inside a <button>. */
+[data-dealhub] .pp-cc-act {
+  flex: none;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  padding: 0 12px;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+
+[data-dealhub] .pp-cc-act:hover {
+  color: var(--text-muted);
+}
+
+/* Tags as chips in the value cell, with a dashed "+ Tag" to add one. */
+[data-dealhub] .pp-cc-tags {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+}
+
+[data-dealhub] .pp-cc-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 24px;
+  padding: 0 4px 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface-card);
+  font-size: var(--text-base);
+  color: var(--text-body);
+}
+
+[data-dealhub] .pp-cc-tag-x {
+  display: inline-flex;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--text-faint);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+
+[data-dealhub] .pp-cc-tag:hover .pp-cc-tag-x,
+[data-dealhub] .pp-cc-tag-x:focus-visible {
   opacity: 1;
+}
+
+[data-dealhub] .pp-cc-tag-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: none;
+  font-family: inherit;
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  cursor: pointer;
 }
 
 [data-dealhub] .pp-cc-input {

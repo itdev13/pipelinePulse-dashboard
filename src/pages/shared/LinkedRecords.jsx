@@ -90,7 +90,12 @@ export function LinkedRecords({ record: t, large = false, onOpenDeal, onOpenCont
 //
 // `large` is the grid card's form: the icon takes the record's colour and the
 // name steps up a size, as the card design draws it.
-export function LinkedRow({ icon, name, emptyText, tone, onOpen, last, action, iconColour, large = false }) {
+//
+// `meta` is quiet detail after the name — a contact's deal value and stage.
+// It is truncated with the name, never pushing the button off the row.
+export function LinkedRow({
+  icon, name, emptyText, tone, onOpen, last, action, iconColour, large = false, meta
+}) {
   const present = !!name
   return (
     <div
@@ -114,6 +119,14 @@ export function LinkedRow({ icon, name, emptyText, tone, onOpen, last, action, i
         color: present ? (large ? 'var(--text-heading)' : 'var(--text-body)') : 'var(--text-faint)'
       }}>
         {present ? name : emptyText}
+        {present && meta && (
+          <span style={{
+            marginLeft: 6, fontSize: 'var(--text-base)', fontWeight: 400,
+            color: 'var(--text-muted)'
+          }}>
+            {meta}
+          </span>
+        )}
       </Truncate>
       {action || (
       <button

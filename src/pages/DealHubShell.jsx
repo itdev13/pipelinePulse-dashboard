@@ -466,6 +466,7 @@ export default function DealHubShell() {
         {activeTab === 'contacts' && (
           <ContactsTab
             onOpenDeal={openDeal}
+            onOpenBusiness={openBusiness}
             openContactId={openContactId}
             onContactViewed={() => setOpenContactId(null)}
             onNavigate={noteInternalMove}

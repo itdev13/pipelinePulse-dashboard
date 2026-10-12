@@ -152,6 +152,12 @@ export default function DealToolbar({
   // deals are shown, the same question Filters answers — where the view
   // icons on the right only decide how they are drawn.
   secondaryControl,
+  // False for a caller that picks saved views from its own dropdown (the
+  // Contacts toolbar) — the tabs would show the same views twice.
+  showViewTabs = true,
+  // Rendered after Save view, still on the left — the Contacts "Show on
+  // cards" toggles.
+  afterViews,
   // Display controls (view switch, pipeline picker). Pushed right.
   children
 }) {
@@ -297,7 +303,7 @@ export default function DealToolbar({
       )}
 
       {/* Saved views, only once there are any. */}
-      {views.map((v) => (
+      {showViewTabs && views.map((v) => (
         <ViewTab
           key={v.id}
           view={v}
@@ -411,6 +417,8 @@ export default function DealToolbar({
           </button>
         )
       )}
+
+      {afterViews}
 
       {/* Display controls sit right, away from everything that changes WHICH
           deals are shown. */}

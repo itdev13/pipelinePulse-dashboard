@@ -209,7 +209,12 @@ export function OwnerFilter({
   )
 }
 
-export function TagFilter({ value, onChange, label = 'Tag', width = 170 }) {
+export function TagFilter({
+  value, onChange, label = 'Tag', width = 170,
+  // Select only, for a toolbar that stacks its own label above — see
+  // OwnerFilter's `bare`.
+  bare = false
+}) {
   const tags = useTags()
   const options = useMemo(() => ([
     { value: '', label: 'Any tag' },
@@ -222,8 +227,12 @@ export function TagFilter({ value, onChange, label = 'Tag', width = 170 }) {
   if (tags.length === 0) return null
 
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-      <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>{label}</span>
+    <span style={bare
+      ? { display: 'inline-flex' }
+      : { display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+      {!bare && (
+        <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>{label}</span>
+      )}
       <Select
         value={value}
         onChange={onChange}
