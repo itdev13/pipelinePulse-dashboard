@@ -138,5 +138,9 @@ test('the deal pipeline travels with the drag', () => {
 })
 
 test('there is one scroll container, not one per pipeline', () => {
-  assert.equal((board.match(/overflowX: 'auto'/g) || []).length, 1)
+  // Counted inside DealBoard only. The pipeline strip above the board has its
+  // own sideways scroll for its stage cells; that is one strip, not a grid
+  // per pipeline, and is not what this guards.
+  const main = board.slice(board.indexOf('export default function DealBoard'))
+  assert.equal((main.match(/overflowX: 'auto'/g) || []).length, 1)
 })

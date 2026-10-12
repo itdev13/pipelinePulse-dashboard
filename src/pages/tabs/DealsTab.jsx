@@ -1,23 +1,21 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Select } from 'antd'
-import DealBoard from '../deals/DealBoard'
-import DealTable from '../deals/DealTable'
-import DealToolbar from '../deals/DealToolbar'
+import DealBoard, { mergeStages } from '../deals/DealBoard'
+import PipelineStrip from '../deals/PipelineStrip'
+import DealList from '../deals/DealList'
 import { useAuth } from '../../context/AuthContext'
 import DealFilters from '../deals/DealFilters'
-import { OwnerFilter, TagFilter } from '../shared/ListFilters'
+import { OwnerFilter } from '../shared/ListFilters'
 import DealEditPage from '../deals/DealEditPage'
 import ViewSwitch from '../shared/ViewSwitch'
 import { savedViewsAPI } from '../../api/deals'
-import { FollowUpChips, Truncate } from '../shared/ListChrome'
 import { dealsAPI } from '../../api/deals'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
-import DealEditPanel from '../deals/DealEditPanel'
 import DealCreatePanel from '../deals/DealCreatePanel'
+import DealGridCard from '../deals/DealGridCard'
 import {
-  Shell, SearchInput, StateMessage, DealCardsSkeleton, LoadMore, Panel,
-  formatDate, initialsFor, nameFor
+  Shell, SearchInput, StateMessage, DealCardsSkeleton, LoadMore, Panel
 } from '../shared/ListChrome'
 
 // Deals tab — one card per open deal, each showing the facts a rep scans for,
@@ -34,7 +32,27 @@ import {
 // opens in place via DealEditPanel. That removed the half-working controls and
 // made the rest actually saveable.
 
-export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId = null }) {
+// The toolbar's sort choices. Only the keys the server's keyset cursor can
+// anchor to — see DealTable — so every option sorts the whole list, not just
+// the page that happens to be loaded.
+const SORT_OPTIONS = [
+  { value: 'recent', label: 'Last updated' },
+  { value: 'created', label: 'Date created' },
+  { value: 'value', label: 'Value' },
+  { value: 'lastCustomerMessage', label: 'Last customer message' }
+]
+
+// A toolbar field with its label stacked ABOVE it, the Figma row's shape.
+function ToolbarField({ label, children }) {
+  return (
+    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
+      <span className="pp-label" style={{ marginBottom: 0 }}>{label}</span>
+      {children}
+    </span>
+  )
+}
+
+export default function DealsTab({ onOpenDeal, onOpenContact, onOpenBusiness, initialEditDealId = null }) {
   // Which view. Persisted because it is a working preference, not a
   // navigation step: a rep who works the board should not be handed the list
   // again every time they come back to this tab.
@@ -43,7 +61,12 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
   // only view that can EDIT a deal inline, so demoting it would take a
   // capability away from anyone who does not switch back.
   const [view, setView] = useState(() => {
-    try { return localStorage.getItem('pp.deals.view') || 'board' } catch { return 'board' }
+    try {
+      const saved = localStorage.getItem('pp.deals.view') || 'board'
+      // 'cards' was retired for the Grid view; a rep who left it on Cards
+      // lands on its replacement rather than on a view that no longer exists.
+      return saved === 'cards' ? 'grid' : saved
+    } catch { return 'board' }
   })
   useEffect(() => {
     try { localStorage.setItem('pp.deals.view', view) } catch { /* private mode */ }
@@ -88,6 +111,10 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
   // holds a full list. The server already counts under the same WHERE as the
   // page, so one request with limit:1 gets the real number.
   const [pipelineCount, setPipelineCount] = useState(null)
+  // Per-stage { stageId, count, value, currency } for the pipeline strip,
+  // from the same request as the count. Null until loaded, or on a server
+  // that does not support ?summary=stages — the strip is then not shown.
+  const [stageTotals, setStageTotals] = useState(null)
 
   // Live filters. The keys match GET /api/deals's query parameters exactly,
   // so applying a saved view is "spread these onto the request" rather than a
@@ -151,18 +178,6 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
 
 
 
-  // Which row is expanded for editing. One at a time: two open editors mean two
-  // sets of unsaved changes and no way to tell which Update belongs to which.
-  //
-  // Remembered (useTabState), because an open row is WHERE THE REP WAS:
-  // expanding a deal, stepping into the Deal Hub to read it and coming back
-  // used to collapse the row and drop them at the top of the list, with the
-  // deal to find again.
-  //
-  // Seeded from initialEditDealId so the Deal Hub can send a rep straight to
-  // this deal's editor — "edit the full record" on the deal card. That is an
-  // explicit request for a particular deal, so it outranks the remembered one.
-  const [editingId, setEditingId] = useTabState('deals', 'editingId', null)
 
   // The create form, above the list. Mutually exclusive with an open editor —
   // two draft forms on screen is two things to lose.
@@ -197,15 +212,78 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
       pipelineId,
       // One row, because only the count is wanted — totalCount is computed
       // under the same WHERE regardless of the page size.
-      limit: 1
+      limit: 1,
+      // And the per-stage counts and values for the pipeline strip, from the
+      // same request — so the strip and the count beside the heading can
+      // never disagree.
+      summary: 'stages'
     })
-      .then((r) => { if (alive) setPipelineCount(typeof r?.totalCount === 'number' ? r.totalCount : null) })
-      .catch(() => { if (alive) setPipelineCount(null) })
+      .then((r) => {
+        if (!alive) return
+        setPipelineCount(typeof r?.totalCount === 'number' ? r.totalCount : null)
+        setStageTotals(Array.isArray(r?.stageTotals) ? r.stageTotals : null)
+      })
+      .catch(() => { if (alive) { setPipelineCount(null); setStageTotals(null) } })
     return () => { alive = false }
     // `view` and `refData` were dependencies only because the board used to
     // substitute the first pipeline here. It no longer does, so refetching the
     // count on a view switch would be a request that cannot change the answer.
   }, [boardPipelineId, filters, search])
+
+  // The Stage field's options. With a pipeline chosen, its stages. With
+  // "All pipelines", every stage — names repeat across pipelines ("Won" is
+  // in most), so each is qualified; the id is what filters.
+  const stageOptions = useMemo(() => {
+    const all = refData?.pipelines || []
+    const scoped = boardPipelineId ? all.filter((p) => p.id === boardPipelineId) : all
+    return scoped.flatMap((p) => (p.stages || []).map((st) => ({
+      value: st.id,
+      label: scoped.length > 1 ? `${p.name} — ${st.name}` : st.name
+    })))
+  }, [refData, boardPipelineId])
+
+  // The List view's stage groups: the board's merged columns for the
+  // pipelines in scope. Not taken from `strip`, which waits on the server's
+  // stage totals — the list must still draw its groups without them.
+  const listStages = useMemo(() => {
+    const all = refData?.pipelines || []
+    const chosen = boardPipelineId ? all.filter((p) => p.id === boardPipelineId) : all
+    return mergeStages(chosen)
+  }, [refData, boardPipelineId])
+
+  // The pipeline strip's columns and figures. Null until both the pipelines
+  // and the stage totals have loaded, so the strip never flashes a row of
+  // zeros that are really "not fetched yet".
+  const strip = useMemo(() => {
+    const all = refData?.pipelines || []
+    if (!all.length || !stageTotals) return null
+    const chosen = boardPipelineId ? all.filter((p) => p.id === boardPipelineId) : all
+    if (!chosen.length) return null
+    const byId = new Map(stageTotals.map((t) => [t.stageId, t]))
+    const stages = mergeStages(chosen)
+    const stats = {}
+    for (const st of stages) {
+      // A merged column's id is its stage ids joined — sum each of them. A
+      // stage with no matching deals is absent from the totals: that is a
+      // real zero, not a missing figure.
+      let count = 0
+      let value = 0
+      let currency
+      for (const id of st.id.split(',')) {
+        const t = byId.get(id)
+        if (!t) continue
+        count += t.count
+        value += t.value
+        currency = currency || t.currency
+      }
+      stats[st.id] = { count, value, currency }
+    }
+    return {
+      label: chosen.length === 1 ? chosen[0].name : 'All pipelines',
+      stages,
+      stats
+    }
+  }, [refData, stageTotals, boardPipelineId])
 
   // Saved-view actions.
   //
@@ -234,13 +312,15 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [views])
 
-  const saveView = useCallback(async (name) => {
+  // `withFilters`: the Filters panel saves its DRAFT and applies it in the
+  // same click, and `filters` here has not caught up yet — so it passes them.
+  const saveView = useCallback(async (name, withFilters) => {
     try {
       const r = await savedViewsAPI.save({
         name,
         // No `view`: a saved view is a set of FILTERS. The layout is a
         // per-rep preference that outlives any one view — see applyView.
-        filters: { ...filters, ...(search ? { q: search } : {}) }
+        filters: { ...(withFilters || filters), ...(search ? { q: search } : {}) }
       })
       // Replace by id so re-saving a name updates its tab rather than adding
       // a second one — the server upserts, and the list must agree.
@@ -333,6 +413,53 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
   }, [patchItem])
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
+  // GRID VIEW — the picklists for its five custom fields, fetched the first
+  // time the grid is shown (the Deal hub loads the same endpoint the same
+  // way). Until they arrive the rows show their values read-only.
+  const [fieldOptions, setFieldOptions] = useState(null)
+  useEffect(() => {
+    if (view !== 'grid' || fieldOptions !== null) return
+    let alive = true
+    dealsAPI.customFieldOptions()
+      .then((r) => { if (alive) setFieldOptions(r?.fields || {}) })
+      .catch(() => { if (alive) setFieldOptions({}) })
+    return () => { alive = false }
+  }, [view, fieldOptions])
+
+  // { dealId, key } while a card is saving, so only that row spins.
+  const [gridSaving, setGridSaving] = useState(null)
+  const [gridError, setGridError] = useState(null)
+
+  // One save from a grid card, in the Deal hub's two shapes:
+  //   customField → { customFields: [{ id, field_value }] }
+  //   assignedTo  → { assignedTo }
+  // Painted first and rolled back on failure, so a pick never waits ~700ms
+  // on GHL to show — and a failed one never sits there looking saved.
+  const saveGridField = useCallback(async (deal, field, value) => {
+    const before = deal
+    setGridError(null)
+    try {
+      if (field === 'customField') {
+        setGridSaving({ dealId: deal.id, key: value.id })
+        const text = (Array.isArray(value.value) ? value.value.join(', ') : value.value) || null
+        if (value.dealKey) patchItem((x) => x.id === deal.id, { [value.dealKey]: text })
+        await dealsAPI.update(deal.id, {
+          customFields: [{ id: value.id, field_value: value.value }]
+        })
+      } else if (field === 'assignedTo') {
+        setGridSaving({ dealId: deal.id, key: 'assignedTo' })
+        const u = (refData?.users || []).find((x) => x.id === value)
+        patchItem((x) => x.id === deal.id, { assignedTo: value || null, owner: u?.name || null })
+        await dealsAPI.update(deal.id, { assignedTo: value || null })
+      }
+    } catch (e) {
+      patchItem((x) => x.id === deal.id, before)
+      setGridError(e.message || 'That change could not be saved')
+    } finally {
+      setGridSaving(null)
+    }
+  }, [patchItem, refData])
+
 
   const deals = items || []
 
@@ -399,225 +526,184 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
     // sits empty is the worse problem, and the table scrolls inside its own
     // box rather than stretching its type.
     <Shell maxWidth="none">
-      {/* A Panel, like Tasks, Notes and Contacts — one header that owns its
-          toolbar band, rather than a bare heading with a separately bordered
-          toolbar under it reading as two stacked headers.
+      {/* THE FIGMA HEADER: a solid green band with the title and count, then
+          ONE grey row of labelled fields — Search, Pipeline, Stage, Owner,
+          Sort — with Filters, the view switch and Add deal on the right.
 
-          Deals keeps the BAND (unlike Contacts, which folds its controls onto
-          the title row): the pipeline picker, Filters and saved views are a
-          genuinely full row on their own.
-
-          Inside the band the layout now matches Contacts — search, Owner and
-          Tag on the first line, then Filters, chips and Save view on the
-          second. Search moved down from the title row to join them: it
-          narrows the list exactly as the other two do, and sat apart only
-          because it was there first. "New deal" stays on the title row, since
-          it acts on the account rather than on what is being shown. */}
+          Tag, Status and the saved views moved into the Filters panel: the
+          design has no room for them on the row, and they are reached for
+          far less often than the five fields that are there. */}
       <Panel
         icon="sell"
         title="Deals"
         accent="pine"
+        solidHeader
         count={pipelineCount}
         countTitle={
           pipelineCount != null ? `${pipelineCount} deals match these filters` : undefined
         }
-        // The action is a control ROW now (search, owner, tag, New deal), not
-        // a lone button, so it claims the width beside the title instead of
-        // hugging the right edge.
-        actionFill
-        action={
-          <>
-            {/* Search, Owner and Tag share the title row — the same shape as
-                Contacts. They are what a rep changes constantly; the filter
-                popover and saved views sit on the band below, which starts at
-                the panel's left padding. */}
-            <SearchInput
-              value={q}
-              onChange={setQ}
-              // The search text is SAVED into a view (see saveView), so
-              // changing it edits the applied view the same way a filter does.
-              // Only when the text actually CHANGED. Blur fires every time the
-              // box loses focus, and marking the view dirty on a no-op would
-              // offer "Update view1" to a rep who merely clicked away.
-              onKeyDown={(e) => { if (e.key === 'Enter') commitSearch() }}
-              onBlur={commitSearch}
-              placeholder="Search deal name — press Enter"
-              width={280}
-            />
-            {/* Owner and Tag sit OUTSIDE the filter popover, on the toolbar
-                itself. Both were reachable before — buried behind "Filters"
-                with a count badge — which meant the single most common thing
-                a rep wants ("just my deals") took two clicks and was invisible
-                until they went looking. The rest stay in the popover: they are
-                occasional, and putting nine controls on the toolbar would cost
-                the width that makes these two legible. */}
-            <OwnerFilter
-              value={filters.assignedTo ?? ''}
-              onChange={(v) => {
-                setFilters({ ...filters, assignedTo: v || undefined })
-                setDirtyView(activeViewId)
-              }}
-            />
-            <TagFilter
-              value={filters.tag || ''}
-              onChange={(v) => {
-                setFilters({ ...filters, tag: v || undefined })
-                setDirtyView(activeViewId)
-              }}
-            />
-            {/* Second line from here: the popover, its chips, and Save view.
-                Owner and Tag lead because they are what a rep changes most. */}
-            {/* "New deal" acts on the ACCOUNT, not on what is being shown, so
-                it sits apart from the narrowing controls. */}
-            {/* Opening the create form closes any open editor — see `creating`
-                above. */}
-            <button
-              onClick={() => { setCreating(true); setEditingId(null) }}
-              disabled={creating}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                // Pushed to the far right of the row, away from the three
-                // controls that narrow the list.
-                flex: 'none', marginLeft: 'auto',
-                height: 36, padding: '0 15px',
-                border: 'none', borderRadius: 'var(--radius-md)',
-                background: creating ? 'var(--gray-200)' : 'var(--brand-primary)',
-                color: creating ? 'var(--text-faint)' : '#fff',
-                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
-                cursor: creating ? 'default' : 'pointer'
-              }}
-            >
-              <span className="ms" style={{ fontSize: 18 }}>add</span>
-              New deal
-            </button>
-          </>
-        }
+        toolbarBackground="var(--gray-100)"
         toolbar={
-        <DealToolbar
-          bare
-          views={views}
-          activeViewId={activeViewId}
-          onSelectView={applyView}
-          onSaveView={saveView}
-          onDeleteView={deleteView}
-          filters={filters}
-          // Chips show NAMES, not ids. Without this a stage filter rendered as
-          // "Stage bc551c54-eb49-…", which tells a rep nothing about what their
-          // board is currently showing.
-          filterLabels={{
-            stageId: ((refData?.pipelines || []).flatMap((p) => p.stages || [])
-              .find((st) => st.id === filters.stageId) || {}).name,
-            assignedTo: ((refData?.users || [])
-              .find((u) => u.id === filters.assignedTo) || {}).name
-          }}
-          // Removing a chip EDITS the applied view, exactly like changing a
-          // filter in the panel does. It used to change the filters without
-          // marking the view dirty, so the toolbar went on offering "Save view"
-          // under a new name while "view1" sat active and no longer matched.
-          onClearFilter={(k) => {
-            setFilters((f) => {
-              const next = { ...f }; delete next[k]; return next
-            })
-            setDirtyView(activeViewId)
-          }}
-          onClearAll={() => { setFilters({}); setActiveViewId(null); setDirtyView(null) }}
-          // The view whose filters have been edited since it was applied. The
-          // toolbar turns this into "Update <name>", which saves over it rather
-          // than creating a second view with almost the same filters.
-          dirtyViewId={dirtyView}
-          onUpdateView={(id) => {
-            const v = views.find((x) => x.id === id)
-            if (v) saveView(v.name)
-          }}
-          filterControl={
-            <>
-            <DealFilters
-              filters={filters}
-              onChange={(next) => {
-                setFilters(next)
-                // The view that produced these filters is now EDITED, not
-                // abandoned. Keeping its id is what lets the toolbar offer
-                // "Update <name>" — clearing it here left a rep who tweaked a
-                // filter with no way back to the view they were working on,
-                // only "Save view" under a new name.
-                setDirtyView(activeViewId)
-              }}
-              // With a pipeline chosen, its stages. With "All pipelines", every
-              // stage — falling back to the FIRST pipeline's stages here would
-              // silently hide the rest, the same way the board used to.
-              // Names repeat across pipelines ("Won" exists in most), so each
-              // is qualified; ids stay untouched because that is what filters.
-              stages={
-                boardPipelineId
-                  ? ((refData?.pipelines || []).find((p) => p.id === boardPipelineId)?.stages || [])
-                  : (refData?.pipelines || []).flatMap((p) =>
-                      (p.stages || []).map((st) => ({
-                        ...st,
-                        name: (refData?.pipelines || []).length > 1 ? `${p.name} — ${st.name}` : st.name
-                      }))
-                    )
-              }
-              users={refData?.users || []}
-            />
-            </>
-          }
-          // The pipeline sits with Filters, not with the view icons: it decides
-          // WHICH deals are on screen, which is the same question Filters
-          // answers. The icons only decide how they are drawn.
-          secondaryControl={
-            (refData?.pipelines || []).length > 1 && (
-              // antd Select, not a native one: a browser renders <option> with
-              // the OS's own menu, so the list could not be styled, sized or
-              // given the app's type. This one shares the .pp-menu treatment
-              // every other picker in the app uses.
+          <div style={{
+            flex: 1, minWidth: 0,
+            display: 'flex', alignItems: 'flex-end', flexWrap: 'wrap',
+            gap: 'var(--space-3)'
+          }}>
+            <ToolbarField label="Search">
+              <SearchInput
+                value={q}
+                onChange={setQ}
+                // The search text is SAVED into a view (see saveView), so
+                // committing new text edits the applied view the same way a
+                // filter does — and only when it actually changed.
+                onKeyDown={(e) => { if (e.key === 'Enter') commitSearch() }}
+                onBlur={commitSearch}
+                placeholder="Search deal, contact or business"
+                width={320}
+              />
+            </ToolbarField>
+
+            <ToolbarField label="Pipeline">
+              {/* antd Select, not a native one: a browser renders <option>
+                  with the OS's own menu, which cannot be styled or searched.
+                  '' is a real choice — "all pipelines" — in every view. */}
               <Select
                 aria-label="Pipeline"
-                // On the BOARD an empty value is impossible — its columns are one
-                // pipeline's stages — so it falls back to the first. Elsewhere
-                // '' is a real choice meaning "all pipelines", and `||` would
-                // have swallowed it back to the first one.
                 value={boardPipelineId ?? ''}
-                onChange={setBoardPipelineId}
+                onChange={(v) => {
+                  setBoardPipelineId(v)
+                  // A stage belongs to one pipeline. Switching away leaves
+                  // a stage filter that can match nothing.
+                  if (filters.stageId) {
+                    setFilters((f) => { const next = { ...f }; delete next.stageId; return next })
+                  }
+                }}
                 options={[
-                  // "All pipelines" is offered everywhere, the board included.
-                  // It does NOT merge stage lists into one set of columns —
-                  // that would not be a board. The board renders one section
-                  // per pipeline, each with its own columns.
                   { value: '', label: 'All pipelines' },
-                  ...refData.pipelines.map((p) => ({ value: p.id, label: p.name }))
+                  ...(refData?.pipelines || []).map((p) => ({ value: p.id, label: p.name }))
                 ]}
                 popupClassName="pp-menu"
-                // Wide enough for a real pipeline name. The old control was
-                // sized to its current value, so "Marketing pipeline" was
-                // clipped while "James" left the box half empty.
-                // 36px matches Filters, the saved views and the view switch.
-                // antd's size="large" is 40px, so the pipeline stood a notch
-                // taller than everything beside it and the row lost its line.
-                // 280px: "Marketing pipeline" and "customer pipeline" both fit
-                // without truncation, which 220 did not manage.
-                style={{ width: 280 }}
-                styles={{ root: { height: 36 } }}
-                // The menu is wider than the control when a name needs it,
-                // rather than truncating every option to the box.
                 popupMatchSelectWidth={false}
+                style={{ width: 180 }}
+                styles={{ root: { height: 36 } }}
               />
-            )
-          }
-        >
-          <ViewSwitch
-            value={view}
-            onChange={setView}
-            options={[
-              { id: 'board', icon: 'view_kanban', label: 'Board' },
-              { id: 'table', icon: 'table_rows', label: 'Table' },
-              // Last: the only view that edits inline, but also the slowest to
-              // scan, so it is a destination rather than the default.
-              { id: 'cards', icon: 'view_agenda', label: 'Cards' }
-            ]}
-          />
-        </DealToolbar>
+            </ToolbarField>
+
+            <ToolbarField label="Stage">
+              <Select
+                aria-label="Stage"
+                value={filters.stageId || ''}
+                onChange={(v) => {
+                  setFilters((f) => {
+                    const next = { ...f }
+                    if (v) next.stageId = v
+                    else delete next.stageId
+                    return next
+                  })
+                  setDirtyView(activeViewId)
+                }}
+                showSearch
+                optionFilterProp="label"
+                options={[{ value: '', label: 'All stages' }, ...stageOptions]}
+                popupClassName="pp-menu"
+                popupMatchSelectWidth={false}
+                style={{ width: 170 }}
+                styles={{ root: { height: 36 } }}
+              />
+            </ToolbarField>
+
+            <ToolbarField label="Owner">
+              <OwnerFilter
+                bare
+                value={filters.assignedTo ?? ''}
+                onChange={(v) => {
+                  setFilters({ ...filters, assignedTo: v || undefined })
+                  setDirtyView(activeViewId)
+                }}
+              />
+            </ToolbarField>
+
+            <ToolbarField label="Sort">
+              {/* Server-side, and only on the keys the cursor can anchor to —
+                  see DealTable. Newest / largest first. */}
+              <Select
+                aria-label="Sort"
+                value={sort}
+                onChange={(v) => { setSort(v); setSortDir('desc') }}
+                options={SORT_OPTIONS}
+                popupClassName="pp-menu"
+                popupMatchSelectWidth={false}
+                style={{ width: 170 }}
+                styles={{ root: { height: 36 } }}
+              />
+            </ToolbarField>
+
+            {/* Display and create, pushed right — away from everything that
+                changes WHICH deals are shown. */}
+            <span style={{
+              marginLeft: 'auto',
+              display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)'
+            }}>
+              <DealFilters
+                filters={filters}
+                onChange={(next) => {
+                  setFilters(next)
+                  // EDITED, not abandoned: keeping the view's id is what lets
+                  // the panel offer "Update <name>".
+                  setDirtyView(activeViewId)
+                }}
+                views={views}
+                activeViewId={activeViewId}
+                dirtyViewId={dirtyView}
+                onSelectView={applyView}
+                onSaveView={saveView}
+                onDeleteView={deleteView}
+                onUpdateView={(id) => {
+                  const v = views.find((x) => x.id === id)
+                  if (v) saveView(v.name)
+                }}
+              />
+              <ViewSwitch
+                value={view}
+                onChange={setView}
+                options={[
+                  { id: 'board', icon: 'view_kanban', label: 'Board' },
+                  { id: 'grid', icon: 'grid_view', label: 'Grid' },
+                  // Still the table under the hood; the Figma calls it List.
+                  { id: 'table', icon: 'view_list', label: 'List' }
+                ]}
+              />
+              <button
+                onClick={() => setCreating(true)}
+                disabled={creating}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  flex: 'none',
+                  height: 36, padding: '0 15px',
+                  border: 'none', borderRadius: 'var(--radius-md)',
+                  background: creating ? 'var(--gray-200)' : 'var(--brand-primary)',
+                  color: creating ? 'var(--text-faint)' : '#fff',
+                  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
+                  cursor: creating ? 'default' : 'pointer'
+                }}
+              >
+                <span className="ms" style={{ fontSize: 18 }}>add</span>
+                Add deal
+              </button>
+            </span>
+          </div>
         }
-      />
+      >
+      {/* EVERYTHING BELOW THE HEADER LIVES INSIDE IT, on one grey ground —
+          the Figma frame. The strip and the views used to be separate boxes
+          stacked under a header-only panel, each with its own border and a
+          16px gap: the page read as four loose cards, not one panel. */}
+      <div style={{
+        display: 'grid', gap: 'var(--space-3)',
+        padding: 'var(--space-3)',
+        background: 'var(--gray-100)',
+        minWidth: 0
+      }}>
 
       {creating && (
         <DealCreatePanel
@@ -636,17 +722,24 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
         />
       )}
 
+      {/* PIPELINE VALUE, above every view. Its stages are the board's merged
+          columns (one per stage NAME across the pipelines in scope), and
+          each one's total sums every stage id that shares the name. */}
+      {strip && !error && (
+        <PipelineStrip label={strip.label} stages={strip.stages} stats={strip.stats} />
+      )}
+
       {/* Cards, not rows — so the loading state mirrors the card shape
           rather than the generic row skeleton. */}
       {/* Card-shaped, so only for the card and table views. The board has its
           own "Loading pipeline…" and each column reports its own emptiness —
           three card skeletons above a board was the blank area with no
           explanation. */}
-      {view !== 'board' && loading && <DealCardsSkeleton cards={3} />}
+      {view === 'grid' && loading && <DealCardsSkeleton cards={3} />}
 
       {/* An ERROR is worth showing everywhere; an empty page only matters to
           the paged views, since a board with no deals says so per column. */}
-      {(error || (view !== 'board' && !loading && deals.length === 0)) && (
+      {(error || (view === 'grid' && !loading && deals.length === 0)) && (
         <div
           style={{
             border: '1px solid var(--border-default)',
@@ -704,6 +797,11 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
           // The screen showed "Deals 0" above columns full of deals.
           tag={filters.tag || undefined}
           assignedTo={filters.assignedTo || undefined}
+          sort={sort}
+          dir={sortDir}
+          // The toolbar's Stage narrows the board to that one column rather
+          // than being sent as a filter — the columns ARE the stages.
+          focusColumn={filters.stageId || undefined}
           // A card opens the deal's own page. It used to jump straight to the
           // deal hub, which is a different question — the hub is the record's
           // activity, this is the record itself. The hub is one button away
@@ -715,55 +813,73 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
         />
       )}
 
-      {/* TABLE — the same paged `deals` as the cards, rendered dense. */}
-      {view === 'table' && !error && deals.length > 0 && (
-        <DealTable
-          deals={deals}
-          onOpenDeal={setOpenDealId}
-          onOpenContact={onOpenContact}
-          // Straight to the hub, skipping the editor — the row's other
-          // action already covers "edit this record".
-          onOpenInHub={onOpenDeal}
+      {/* LIST — the Figma List view: grouped by stage, each group loading
+          its own deals like a board column, so it deliberately does not read
+          the paged `deals` above. The id stays 'table' so a saved preference
+          still lands here. */}
+      {/* Its groups are stages, so it waits on the pipeline list. */}
+      {view === 'table' && !error && refData === null && <DealCardsSkeleton cards={2} />}
+      {view === 'table' && !error && listStages.length > 0 && (
+        <DealList
+          stages={listStages}
+          stats={strip?.stats || null}
+          search={search}
+          status={filters.status || 'open'}
+          tag={filters.tag || undefined}
+          assignedTo={filters.assignedTo || undefined}
           sort={sort}
           dir={sortDir}
-          onSort={(col, d) => { setSort(col); setSortDir(d) }}
-          // Already filtered to one stage, so every row would repeat it.
-          singleStage={!!filters.stageId}
+          focusStage={filters.stageId || undefined}
+          // The row opens the deal's own page; the chips' menus carry the
+          // ways to the hub, the contact and the business.
+          onOpenDeal={setOpenDealId}
+          onOpenInHub={onOpenDeal}
+          onOpenContact={onOpenContact}
+          onOpenBusiness={onOpenBusiness}
         />
       )}
 
-      {/* CARDS — the default, and the only view that edits a deal inline. */}
-      {view === 'cards' && deals.map((d) => (
-        <DealCard
-          key={d.id}
-          deal={d}
-          // "Open deal" means the deal's own page here too. It used to jump to
-          // the hub, so the same green button meant two different destinations
-          // depending on which view the rep happened to be in.
-          onOpenDeal={setOpenDealId}
-          onOpenInHub={onOpenDeal}
-          // Opens the Contacts tab on that person — the same handler the
-          // table rows and the Deal Hub chips already use.
-          onOpenContact={onOpenContact}
-          expanded={editingId === d.id}
-          onToggleExpand={() => {
-            setCreating(false)
-            setEditingId((cur) => (cur === d.id ? null : d.id))
-          }}
-          pipelines={refData?.pipelines || null}
-          users={refData?.users || null}
-          refError={refError}
-          onSaved={() => refreshDeal(d.id)}
-          // A deleted deal is gone from the list entirely, so this is the one
-          // case that warrants a full reload rather than patching a row.
-          onDeleted={() => { setEditingId(null); reload() }}
-        />
-      ))}
+      {/* GRID — the Figma card, three across. Replaces the old Cards view
+          and its inline Edit form: each field edits in place here with the
+          Deal hub's own pickers, and the deal's page still has every field. */}
+      {view === 'grid' && !error && deals.length > 0 && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
+          gap: 'var(--space-3)',
+          alignItems: 'start'
+        }}>
+          {deals.map((d) => (
+            <DealGridCard
+              key={d.id}
+              deal={d}
+              fieldOptions={fieldOptions}
+              users={refData?.users || null}
+              saving={gridSaving}
+              onSaveField={saveGridField}
+              onTagsChanged={(deal, next) => patchItem((x) => x.id === deal.id, { contactTags: next })}
+              onOpenInHub={onOpenDeal}
+              onOpenContact={onOpenContact}
+              onOpenBusiness={onOpenBusiness}
+            />
+          ))}
+        </div>
+      )}
+      {view === 'grid' && gridError && (
+        <p role="alert" style={{
+          margin: 0, padding: 'var(--space-2) var(--space-3)',
+          background: 'var(--tint-rose)', border: '1px solid var(--status-stuck)',
+          borderRadius: 'var(--radius-md)',
+          fontSize: 'var(--text-md)', color: 'var(--status-stuck-text)'
+        }}>
+          {gridError}
+        </p>
+      )}
 
       {/* Not on the board: this paginates the card/table list, and each board
           column pages itself. Shown there it read as the board's own total —
           "5 deals — that's everything" under a board holding far more. */}
-      {view !== 'board' && !loading && deals.length > 0 && (
+      {view === 'grid' && !loading && deals.length > 0 && (
         <LoadMore
           sentinelRef={sentinelRef}
           hasMore={hasMore}
@@ -772,338 +888,11 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
           noun="deal"
         />
       )}
+      </div>
+      </Panel>
     </Shell>
   )
 }
-
-function DealCard({
-  deal, onOpenDeal, onOpenInHub, onOpenContact, expanded, onToggleExpand,
-  pipelines, users, refError, onSaved, onDeleted
-}) {
-  // No edit state on the card any more — DealEditPanel owns the whole draft,
-  // so there is one place a change can live and one Update that commits it.
-  const people = deal.people || []
-  const daysInStage = daysSince(deal.currentStageEnteredAt)
-
-  // The strip under the controls: what it is, where it came from, how long
-  // it's sat there. Only facts we actually have — no "—" filler.
-  const facts = [
-    deal.product,
-    deal.leadSource,
-    daysInStage != null ? `${daysInStage} ${daysInStage === 1 ? 'day' : 'days'} in stage` : null,
-    deal.pipeline
-  ].filter(Boolean)
-
-  return (
-    <section
-      // .pp-card carries the border, the layered shadow and — the part that
-      // could not be done inline — the hover lift. .pp-card-open keeps the
-      // expanded row raised with a brand edge so it does not drop back when
-      // the pointer leaves the card being edited.
-      className={expanded ? 'pp-card pp-card-open' : 'pp-card'}
-      style={{
-        ['--panel-accent']: 'var(--accent-pine-text)',
-        ['--panel-tint']: 'var(--tint-pine)',
-        overflow: 'hidden'
-      }}
-    >
-      <header
-        style={{
-          display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)',
-          flexWrap: 'wrap', padding: '14px var(--space-4) 0'
-        }}
-      >
-        <span
-          className="ms"
-          style={{ fontSize: 'var(--text-xl)', color: 'var(--accent-pine)', marginTop: 2 }}
-        >
-          sell
-        </span>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <h2
-            style={{
-              fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--text-heading)',
-              margin: 0, lineHeight: 1.3
-            }}
-          >
-            {deal.dealTag || '(unnamed deal)'}
-          </h2>
-          {deal.opportunityName && deal.opportunityName !== deal.dealTag && (
-            <p style={{ margin: '3px 0 0', fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
-              {deal.opportunityName}
-            </p>
-          )}
-        </div>
-
-        {/* Edit before Open deal: editing is the action a rep takes on a row in
-            a list, and Open deal navigates away from it. */}
-        <button
-          onClick={onToggleExpand}
-          aria-expanded={expanded}
-          title={expanded ? 'Close the editor' : 'Edit this deal without leaving the list'}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            height: 34, padding: '0 13px',
-            border: '1px solid var(--border-strong)',
-            borderRadius: 'var(--radius-md)',
-            background: expanded ? 'var(--gray-100)' : '#fff',
-            color: 'var(--text-heading)',
-            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
-            cursor: 'pointer', flex: 'none'
-          }}
-        >
-          <span className="ms" style={{ fontSize: 16 }}>
-            {expanded ? 'expand_less' : 'edit'}
-          </span>
-          {expanded ? 'Close' : 'Edit'}
-        </button>
-
-        {/* Secondary to "Open deal": same destination the table's hub icon
-            reaches, so a rep who works from cards is not the only one who has
-            to open the editor first. */}
-        {onOpenInHub && (
-          <button
-            onClick={() => onOpenInHub(deal.id)}
-            title="Open on the deal hub"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 7,
-              height: 34, padding: '0 13px',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--surface-card)', color: 'var(--text-body)',
-              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
-              cursor: 'pointer', flex: 'none'
-            }}
-          >
-            <span className="ms" style={{ fontSize: 16 }}>space_dashboard</span>
-            Deal hub
-          </button>
-        )}
-
-        <button
-          onClick={() => onOpenDeal && onOpenDeal(deal.id)}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 7,
-            height: 34, padding: '0 15px',
-            border: 'none', borderRadius: 'var(--radius-md)',
-            background: 'var(--green-600)', color: '#fff',
-            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
-            cursor: 'pointer', flex: 'none'
-          }}
-        >
-          Open deal
-          <span className="ms" style={{ fontSize: 16 }}>arrow_forward</span>
-        </button>
-      </header>
-
-      {/* A read-only summary of the numbers a rep scans for. These were
-          editable controls on the card face; editing now happens in the
-          expander, so the card can show the value formatted (with its currency)
-          rather than as a raw number in a text input. */}
-      <div
-        style={{
-          display: 'flex', alignItems: 'baseline', gap: 'var(--space-4)',
-          flexWrap: 'wrap', padding: 'var(--space-3) var(--space-4) 0'
-        }}
-      >
-        <Stat label="Value" value={deal.value} mono />
-        <Stat label="Stage" value={deal.stage} />
-        <Stat
-          label="Expected close"
-          value={deal.forecastCloseDate ? formatDate(deal.forecastCloseDate) : null}
-        />
-        <Stat label="Owner" value={deal.owner} />
-      </div>
-
-      {(facts.length > 0 || deal.openTaskCount > 0 || deal.noteCount > 0) && (
-        <div
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
-            padding: '10px var(--space-4) 0'
-          }}
-        >
-          {facts.length > 0 && (
-            <p
-              style={{
-                margin: 0, flex: '1 1 auto', minWidth: 0,
-                fontSize: 'var(--text-base)', color: 'var(--text-muted)', lineHeight: 1.5
-              }}
-            >
-              {facts.join(' · ')}
-              {deal.lastCustomerContactAt && (
-                <> · last contact {formatDate(deal.lastCustomerContactAt)}</>
-              )}
-            </p>
-          )}
-          {/* FOLLOW-UP, ON THE CARD.
-              These were only visible after clicking Edit, so scanning a list
-              for deals with outstanding work meant opening every one. Chips
-              rather than another clause in the grey line: a count is a state
-              worth spotting, not one more attribute. */}
-          <FollowUpChips
-            tasks={deal.openTaskCount}
-            notes={deal.noteCount}
-          />
-        </div>
-      )}
-
-      {people.length > 0 && (
-        <div style={{ padding: 'var(--space-3) var(--space-4) var(--space-4)' }}>
-          <span
-            style={{
-              display: 'block', marginBottom: 7,
-              fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
-              textTransform: 'uppercase', color: 'var(--text-muted)'
-            }}
-          >
-            {people.length === 1 ? 'Contact on this deal' : 'Contacts on this deal'}
-          </span>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-            {people.map((p) => (
-              <PersonPill key={p.id} person={p} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Mounted only while expanded, so the panel's draft state resets when
-          it closes — a half-typed value must not survive a reopen and read as
-          the deal's actual figure. */}
-      {expanded && (
-        <DealEditPanel
-          deal={deal}
-          pipelines={pipelines}
-          users={users}
-          refError={refError}
-          onSaved={onSaved}
-          onOpenContact={onOpenContact}
-          // Same refetch as a save. A link change is written to GHL
-          // immediately, so the panel stays open and only the people list
-          // needs to catch up.
-          onPeopleChanged={onSaved}
-          onDeleted={onDeleted}
-          // Cancel closes the panel when there is nothing to discard, so it
-          // needs the same toggle the Edit button uses.
-          onClose={onToggleExpand}
-        />
-      )}
-    </section>
-  )
-}
-
-// A read-only label/value pair for the card face.
-//
-// Renders "Not set" rather than being omitted: on a card these four sit in a
-// fixed row, and dropping one would shift the others so the same field appears
-// in a different place on every card.
-function Stat({ label, value, mono = false }) {
-  const set = value != null && String(value).trim() !== ''
-  return (
-    <div style={{ minWidth: 0 }}>
-      <span
-        style={{
-          display: 'block', marginBottom: 2,
-          fontSize: 'var(--text-xs)', fontWeight: 600,
-          letterSpacing: 'var(--tracking-label)',
-          textTransform: 'uppercase', color: 'var(--text-muted)'
-        }}
-      >
-        {label}
-      </span>
-      <span
-        style={{
-          fontSize: 'var(--text-lg)', fontWeight: 600,
-          fontFamily: mono && set ? 'var(--font-mono)' : 'var(--font-sans)',
-          color: set ? 'var(--text-heading)' : 'var(--text-faint)'
-        }}
-      >
-        {set ? String(value) : 'Not set'}
-      </span>
-    </div>
-  )
-}
-
-function PersonPill({ person }) {
-  const accent = `var(--accent-${person.accent || 'sky'}-text)`
-  const tint = `var(--tint-${person.accent || 'sky'})`
-  const name = nameFor(person)
-
-  return (
-    <span
-      title={person.business || undefined}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 'var(--space-3)',
-        maxWidth: 340,
-        // Bigger overall: 28px avatar and 6px padding made a pill you had to
-        // squint at, and the two on this deal were visually identical.
-        padding: '8px 14px 8px 8px',
-        border: '1px solid var(--border-strong)',
-        borderRadius: 'var(--radius-md)',
-        background: '#fff'
-      }}
-    >
-      <span
-        style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          width: 38, height: 38, flex: 'none',
-          borderRadius: '50%',
-          background: tint, color: accent,
-          fontSize: 'var(--text-md)', fontWeight: 600
-        }}
-      >
-        {initialsFor(person.firstName, person.lastName, name)}
-      </span>
-      <span style={{ minWidth: 0 }}>
-        <Truncate style={{ display: 'block',
-            fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)' }}>
-          {name}
-        </Truncate>
-        {/* Something that distinguishes THIS person.
-            The contact type alone ("lead") is identical on every pill, so it's
-            the last resort. And whatever nameFor already used as the heading is
-            skipped — showing "mark@example.com" twice, once as the name and
-            once beneath it, says nothing the first line didn't. */}
-        {(() => {
-          const detail =
-            [person.business, person.email, person.phone, person.contactType]
-              .find((v) => v && String(v).trim() && String(v).trim() !== name)
-          if (!detail) return null
-          return (
-            <Truncate style={{ display: 'block', marginTop: 1,
-                fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
-              {detail}
-            </Truncate>
-          )
-        })()}
-      </span>
-      {person.primary && (
-        <span
-          style={{
-            flex: 'none',
-            fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
-            textTransform: 'uppercase',
-            padding: '2px 7px', borderRadius: 'var(--radius-sm)',
-            // Solid: on green-50 (1.13:1 against the white card) the badge
-            // was invisible and PRIMARY read as ordinary small text.
-            background: 'var(--green-600)', color: '#fff'
-          }}
-        >
-          Primary
-        </span>
-      )}
-    </span>
-  )
-}
-
-function daysSince(ts) {
-  if (!ts) return null
-  const then = new Date(ts).getTime()
-  if (Number.isNaN(then)) return null
-  return Math.max(0, Math.floor((Date.now() - then) / 86400000))
-}
-
-
-
 
 // The board, while its pipeline loads.
 //

@@ -448,6 +448,8 @@ export default function DealHubShell() {
             // The table's Contact column opens that person's record, the same
             // way a contact chip does on a task or note.
             onOpenContact={openContact}
+            // The grid card's View BUSINESS.
+            onOpenBusiness={openBusiness}
             initialEditDealId={editDealId}
           />
         )}

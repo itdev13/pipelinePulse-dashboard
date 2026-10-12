@@ -62,10 +62,13 @@ t('the header has a column for it', () => {
 
 t('the tab actually passes a handler in', () => {
   // The chip renders inert without this — present, styled, does nothing.
-  const at = tab.indexOf('<DealTable');
-  assert.notEqual(at, -1, 'DealTable is no longer rendered by the tab');
+  // The list view is DealList now (the Figma List, Oct 2026). Its row has no
+  // DEAL pill in the design; the hub is reached from the Tasks and Notes
+  // menus, which need the same handler.
+  const at = tab.indexOf('<DealList');
+  assert.notEqual(at, -1, 'DealList is no longer rendered by the tab');
   const props = tab.slice(at, tab.indexOf('/>', at));
-  assert.match(props, /onOpenInHub=/, 'DealTable is rendered without onOpenInHub');
+  assert.match(props, /onOpenInHub=/, 'DealList is rendered without onOpenInHub');
 });
 
 

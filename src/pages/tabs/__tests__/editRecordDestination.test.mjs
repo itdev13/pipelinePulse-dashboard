@@ -40,11 +40,13 @@ test('openDealId is declared before the effect that seeds it', () => {
   )
 })
 
-test('inline row editing still exists for the list itself', () => {
-  // The fix redirects one entry point; it must not remove the list's own
-  // expand-a-row behaviour.
-  assert.match(deals, /const \[editingId, setEditingId\] = useTabState\('deals', 'editingId', null\)/)
-  assert.match(deals, /expanded=\{editingId === d\.id\}/)
+test('the list edits in place through the grid card, not an expanding row', () => {
+  // The old Cards view's expand-a-row editor was retired (Oct 2026) for the
+  // Figma Grid view, whose fields edit in place with the Deal hub's pickers.
+  // In-list editing must still exist — it just lives on the grid card now.
+  assert.match(deals, /<DealGridCard/)
+  assert.match(deals, /onSaveField=\{saveGridField\}/)
+  assert.ok(!/expanded=\{editingId === d\.id\}/.test(deals), 'the retired inline row editor is back')
 })
 
 test('the request is still one-shot', () => {

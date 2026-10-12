@@ -10,10 +10,12 @@ import { test } from 'node:test'
 
 const src = readFileSync(new URL('../DealSection.jsx', import.meta.url), 'utf8')
 
-test('the block renders nothing when there is no enquiry at all', () => {
-  // The field is new; most deals will have none until the GHL automations
-  // have run. An empty labelled box on every deal is worse than silence.
-  assert.match(src, /if \(!current && earlier\.length === 0\) return null/)
+test('the block still renders when there is no enquiry at all', () => {
+  // The design keeps it under Businesses on every deal. Returning null made
+  // the column end abruptly and read as a missing block, not an empty one.
+  const block = src.slice(src.indexOf('function EnquiryBlock'), src.indexOf('// Every enquiry on this deal'))
+  assert.doesNotMatch(block, /\)\s*return null/)
+  assert.match(block, /'No enquiry recorded\.'/)
 })
 
 test("the customer's own line breaks survive", () => {

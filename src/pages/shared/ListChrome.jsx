@@ -76,7 +76,10 @@ export function Panel({
   // so flipping the default here would restyle Businesses, Contacts, Tasks,
   // Notes and the rest at the same time. Deal hub passes it; nothing else
   // does, until the same design lands on those tabs too.
-  solidHeader = false
+  solidHeader = false,
+  // The toolbar band's fill. White by default (see the note on the band);
+  // the Deals design puts its labelled field row on a grey band instead.
+  toolbarBackground = 'var(--surface-card)'
 }) {
   // On a solid band the title and icon are white and the band carries the
   // accent; on the pale default the band is the tint and the TEXT carries the
@@ -237,7 +240,7 @@ export function Panel({
             // border is enough to separate it from the rows below — the top
             // edge is already implied by the header above it.
             borderBottom: '1px solid var(--border-default)',
-            background: 'var(--surface-card)'
+            background: toolbarBackground
           }}
         >
           {toolbar}
@@ -402,6 +405,47 @@ export function DealPill({
             at a glance without reading the word. */}
         <span className="ms" style={{ fontSize: compact ? 11 : 12 }}>sell</span>
         DEAL
+      </span>
+    </Tag>
+  )
+}
+
+// DealPill's shape for the OTHER records — "View | CONTACT" in sky,
+// "View | BUSINESS" in plum — so the three ways out of a card read as one
+// family that differs only by colour. Inert without an onClick.
+const RECORD_FILL = {
+  CONTACT: 'var(--accent-sky)',
+  BUSINESS: 'var(--panel-head-plum, var(--accent-plum))'
+}
+export function RecordPill({ kind, name, onClick, draggable, onDragStart }) {
+  const live = typeof onClick === 'function'
+  const Tag = live ? 'button' : 'span'
+  const fill = RECORD_FILL[kind] || 'var(--gray-500)'
+  return (
+    <Tag
+      type={live ? 'button' : undefined}
+      onClick={live ? onClick : undefined}
+      title={live ? `Open ${name || `this ${kind.toLowerCase()}`}` : (name || undefined)}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        height: 22, padding: '0 3px 0 8px', flex: 'none',
+        border: 'none', borderRadius: 'var(--radius-pill)',
+        background: fill,
+        fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 600,
+        color: '#fff', whiteSpace: 'nowrap',
+        cursor: live ? 'pointer' : 'default'
+      }}
+    >
+      View
+      <span style={{
+        display: 'inline-flex', alignItems: 'center',
+        height: 16, padding: '0 6px',
+        borderRadius: 'var(--radius-pill)', background: '#fff', color: fill,
+        fontSize: 9, fontWeight: 700, letterSpacing: 'var(--tracking-label)'
+      }}>
+        {kind}
       </span>
     </Tag>
   )
@@ -960,7 +1004,9 @@ export function nameFor(p) {
 
 // End-of-list sentinel + status. Render after the rows; the ref goes on the
 // element an IntersectionObserver watches, so reaching it loads the next page.
-export function LoadMore({ sentinelRef, hasMore, loadingMore, count, total = null, noun = 'item' }) {
+// `plural` for a noun that does not take a plain s — "business" read as
+// "2 businesss — that's everything".
+export function LoadMore({ sentinelRef, hasMore, loadingMore, count, total = null, noun = 'item', plural = null }) {
   return (
     <div
       ref={sentinelRef}
@@ -984,7 +1030,7 @@ export function LoadMore({ sentinelRef, hasMore, loadingMore, count, total = nul
         </span>
       ) : count > 0 ? (
         <span>
-          {count} {count === 1 ? noun : `${noun}s`} — that's everything
+          {count} {count === 1 ? noun : (plural || `${noun}s`)} — that's everything
         </span>
       ) : null}
     </div>

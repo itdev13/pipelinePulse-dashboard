@@ -528,7 +528,7 @@ test('the view buttons are rounded rectangles, not pills', () => {
   // a square-cornered input read as two different control families.
   const deal = read('DealSection.jsx');
   const toolbar = deal.slice(deal.indexOf('VIEWS.map'), deal.indexOf('VIEWS.map') + 1200);
-  assert.match(toolbar, /borderRadius: 'var\(--radius-md\)'/);
+  assert.match(toolbar, /borderRadius: 'var\(--radius-sm\)'/);
   assert.doesNotMatch(toolbar, /borderRadius: 'var\(--radius-pill\)'/);
 })
 

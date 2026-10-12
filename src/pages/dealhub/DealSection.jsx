@@ -318,11 +318,11 @@ function EnquiryBlock({ deal }) {
   const current = deal.initialEnquiry
   const earlier = deal.earlierEnquiries || []
 
-  // Nothing at all, and no history either: render nothing rather than an
-  // empty labelled box. The field is new and most deals will not have one
-  // until the GHL automations have run for a while.
-  if (!current && earlier.length === 0) return null
-
+  // ALWAYS RENDERED, even with nothing in it. It used to return null for a
+  // deal with no enquiry, which left the column ending abruptly after
+  // Businesses and made the block look missing rather than empty. The design
+  // keeps it under Businesses on every deal; "No enquiry recorded." says the
+  // gap is in the record, the same way the empty Source row shows a dash.
   return (
     <div style={{ marginTop: 'var(--space-4)' }}>
       <FieldLabel>Initial enquiry</FieldLabel>
@@ -918,16 +918,17 @@ function StageColumn({ deal, stages, onSaveField, saving, saveError, users, onNe
           title={stale
             ? `${lastContactDays} days since the customer last made contact`
             : undefined}
-          last={!deal.source && deal.quoteRevision == null}
         />
-        {deal.source && (
-          <FieldRow
-            icon="language"
-            label="Source"
-            value={deal.source}
-            last={deal.quoteRevision == null}
-          />
-        )}
+        {/* Always shown, like the rows above: a deal with no source renders
+            "—" rather than dropping the row, so the table keeps its shape
+            and a missing source reads as a gap, not an absent field. */}
+        <FieldRow
+          icon="language"
+          label="Source"
+          value={deal.source || null}
+          last={deal.quoteRevision == null}
+        />
+
         {deal.quoteRevision != null && (
           <FieldRow
             icon="receipt_long"
@@ -1109,7 +1110,10 @@ export function CardToolbar({ view, onView, children }) {
                   // buttons share the search box's corner radius beside them;
                   // full pills next to a square-cornered input read as two
                   // different control families.
-                  borderRadius: 'var(--radius-md)',
+                  //
+                  // --radius-sm, not -md: inside [data-dealhub] -md is 12px,
+                  // which on a 34px button read as nearly a pill anyway.
+                  borderRadius: 'var(--radius-sm)',
                   background: active ? 'var(--brand-primary)' : '#fff',
                   // White on the solid brand fill. Brand text on a brand
                   // background rendered as an empty green pill with no label.
@@ -1395,6 +1399,10 @@ function FieldPicker({ label, value, spec, saving, onChange, bare = false }) {
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 7,
           maxWidth: '100%',
+          // BARE fills its cell and pushes the pencil to the far edge. Hugging
+          // the value put each row's pencil wherever its text ended, so a
+          // column of fields had pencils at a different x on every row.
+          ...(bare ? { width: '100%', justifyContent: 'space-between' } : null),
           height: 34, padding: bare ? '0 8px' : '0 12px',
           // BARE sits inside a bordered table row, so it draws no border or
           // fill of its own — a box inside a box reads as a nested control.
@@ -1440,7 +1448,7 @@ function FieldPicker({ label, value, spec, saving, onChange, bare = false }) {
             "ms pp-spin"; this one was the outlier. */}
         <span
           className={saving ? 'ms pp-spin' : 'ms'}
-          style={{ fontSize: 15, color: 'var(--text-faint)' }}
+          style={{ fontSize: 15, color: 'var(--text-muted)' }}
         >
           {saving ? 'progress_activity' : 'edit'}
         </span>
@@ -1633,7 +1641,7 @@ function OwnerRow({ deal, users, onNeedUsers, saving, onSave }) {
         )}
         <span
           className="ms pp-inline-pencil"
-          style={{ fontSize: 16, color: 'var(--text-faint)', flex: 'none', marginLeft: 'auto' }}
+          style={{ fontSize: 16, color: 'var(--text-muted)', flex: 'none', marginLeft: 'auto' }}
         >
           {saving ? 'progress_activity' : 'edit'}
         </span>
@@ -1785,7 +1793,7 @@ function InlineText({
             permanently beside a 34px heading competes with it. */}
         <span
           className="ms pp-inline-pencil"
-          style={{ fontSize: 15, color: 'var(--text-faint)', flex: 'none' }}
+          style={{ fontSize: 15, color: 'var(--text-muted)', flex: 'none' }}
         >
           {saving ? 'progress_activity' : 'edit'}
         </span>
@@ -2142,3 +2150,13 @@ function formatDate(ts) {
   if (Number.isNaN(d.getTime())) return null
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
+
+// Shared with the Deals tab's grid cards, which edit the same five custom
+// fields and the owner. One picker, one save shape — a second copy would
+// drift from this one the first time either was fixed.
+//
+// A trailing export list rather than `export` on each declaration: the
+// fieldChips test slices the source between `function unwrapNested` and
+// `const FIELD_CHIPS` and evaluates it, and a keyword in front of either
+// would land inside that slice.
+export { FieldPicker, OwnerRow, FIELD_CHIPS, unwrapNested, titleCase }

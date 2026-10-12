@@ -378,7 +378,10 @@ export function DealTasksSection({ dealId, people = [], onOpenAll }) {
   )
 }
 
-export function DealNotesSection({ dealId, people = [], onOpenAll }) {
+// `onNoteSaved(noteId, patch)` lets the page patch its OTHER copy of the note —
+// the timeline renders the same note from its own fetch, and without this it
+// kept showing the pre-edit text after the rail had updated.
+export function DealNotesSection({ dealId, people = [], onOpenAll, onNoteSaved }) {
   const { items, loading, error, patchItem, reload, reloadSoon } = useDealList(
     dealId,
     (id) => notesAPI.list({ dealId: id, limit: 50 }),
@@ -633,19 +636,31 @@ export function DealNotesSection({ dealId, people = [], onOpenAll }) {
             // would leave it sitting under a deal it is not on any more —
             // reload so it leaves the list, the same as any other row that
             // stops matching.
-            const movedAway = editor.note
-              && (saved?.opportunityId ?? null) !== (editor.note.opportunityId ?? null)
+            //
+            // ONLY when the save actually reports a deal. A text/title edit
+            // returns GHL's copy of the note, and GHL does not hold the
+            // note→deal link at all (it lives only in our database), so that
+            // copy has NO opportunityId. Reading the absence as null made
+            // every ordinary edit look like a move: the row was never
+            // patched, and the 2.5s reload read our DB before the
+            // NoteUpdate webhook had landed — so the old text stayed on
+            // screen until a manual refresh. NoteEditor adds opportunityId
+            // to `saved` itself when the deal link really changed.
+            const movedAway = editor.note && saved && 'opportunityId' in saved
+              && (saved.opportunityId ?? null) !== (editor.note.opportunityId ?? null)
             if (editor.note && saved && !movedAway) {
               // `applied` first: GHL's note PUT does not reliably echo
               // every field it was sent, and `saved.title ?? null` blanked
               // the name a rep had just typed — the old body-derived heading
               // reappeared and the rename looked like it had failed.
-              patchItem((x) => x.id === editor.note.id, {
+              const patch = {
                 body: applied?.body ?? saved.body ?? editor.note.body,
                 title: applied?.title ?? saved.title ?? editor.note.title ?? null,
                 color: applied?.color ?? saved.color ?? editor.note.color ?? null,
                 pinned: applied?.pinned ?? (saved.pinned === true)
-              })
+              }
+              patchItem((x) => x.id === editor.note.id, patch)
+              if (onNoteSaved) onNoteSaved(editor.note.id, patch)
             } else {
               // A new note arrives via the webhook, so refetch rather than
               // inventing a row whose id and attribution we don't know — and

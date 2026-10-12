@@ -737,6 +737,29 @@ export default function DealHubTab({
     // a notification system for a single message.
   }
 
+  // A note was edited in the Notes rail. The timeline holds its own copy of
+  // that note (fetched with the deal), so patch it here too — otherwise the
+  // rail showed the new text while the timeline kept the old until a reload.
+  //
+  // An UNTITLED note arrives with the server's derived heading (splitNoteBody
+  // lifts the body's first line into `title`). Keeping that heading beside the
+  // edited full body would print the first line twice, so an untitled save
+  // drops the heading and shows the whole body; the next load re-derives it.
+  const handleNoteSaved = (noteId, patch) => {
+    setMessages((prev) =>
+      (prev || []).map((m) => {
+        if (m.subjectType !== 'note' || m.subjectId !== noteId) return m
+        return {
+          ...m,
+          title: patch.title || null,
+          body: patch.body ?? m.body,
+          color: patch.color ?? m.color,
+          pinned: patch.pinned ?? m.pinned
+        }
+      })
+    )
+  }
+
   // Next page of open deals, for the switcher's scroll.
   //
   // Appends rather than replaces, and guards against a double-fire: the
@@ -1615,6 +1638,7 @@ export default function DealHubTab({
                   dealId={dealId}
                   people={deal?.people || []}
                   onOpenAll={onOpenTab ? () => onOpenTab('notes') : undefined}
+                  onNoteSaved={handleNoteSaved}
                 />
               </div>
             </div>
