@@ -43,9 +43,26 @@ test('Add contact is shown, and says where contacts are added', () => {
   assert.match(tab, /add them in your CRM/);
 });
 
-test('cards carry a selection checkbox, counted in the toolbar', () => {
+test('cards carry a selection checkbox; a selection shows the bulk bar', () => {
   assert.match(card, /type="checkbox"\s*\n\s*className="pp-check"/);
-  assert.match(tab, /<SelectionBar count=\{selected\.size\}/);
+  assert.match(tab, /\{selected\.size > 0 && \(\s*\n\s*<BulkBar/);
+});
+
+test('the bulk bar has the design actions, with the working ones wired', () => {
+  const bar = tab.slice(tab.indexOf('function BulkBar('), tab.indexOf('function BulkButton('));
+  for (const label of ['Add tag', 'Assign owner', 'Change type', 'Export', 'Delete', 'Clear']) {
+    assert.ok(bar.includes(label), `${label} missing from the bulk bar`);
+  }
+  // Add tag uses the ADDITIVE endpoint per contact — never the full update.
+  assert.match(bar, /await contactsAPI\.addTags\(c\.id, \[t\]\)/);
+  assert.doesNotMatch(bar, /contactsAPI\.update/);
+  assert.match(bar, /onClick=\{\(\) => exportCsv\(selected\)\}/);
+  // The unwired three say so rather than acting.
+  assert.match(bar, /notYet\('Deleting contacts'\)/);
+});
+
+test('the CSV export quotes what needs quoting', () => {
+  assert.match(tab, /\/\[",\\n\\r\]\/\.test\(s\) \? `"\$\{s\.replace\(\/"\/g, '""'\)\}"` : s/);
 });
 
 test('the card leads with the name and an Open CONTACT pill', () => {

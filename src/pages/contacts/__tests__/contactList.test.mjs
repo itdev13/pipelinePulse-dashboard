@@ -51,7 +51,8 @@ test('the menu escapes the scrolling table', () => {
 test('every unwired control is on the pending list', () => {
   const pending = readFileSync(new URL('../../../../PENDING_FUNCTIONALITY.md', import.meta.url), 'utf8');
   for (const item of ['**Type** row pencil', '**Tasks** pill chevron', '**Notes** pill chevron',
-    '**Add contact**', '**Selection checkboxes**']) {
+    '**Add contact**', '**Selection checkboxes**', 'Bulk **Assign owner**',
+    'Bulk **Change type**', 'Bulk **Delete**']) {
     assert.ok(pending.includes(item), `${item} missing from PENDING_FUNCTIONALITY.md`);
   }
 });

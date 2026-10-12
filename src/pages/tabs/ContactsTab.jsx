@@ -429,13 +429,8 @@ export default function ContactsTab({
                 onChange={(next) => { setFilters(next); setDirtyView(activeViewId) }}
               />
             }
-            afterViews={(
-              <>
-                {view === 'cards' && <ShowOnCards value={showOn} onChange={setShowOn} />}
-                {selected.size > 0 && (
-                  <SelectionBar count={selected.size} onClear={() => setSelected(new Set())} />
-                )}
-              </>
+            afterViews={view === 'cards' && (
+              <ShowOnCards value={showOn} onChange={setShowOn} />
             )}
           >
             {view === 'table' && (
@@ -485,6 +480,22 @@ export default function ContactsTab({
                   } — clear ${Object.keys(filters).length > 0 ? 'them' : 'it'} to see everything.`
                 : 'No contacts in this sub-account yet.'}
             </div>
+          )}
+
+          {/* BULK ACTIONS — only while something is selected, above the list
+              in either view. */}
+          {selected.size > 0 && (
+            <BulkBar
+              selected={contacts.filter((c) => selected.has(c.id))}
+              count={selected.size}
+              tagList={tagList}
+              onClear={() => setSelected(new Set())}
+              onNotice={(msg) => {
+                setNotice(msg)
+                window.setTimeout(() => setNotice(null), 5000)
+              }}
+              onPatch={(id, p) => patchItem((x) => x.id === id, p)}
+            />
           )}
 
           {/* LIST — the same paged `contacts`, as a table. */}
@@ -630,31 +641,160 @@ const SHOW_ON_CARDS = [
   { key: 'notes', label: 'Notes', colour: 'var(--accent-brown)', tint: 'var(--tint-gold)' }
 ]
 
-// "3 selected · Clear" — what a selection amounts to until bulk actions exist.
-function SelectionBar({ count, onClear }) {
+// The bulk action bar — "1 selected | Add tag · Assign owner · Change type ·
+// Export · Delete | Clear", as the October 2026 list design draws it.
+//
+// WORKING: Add tag (the additive tag endpoint, once per contact), Export (a
+// CSV built here from the rows already loaded) and Clear.
+// NOT YET: Assign owner, Change type and Delete say so instead of acting —
+// no endpoint is confirmed for any of them. See PENDING_FUNCTIONALITY.md.
+//
+// `selected` is the selected contacts that are LOADED; `count` is every id
+// selected. They differ only if a selection outlives a filter change.
+function BulkBar({ selected, count, tagList, onClear, onNotice, onPatch }) {
+  const [tagging, setTagging] = useState(false)
+  const [tag, setTag] = useState('')
+  const [busy, setBusy] = useState(false)
+  const inputRef = useRef(null)
+
+  useEffect(() => { if (tagging) inputRef.current?.focus() }, [tagging])
+
+  const addTag = async () => {
+    const t = tag.trim()
+    setTagging(false); setTag('')
+    if (!t || busy) return
+    setBusy(true)
+    let failed = 0
+    // One contact at a time: the endpoint is per contact, and a burst of
+    // parallel writes to the CRM is how rate limits get hit.
+    for (const c of selected) {
+      const tags = c.tags || []
+      if (tags.some((x) => x.toLowerCase() === t.toLowerCase())) continue
+      try {
+        await contactsAPI.addTags(c.id, [t])
+        onPatch(c.id, { tags: [...tags, t] })
+      } catch {
+        failed++
+      }
+    }
+    setBusy(false)
+    onNotice(failed
+      ? `Tagged ${selected.length - failed} of ${selected.length} — ${failed} could not be tagged.`
+      : `Tagged ${selected.length} contact${selected.length === 1 ? '' : 's'} "${t}".`)
+  }
+
+  const notYet = (what) => onNotice(`${what} is not available yet — do it in your CRM for now.`)
+
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 8, flex: 'none',
-      height: 30, padding: '0 6px 0 12px',
-      borderRadius: 'var(--radius-pill)',
-      background: 'var(--tint-sky)', color: 'var(--accent-sky-text)',
-      fontSize: 'var(--text-md)', fontWeight: 600
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+      marginBottom: 'var(--space-3)', padding: '8px 12px',
+      border: '1px solid var(--border-default)',
+      borderRadius: 'var(--radius-md)',
+      background: 'var(--surface-card)'
     }}>
-      {count} selected
+      <span style={{
+        paddingRight: 10, marginRight: 2,
+        borderRight: '1px solid var(--border-default)',
+        fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--accent-sky-text)'
+      }}>
+        {count} selected
+      </span>
+
+      {tagging ? (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <input
+            ref={inputRef}
+            className="pp-cc-input"
+            value={tag}
+            list="pp-bulk-tags"
+            onChange={(e) => setTag(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); addTag() }
+              if (e.key === 'Escape') { e.preventDefault(); setTagging(false); setTag('') }
+            }}
+            placeholder="Tag name"
+            style={{ width: 160, height: 32 }}
+          />
+          <datalist id="pp-bulk-tags">
+            {tagList.map((t) => <option key={t} value={t} />)}
+          </datalist>
+          <BulkButton icon="check" onClick={addTag}>Add</BulkButton>
+          <BulkButton icon="close" onClick={() => { setTagging(false); setTag('') }}>Cancel</BulkButton>
+        </span>
+      ) : (
+        <BulkButton icon="sell" onClick={() => setTagging(true)} disabled={busy}>
+          {busy ? 'Tagging…' : 'Add tag'}
+        </BulkButton>
+      )}
+      <BulkButton icon="person_add" onClick={() => notYet('Assigning an owner in bulk')}>Assign owner</BulkButton>
+      <BulkButton icon="swap_horiz" onClick={() => notYet('Changing the type in bulk')}>Change type</BulkButton>
+      <BulkButton icon="download" onClick={() => exportCsv(selected)}>Export</BulkButton>
+      <BulkButton icon="delete" danger onClick={() => notYet('Deleting contacts')}>Delete</BulkButton>
+
       <button
         onClick={onClear}
         style={{
-          height: 22, padding: '0 8px',
-          border: 'none', borderRadius: 'var(--radius-pill)',
-          background: '#fff', color: 'var(--accent-sky-text)',
-          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 600,
-          cursor: 'pointer'
+          height: 32, padding: '0 6px',
+          border: 'none', background: 'none',
+          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
+          color: 'var(--accent-sky-text)', cursor: 'pointer'
         }}
       >
         Clear
       </button>
-    </span>
+    </div>
   )
+}
+
+function BulkButton({ icon, children, onClick, danger, disabled }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        height: 32, padding: '0 12px',
+        border: `1px solid ${danger ? 'var(--status-stuck)' : 'var(--border-strong)'}`,
+        borderRadius: 'var(--radius-pill)',
+        background: 'var(--surface-card)',
+        color: danger ? 'var(--status-stuck-text)' : 'var(--text-body)',
+        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
+        cursor: disabled ? 'default' : 'pointer'
+      }}
+    >
+      <span className="ms" style={{ fontSize: 16 }}>{icon}</span>
+      {children}
+    </button>
+  )
+}
+
+// The selected contacts as a CSV download, built here from what the list
+// already holds — no server round trip, and exactly the rows the rep ticked.
+function exportCsv(contacts) {
+  const cell = (v) => {
+    const s = v == null ? '' : String(v)
+    // Quote anything with a comma, quote or newline; double inner quotes.
+    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  const header = ['Name', 'Type', 'Email', 'Phone', 'Business', 'Address', 'Tags',
+    'Open tasks', 'Notes', 'Deals']
+  const rows = contacts.map((c) => [
+    c.name, c.contactType, c.email, c.phone,
+    c.businessName || c.business, c.address,
+    (c.tags || []).join('; '),
+    c.openTaskCount || 0, c.noteCount || 0,
+    (c.deals || []).map((d) => d.name).join('; ')
+  ])
+  const csv = [header, ...rows].map((r) => r.map(cell).join(',')).join('\r\n')
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `contacts-${new Date().toISOString().slice(0, 10)}.csv`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
 }
 
 function ShowOnCards({ value, onChange }) {
