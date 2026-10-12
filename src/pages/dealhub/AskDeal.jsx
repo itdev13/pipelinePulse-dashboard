@@ -110,8 +110,14 @@ export default function AskDeal({
   // Record an action's outcome in the turn, so a card that has been confirmed
   // does not revert to a live Confirm button when this remounts. Mirrors
   // CopilotTab — see the comment on its ActionCard.
+  // Writes the outcome into BOTH the live transcript and the Recents
+  // history. Only `turns` was patched before, and Recents reopens a chat
+  // from `history` — a snapshot taken when the answer arrived, before the
+  // rep confirmed anything. Switch to another chat and back, and the card
+  // was rebuilt from that snapshot: a sent message offered again with a live
+  // Confirm button. The server row was 'confirmed' the whole time.
   const onActionResolved = useCallback((actionId, outcome) => {
-    setTurns((cur) => cur.map((t) => (
+    const patch = (list) => (list || []).map((t) => (
       t.proposedActions?.some((a) => a.actionId === actionId)
         ? {
             ...t,
@@ -120,6 +126,10 @@ export default function AskDeal({
             ))
           }
         : t
+    ))
+    setTurns(patch)
+    setHistory((cur) => (cur || []).map((c) => (
+      c.turns?.length ? { ...c, turns: patch(c.turns) } : patch([c])[0]
     )))
   }, [])
   const [pending, setPending] = useState(false)

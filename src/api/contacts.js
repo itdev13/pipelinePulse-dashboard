@@ -30,6 +30,10 @@ export const contactsAPI = {
     )
   },
   list: (params = {}) => apiClient.get('/api/contacts', { params }),
+  // POST /api/contacts — creates in GHL and lands the row locally at once.
+  create: (payload) => apiClient.post('/api/contacts', payload),
+  // DELETE /api/contacts/:id — deletes in GHL, soft-deletes here.
+  remove: (id) => apiClient.delete(`/api/contacts/${encodeURIComponent(id)}`),
   get: (id) => apiClient.get(`/api/contacts/${encodeURIComponent(id)}`),
   update: (id, patch) =>
     apiClient.patch(`/api/contacts/${encodeURIComponent(id)}`, patch),

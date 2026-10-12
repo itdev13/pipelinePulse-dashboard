@@ -348,6 +348,10 @@
 [data-dealhub] .pp-rich ol { margin: 0 0 0.6em; }
 [data-dealhub] .pp-rich ul,
 [data-dealhub] .pp-rich ol { padding-left: 20px; }
+/* Same Tailwind-preflight reset as .pp-md — see the note there. A note
+   written with bullets showed as indented bare lines on every card. */
+[data-dealhub] .pp-rich ul { list-style: disc; }
+[data-dealhub] .pp-rich ol { list-style: decimal; }
 [data-dealhub] .pp-rich li { margin: 0 0 2px; }
 [data-dealhub] .pp-rich a { color: var(--text-link); }
 [data-dealhub] .pp-rich img { max-width: 100%; height: auto; }
@@ -1424,6 +1428,9 @@
 [data-dealhub] .pp-editor-content > p:last-child { margin-bottom: 0; }
 [data-dealhub] .pp-editor-content ul,
 [data-dealhub] .pp-editor-content ol { margin: 0 0 var(--space-2); padding-left: 22px; }
+/* And in the editor, so a rep sees the bullets they are typing. */
+[data-dealhub] .pp-editor-content ul { list-style: disc; }
+[data-dealhub] .pp-editor-content ol { list-style: decimal; }
 [data-dealhub] .pp-editor-content li { margin: 0 0 2px; }
 [data-dealhub] .pp-editor-content li > p { margin: 0; }
 [data-dealhub] .pp-editor-content blockquote {
@@ -2968,6 +2975,16 @@
   margin: 4px 0 10px;
   padding-left: 22px;
 }
+/* THE MARKERS, restored. index.css loads Tailwind preflight, which resets
+   `ol, ul { list-style: none }` globally — so every numbered or bulleted
+   list in every answer rendered as bare indented lines, however correctly
+   the model wrote "1. " and "- ". The padding above put the indent back and
+   nothing put the markers back, which is why "reply with a number" sat over
+   a list with no numbers. Declared on the list, not the li: list-style is
+   inherited by list items, and `disc`/`decimal` on the container is the
+   browser default this undoes. */
+[data-dealhub] .pp-md ul { list-style: disc; }
+[data-dealhub] .pp-md ol { list-style: decimal; }
 /* Declared AFTER the type-specific p/ul/ol margins above, not before: this
    selector and those all tie on specificity (one class + one
    element/universal each), so whichever comes LAST in the stylesheet wins

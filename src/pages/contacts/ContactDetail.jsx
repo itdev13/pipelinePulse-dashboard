@@ -200,8 +200,8 @@ const FIELDS = [
   ['email', 'Email', 'email', 'mail'],
   ['phone', 'Phone', 'tel', 'call'],
   ['address', 'Address', 'text', 'location_on'],
-  // Mapped by fromGhl and named by labelFor, so the server's patch handles
-  // it. Unconfirmed against the backend — see PENDING_FUNCTIONALITY.md.
+  // Mapped by fromGhl and named by labelFor; contactPatch maps `timezone`
+  // through to GHL's own field, so Save sends it. (Confirmed 12 Oct 2026.)
   ['timezone', 'Timezone', 'text', 'schedule']
 ]
 
@@ -387,10 +387,11 @@ function Details({ contact, onSaved }) {
     return (contact[key] || '') !== (current || '')
   }
 
-  // contactType is deliberately NOT included: the update endpoint drops it,
-  // so including it would let someone change the dropdown, press Save, and
-  // see nothing happen. See PENDING_FUNCTIONALITY.md.
-  const dirtyKeys = FIELDS.map(([k]) => k).filter(isDirty)
+  // contactType rides along with the fields: contactPatch maps it to GHL's
+  // `type`, which the service applies even though it is hidden from the
+  // documented PUT. It was left out here on the belief that the endpoint
+  // dropped it — the dropdown changed and Save sent nothing.
+  const dirtyKeys = [...FIELDS.map(([k]) => k), 'contactType'].filter(isDirty)
 
   // One request for every change, not one per field. Each PATCH is a round trip
   // to GHL plus a webhook back, so saving five fields separately would fire
