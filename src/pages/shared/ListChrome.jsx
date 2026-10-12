@@ -366,17 +366,22 @@ export function DealPill({
       onDragStart={onDragStart}
       style={{
         display: 'inline-flex', alignItems: 'center',
-        gap: compact ? 5 : 7,
-        height: compact ? 22 : 26,
-        padding: compact ? '0 3px 0 8px' : '0 4px 0 10px',
+        // COMPACT IS THE LINKED-RECORDS SIZE. It sits in the same stack as
+        // LinkedRow's contact and business pills (shared/LinkedRecords.jsx)
+        // and ran a size down — 22px/10px against their 24px/text-sm — so
+        // the deal pill was the odd one out. These are their numbers
+        // exactly; change both or neither.
+        gap: compact ? 6 : 7,
+        height: compact ? 24 : 26,
+        padding: compact ? '0 4px 0 10px' : '0 4px 0 10px',
         flex: 'none',
         border: 'none', borderRadius: 'var(--radius-pill)',
         background: fill,
         fontFamily: 'var(--font-sans)',
-        // 11px / 9px, two below the token sizes this started on. The pill is
-        // a compact control, not running text, and at --text-base the word
-        // "View" carried more visual weight than the deal names beside it.
-        fontSize: compact ? 10 : 11,
+        // 11px full-size, two below the token sizes this started on. The
+        // pill is a compact control, not running text, and at --text-base
+        // the word "View" carried more weight than the deal names beside it.
+        fontSize: compact ? 'var(--text-sm)' : 11,
         fontWeight: 600,
         color: '#fff',
         cursor: live ? 'pointer' : 'default',
@@ -393,14 +398,14 @@ export function DealPill({
         aria-label="Deal"
         style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          height: compact ? 16 : 19, minWidth: compact ? 16 : 19,
-          padding: compact ? '0 4px' : '0 5px',
+          height: compact ? 18 : 19, minWidth: compact ? 18 : 19,
+          padding: '0 5px',
           borderRadius: 'var(--radius-pill)',
           background: '#fff',
           color: fill
         }}
       >
-        <span className="ms" style={{ fontSize: compact ? 12 : 13 }}>sell</span>
+        <span className="ms" style={{ fontSize: 13 }}>sell</span>
       </span>
     </Tag>
   )
