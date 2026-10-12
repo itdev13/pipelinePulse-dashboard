@@ -1117,6 +1117,23 @@
   flex: none;
 }
 
+/* ── Tasks toolbar values ─────────────────────────────────────────────────
+ *
+ * The chosen value in each toolbar control (Status, Assignee, Due, Sort, the
+ * date range and the search text) at medium weight, per Figma — antd's 400
+ * read too light against the grey band. Placeholders stay at 400 so a typed
+ * or chosen value still stands apart from an empty prompt.
+ */
+[data-dealhub] .pp-task-toolbar .ant-select-selection-item,
+[data-dealhub] .pp-task-toolbar .ant-picker-input > input,
+[data-dealhub] .pp-task-toolbar .pp-task-search {
+  font-weight: 500;
+}
+[data-dealhub] .pp-task-toolbar .ant-picker-input > input::placeholder,
+[data-dealhub] .pp-task-toolbar .pp-task-search::placeholder {
+  font-weight: 400;
+}
+
 /* ── Skeleton shimmer ─────────────────────────────────────────────────────
  *
  * Also defined in ListChrome.jsx's SHIMMER_CSS, which injects it via a
