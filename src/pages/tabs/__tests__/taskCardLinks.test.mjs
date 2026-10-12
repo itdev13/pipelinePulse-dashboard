@@ -23,12 +23,19 @@ test('all three records get a row', () => {
   assert.match(tab, /business: \{ fill: 'var\(--accent-plum\)', label: 'BUSINESS' \}/);
 });
 
-test('a missing record is SHOWN, not hidden', () => {
-  // An unattached task is a real state worth seeing — the design draws "No
-  // DEAL" in red rather than leaving the row blank.
-  assert.match(tab, /emptyText="No contact"/);
-  assert.match(tab, /emptyText="No business"/);
-  assert.match(tab, /\{present \? 'View' : 'No'\}/);
+test('only the records a task HAS get a row; a missing deal is called out', () => {
+  // The October 2026 designs give a missing contact or business no row —
+  // three "No X" lines on an unattached task were most of its item — but a
+  // missing DEAL is the state a rep needs to spot, so both views draw a red
+  // "No DEAL" pill in its own place.
+  const linked = tab.slice(tab.indexOf('function LinkedRecords('), tab.indexOf('function dueLine('));
+  assert.ok(linked.length > 0, 'LinkedRecords not found');
+  assert.match(linked, /if \(contact\) \{/);
+  assert.match(linked, /if \(t\.deal\) \{/);
+  assert.match(linked, /if \(t\.business\) \{/);
+  assert.doesNotMatch(tab, /emptyText="No (contact|business)"/);
+  const pills = tab.match(/\{!t\.deal && [\s\S]{0,160}?<DealPill name="No deal" empty/g) || [];
+  assert.equal(pills.length, 2, 'one No DEAL pill per view');
 });
 
 test('the deal row uses the SHARED DealPill', () => {
@@ -45,14 +52,25 @@ test('the business row can actually open something', () => {
   assert.match(shell, /onOpenBusiness=\{openBusiness\}/);
 });
 
-test('rows view is five columns, card view is stacked', () => {
-  // Left to right the design reads "done · who and what · when · what to do ·
-  // act on it", and each column keeps its own left edge down the whole list.
-  // At a 340px card width the same layout left the title ~40px.
+test('both views share one LinkedRecords', () => {
+  // View CONTACT / DEAL / BUSINESS must open the same way in rows and grid.
+  const uses = tab.match(/<LinkedRecords/g) || [];
+  assert.equal(uses.length, 2, 'TaskRow and TaskCard each render LinkedRecords once');
+});
+
+// ── The row — October 2026 design ────────────────────────────────────────────
+
+const row = tab.slice(tab.indexOf('function TaskRow('), tab.indexOf('function LinkedRecords('));
+
+test('rows view is four ruled columns: done · who · when · what', () => {
+  assert.ok(row.length > 0, 'TaskRow not found');
   assert.match(
-    tab,
-    /gridTemplateColumns: 'auto minmax\(240px, 320px\) minmax\(104px, auto\) minmax\(0, 1fr\) auto'/
+    row,
+    /gridTemplateColumns: '56px minmax\(280px, 400px\) minmax\(150px, auto\) minmax\(0, 1fr\)'/
   );
+  // Ruled apart, with each divider running the full row height.
+  assert.match(row, /alignItems: 'stretch'/);
+  assert.equal((row.match(/borderRight: rule/g) || []).length, 3, 'three column rules');
 });
 
 test('THE DUE DATE IS A SIBLING OF THE TITLE COLUMN, NOT A CHILD', () => {
@@ -65,32 +83,27 @@ test('THE DUE DATE IS A SIBLING OF THE TITLE COLUMN, NOT A CHILD', () => {
   // with the edit and delete buttons beside it — exactly what the screenshot
   // showed.
   //
-  // It is a `const dueBlock` placed as its own row item now. Asserted
-  // structurally, because the markup was VALID and rendered without
-  // complaint; only the position was wrong, and no assertion on the elements
-  // themselves would have caught it.
-  const open = tab.indexOf('const dueBlock = (');
-  assert.ok(open > 0, 'the due block must be hoisted out of the title column');
-
-  // The title column opens at `minWidth: 0, flex: 1 }` — the due block must
-  // be placed BEFORE it, as a sibling, not inside it.
-  const col = tab.indexOf('<div style={{ minWidth: 0, flex: 1 }}>');
-  assert.ok(col > 0, 'title column not found');
-  const rowsDue = tab.indexOf('{dueBlock}');
-  assert.ok(rowsDue > 0, 'rows must render the due block as its own item');
-  assert.ok(rowsDue < col, 'the rows due column must precede the title column');
+  // Asserted structurally, because the markup was VALID and rendered without
+  // complaint; only the position was wrong. The columns are written in order,
+  // each opened by its numbered comment.
+  const at = (s) => row.indexOf(s);
+  const marks = ['1 · DONE', '2 · WHO', '3 · WHEN', '4 · WHAT'].map(at);
+  assert.ok(marks.every((i) => i > 0), 'a row column is missing');
+  assert.deepEqual([...marks].sort((a, b) => a - b), marks, 'columns out of order');
+  // The date and the No DEAL pill live in WHEN; the actions in WHAT.
+  const when = row.slice(marks[2], marks[3]);
+  assert.match(when, /\{due\.text\}/);
+  assert.match(when, /<DealPill name="No deal" empty/);
+  const what = row.slice(marks[3]);
+  assert.match(what, /icon="edit"/);
+  assert.match(what, /icon="close"/);
 });
 
 test('no `order` is used to place the row grid columns', () => {
   // The columns are written in the order they appear. Reaching for `order`
   // here is what hid the nesting bug above: the style said four columns while
   // the DOM held three, and the two disagreed silently.
-  const rows = tab.slice(tab.indexOf('gridTemplateColumns: \'auto minmax'));
-  assert.doesNotMatch(
-    rows.slice(0, 400),
-    /order: [0-9]/,
-    'the rows grid must not position its columns with order'
-  );
+  assert.doesNotMatch(row, /order: [0-9]/, 'the rows grid must not position its columns with order');
 });
 
 test('each view has exactly one complete toggle', () => {
@@ -111,19 +124,20 @@ test('the due date is labelled in BOTH views', () => {
   // A bare date says nothing about what it is — "14 Oct" could be when the
   // task was created — and the calendar icon is what the design leads the
   // line with.
-  assert.match(tab, /calendar_today<\/span>/);
-  assert.match(tab, />\s*Due date\s*</);
+  assert.match(tab, /'calendar_today'/);
+  assert.match(tab, /\{done \? 'Done' : 'Due date'\}/);
   // The card: "DUE 18 Sep (overdue)".
   assert.match(tab, /label: 'Due', text: `\$\{date\} \(overdue\)`/);
 });
 
 // ── The grid card — October 2026 design ──────────────────────────────────────
 
-const card = tab.slice(tab.indexOf('function TaskCard('), tab.indexOf('function cardDue('));
+const card = tab.slice(tab.indexOf('function TaskCard('), tab.indexOf('function TaskRow('));
 
-test('the grid renders TaskCard, not the row markup', () => {
+test('the grid renders TaskCard and rows render TaskRow', () => {
   assert.ok(card.length > 0, 'TaskCard not found');
-  assert.match(tab, /if \(view === 'grid'\) \{\s*\n\s*return \(\s*\n\s*<TaskCard/);
+  assert.match(tab, /if \(view === 'grid'\) return <TaskCard key=\{t\.id\} \{\.\.\.shared\} \/>/);
+  assert.match(tab, /<TaskRow\s*\n\s*key=\{t\.id\}\s*\n\s*\{\.\.\.shared\}/);
 });
 
 test('a missing deal is called out in the HEADER', () => {
@@ -134,15 +148,16 @@ test('a missing deal is called out in the HEADER', () => {
   const pill = card.indexOf('<DealPill name="No deal" empty />');
   assert.ok(header > 0 && pill > header && pill < body, 'No DEAL pill must sit in the header');
   assert.match(card, /\{!t\.deal && \(/);
-  assert.match(card, /if \(t\.deal\) \{/);
 });
 
-test('every linked record on the card can be opened', () => {
+test('every linked record can be opened', () => {
   // View CONTACT / DEAL / BUSINESS each route somewhere — a pill that looks
-  // like a button and does nothing is worse than no pill.
-  assert.match(card, /onOpenContact \? \(\) => onOpenContact\(contact\.id\)/);
-  assert.match(card, /onOpenDeal \? \(\) => onOpenDeal\(t\.deal\.id\)/);
-  assert.match(card, /onOpenBusiness \? \(\) => onOpenBusiness\(t\.business\.id\)/);
+  // like a button and does nothing is worse than no pill. Both views render
+  // these through the one LinkedRecords.
+  const linked = tab.slice(tab.indexOf('function LinkedRecords('), tab.indexOf('function dueLine('));
+  assert.match(linked, /onOpenContact \? \(\) => onOpenContact\(contact\.id\)/);
+  assert.match(linked, /onOpenDeal \? \(\) => onOpenDeal\(t\.deal\.id\)/);
+  assert.match(linked, /onOpenBusiness \? \(\) => onOpenBusiness\(t\.business\.id\)/);
 });
 
 test('the card footer sits BELOW the linked records and carries the actions', () => {
