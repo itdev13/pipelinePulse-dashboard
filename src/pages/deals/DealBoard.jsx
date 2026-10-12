@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { dealsAPI } from '../../api/deals'
 import { formatMoney } from '../../utils/money'
 import { Bar, SkeletonStyles, DealPill } from '../shared/ListChrome'
+import { NotSet } from '../dealhub/FieldCard'
 
 // The pipeline as a board: one column per stage, deals as cards.
 //
@@ -19,10 +20,87 @@ import { Bar, SkeletonStyles, DealPill } from '../shared/ListChrome'
 
 const PAGE = 25
 
-// A card's height is fixed so a column of them scans as a list rather than a
-// ragged stack. Anything that would overflow is truncated at one line.
+// One labelled fact on a card: tinted label column with an icon, value beside
+// it. The same shape as the Deal hub's field table at board density, so a card
+// reads as a small version of the deal it opens.
+function CardField({ icon, label, value, last }) {
+  const empty = value == null || String(value).trim() === ''
+  return (
+    <div style={{
+      display: 'grid', gridTemplateColumns: '108px minmax(0, 1fr)',
+      borderBottom: last ? 'none' : '1px solid var(--border-default)'
+    }}>
+      <span style={{
+        display: 'flex', alignItems: 'center', gap: 6,
+        padding: '7px 10px', minWidth: 0,
+        background: 'var(--gray-25)',
+        borderRight: '1px solid var(--border-default)'
+      }}>
+        <span className="ms" style={{ fontSize: 15, color: 'var(--text-muted)', flex: 'none' }}>{icon}</span>
+        <span className="pp-label" style={{ marginBottom: 0 }}>{label}</span>
+      </span>
+      <span style={{
+        display: 'flex', alignItems: 'center',
+        padding: '7px 10px', minWidth: 0
+      }}>
+        {/* Not set, not a dash: an unset product field is a gap in the deal
+            worth fixing, and this is the chip the Deal hub uses for it. */}
+        {empty
+          ? <NotSet />
+          : (
+            <span title={String(value)} style={{
+              fontSize: 'var(--text-md)', color: 'var(--text-body)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+            }}>
+              {value}
+            </span>
+          )}
+      </span>
+    </div>
+  )
+}
+
+// Open tasks and notes on the deal, as one bordered group. ZERO OPEN TASKS is
+// red: an open deal with nothing scheduled is the one a rep has forgotten.
+function FollowUpCounts({ tasks, notes }) {
+  const noTasks = tasks === 0
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center',
+      height: 30, minWidth: 0,
+      border: '1px solid var(--border-default)',
+      borderRadius: 'var(--radius-md)', background: 'var(--surface-card)',
+      fontSize: 'var(--text-base)', color: 'var(--text-body)',
+      whiteSpace: 'nowrap'
+    }}>
+      <span
+        title={noTasks ? 'No open tasks on this deal' : undefined}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5, padding: '0 10px',
+          color: noTasks ? 'var(--status-stuck-text)' : 'var(--text-body)',
+          fontWeight: noTasks ? 600 : 400
+        }}
+      >
+        <span className="ms" style={{ fontSize: 16 }}>{noTasks ? 'error' : 'task_alt'}</span>
+        {tasks} {tasks === 1 ? 'task' : 'tasks'}
+      </span>
+      <span style={{ width: 1, height: 16, background: 'var(--border-strong)' }} />
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '0 10px' }}>
+        <span className="ms" style={{ fontSize: 16, color: 'var(--text-muted)' }}>sticky_note_2</span>
+        {notes} {notes === 1 ? 'note' : 'notes'}
+      </span>
+    </span>
+  )
+}
+
+// A card: title band, value and owner, the deal's four facts, then its
+// follow-up counts beside the way into the hub.
 function DealCard({ deal, onOpen, onOpenInHub, onDragStart, dragging }) {
   const value = Number(deal.monetaryValue)
+  const name = deal.dealTag || deal.opportunityName || 'Untitled deal'
+  const contact = deal.contact
+    ? `${deal.contact.firstName || ''} ${deal.contact.lastName || ''}`.trim()
+    : ''
   return (
     <article
       draggable
@@ -32,8 +110,7 @@ function DealCard({ deal, onOpen, onOpenInHub, onDragStart, dragging }) {
         background: 'var(--surface-card)',
         border: '1px solid var(--border-default)',
         borderRadius: 'var(--radius-md)',
-        padding: '12px 14px',
-        display: 'grid', gap: 7,
+        overflow: 'hidden',
         cursor: 'grab',
         // The card being dragged fades rather than disappears: a gap where a
         // card was reads as "it moved already", which it has not yet.
@@ -45,96 +122,93 @@ function DealCard({ deal, onOpen, onOpenInHub, onDragStart, dragging }) {
       }}
       onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none' }}
     >
-      {/* Title and the hub button share the top line. The button sits with the
-          card's IDENTITY rather than down beside the value: a rep scanning a
-          column reads titles, so the way out of the card belongs where their
-          eye already is. */}
-      <div style={{
-        display: 'flex', alignItems: 'flex-start',
-        justifyContent: 'space-between', gap: 'var(--space-2)'
+      {/* The title gets its own band: it is the one thing scanned down a
+          column, and the rule under it separates "which deal" from "what
+          about it". */}
+      <h4 title={name} style={{
+        margin: 0, padding: '12px 14px',
+        borderBottom: '1px solid var(--border-default)',
+        fontSize: 15, fontWeight: 600,
+        color: 'var(--text-heading)', lineHeight: 1.3,
+        letterSpacing: '-0.01em',
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
       }}>
-        {/* 15px, not 13px. A card's title is the one thing scanned down a
-            column, and at the body size it carried no more weight than the
-            contact line under it. */}
-        <h4 style={{
-          margin: 0, fontSize: 15, fontWeight: 600,
-          color: 'var(--text-heading)', lineHeight: 1.3,
-          letterSpacing: '-0.01em',
-          // minWidth:0 or the flex item refuses to shrink and the ellipsis
-          // never engages — a long title would push the button off the card.
-          minWidth: 0,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-        }}>
-          {deal.dealTag || deal.opportunityName || 'Untitled deal'}
-        </h4>
-        {/* The card body opens the deal's editor. Reaching the deal hub from
-            the board needed that editor opened first, so the one screen a rep
-            actually works a deal on was two steps behind every card. */}
-        {onOpenInHub && (
-          /* The same green chip every other surface uses to open a deal —
-             Notes, Tasks, the Deals table, Businesses, Contacts. This was a
-             26px square icon button, a sixth treatment for one action.
+        {name}
+      </h4>
 
-             The two drag guards are NOT optional here: the card is
-             draggable, and a button inside a draggable element starts its
-             own drag on mousedown, which cancels the click. DealPill
-             forwards both for exactly this case. */
-          <DealPill
-            compact
-            name={deal.dealTag || deal.opportunityName}
-            onClick={(e) => {
-              // Without this the card's own onClick fires underneath and the
-              // rep lands in the editor they were trying to skip.
-              e.stopPropagation()
-              onOpenInHub(deal.id)
-            }}
-            draggable={false}
-            onDragStart={(e) => { e.preventDefault(); e.stopPropagation() }}
-          />
-        )}
-      </div>
-
-      {/* The contact, when it is not simply the deal's own name repeated —
-          GHL names a new opportunity after its contact, so the two are the
-          same string on most rows and printing both wastes the line. */}
-      {deal.contact?.firstName
-        && `${deal.contact.firstName} ${deal.contact.lastName || ''}`.trim()
-           !== (deal.dealTag || '').trim()
-        && (
-        <p style={{
-          margin: 0, fontSize: 'var(--text-md)', color: 'var(--text-muted)',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+      <div style={{ display: 'grid', gap: 10, padding: '12px 14px' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 'var(--space-2)'
         }}>
-          {`${deal.contact.firstName} ${deal.contact.lastName || ''}`.trim()}
-        </p>
-      )}
-
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        gap: 'var(--space-2)', marginTop: 2
-      }}>
-        {/* A priced deal leads with its value; an unpriced one says so rather
-            than printing £0, which reads as "worth nothing" instead of
-            "not yet quoted". */}
-        <span style={{
-          fontSize: 'var(--text-lg)', fontWeight: 600,
-          fontVariantNumeric: 'tabular-nums',
-          color: value > 0 ? 'var(--text-heading)' : 'var(--text-faint)'
-        }}>
-          {value > 0 ? formatMoney(value, deal.currency) : 'Not priced'}
-        </span>
-        {deal.owner && (
-          <span
-            title={deal.owner}
-            style={{
-              fontSize: 'var(--text-base)', color: 'var(--text-faint)',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              maxWidth: 110
-            }}
-          >
-            {deal.owner}
+          {/* A priced deal leads with its value; an unpriced one says so rather
+              than printing £0, which reads as "worth nothing" instead of
+              "not yet quoted". */}
+          <span style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--text-lg)', fontWeight: 600,
+            fontVariantNumeric: 'tabular-nums',
+            color: value > 0 ? 'var(--text-heading)' : 'var(--text-faint)'
+          }}>
+            {value > 0 ? formatMoney(value, deal.currency) : 'Not priced'}
           </span>
-        )}
+          {deal.owner && (
+            <span
+              title={`Owner: ${deal.owner}`}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 0,
+                fontSize: 'var(--text-base)', color: 'var(--text-muted)'
+              }}
+            >
+              <span className="ms" style={{ fontSize: 16, flex: 'none' }}>account_circle</span>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>
+                {deal.owner}
+              </span>
+            </span>
+          )}
+        </div>
+
+        <div style={{
+          border: '1px solid var(--border-default)',
+          borderRadius: 'var(--radius-sm)', overflow: 'hidden'
+        }}>
+          <CardField icon="category" label="System" value={deal.productSystem} />
+          <CardField icon="grid_view" label="Type" value={deal.productType} />
+          <CardField icon="person" label="Contact" value={contact} />
+          {/* The contact's business record, falling back to the free-text
+              company GHL holds on the contact. */}
+          <CardField
+            icon="domain"
+            label="Business"
+            value={deal.businessName || deal.contact?.business}
+            last
+          />
+        </div>
+
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 'var(--space-2)'
+        }}>
+          <FollowUpCounts tasks={deal.openTaskCount ?? 0} notes={deal.noteCount ?? 0} />
+          {/* The card body opens the deal's editor; this chip goes straight
+              to the hub. The two drag guards are NOT optional: the card is
+              draggable, and a button inside a draggable element starts its
+              own drag on mousedown, which cancels the click. */}
+          {onOpenInHub && (
+            <DealPill
+              compact
+              name={name}
+              onClick={(e) => {
+                // Without this the card's own onClick fires underneath and the
+                // rep lands in the editor they were trying to skip.
+                e.stopPropagation()
+                onOpenInHub(deal.id)
+              }}
+              draggable={false}
+              onDragStart={(e) => { e.preventDefault(); e.stopPropagation() }}
+            />
+          )}
+        </div>
       </div>
     </article>
   )
@@ -144,6 +218,10 @@ function DealCard({ deal, onOpen, onOpenInHub, onDragStart, dragging }) {
 function Column({ stage, search, status, tag, assignedTo, onOpen, onOpenInHub, onMoved, registerReload }) {
   const [deals, setDeals] = useState([])
   const [total, setTotal] = useState(null)
+  // The STAGE's value from the server (sum over every matching deal), not the
+  // loaded page's. Null until the first load, or on a server that predates
+  // totalValue — the header then falls back to the loaded sum, labelled.
+  const [totalValue, setTotalValue] = useState(null)
   const [cursor, setCursor] = useState(null)
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -176,6 +254,7 @@ function Column({ stage, search, status, tag, assignedTo, onOpen, onOpenInHub, o
       setCursor(r.nextCursor || null)
       setHasMore(!!r.hasMore)
       if (typeof r.totalCount === 'number') setTotal(r.totalCount)
+      if (typeof r.totalValue === 'number') setTotalValue(r.totalValue)
     } catch (e) {
       setError(e.message || 'Could not load this stage')
     } finally {
@@ -197,6 +276,11 @@ function Column({ stage, search, status, tag, assignedTo, onOpen, onOpenInHub, o
     () => deals.reduce((n, d) => n + (Number(d.monetaryValue) || 0), 0),
     [deals]
   )
+  // A partial sum only when the server gave no total AND more deals remain.
+  const stageValue = totalValue ?? loadedValue
+  const partial = totalValue == null && hasMore
+  const currency = deals[0]?.currency
+
 
   return (
     <section
@@ -216,7 +300,9 @@ function Column({ stage, search, status, tag, assignedTo, onOpen, onOpenInHub, o
         if (id && to && from !== to) onMoved(id, from, to)
       }}
       style={{
-        flex: 'none', width: 320,
+        // 360, not 320: the cards now carry a four-row field table, and at 320
+        // its values truncated after a dozen characters.
+        flex: 'none', width: 360,
         display: 'flex', flexDirection: 'column',
         // A fixed height, not maxHeight: every column ends at the same line
         // whether it holds ten cards or none, so the board reads as a grid.
@@ -237,21 +323,23 @@ function Column({ stage, search, status, tag, assignedTo, onOpen, onOpenInHub, o
         transition: 'background 120ms ease'
       }}
     >
-      {/* Its own band — white against the column's tinted body, the way a
-          table header sits above its rows. It used to share the column's
-          background and read as the first card. */}
+      {/* Its own band, tinted pine like the design: the stage and its count
+          on the left, the stage TOTAL in its own cell on the right. The
+          total used to sit under the name in small grey text, where it read
+          as a caption rather than the column's headline number. */}
       <header style={{
         flex: 'none',
-        padding: '12px 14px',
-        background: 'var(--surface-card)',
+        display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto',
+        background: 'var(--tint-pine)',
         // A real edge, not a hairline: this is the line between "what stage
-        // is this" and "which deals are in it", and at border-default on a
-        // near-white column it was invisible.
-        borderBottom: '2px solid var(--border-strong)',
-        display: 'grid', gap: 3
+        // is this" and "which deals are in it".
+        borderBottom: '1px solid var(--border-strong)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-          <h3 style={{
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, minWidth: 0,
+          padding: '14px 14px'
+        }}>
+          <h3 title={stage.name} style={{
             margin: 0, fontSize: 'var(--text-lg)', fontWeight: 600,
             color: 'var(--text-heading)', letterSpacing: '-0.01em',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
@@ -259,27 +347,40 @@ function Column({ stage, search, status, tag, assignedTo, onOpen, onOpenInHub, o
             {stage.name}
           </h3>
           {/* A pill, not loose digits: it is a count of the column below it
-              and needed a shape to say so. */}
+              and needed a shape to say so. White on the pine band. */}
           <span style={{
             flex: 'none',
-            minWidth: 22, height: 20, padding: '0 7px',
+            minWidth: 22, height: 22, padding: '0 7px',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             borderRadius: 'var(--radius-pill)',
-            background: 'var(--gray-100)',
+            background: 'var(--surface-card)',
             fontSize: 'var(--text-base)', fontWeight: 600,
-            fontVariantNumeric: 'tabular-nums', color: 'var(--text-muted)'
+            fontVariantNumeric: 'tabular-nums', color: 'var(--text-body)'
           }}>
             {total ?? deals.length}
           </span>
         </div>
-        <span style={{
-          fontSize: 'var(--text-md)', color: 'var(--text-muted)',
-          fontVariantNumeric: 'tabular-nums', fontWeight: 500
-        }}>
-          {loadedValue > 0
-            ? `${formatMoney(loadedValue, deals[0]?.currency)}${hasMore ? ' loaded' : ''}`
-            : 'No value yet'}
-        </span>
+        <div
+          title={partial ? 'Only the deals loaded so far — scroll to load the rest' : undefined}
+          style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
+            justifyContent: 'center', gap: 2,
+            padding: '8px 14px',
+            borderLeft: '1px solid var(--border-strong)'
+          }}
+        >
+          <span className="pp-label" style={{ marginBottom: 0 }}>
+            {partial ? 'Loaded' : 'Total'}
+          </span>
+          <span style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--text-lg)', fontWeight: 600,
+            fontVariantNumeric: 'tabular-nums',
+            color: stageValue > 0 ? 'var(--text-heading)' : 'var(--text-faint)'
+          }}>
+            {formatMoney(stageValue, currency)}
+          </span>
+        </div>
       </header>
 
       <div style={{
@@ -410,7 +511,7 @@ function Column({ stage, search, status, tag, assignedTo, onOpen, onOpenInHub, o
 // name and a column asks for every id that shares it (the list form of
 // stageId, added in routes/deals.js for exactly this). One grid, one scroll,
 // and picking a pipeline narrows the same grid instead of changing its shape.
-function mergeStages(pipelines) {
+export function mergeStages(pipelines) {
   const byName = new Map()
   for (const p of pipelines) {
     for (const st of p.stages || []) {
@@ -487,7 +588,7 @@ export default function DealBoard({ pipeline, pipelines, search, status = 'open'
   if (!stages.length) return null
 
   return (
-    <div style={{ display: 'grid', gap: 'var(--space-2)', minHeight: 0 }}>
+    <div style={{ display: 'grid', gap: 'var(--space-3)', minHeight: 0 }}>
       {moveError && (
         <p style={{
           margin: 0, padding: 'var(--space-2) var(--space-3)',

@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Select } from 'antd'
-import DealBoard from '../deals/DealBoard'
+import DealBoard, { mergeStages } from '../deals/DealBoard'
+import PipelineStrip from '../deals/PipelineStrip'
 import DealTable from '../deals/DealTable'
 import DealToolbar from '../deals/DealToolbar'
 import { useAuth } from '../../context/AuthContext'
@@ -88,6 +89,10 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
   // holds a full list. The server already counts under the same WHERE as the
   // page, so one request with limit:1 gets the real number.
   const [pipelineCount, setPipelineCount] = useState(null)
+  // Per-stage { stageId, count, value, currency } for the pipeline strip,
+  // from the same request as the count. Null until loaded, or on a server
+  // that does not support ?summary=stages — the strip is then not shown.
+  const [stageTotals, setStageTotals] = useState(null)
 
   // Live filters. The keys match GET /api/deals's query parameters exactly,
   // so applying a saved view is "spread these onto the request" rather than a
@@ -197,15 +202,57 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
       pipelineId,
       // One row, because only the count is wanted — totalCount is computed
       // under the same WHERE regardless of the page size.
-      limit: 1
+      limit: 1,
+      // And the per-stage counts and values for the pipeline strip, from the
+      // same request — so the strip and the count beside the heading can
+      // never disagree.
+      summary: 'stages'
     })
-      .then((r) => { if (alive) setPipelineCount(typeof r?.totalCount === 'number' ? r.totalCount : null) })
-      .catch(() => { if (alive) setPipelineCount(null) })
+      .then((r) => {
+        if (!alive) return
+        setPipelineCount(typeof r?.totalCount === 'number' ? r.totalCount : null)
+        setStageTotals(Array.isArray(r?.stageTotals) ? r.stageTotals : null)
+      })
+      .catch(() => { if (alive) { setPipelineCount(null); setStageTotals(null) } })
     return () => { alive = false }
     // `view` and `refData` were dependencies only because the board used to
     // substitute the first pipeline here. It no longer does, so refetching the
     // count on a view switch would be a request that cannot change the answer.
   }, [boardPipelineId, filters, search])
+
+  // The pipeline strip's columns and figures. Null until both the pipelines
+  // and the stage totals have loaded, so the strip never flashes a row of
+  // zeros that are really "not fetched yet".
+  const strip = useMemo(() => {
+    const all = refData?.pipelines || []
+    if (!all.length || !stageTotals) return null
+    const chosen = boardPipelineId ? all.filter((p) => p.id === boardPipelineId) : all
+    if (!chosen.length) return null
+    const byId = new Map(stageTotals.map((t) => [t.stageId, t]))
+    const stages = mergeStages(chosen)
+    const stats = {}
+    for (const st of stages) {
+      // A merged column's id is its stage ids joined — sum each of them. A
+      // stage with no matching deals is absent from the totals: that is a
+      // real zero, not a missing figure.
+      let count = 0
+      let value = 0
+      let currency
+      for (const id of st.id.split(',')) {
+        const t = byId.get(id)
+        if (!t) continue
+        count += t.count
+        value += t.value
+        currency = currency || t.currency
+      }
+      stats[st.id] = { count, value, currency }
+    }
+    return {
+      label: chosen.length === 1 ? chosen[0].name : 'All pipelines',
+      stages,
+      stats
+    }
+  }, [refData, stageTotals, boardPipelineId])
 
   // Saved-view actions.
   //
@@ -634,6 +681,13 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
             window.setTimeout(() => reload(), 2500)
           }}
         />
+      )}
+
+      {/* PIPELINE VALUE, above every view. Its stages are the board's merged
+          columns (one per stage NAME across the pipelines in scope), and
+          each one's total sums every stage id that shares the name. */}
+      {strip && !error && (
+        <PipelineStrip label={strip.label} stages={strip.stages} stats={strip.stats} />
       )}
 
       {/* Cards, not rows — so the loading state mirrors the card shape
