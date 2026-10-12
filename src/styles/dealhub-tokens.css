@@ -58,6 +58,10 @@
   --tasks-header: #c25a1f;
   --tasks-header-border: #b5501a;
   --tasks-header-hover: #a94d19;
+  /* The Notes page's header — the design's brown band. Same reasoning as
+     --tasks-header: deep enough to hold white 18px/600 text (about 6:1). */
+  --notes-header: #8b5a2b;
+  --notes-header-border: #7a4e24;
   --accent-gold: #b8860b;
   /* The People rail's "Add someone" fill — the design's bright yellow,
      which is not --accent-gold (a dark goldenrod used for text and badges).
@@ -1115,6 +1119,23 @@
 }
 [data-dealhub] .pp-field-select.ant-select-multiple .ant-select-selection-item {
   flex: none;
+}
+
+/* ── Tasks toolbar values ─────────────────────────────────────────────────
+ *
+ * The chosen value in each toolbar control (Status, Assignee, Due, Sort, the
+ * date range and the search text) at medium weight, per Figma — antd's 400
+ * read too light against the grey band. Placeholders stay at 400 so a typed
+ * or chosen value still stands apart from an empty prompt.
+ */
+[data-dealhub] .pp-task-toolbar .ant-select-selection-item,
+[data-dealhub] .pp-task-toolbar .ant-picker-input > input,
+[data-dealhub] .pp-task-toolbar .pp-task-search {
+  font-weight: 500;
+}
+[data-dealhub] .pp-task-toolbar .ant-picker-input > input::placeholder,
+[data-dealhub] .pp-task-toolbar .pp-task-search::placeholder {
+  font-weight: 400;
 }
 
 /* ── Skeleton shimmer ─────────────────────────────────────────────────────

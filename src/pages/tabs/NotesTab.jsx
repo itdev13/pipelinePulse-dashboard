@@ -13,10 +13,11 @@ import { useLinkTargets } from '../../hooks/useLinkTargets'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import { noteColourStyle } from '../../utils/noteColour'
 import {
-  Shell, Panel, ContactChip, DealPill, RowAction,
-  PrimaryAction, NoteChip, StateMessage, LoadMore, RichBody, relativeTime,
+  Shell, ContactChip, DealPill, RowAction, LabelledControl,
+  NoteChip, StateMessage, LoadMore, RichBody, relativeTime,
   AttachmentCount
 } from '../shared/ListChrome'
+import { LinkedRecords } from '../shared/LinkedRecords'
 
 // Notes — v5.
 //
@@ -24,13 +25,14 @@ import {
 // renders (showing "No deal" when unattached), Delete joins the row actions,
 // and notes linked to this note appear as gold chips beneath.
 //
-// No search or sort control here — the v5 design has neither on this page. The
-// spec's "sort controls on list pages" applies elsewhere.
+// October 2026: a brown section header and a labelled toolbar band (Author,
+// Sort), as on Tasks, and a card per note in the grid — see NoteCard. The
+// design's search box is held back until /api/notes supports a query.
 //
 // GHL notes have no title column (migration 017), so the heading is derived
 // from the body's first block — see splitNote.
 
-export default function NotesTab({ onOpenDeal, onOpenContact }) {
+export default function NotesTab({ onOpenDeal, onOpenContact, onOpenBusiness }) {
   // Contact / deal filters. useTabState, not plain state: stepping out to a
   // deal or a contact and back should not discard them.
   const [filters, setFilters] = useTabState('notes', 'filters', {})
@@ -154,24 +156,62 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
           There was a PageHeader repeating the tab name with a subtitle
           explaining what a note is, and the list below it in a second
           container. */}
-      <Panel
-        icon="sticky_note_2"
-        title="Notes"
-        accent="gold"
-        count={loading ? null : `${notes.length}${hasMore ? '+' : ''}`}
-        action={
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            {/* "Author", not "Owner": a note is not assigned to anyone and
-                cannot be reassigned, so calling it an owner would promise
-                something the record does not support. "No author" covers
-                notes synced before attribution existed. */}
+      {/* A SECTION CARD with a solid brown header and a toolbar band beneath
+          it — the same build as the Tasks tab, in the Notes colour. */}
+      <section style={{
+        border: '1px solid var(--border-default)',
+        borderRadius: 'var(--radius-md)',
+        boxShadow: 'var(--shadow-card)',
+        background: '#fff',
+        overflow: 'hidden'
+      }}>
+        <header style={{
+          display: 'flex', alignItems: 'center', gap: 9,
+          padding: '12px 16px',
+          background: 'var(--notes-header)',
+          borderBottom: '1px solid var(--notes-header-border)'
+        }}>
+          <span className="ms" style={{ fontSize: 19, color: '#fff' }}>sticky_note_2</span>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: '#fff' }}>Notes</h2>
+          {!loading && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              minWidth: 24, height: 22, padding: '0 8px', flex: 'none',
+              borderRadius: 'var(--radius-pill)',
+              background: 'rgba(255,255,255,.22)',
+              fontSize: 13, fontWeight: 600, color: '#fff',
+              fontVariantNumeric: 'tabular-nums'
+            }}>
+              {notes.length}{hasMore ? '+' : ''}
+            </span>
+          )}
+        </header>
+
+        {/* The toolbar band — labelled controls left, the view controls and
+            Add note right. pp-task-toolbar gives the chosen values the same
+            medium weight as the Tasks toolbar. */}
+        <div className="pp-task-toolbar" style={{
+          display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap',
+          padding: '12px 14px',
+          background: 'var(--gray-100)',
+          borderBottom: '1px solid var(--border-default)'
+        }}>
+          {/* "Author", not "Owner": a note is not assigned to anyone and
+              cannot be reassigned, so calling it an owner would promise
+              something the record does not support. "No author" covers
+              notes synced before attribution existed. */}
+          <LabelledControl label="Author">
             <OwnerFilter
               value={author}
               onChange={setAuthor}
+              // Still passed when bare: it names the "All authors" option.
               label="Author"
               noneLabel="No author"
-              width={180}
+              width={190}
+              bare
             />
+          </LabelledControl>
+          <LabelledControl label="Sort">
             <SortSelect
               value={sort}
               onChange={setSort}
@@ -180,12 +220,16 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                 { value: 'asc', label: 'Oldest first' }
               ]}
               width={150}
+              bare
             />
-            <WorkFilters
-              filters={filters}
-              onChange={setFilters}
-              noun="notes"
-            />
+          </LabelledControl>
+
+          {/* ONE GROUP, pushed right, so it wraps as a unit — see TasksTab. */}
+          <span style={{
+            marginLeft: 'auto', flex: 'none',
+            display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap'
+          }}>
+            <WorkFilters filters={filters} onChange={setFilters} noun="notes" />
             <ViewSwitch
               value={view}
               onChange={setView}
@@ -194,12 +238,22 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
                 { id: 'rows', icon: 'view_agenda', label: 'Rows' }
               ]}
             />
-            <PrimaryAction onClick={() => setEditor({ note: null })} icon="add">
-              Add note
-            </PrimaryAction>
+            <button
+              onClick={() => setEditor({ note: null })}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7,
+                height: 38, padding: '0 16px', flex: 'none',
+                border: 'none', borderRadius: 'var(--radius-pill)',
+                background: 'var(--notes-header)', color: '#fff',
+                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+                fontWeight: 600, cursor: 'pointer'
+              }}
+            >
+              <span className="ms" style={{ fontSize: 17 }}>add</span>Add note
+            </button>
           </span>
-        }
-      >
+        </div>
+
         <StateMessage
           loading={loading}
           error={error}
@@ -208,359 +262,33 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
           loadingText="Loading notes…"
         />
 
-        {/* GRID wraps the same rows — see TasksTab for why the markup is
-            shared rather than duplicated. */}
-        {/* Grey behind the list in BOTH views — see TasksTab for why. */}
+        {/* Grey behind the list in BOTH views — see TasksTab for why.
+            GRID lays NoteCards out at the same 460px minimum as the Tasks
+            cards, so the two tabs' grids line up column for column. */}
         <div style={{
           background: 'var(--gray-50)',
           padding: 'var(--space-3)',
           display: view === 'grid' ? 'grid' : 'flex',
           ...(view === 'grid'
-            ? { gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))' }
+            ? { gridTemplateColumns: 'repeat(auto-fill, minmax(min(460px, 100%), 1fr))' }
             : { flexDirection: 'column' }),
           gap: 'var(--space-3)'
         }}>
         {notes.map((n) => {
-          // A real title wins over one derived from the body. Before migration
-          // 058 there was no title column, so an author who DID title their
-          // note saw it rendered as body text with a heading invented from the
-          // first sentence.
-          const derived = splitNote(n.body)
-          const heading = n.title || derived.heading
-          const rest = n.title ? n.body : derived.rest
-          const byAI = isAIAuthored(n)
-          const hasChips = n.noteChips?.length > 0
-          // The author's own colour, via the shared normaliser.
-          //
-          // This list already showed the colour, but read `n.color` straight
-          // into a style attribute. A note's colour is attacker-influenceable
-          // — anyone with sub-account access can set one, and integrations
-          // write notes too — so a value like
-          // `red; background-image: url(//evil/x)` escaped the declaration.
-          // normaliseNoteColour is an allow-list of the two forms GHL itself
-          // accepts on write.
-          const col = noteColourStyle(n.color)
-          return (
-            <div
-              key={n.id}
-              // The divider and the spacing used to live here. The grey
-              // surface and the container's gap do both jobs now, and a rule
-              // between two cards says nothing the gap has not already said.
-              style={undefined}
-            >
-              <div
-                style={{
-                  // Stacked in a card — see TasksTab. At a 340px column the
-                  // horizontal layout left the title a few pixels and it
-                  // wrapped one letter per line.
-                  display: 'flex',
-                  flexDirection: view === 'grid' ? 'column' : 'row',
-                  alignItems: view === 'grid' ? 'stretch' : 'flex-start',
-                  gap: 10,
-                  // The stripe eats the left padding rather than adding to it,
-                  // so coloured and uncoloured rows keep their text on one
-                  // vertical line.
-                  padding: col.stripe
-                    ? 'var(--space-3) var(--space-4) var(--space-3) calc(var(--space-4) - 3px)'
-                    : 'var(--space-3) var(--space-4)',
-                  // Matches the deal rail's treatment, so the same note looks
-                  // the same in both places.
-                  borderLeft: col.stripe ? `3px solid ${col.stripe}` : 'none',
-                  // A card in the grid, a list item in rows — see TasksTab.
-                  // The colour stripe on the left survives either way.
-                  // A CARD IN BOTH VIEWS — see TasksTab. The colour stripe
-                  // on the left survives either way.
-                  ...({
-                      border: '1px solid var(--border-default)',
-                      // A FIXED height, so a grid row's cards all end on the
-                      // same line. Without it a card with a description was
-                      // taller than one without, and the row below started at
-                      // a different depth for every column — the zig-zag.
-// No card min-height any more.
-                      //
-                      // The two reserved body lines are what align the row now,
-                      // and they do it from the content rather than a magic
-                      // number — a card with no body reserves the same two
-                      // lines as one with a paragraph. A 210px floor on top of
-                      // that only forced empty space onto short cards.
-                      borderLeft: col.stripe
-                        ? `3px solid ${col.stripe}`
-                        : '1px solid var(--border-default)',
-                      borderRadius: 'var(--radius-md)',
-                      background: 'var(--surface-card)'
-                    })
-                }}
-              >
-                {/* Icon and actions share ONE row.
-                    The card is a flex COLUMN in grid view, so as siblings they
-                    stacked — the buttons dropped onto their own line beneath
-                    the icon. Wrapping them in a row puts the icon left and the
-                    actions right, on the same line. */}
-                <span style={{
-                  display: 'flex', alignItems: 'flex-start',
-                  gap: 'var(--space-2)',
-                  ...(view === 'grid' ? { width: '100%' } : {})
-                }}>
-                <span
-                  title={col.name ? `${col.name} note` : undefined}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    width: 28, height: 28, flex: 'none', marginTop: 1,
-                    borderRadius: 'var(--radius-sm)',
-                    background: col.tint || 'var(--tint-gold)'
-                  }}
-                >
-                  <span
-                    className="ms"
-                    style={{
-                      fontSize: 16,
-                      // WAS '#fff' ON A PASTEL, which is close to unreadable:
-                      // white on #FFF2B2 is about 1.2:1. These are pale fills,
-                      // so the glyph has to go dark.
-                      color: col.hex ? 'var(--text-heading)' : 'var(--accent-gold)'
-                    }}
-                  >
-                    sticky_note_2
-                  </span>
-                </span>
-
-                  {/* Edit and delete, top-right. A SIBLING of the icon tile, not a
-                      child of it — nested inside, the tile's fixed 28px width and
-                      flex:none meant the buttons overflowed their own container and
-                      sat on top of the icon. */}
-                  {view === 'grid' && (
-                    <span style={{
-                      marginLeft: 'auto',
-                      display: 'inline-flex', gap: 6, flex: 'none'
-                    }}>
-                      <RowAction
-                        icon="edit"
-                        title="Edit this note"
-                        onClick={() => setEditor({ note: n })}
-                      />
-                      <RowAction
-                        icon="close"
-                        danger
-                        title="Delete this note"
-                        onClick={() => { setConfirmError(null); setConfirming(n) }}
-                      />
-                    </span>
-                  )}
-                </span>
-
-                {/* In a CARD this is a column that fills the stretched
-                    height, so the metadata line can be pushed to the bottom.
-                    Grid already makes every card in a row as tall as the
-                    tallest; without this the content bunched at the top and
-                    left a ragged gap above the chips — different on every
-                    card, which is the misalignment. */}
-                <div style={{
-                  minWidth: 0, flex: 1,
-                  ...(view === 'grid'
-                    ? { display: 'flex', flexDirection: 'column', alignSelf: 'stretch' }
-                    : {})
-                }}>
-                  <div
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap'
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: 'var(--text-xl)', fontWeight: 600,
-                        lineHeight: 1.3, letterSpacing: '-0.01em',
-                        color: 'var(--text-heading)'
-                      }}
-                    >
-                      {heading}
-                    </span>
-                    {byAI && <AIBadge />}
-                    {n.pinned && (
-                      <span
-                        title="Pinned to the top of this contact"
-                        style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 4,
-                          padding: '2px 8px',
-                          borderRadius: 'var(--radius-pill)',
-                          background: 'var(--tint-gold)', color: 'var(--accent-gold-text)',
-                          fontSize: 'var(--text-sm)', fontWeight: 600
-                        }}
-                      >
-                        <span className="ms" style={{ fontSize: 13 }}>push_pin</span>
-                        Pinned
-                      </span>
-                    )}
-                    <AttachmentCount count={n.attachmentCount} />
-                  </div>
-
-                  {/* The body slot is ALWAYS rendered in a card, even when a
-                      note has none — two reserved lines is what makes every
-                      card the same height, which is the whole point. An empty
-                      note simply shows two lines of nothing. */}
-                  {(rest || view === 'grid') && (
-                    <div style={{
-                      marginTop: 3,
-                      // CLAMPED in a card. The card has a fixed height so its
-                      // row lines up, and without a clamp a long note simply
-                      // overflowed past the border — visible as text running
-                      // out of the bottom of the third card.
-                      //
-                      // TWO lines, then an ellipsis, then "Read more" for the
-                      // rest. Two rather than three because the slot is
-                      // reserved on every card — three lines of reserved
-                      // emptiness on a note with no body is a lot of nothing.
-                      // line-clamp needs display:-webkit-box with an
-                      // orientation; every browser we target honours the
-                      // prefixed form.
-                      ...(view === 'grid' ? {
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        // A fixed two-line box, not "up to two lines": a
-                        // one-line note would otherwise sit a line shorter
-                        // than its neighbours and the row would stagger again.
-                        // 1.5 leading x 2 lines, in the body's own size.
-                        minHeight: 'calc(var(--text-lg) * 1.5 * 2)',
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden'
-                      } : {})
-                    }}>
-                      {/* 14px body against the 17px heading. At 12px the note
-                          text was smaller than the metadata line beneath it. */}
-                      {/* `rest` can be empty now the slot always renders —
-                          RichBody with no html would be an empty box, so the
-                          reserved height above carries it instead. */}
-                      <RichBody
-                        html={rest || ''}
-                        color="var(--text-body)"
-                        size="var(--text-lg)"
-                        leading="var(--leading-normal)"
-                        // In a card the body is clamped and "Read more" opens
-                        // the full text, so a second toggle is redundant — and
-                        // it took the line that pushed edit and delete out of
-                        // the card.
-                        showPlainToggle={view !== 'grid'}
-                      />
-                    </div>
-                  )}
-
-                  {/* Only when there IS more to read — a two-line note needs
-                      no "read more", and offering one would be a control that
-                      shows what is already on screen. */}
-                  {/* Measured on the TEXT, not the HTML. rest.length counts
-                      markup, so a short note wrapped in tags could cross the
-                      threshold while a long plain one fell under it — the
-                      opposite of what the reader needs. ~3 lines at this width
-                      is roughly 120 characters. */}
-                  {/* ~90 characters is about three lines at this width, which
-                      is exactly where the clamp bites. At 120 the "asdf" note
-                      — 55 characters of text that still wraps to three lines
-                      once formatted — was clamped with no way to read the
-                      rest. Better to offer the link a little early than to
-                      hide text behind an ellipsis with no way out. */}
-                  {/* ~60 characters is about two lines at this width, which is
-                      where the clamp now bites. */}
-                  {view === 'grid' && htmlToText(rest || '').length > 60 && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setReading(n) }}
-                      style={{
-                        alignSelf: 'flex-start', marginTop: 2,
-                        border: 'none', background: 'none', padding: 0,
-                        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
-                        fontWeight: 600, color: 'var(--text-link)',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Read more
-                    </button>
-                  )}
-
-                  {/* marginTop:auto in a card — it sits on the card's floor
-                      whatever the body above it does, so the line is at the
-                      same depth in every card of the row. */}
-                  <div style={{
-                    fontSize: 'var(--text-base)', color: 'var(--text-muted)',
-                    marginTop: view === 'grid' ? 'auto' : 4,
-                    paddingTop: view === 'grid' ? 6 : 0
-                  }}>
-                    {[n.author, relativeTime(n.createdAt)].filter(Boolean).join(' · ')}
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: 'flex', gap: 6, flexWrap: 'wrap',
-                    justifyContent: view === 'grid' ? 'flex-start' : 'flex-end',
-                    alignItems: 'center'
-                  }}
-                >
-                  {/* The design loops contacts — a note can involve several
-                      people (Sarah and Mark on the same note). */}
-                  {/* Skip a contact whose name IS the deal name — GHL default-
-                      names an opportunity after its contact, so the two chips
-                      printed the same person twice. */}
-                  {(n.contacts?.length ? n.contacts : n.contact ? [n.contact] : [])
-                    .filter((c) => !sameName(c.name, n.deal?.name))
-                    .map((c) => (
-                      <ContactChip
-                        key={c.id}
-                        name={c.name}
-                        onClick={onOpenContact ? () => onOpenContact(c.id) : undefined}
-                      />
-                    ))}
-                  {/* Always rendered — "No deal" is a real state in v5, not an
-                      absence to hide. */}
-                  <DealPill
-                    name={n.deal?.name || 'No deal'}
-                    empty={!n.deal}
-                    onClick={
-                      n.deal && onOpenDeal ? () => onOpenDeal(n.deal.id) : undefined
-                    }
-                  />
-                  {/* "Make task" removed. It was a chip with no onClick and a
-                      "coming next" tooltip — a control that looked live, sat on
-                      every note, and did nothing when clicked. The CRM has no
-                      equivalent either. If note-to-task is built later it
-                      belongs in the editor, not as a permanent dead chip. */}
-
-                  {/* ROW view keeps them at the end of the chips, where the eye
-                      already finishes the line. In a card they sit in the
-                      corner instead — see the note icon above. */}
-                  {view !== 'grid' && (
-                    <>
-                      <RowAction
-                        icon="edit"
-                        title="Edit this note"
-                        onClick={() => setEditor({ note: n })}
-                      />
-                      <RowAction
-                        icon="close"
-                        danger
-                        title="Delete this note"
-                        onClick={() => { setConfirmError(null); setConfirming(n) }}
-                      />
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {hasChips && (
-                <div
-                  style={{
-                    display: 'flex', flexWrap: 'wrap', gap: 5,
-                    padding: '0 var(--space-4) var(--space-3) var(--space-7)'
-                    // No divider here either — it used to carry the row's
-                    // border when chips were present. With the row dividers
-                    // gone this was the only line left, so notes WITH linked
-                    // notes had a rule under them and the rest did not.
-                  }}
-                >
-                  {n.noteChips.map((c) => (
-                    <NoteChip key={c.id} label={c.label} />
-                  ))}
-                </div>
-              )}
-            </div>
-          )
+          // Rows and the grid are separate components, as on the Tasks tab —
+          // a stacked card and a single-line row share almost no layout.
+          const shared = {
+            note: n,
+            onRead: () => setReading(n),
+            onEdit: () => setEditor({ note: n }),
+            onDelete: () => { setConfirmError(null); setConfirming(n) },
+            onOpenDeal,
+            onOpenContact,
+            onOpenBusiness
+          }
+          return view === 'grid'
+            ? <NoteCard key={n.id} {...shared} />
+            : <NoteRow key={n.id} {...shared} />
         })}
         </div>
 
@@ -573,7 +301,7 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
             noun="note"
           />
         )}
-      </Panel>
+      </section>
 
       {editor && (
         <NoteEditor
@@ -659,6 +387,324 @@ export default function NotesTab({ onOpenDeal, onOpenContact }) {
       )}
 
     </Shell>
+  )
+}
+
+// What a note shows as its heading and its body.
+//
+// A real title wins over one derived from the body. Before migration 058
+// there was no title column, so an author who DID title their note saw it
+// rendered as body text with a heading invented from the first sentence.
+function noteParts(n) {
+  const derived = splitNote(n.body)
+  return {
+    heading: n.title || derived.heading,
+    rest: n.title ? n.body : derived.rest
+  }
+}
+
+// The note's colour tile — the sticky-note glyph on the author's colour.
+//
+// The colour goes through the shared normaliser: a note's colour is
+// attacker-influenceable (anyone with sub-account access can set one, and
+// integrations write notes too), so a raw value like
+// `red; background-image: url(//evil/x)` would escape a style declaration.
+// normaliseNoteColour is an allow-list of the two forms GHL itself accepts.
+function NoteIcon({ col }) {
+  return (
+    <span
+      title={col.name ? `${col.name} note` : undefined}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: 28, height: 28, flex: 'none',
+        borderRadius: 'var(--radius-sm)',
+        background: col.tint || 'var(--tint-gold)'
+      }}
+    >
+      <span
+        className="ms"
+        style={{
+          fontSize: 16,
+          // Dark on the pastel fills — white on #FFF2B2 is about 1.2:1.
+          color: col.hex ? 'var(--text-heading)' : 'var(--accent-gold)'
+        }}
+      >
+        sticky_note_2
+      </span>
+    </span>
+  )
+}
+
+// The badges that ride beside a heading: AI-written, pinned, attachments.
+function HeadingBadges({ note: n }) {
+  return (
+    <>
+      {isAIAuthored(n) && <AIBadge />}
+      {n.pinned && (
+        <span
+          title="Pinned to the top of this contact"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            padding: '2px 8px',
+            borderRadius: 'var(--radius-pill)',
+            background: 'var(--tint-gold)', color: 'var(--accent-gold-text)',
+            fontSize: 'var(--text-sm)', fontWeight: 600
+          }}
+        >
+          <span className="ms" style={{ fontSize: 13 }}>push_pin</span>
+          Pinned
+        </span>
+      )}
+      <AttachmentCount count={n.attachmentCount} />
+    </>
+  )
+}
+
+// "6 hours ago · by Deal Hub Agent" — when, then who.
+function noteMeta(n) {
+  return [relativeTime(n.createdAt), n.author && `by ${n.author}`]
+    .filter(Boolean).join(' · ')
+}
+
+// A note in the GRID — the October 2026 card design.
+//
+//   ┌ ▣ heading ─────────────────── [View DEAL] ┐   header: what, and its
+//   │ body, two lines                            │   deal (or No DEAL)
+//   │ 👤 contact                 [View CONTACT]  │   linked records — only
+//   │ 🏷 deal                    [View DEAL]     │   the ones it HAS
+//   │ 🏢 business               [View BUSINESS]  │
+//   └ 6 hours ago · by Deal Hub Agent      ✎  ✕ ┘   footer: when, who, act
+//
+// The header's deal pill ALWAYS renders — "No DEAL" is a real state worth
+// seeing on a note, not an absence to hide.
+function NoteCard({
+  note: n, onRead, onEdit, onDelete,
+  onOpenDeal, onOpenContact, onOpenBusiness
+}) {
+  const { heading, rest } = noteParts(n)
+  const col = noteColourStyle(n.color)
+  const hasChips = n.noteChips?.length > 0
+  const rule = '1px solid var(--border-default)'
+
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column',
+      // A CARD IN BOTH VIEWS — the same border, radius and surface as a row.
+      border: rule,
+      borderRadius: 'var(--radius-md)',
+      background: 'var(--surface-card)',
+      boxShadow: 'var(--shadow-card)',
+      overflow: 'hidden'
+    }}>
+      {/* HEADER — colour tile, heading, and the deal pill on the right. */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '14px 16px',
+        borderBottom: rule
+      }}>
+        <NoteIcon col={col} />
+        <span style={{
+          flex: 1, minWidth: 0,
+          display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap'
+        }}>
+          <span style={{
+            fontSize: 'var(--text-xl)', fontWeight: 600,
+            lineHeight: 1.3, letterSpacing: '-0.01em',
+            color: 'var(--text-heading)',
+            overflowWrap: 'anywhere'
+          }}>
+            {heading}
+          </span>
+          <HeadingBadges note={n} />
+        </span>
+        <span style={{ flex: 'none' }}>
+          <DealPill
+            name={n.deal?.name || 'No deal'}
+            empty={!n.deal}
+            onClick={n.deal && onOpenDeal ? () => onOpenDeal(n.deal.id) : undefined}
+          />
+        </span>
+      </div>
+
+      {/* BODY — two reserved lines, so every card in a grid row starts its
+          linked records at the same depth whether or not it has a body. */}
+      <div style={{ padding: '14px 16px', borderBottom: rule }}>
+        <div style={{
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+          minHeight: 'calc(var(--text-lg) * 1.5 * 2)'
+        }}>
+          {rest ? (
+            <RichBody
+              html={rest}
+              color="var(--text-body)"
+              size="var(--text-lg)"
+              leading="var(--leading-normal)"
+              showPlainToggle={false}
+            />
+          ) : (
+            <span style={{ fontSize: 'var(--text-lg)', color: 'var(--text-faint)' }}>
+              No further text
+            </span>
+          )}
+        </div>
+        {/* Only when there IS more to read. Measured on the TEXT, not the
+            HTML — markup length says nothing about how many lines it takes.
+            ~90 characters is where two lines at this width run out. */}
+        {htmlToText(rest || '').length > 90 && (
+          <button
+            onClick={onRead}
+            style={{
+              marginTop: 4,
+              border: 'none', background: 'none', padding: 0,
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
+              fontWeight: 600, color: 'var(--text-link)',
+              cursor: 'pointer'
+            }}
+          >
+            Read more
+          </button>
+        )}
+      </div>
+
+      {/* LINKED RECORDS — flex:1 takes the card's spare height, so the footer
+          sits on the card's floor and lines up across a grid row. */}
+      <div style={{ flex: 1, padding: '0 16px', display: 'flex', flexDirection: 'column' }}>
+        <LinkedRecords
+          record={n}
+          onOpenDeal={onOpenDeal}
+          onOpenContact={onOpenContact}
+          onOpenBusiness={onOpenBusiness}
+        />
+        {hasChips && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, padding: '4px 0 12px' }}>
+            {n.noteChips.map((c) => (
+              <NoteChip key={c.id} label={c.label} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* FOOTER — when and who on the left, edit and delete on the right. */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
+        padding: '10px 16px',
+        borderTop: rule
+      }}>
+        <span style={{
+          flex: 1, minWidth: 0,
+          fontSize: 'var(--text-base)', color: 'var(--text-muted)'
+        }}>
+          {noteMeta(n)}
+        </span>
+        <RowAction icon="edit" title="Edit this note" onClick={onEdit} />
+        <RowAction icon="close" danger title="Delete this note" onClick={onDelete} />
+      </div>
+    </div>
+  )
+}
+
+// A note in ROWS: colour tile · heading, body and meta · its people and deal,
+// then edit and delete at the end of the line, where the eye finishes it.
+function NoteRow({
+  note: n, onEdit, onDelete,
+  onOpenDeal, onOpenContact
+}) {
+  const { heading, rest } = noteParts(n)
+  const col = noteColourStyle(n.color)
+  const hasChips = n.noteChips?.length > 0
+
+  return (
+    <div style={{
+      // A CARD IN BOTH VIEWS — see TasksTab.
+      border: '1px solid var(--border-default)',
+      // The author's colour as a left stripe — matches the deal rail, so the
+      // same note looks the same in both places.
+      borderLeft: col.stripe
+        ? `3px solid ${col.stripe}`
+        : '1px solid var(--border-default)',
+      borderRadius: 'var(--radius-md)',
+      background: 'var(--surface-card)'
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'flex-start', gap: 10,
+        // The stripe eats the left padding rather than adding to it, so
+        // coloured and uncoloured rows keep their text on one vertical line.
+        padding: col.stripe
+          ? 'var(--space-3) var(--space-4) var(--space-3) calc(var(--space-4) - 3px)'
+          : 'var(--space-3) var(--space-4)'
+      }}>
+        <span style={{ marginTop: 1 }}><NoteIcon col={col} /></span>
+
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap'
+          }}>
+            <span style={{
+              fontSize: 'var(--text-xl)', fontWeight: 600,
+              lineHeight: 1.3, letterSpacing: '-0.01em',
+              color: 'var(--text-heading)'
+            }}>
+              {heading}
+            </span>
+            <HeadingBadges note={n} />
+          </div>
+          {rest && (
+            <div style={{ marginTop: 3 }}>
+              <RichBody
+                html={rest}
+                color="var(--text-body)"
+                size="var(--text-lg)"
+                leading="var(--leading-normal)"
+                showPlainToggle
+              />
+            </div>
+          )}
+          <div style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)', marginTop: 4 }}>
+            {noteMeta(n)}
+          </div>
+        </div>
+
+        <div style={{
+          display: 'flex', gap: 6, flexWrap: 'wrap',
+          justifyContent: 'flex-end', alignItems: 'center'
+        }}>
+          {/* A note can involve several people. A contact whose name IS the
+              deal name is skipped — GHL default-names an opportunity after
+              its contact, so the two chips printed the same person twice. */}
+          {(n.contacts?.length ? n.contacts : n.contact ? [n.contact] : [])
+            .filter((c) => !sameName(c.name, n.deal?.name))
+            .map((c) => (
+              <ContactChip
+                key={c.id}
+                name={c.name}
+                onClick={onOpenContact ? () => onOpenContact(c.id) : undefined}
+              />
+            ))}
+          {/* Always rendered — "No deal" is a real state, not an absence. */}
+          <DealPill
+            name={n.deal?.name || 'No deal'}
+            empty={!n.deal}
+            onClick={n.deal && onOpenDeal ? () => onOpenDeal(n.deal.id) : undefined}
+          />
+          <RowAction icon="edit" title="Edit this note" onClick={onEdit} />
+          <RowAction icon="close" danger title="Delete this note" onClick={onDelete} />
+        </div>
+      </div>
+
+      {hasChips && (
+        <div style={{
+          display: 'flex', flexWrap: 'wrap', gap: 5,
+          padding: '0 var(--space-4) var(--space-3) var(--space-7)'
+        }}>
+          {n.noteChips.map((c) => (
+            <NoteChip key={c.id} label={c.label} />
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 

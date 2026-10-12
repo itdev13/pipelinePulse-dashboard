@@ -455,6 +455,25 @@ export function Chip({
   )
 }
 
+// A toolbar control with its label ABOVE it — the Tasks and Notes toolbar
+// bands.
+//
+// flex:none on the stack, so a label and its control always wrap together —
+// inline labels let a row break between "ASSIGNEE" and the select it names.
+export function LabelledControl({ label, children }) {
+  return (
+    <span style={{ display: 'flex', flexDirection: 'column', gap: 5, flex: 'none' }}>
+      <span style={{
+        fontSize: 11, fontWeight: 600, letterSpacing: '.05em',
+        textTransform: 'uppercase', color: '#4a515c'
+      }}>
+        {label}
+      </span>
+      {children}
+    </span>
+  )
+}
+
 // Small square icon button for row-level edit / delete.
 // Live when given an onClick, inert without one. It used to render
 // `cursor: pointer` either way, so the actions still waiting on a write path
