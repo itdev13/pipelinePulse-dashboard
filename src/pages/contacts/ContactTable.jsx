@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Truncate } from '../shared/ListChrome'
+import { Truncate, formatDue, relativeTime } from '../shared/ListChrome'
 import BusinessPickerModal from '../shared/BusinessPickerModal'
 import { contactsAPI } from '../../api/contacts'
 
@@ -259,27 +259,71 @@ function ContactRow({
           </td>
         )}
 
-        {/* TASKS and NOTES — counts only: the list does not carry the items,
-            so the pill opens the record, where they are. */}
+        {/* TASKS and NOTES — a menu of the items when the list carries them
+            (the route sends the first five of each), the same PillMenu the
+            deals pill uses. A count-only pill, opening the record, remains
+            the fallback for an older server or a contact with none. */}
         {show('tasks') && (
           <td style={{ ...TD, whiteSpace: 'nowrap' }}>
-            <CountPill
-              tone={tasks ? PILL_TONES.tasks : PILL_TONES.tasksNone}
-              label={`${tasks} task${tasks === 1 ? '' : 's'}`}
-              title="Open this contact to see their tasks"
-              onClick={() => onOpen && onOpen(c.id)}
-            />
+            {tasks && Array.isArray(c.tasks) && c.tasks.length ? (
+              <PillMenu
+                label={`${tasks} task${tasks === 1 ? '' : 's'}`}
+                icon="task_alt"
+                tone={PILL_TONES.tasks}
+                items={[
+                  ...c.tasks.map((t) => ({
+                    label: t.title || '(untitled task)',
+                    hint: t.dueAt ? formatDue(t.dueAt) : null,
+                    icon: 'task_alt',
+                    onSelect: onOpen ? () => onOpen(c.id) : undefined
+                  })),
+                  ...(tasks > c.tasks.length ? [{
+                    label: `+${tasks - c.tasks.length} more — open the contact`,
+                    icon: 'open_in_new',
+                    onSelect: onOpen ? () => onOpen(c.id) : undefined
+                  }] : [])
+                ]}
+              />
+            ) : (
+              <CountPill
+                tone={tasks ? PILL_TONES.tasks : PILL_TONES.tasksNone}
+                label={`${tasks} task${tasks === 1 ? '' : 's'}`}
+                title="Open this contact to see their tasks"
+                onClick={() => onOpen && onOpen(c.id)}
+              />
+            )}
           </td>
         )}
 
         {show('notes') && (
           <td style={{ ...TD, whiteSpace: 'nowrap' }}>
-            <CountPill
-              tone={notes ? PILL_TONES.notes : { ...PILL_TONES.none, icon: 'sticky_note_2' }}
-              label={notes ? `${notes} note${notes === 1 ? '' : 's'}` : 'No notes'}
-              title="Open this contact to see their notes"
-              onClick={() => onOpen && onOpen(c.id)}
-            />
+            {notes && Array.isArray(c.notes) && c.notes.length ? (
+              <PillMenu
+                label={`${notes} note${notes === 1 ? '' : 's'}`}
+                icon="sticky_note_2"
+                tone={PILL_TONES.notes}
+                items={[
+                  ...c.notes.map((n) => ({
+                    label: n.title || String(n.body || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || '(empty note)',
+                    hint: n.createdAt ? relativeTime(n.createdAt) : null,
+                    icon: 'sticky_note_2',
+                    onSelect: onOpen ? () => onOpen(c.id) : undefined
+                  })),
+                  ...(notes > c.notes.length ? [{
+                    label: `+${notes - c.notes.length} more — open the contact`,
+                    icon: 'open_in_new',
+                    onSelect: onOpen ? () => onOpen(c.id) : undefined
+                  }] : [])
+                ]}
+              />
+            ) : (
+              <CountPill
+                tone={notes ? PILL_TONES.notes : { ...PILL_TONES.none, icon: 'sticky_note_2' }}
+                label={notes ? `${notes} note${notes === 1 ? '' : 's'}` : 'No notes'}
+                title="Open this contact to see their notes"
+                onClick={() => onOpen && onOpen(c.id)}
+              />
+            )}
           </td>
         )}
 
@@ -496,7 +540,9 @@ function TagsCell({ contactId, tags, tagList, onAdd, onRemove }) {
 // The chevron is the design's. On tasks and notes it does not open a list:
 // the contacts list carries only the COUNTS, so the pill opens the contact's
 // record instead (see PENDING_FUNCTIONALITY.md).
-function CountPill({ tone, label, onClick, title, chevron = true }) {
+// The chevron only when the pill opens something. "No deals" drew one with
+// nothing behind it — an arrow that promised a menu and did nothing.
+function CountPill({ tone, label, onClick, title, chevron = !!onClick }) {
   const Tag = onClick ? 'button' : 'span'
   return (
     <Tag

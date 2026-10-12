@@ -6,9 +6,7 @@ import ContactFilters, { activityParams, contactFilterLabels } from '../contacts
 import DealToolbar from '../deals/DealToolbar'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import { savedViewsAPI, dealsAPI } from '../../api/deals'
-import {
-  DealPill, LabelledControl, CardGridSkeleton, LoadMore
-} from '../shared/ListChrome'
+import { DealPill, LabelledControl, CardGridSkeleton, LoadMore, formatDue, relativeTime } from '../shared/ListChrome'
 import { LinkedRow, LINK_TONES } from '../shared/LinkedRecords'
 import { contactsAPI } from '../../api/contacts'
 import BusinessPickerModal from '../shared/BusinessPickerModal'
@@ -17,6 +15,7 @@ import { useTabState } from '../../hooks/useTabState'
 import { useAuth } from '../../context/AuthContext'
 import { OwnerFilter, TagFilter } from '../shared/ListFilters'
 import ContactDetail from '../contacts/ContactDetail'
+import ContactCreatePanel from '../contacts/ContactCreatePanel'
 
 
 // Contacts tab — every contact in this location.
@@ -143,8 +142,10 @@ export default function ContactsTab({
     }),
     [search, filters]
   )
-  const { items, error, hasMore, total, loadingMore, loading, loadMore, patchItem } =
+  const { items, error, hasMore, total, loadingMore, loading, loadMore, patchItem, reload } =
     usePagedList({ fetchPage, key: 'contacts', deps: [search, filters] })
+  // The Add-contact form, over the list.
+  const [creating, setCreating] = useState(false)
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
   // Saved-view actions. DECLARED HERE, below the state they close over —
@@ -374,14 +375,10 @@ export default function ContactsTab({
                   { id: 'table', icon: 'view_agenda', label: 'List' }
                 ]}
               />
-              {/* In the design, but there is no create-contact API yet — so
-                  it says where contacts are added rather than opening a form
-                  that cannot save. See PENDING_FUNCTIONALITY.md. */}
+              {/* Opens the create form. The route lands the new row locally
+                  before answering, so a reload shows it at once. */}
               <button
-                onClick={() => {
-                  setNotice('Adding contacts from here is not available yet — add them in your CRM and they will appear here.')
-                  window.setTimeout(() => setNotice(null), 5000)
-                }}
+                onClick={() => setCreating(true)}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 7,
                   height: 38, padding: '0 16px', flex: 'none',
@@ -495,6 +492,9 @@ export default function ContactsTab({
                 window.setTimeout(() => setNotice(null), 5000)
               }}
               onPatch={(id, p) => patchItem((x) => x.id === id, p)}
+              // After a bulk delete the rows are gone server-side; the paged
+              // list has no remove, so it reloads from the top.
+              onReload={reload}
             />
           )}
 
@@ -576,6 +576,18 @@ export default function ContactsTab({
         </div>
       </section>
 
+      {creating && (
+        <ContactCreatePanel
+          onClose={() => setCreating(false)}
+          onCreated={(c) => {
+            setCreating(false)
+            reload()
+            setNotice(c ? `Added ${[c.firstName, c.lastName].filter(Boolean).join(' ') || c.email || c.phone || 'the contact'}.` : 'Contact added.')
+            window.setTimeout(() => setNotice(null), 5000)
+          }}
+        />
+      )}
+
       {/* Deleting a saved view cannot be undone. */}
       {confirmingView && (
         <ConfirmDialog
@@ -651,7 +663,54 @@ const SHOW_ON_CARDS = [
 //
 // `selected` is the selected contacts that are LOADED; `count` is every id
 // selected. They differ only if a selection outlives a filter change.
-function BulkBar({ selected, count, tagList, onClear, onNotice, onPatch }) {
+function BulkBar({ selected, count, tagList, onClear, onNotice, onPatch, onReload }) {
+  // The two pickers and the delete confirm. One at a time — a second
+  // control opening beside the first would be two half-finished actions.
+  const [picking, setPicking] = useState(null)   // 'owner' | 'type' | null
+  const [users, setUsers] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  useEffect(() => {
+    if (picking !== 'owner' || users !== null) return
+    dealsAPI.users()
+      .then((r) => setUsers(r?.users || []))
+      .catch(() => setUsers([]))
+  }, [picking, users])
+
+  // One PATCH per contact, like addTag: GHL has no bulk contact update, and
+  // a server loop would only move the same requests behind one response
+  // while hiding which of them failed.
+  const applyToAll = async (label, patch, local) => {
+    setPicking(null)
+    let failed = 0
+    for (const c of selected) {
+      try {
+        await contactsAPI.update(c.id, patch)
+        onPatch(c.id, typeof local === 'function' ? local(c) : local)
+      } catch {
+        failed++
+      }
+    }
+    onNotice(failed
+      ? `${label} ${selected.length - failed} of ${selected.length} — ${failed} could not be changed.`
+      : `${label} ${selected.length} contact${selected.length === 1 ? '' : 's'}.`)
+  }
+
+  const deleteAll = async () => {
+    setDeleting(true)
+    let failed = 0
+    for (const c of selected) {
+      try { await contactsAPI.remove(c.id) } catch { failed++ }
+    }
+    setDeleting(false)
+    setConfirmDelete(false)
+    onClear()
+    onReload && onReload()
+    onNotice(failed
+      ? `Deleted ${selected.length - failed} of ${selected.length} — ${failed} could not be deleted.`
+      : `Deleted ${selected.length} contact${selected.length === 1 ? '' : 's'}.`)
+  }
+
   const [tagging, setTagging] = useState(false)
   const [tag, setTag] = useState('')
   const [busy, setBusy] = useState(false)
@@ -682,8 +741,6 @@ function BulkBar({ selected, count, tagList, onClear, onNotice, onPatch }) {
       ? `Tagged ${selected.length - failed} of ${selected.length} — ${failed} could not be tagged.`
       : `Tagged ${selected.length} contact${selected.length === 1 ? '' : 's'} "${t}".`)
   }
-
-  const notYet = (what) => onNotice(`${what} is not available yet — do it in your CRM for now.`)
 
   return (
     <div style={{
@@ -727,10 +784,61 @@ function BulkBar({ selected, count, tagList, onClear, onNotice, onPatch }) {
           {busy ? 'Tagging…' : 'Add tag'}
         </BulkButton>
       )}
-      <BulkButton icon="person_add" onClick={() => notYet('Assigning an owner in bulk')}>Assign owner</BulkButton>
-      <BulkButton icon="swap_horiz" onClick={() => notYet('Changing the type in bulk')}>Change type</BulkButton>
+      {picking === 'owner' ? (
+        <Select
+          autoFocus
+          defaultOpen
+          showSearch
+          optionFilterProp="label"
+          placeholder={users === null ? 'Loading…' : 'Assign to…'}
+          loading={users === null}
+          options={[
+            { value: '', label: 'Unassigned' },
+            ...(users || []).map((u) => ({ value: u.id, label: u.name || u.email || u.id }))
+          ]}
+          onChange={(v) => {
+            const u = (users || []).find((x) => x.id === v)
+            applyToAll('Assigned', { assignedTo: v || null },
+              { assignedTo: v || null, owner: u ? (u.name || u.email || u.id) : null })
+          }}
+          onOpenChange={(o) => { if (!o) setPicking(null) }}
+          popupClassName="pp-menu"
+          style={{ width: 220 }}
+          styles={{ root: { height: 32 } }}
+        />
+      ) : (
+        <BulkButton icon="person_add" onClick={() => setPicking('owner')} disabled={busy}>Assign owner</BulkButton>
+      )}
+      {picking === 'type' ? (
+        <Select
+          autoFocus
+          defaultOpen
+          placeholder="Change type to…"
+          options={CONTACT_TYPES}
+          onChange={(v) => applyToAll('Changed the type of', { contactType: v }, { contactType: v })}
+          onOpenChange={(o) => { if (!o) setPicking(null) }}
+          popupClassName="pp-menu"
+          style={{ width: 170 }}
+          styles={{ root: { height: 32 } }}
+        />
+      ) : (
+        <BulkButton icon="swap_horiz" onClick={() => setPicking('type')} disabled={busy}>Change type</BulkButton>
+      )}
       <BulkButton icon="download" onClick={() => exportCsv(selected)}>Export</BulkButton>
-      <BulkButton icon="delete" danger onClick={() => notYet('Deleting contacts')}>Delete</BulkButton>
+      <BulkButton icon="delete" danger onClick={() => setConfirmDelete(true)} disabled={busy || deleting}>
+        {deleting ? 'Deleting…' : 'Delete'}
+      </BulkButton>
+      {confirmDelete && (
+        <ConfirmDialog
+          title={`Delete ${count} contact${count === 1 ? '' : 's'}?`}
+          message="This deletes them in your CRM as well. It cannot be undone — GHL has no restore for contacts. Their deals, notes and messages stay, without a contact behind them."
+          preview={selected.slice(0, 5).map((c) => c.name || c.email || c.phone).filter(Boolean).join(', ') + (count > 5 ? ` and ${count - 5} more` : '')}
+          confirmLabel={`Delete ${count}`}
+          busy={deleting}
+          onConfirm={deleteAll}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
 
       <button
         onClick={onClear}
@@ -1011,33 +1119,54 @@ function CardBusinessLink({ contact, disabled, onChanged }) {
 // server's contactPatch drops it too). The pencil is there because the design
 // draws one on every row; pressing it says where Type is changed instead of
 // opening an input whose value would be thrown away.
-function TypeRow({ value }) {
-  const [explain, setExplain] = useState(false)
-  const label = CONTACT_TYPES.find((t) => t.value === String(value || '').toLowerCase())?.label
-    || value
-  return (
-    <>
-      <button
-        type="button"
-        className="pp-cc-row"
-        onClick={() => setExplain((x) => !x)}
-        title="Type is set in your CRM"
-      >
+// Type, as a picker in the card's draft — it saves with the other fields
+// in the card's single PATCH, through contactPatch's `contactType → type`.
+// It was a pencil that only explained the type is set in the CRM, which was
+// never true of the server; the client just never sent it.
+function TypeRow({ value, dirty, disabled, onChange }) {
+  const [editing, setEditing] = useState(false)
+  const current = String(value || '').toLowerCase()
+  const label = CONTACT_TYPES.find((t) => t.value === current)?.label || value
+  if (editing) {
+    return (
+      <div className="pp-cc-row" style={{ cursor: 'default' }}>
         <span className="pp-cc-key">
           <span className="ms pp-cc-icon">badge</span>
           <span className="pp-cc-label">Type</span>
         </span>
-        <span className={label ? 'pp-cc-value' : 'pp-cc-value pp-cc-value-empty'}>
-          {label || 'Not set'}
-        </span>
-        <span className="ms pp-cc-pencil">edit</span>
-      </button>
-      {explain && (
-        <RowError tone="info">
-          Type is a custom field in your CRM — change it there and it updates here.
-        </RowError>
-      )}
-    </>
+        <Select
+          autoFocus
+          defaultOpen
+          value={current || undefined}
+          allowClear
+          placeholder="Not set"
+          options={CONTACT_TYPES}
+          disabled={disabled}
+          onChange={(v) => { onChange(v || null); setEditing(false) }}
+          onOpenChange={(o) => { if (!o) setEditing(false) }}
+          popupClassName="pp-menu"
+          style={{ flex: 1, minWidth: 0 }}
+          styles={{ root: { height: 30 } }}
+        />
+      </div>
+    )
+  }
+  return (
+    <button
+      type="button"
+      className={dirty ? 'pp-cc-row pp-cc-row-dirty' : 'pp-cc-row'}
+      onClick={() => !disabled && setEditing(true)}
+      title="Change the type"
+    >
+      <span className="pp-cc-key">
+        <span className="ms pp-cc-icon">badge</span>
+        <span className="pp-cc-label">Type</span>
+      </span>
+      <span className={label ? 'pp-cc-value' : 'pp-cc-value pp-cc-value-empty'}>
+        {label || 'Not set'}
+      </span>
+      <span className="ms pp-cc-pencil">edit</span>
+    </button>
   )
 }
 
@@ -1288,20 +1417,62 @@ function ContactCard({
   // pill opens the contact, where they are.
   const tasks = c.openTaskCount || 0
   const notes = c.noteCount || 0
+  // THE ITEMS, as the design lists them — one row per open task and per
+  // note, from the first five the list route now sends. A contact with more
+  // gets a final "+N more" row that opens the record. The count-only row
+  // stays as the fallback for a page served by an older server.
+  const taskRows = Array.isArray(c.tasks) ? c.tasks : []
+  const noteRows = Array.isArray(c.notes) ? c.notes : []
   if (showOn.tasks !== false && tasks > 0) {
-    links.push(
+    if (taskRows.length) {
+      taskRows.forEach((t) => links.push(
+        <LinkedRow
+          key={`task-${t.id}`}
+          icon="task_alt"
+          name={t.title || '(untitled task)'}
+          meta={t.dueAt ? formatDue(t.dueAt) : null}
+          tone={{ fill: 'var(--accent-clay)', label: 'TASK' }}
+          iconColour="var(--accent-clay)"
+          large
+          onOpen={onOpen}
+        />
+      ))
+      if (tasks > taskRows.length) links.push(
+        <LinkedRow key="tasks-more" icon="task_alt" name={`+${tasks - taskRows.length} more open`}
+          tone={{ fill: 'var(--accent-clay)', label: 'TASK' }} iconColour="var(--accent-clay)" large onOpen={onOpen} />
+      )
+    } else {
+      links.push(
+        <LinkedRow
+          key="tasks"
+          icon="task_alt"
+          name={`${tasks} open task${tasks === 1 ? '' : 's'}`}
+          tone={{ fill: 'var(--accent-clay)', label: 'TASK' }}
+          iconColour="var(--accent-clay)"
+          large
+          onOpen={onOpen}
+        />
+      )
+    }
+  }
+  if (showOn.notes !== false && notes > 0 && noteRows.length) {
+    noteRows.forEach((n) => links.push(
       <LinkedRow
-        key="tasks"
-        icon="task_alt"
-        name={`${tasks} open task${tasks === 1 ? '' : 's'}`}
-        tone={{ fill: 'var(--accent-clay)', label: 'TASK' }}
-        iconColour="var(--accent-clay)"
+        key={`note-${n.id}`}
+        icon="sticky_note_2"
+        name={n.title || plainText(n.body) || '(empty note)'}
+        meta={n.createdAt ? relativeTime(n.createdAt) : null}
+        tone={{ fill: 'var(--accent-brown)', label: 'NOTE' }}
+        iconColour="var(--accent-brown)"
         large
         onOpen={onOpen}
       />
+    ))
+    if (notes > noteRows.length) links.push(
+      <LinkedRow key="notes-more" icon="sticky_note_2" name={`+${notes - noteRows.length} more`}
+        tone={{ fill: 'var(--accent-brown)', label: 'NOTE' }} iconColour="var(--accent-brown)" large onOpen={onOpen} />
     )
-  }
-  if (showOn.notes !== false && notes > 0) {
+  } else if (showOn.notes !== false && notes > 0) {
     links.push(
       <LinkedRow
         key="notes"
@@ -1415,7 +1586,12 @@ function ContactCard({
             invalid={errorField === 'address'}
             onChange={(v) => setField('address', v)}
           />
-          <TypeRow value={c.contactType} />
+          <TypeRow
+            value={valueOf('contactType')}
+            dirty={'contactType' in changes}
+            disabled={saving}
+            onChange={(v) => setField('contactType', v)}
+          />
           <TagsRow
             contact={c}
             tagList={tagList}
@@ -1620,4 +1796,10 @@ function InlineEdit({
       <span className="ms pp-cc-pencil">edit</span>
     </button>
   )
+}
+
+// A note body is stored as HTML; a card row wants its first line as text.
+function plainText(html) {
+  const t = String(html || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
+  return t.length > 90 ? `${t.slice(0, 88)}…` : t
 }
