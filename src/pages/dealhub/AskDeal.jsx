@@ -131,6 +131,21 @@ export default function AskDeal({
   // model call keeps running either way), this only stops the REP from
   // waiting on it.
   const abortRef = useRef(null)
+  // Which ask is CURRENT. Bumped on every submit and on every switch of
+  // conversation, so a response from an earlier ask can tell it is stale.
+  //
+  // `pending` and the transcript are panel state, not conversation state: a
+  // rep who asked, switched chats and pressed New chat saw "Reading the
+  // thread…" in the empty new chat, and the old answer would have landed in
+  // it. Aborting on switch covers the common case; the token covers the race
+  // where the response is already in flight past the abort.
+  const askSeq = useRef(0)
+  const abandonAsk = () => {
+    abortRef.current?.abort()
+    abortRef.current = null
+    askSeq.current += 1
+    setPending(false)
+  }
 
   // Is the AI layer configured at all? Without this the panel would offer a
   // button that always 503s.
@@ -266,6 +281,7 @@ export default function AskDeal({
   // Switching deals clears the live transcript — the thread it was grounded
   // in is gone — and pulls that deal's own history.
   useEffect(() => {
+    abandonAsk()
     setTurns([])
     setError(null)
     setQ('')
@@ -281,6 +297,9 @@ export default function AskDeal({
   // Reopen a past chat into the live transcript. It becomes the conversation,
   // so a follow-up carries its context.
   const reopen = (chat) => {
+    // An answer still arriving for the chat being left would otherwise land
+    // in this one.
+    abandonAsk()
     const turnsIn = chat.turns?.length ? chat.turns : [chat]
     setTurns(
       turnsIn.flatMap((t) => [
@@ -325,6 +344,7 @@ export default function AskDeal({
   // Start a fresh conversation. The transcript clears and the next question
   // opens a new thread — the rail keeps everything that came before.
   const newChat = () => {
+    abandonAsk()
     setTurns([])
     setConversationId(null)
     setActiveChatId(null)
@@ -394,6 +414,7 @@ export default function AskDeal({
 
     const controller = new AbortController()
     abortRef.current = controller
+    const seq = ++askSeq.current
 
     try {
       const res = await aiAPI.ask(dealId, {
@@ -404,6 +425,10 @@ export default function AskDeal({
         images: sentImages.map(({ mediaType, data }) => ({ mediaType, data })),
         signal: controller.signal
       })
+      // Stale: the rep moved to another chat while this was in flight. The
+      // abort usually gets here first, but a response already past it must
+      // not be appended to a conversation it was never asked in.
+      if (seq !== askSeq.current) return
       setTurns((t) => [
         ...t,
         {
@@ -437,8 +462,10 @@ export default function AskDeal({
       // just quietly disappears rather than surfacing as an error banner.
       // The user turn stays in the transcript so it's clear what was asked.
       // Same handling as the portfolio Co-Pilot tab's own stop button.
-      if (err?.code === 'ERR_CANCELED') {
-        // no-op
+      if (seq !== askSeq.current || err?.code === 'ERR_CANCELED') {
+        // Stale or stopped — either way the rep has moved on, and a banner
+        // in the chat they moved TO would describe a question asked
+        // somewhere else.
       } else {
         // Named failure states, never a permanent spinner (spec §5).
         const code = err.code
@@ -463,28 +490,33 @@ export default function AskDeal({
         )
       }
     } finally {
-      abortRef.current = null
-      setPending(false)
-      // Focus back to the composer so a follow-up can be typed straight away
-      // — the whole point of a conversation is the next question, and having
-      // to click back into the box every turn is friction on every single one.
-      //
-      // Only when focus is still nowhere in particular. A rep who clicked a
-      // citation, the reasoning panel or another field while waiting has
-      // deliberately moved on, and yanking the caret back would interrupt
-      // them mid-action. `body` (or null) is the browser's "nothing focused"
-      // state, which is exactly where focus sits after the disabled textarea
-      // lost it on submit.
-      //
-      // requestAnimationFrame so this runs after the answer has rendered and
-      // the textarea is enabled again — focusing a disabled element silently
-      // does nothing.
-      requestAnimationFrame(() => {
-        const el = inputRef.current
-        const active = document.activeElement
-        const focusIsIdle = !active || active === document.body
-        if (el && focusIsIdle) el.focus()
-      })
+      // Only the CURRENT ask settles the panel. A stale one — abandoned by
+      // a chat switch — must not clear a spinner that now belongs to a
+      // newer question, or steal focus from wherever the rep went.
+      if (seq === askSeq.current) {
+        abortRef.current = null
+        setPending(false)
+        // Focus back to the composer so a follow-up can be typed straight away
+        // — the whole point of a conversation is the next question, and having
+        // to click back into the box every turn is friction on every single one.
+        //
+        // Only when focus is still nowhere in particular. A rep who clicked a
+        // citation, the reasoning panel or another field while waiting has
+        // deliberately moved on, and yanking the caret back would interrupt
+        // them mid-action. `body` (or null) is the browser's "nothing focused"
+        // state, which is exactly where focus sits after the disabled textarea
+        // lost it on submit.
+        //
+        // requestAnimationFrame so this runs after the answer has rendered and
+        // the textarea is enabled again — focusing a disabled element silently
+        // does nothing.
+        requestAnimationFrame(() => {
+          const el = inputRef.current
+          const active = document.activeElement
+          const focusIsIdle = !active || active === document.body
+          if (el && focusIsIdle) el.focus()
+        })
+      }
     }
   }
 
