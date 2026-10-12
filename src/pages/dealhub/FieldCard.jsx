@@ -144,7 +144,7 @@ export function FieldCell({ icon, label, value, onEdit, editTitle, tone, title }
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               flex: 'none', width: 20, height: 20, padding: 0,
               border: 'none', background: 'none',
-              color: 'var(--text-faint)', cursor: 'pointer'
+              color: 'var(--text-muted)', cursor: 'pointer'
             }}
           >
             <span className="ms" style={{ fontSize: 15 }}>edit</span>
@@ -265,7 +265,7 @@ export function FieldRow({
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               width: 22, height: 22, padding: 0,
               border: 'none', background: 'none',
-              color: 'var(--text-faint)', cursor: 'pointer'
+              color: 'var(--text-muted)', cursor: 'pointer'
             }}
           >
             <span className="ms" style={{ fontSize: 16 }}>edit</span>
