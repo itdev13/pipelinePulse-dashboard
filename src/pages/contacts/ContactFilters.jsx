@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Select } from 'antd'
 import { createPortal } from 'react-dom'
+import { FiltersButton } from '../shared/WorkFilters'
 
 // Contact type / tag, as a panel with Apply and Cancel.
 //
@@ -110,25 +111,12 @@ export default function ContactFilters({ filters = {}, onChange, tags = [], user
 
   return (
     <>
-      <button
+      {/* The same pill as the Tasks and Notes toolbars. */}
+      <FiltersButton
+        applied={applied}
         onClick={() => setOpen(true)}
         title="Filter these contacts"
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          height: 36, padding: '0 12px', flex: 'none',
-          border: '1px solid',
-          borderColor: applied ? 'var(--green-300)' : 'var(--border-strong)',
-          borderRadius: 'var(--radius-md)',
-          background: applied ? 'var(--tint-pine)' : 'var(--surface-card)',
-          color: applied ? 'var(--green-600)' : 'var(--text-body)',
-          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)',
-          fontWeight: applied ? 600 : 500,
-          cursor: 'pointer'
-        }}
-      >
-        <span className="ms" style={{ fontSize: 17 }}>filter_list</span>
-        Filters{applied ? ` (${applied})` : ''}
-      </button>
+      />
 
       {open && createPortal(
         // .pp-portal — tokens and the icon font are scoped to [data-dealhub],
