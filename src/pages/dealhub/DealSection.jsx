@@ -2150,3 +2150,13 @@ function formatDate(ts) {
   if (Number.isNaN(d.getTime())) return null
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
+
+// Shared with the Deals tab's grid cards, which edit the same five custom
+// fields and the owner. One picker, one save shape — a second copy would
+// drift from this one the first time either was fixed.
+//
+// A trailing export list rather than `export` on each declaration: the
+// fieldChips test slices the source between `function unwrapNested` and
+// `const FIELD_CHIPS` and evaluates it, and a keyword in front of either
+// would land inside that slice.
+export { FieldPicker, OwnerRow, FIELD_CHIPS, unwrapNested, titleCase }

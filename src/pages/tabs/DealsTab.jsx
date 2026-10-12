@@ -2,22 +2,20 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Select } from 'antd'
 import DealBoard, { mergeStages } from '../deals/DealBoard'
 import PipelineStrip from '../deals/PipelineStrip'
-import DealTable from '../deals/DealTable'
+import DealList from '../deals/DealList'
 import { useAuth } from '../../context/AuthContext'
 import DealFilters from '../deals/DealFilters'
 import { OwnerFilter } from '../shared/ListFilters'
 import DealEditPage from '../deals/DealEditPage'
 import ViewSwitch from '../shared/ViewSwitch'
 import { savedViewsAPI } from '../../api/deals'
-import { FollowUpChips, Truncate } from '../shared/ListChrome'
 import { dealsAPI } from '../../api/deals'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
-import DealEditPanel from '../deals/DealEditPanel'
 import DealCreatePanel from '../deals/DealCreatePanel'
+import DealGridCard from '../deals/DealGridCard'
 import {
-  Shell, SearchInput, StateMessage, DealCardsSkeleton, LoadMore, Panel,
-  formatDate, initialsFor, nameFor
+  Shell, SearchInput, StateMessage, DealCardsSkeleton, LoadMore, Panel
 } from '../shared/ListChrome'
 
 // Deals tab — one card per open deal, each showing the facts a rep scans for,
@@ -54,7 +52,7 @@ function ToolbarField({ label, children }) {
   )
 }
 
-export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId = null }) {
+export default function DealsTab({ onOpenDeal, onOpenContact, onOpenBusiness, initialEditDealId = null }) {
   // Which view. Persisted because it is a working preference, not a
   // navigation step: a rep who works the board should not be handed the list
   // again every time they come back to this tab.
@@ -63,7 +61,12 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
   // only view that can EDIT a deal inline, so demoting it would take a
   // capability away from anyone who does not switch back.
   const [view, setView] = useState(() => {
-    try { return localStorage.getItem('pp.deals.view') || 'board' } catch { return 'board' }
+    try {
+      const saved = localStorage.getItem('pp.deals.view') || 'board'
+      // 'cards' was retired for the Grid view; a rep who left it on Cards
+      // lands on its replacement rather than on a view that no longer exists.
+      return saved === 'cards' ? 'grid' : saved
+    } catch { return 'board' }
   })
   useEffect(() => {
     try { localStorage.setItem('pp.deals.view', view) } catch { /* private mode */ }
@@ -175,18 +178,6 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
 
 
 
-  // Which row is expanded for editing. One at a time: two open editors mean two
-  // sets of unsaved changes and no way to tell which Update belongs to which.
-  //
-  // Remembered (useTabState), because an open row is WHERE THE REP WAS:
-  // expanding a deal, stepping into the Deal Hub to read it and coming back
-  // used to collapse the row and drop them at the top of the list, with the
-  // deal to find again.
-  //
-  // Seeded from initialEditDealId so the Deal Hub can send a rep straight to
-  // this deal's editor — "edit the full record" on the deal card. That is an
-  // explicit request for a particular deal, so it outranks the remembered one.
-  const [editingId, setEditingId] = useTabState('deals', 'editingId', null)
 
   // The create form, above the list. Mutually exclusive with an open editor —
   // two draft forms on screen is two things to lose.
@@ -249,6 +240,15 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
       value: st.id,
       label: scoped.length > 1 ? `${p.name} — ${st.name}` : st.name
     })))
+  }, [refData, boardPipelineId])
+
+  // The List view's stage groups: the board's merged columns for the
+  // pipelines in scope. Not taken from `strip`, which waits on the server's
+  // stage totals — the list must still draw its groups without them.
+  const listStages = useMemo(() => {
+    const all = refData?.pipelines || []
+    const chosen = boardPipelineId ? all.filter((p) => p.id === boardPipelineId) : all
+    return mergeStages(chosen)
   }, [refData, boardPipelineId])
 
   // The pipeline strip's columns and figures. Null until both the pipelines
@@ -412,6 +412,53 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
     }, 2500)
   }, [patchItem])
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
+
+  // GRID VIEW — the picklists for its five custom fields, fetched the first
+  // time the grid is shown (the Deal hub loads the same endpoint the same
+  // way). Until they arrive the rows show their values read-only.
+  const [fieldOptions, setFieldOptions] = useState(null)
+  useEffect(() => {
+    if (view !== 'grid' || fieldOptions !== null) return
+    let alive = true
+    dealsAPI.customFieldOptions()
+      .then((r) => { if (alive) setFieldOptions(r?.fields || {}) })
+      .catch(() => { if (alive) setFieldOptions({}) })
+    return () => { alive = false }
+  }, [view, fieldOptions])
+
+  // { dealId, key } while a card is saving, so only that row spins.
+  const [gridSaving, setGridSaving] = useState(null)
+  const [gridError, setGridError] = useState(null)
+
+  // One save from a grid card, in the Deal hub's two shapes:
+  //   customField → { customFields: [{ id, field_value }] }
+  //   assignedTo  → { assignedTo }
+  // Painted first and rolled back on failure, so a pick never waits ~700ms
+  // on GHL to show — and a failed one never sits there looking saved.
+  const saveGridField = useCallback(async (deal, field, value) => {
+    const before = deal
+    setGridError(null)
+    try {
+      if (field === 'customField') {
+        setGridSaving({ dealId: deal.id, key: value.id })
+        const text = (Array.isArray(value.value) ? value.value.join(', ') : value.value) || null
+        if (value.dealKey) patchItem((x) => x.id === deal.id, { [value.dealKey]: text })
+        await dealsAPI.update(deal.id, {
+          customFields: [{ id: value.id, field_value: value.value }]
+        })
+      } else if (field === 'assignedTo') {
+        setGridSaving({ dealId: deal.id, key: 'assignedTo' })
+        const u = (refData?.users || []).find((x) => x.id === value)
+        patchItem((x) => x.id === deal.id, { assignedTo: value || null, owner: u?.name || null })
+        await dealsAPI.update(deal.id, { assignedTo: value || null })
+      }
+    } catch (e) {
+      patchItem((x) => x.id === deal.id, before)
+      setGridError(e.message || 'That change could not be saved')
+    } finally {
+      setGridSaving(null)
+    }
+  }, [patchItem, refData])
 
 
   const deals = items || []
@@ -621,14 +668,13 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
                 onChange={setView}
                 options={[
                   { id: 'board', icon: 'view_kanban', label: 'Board' },
-                  { id: 'table', icon: 'table_rows', label: 'Table' },
-                  { id: 'cards', icon: 'view_agenda', label: 'Cards' }
+                  { id: 'grid', icon: 'grid_view', label: 'Grid' },
+                  // Still the table under the hood; the Figma calls it List.
+                  { id: 'table', icon: 'view_list', label: 'List' }
                 ]}
               />
-              {/* Opening the create form closes any open editor — see
-                  `creating` above. */}
               <button
-                onClick={() => { setCreating(true); setEditingId(null) }}
+                onClick={() => setCreating(true)}
                 disabled={creating}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -647,7 +693,17 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
             </span>
           </div>
         }
-      />
+      >
+      {/* EVERYTHING BELOW THE HEADER LIVES INSIDE IT, on one grey ground —
+          the Figma frame. The strip and the views used to be separate boxes
+          stacked under a header-only panel, each with its own border and a
+          16px gap: the page read as four loose cards, not one panel. */}
+      <div style={{
+        display: 'grid', gap: 'var(--space-3)',
+        padding: 'var(--space-3)',
+        background: 'var(--gray-100)',
+        minWidth: 0
+      }}>
 
       {creating && (
         <DealCreatePanel
@@ -679,11 +735,11 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
           own "Loading pipeline…" and each column reports its own emptiness —
           three card skeletons above a board was the blank area with no
           explanation. */}
-      {view !== 'board' && loading && <DealCardsSkeleton cards={3} />}
+      {view === 'grid' && loading && <DealCardsSkeleton cards={3} />}
 
       {/* An ERROR is worth showing everywhere; an empty page only matters to
           the paged views, since a board with no deals says so per column. */}
-      {(error || (view !== 'board' && !loading && deals.length === 0)) && (
+      {(error || (view === 'grid' && !loading && deals.length === 0)) && (
         <div
           style={{
             border: '1px solid var(--border-default)',
@@ -757,55 +813,73 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
         />
       )}
 
-      {/* TABLE — the same paged `deals` as the cards, rendered dense. */}
-      {view === 'table' && !error && deals.length > 0 && (
-        <DealTable
-          deals={deals}
-          onOpenDeal={setOpenDealId}
-          onOpenContact={onOpenContact}
-          // Straight to the hub, skipping the editor — the row's other
-          // action already covers "edit this record".
-          onOpenInHub={onOpenDeal}
+      {/* LIST — the Figma List view: grouped by stage, each group loading
+          its own deals like a board column, so it deliberately does not read
+          the paged `deals` above. The id stays 'table' so a saved preference
+          still lands here. */}
+      {/* Its groups are stages, so it waits on the pipeline list. */}
+      {view === 'table' && !error && refData === null && <DealCardsSkeleton cards={2} />}
+      {view === 'table' && !error && listStages.length > 0 && (
+        <DealList
+          stages={listStages}
+          stats={strip?.stats || null}
+          search={search}
+          status={filters.status || 'open'}
+          tag={filters.tag || undefined}
+          assignedTo={filters.assignedTo || undefined}
           sort={sort}
           dir={sortDir}
-          onSort={(col, d) => { setSort(col); setSortDir(d) }}
-          // Already filtered to one stage, so every row would repeat it.
-          singleStage={!!filters.stageId}
+          focusStage={filters.stageId || undefined}
+          // The row opens the deal's own page; the chips' menus carry the
+          // ways to the hub, the contact and the business.
+          onOpenDeal={setOpenDealId}
+          onOpenInHub={onOpenDeal}
+          onOpenContact={onOpenContact}
+          onOpenBusiness={onOpenBusiness}
         />
       )}
 
-      {/* CARDS — the default, and the only view that edits a deal inline. */}
-      {view === 'cards' && deals.map((d) => (
-        <DealCard
-          key={d.id}
-          deal={d}
-          // "Open deal" means the deal's own page here too. It used to jump to
-          // the hub, so the same green button meant two different destinations
-          // depending on which view the rep happened to be in.
-          onOpenDeal={setOpenDealId}
-          onOpenInHub={onOpenDeal}
-          // Opens the Contacts tab on that person — the same handler the
-          // table rows and the Deal Hub chips already use.
-          onOpenContact={onOpenContact}
-          expanded={editingId === d.id}
-          onToggleExpand={() => {
-            setCreating(false)
-            setEditingId((cur) => (cur === d.id ? null : d.id))
-          }}
-          pipelines={refData?.pipelines || null}
-          users={refData?.users || null}
-          refError={refError}
-          onSaved={() => refreshDeal(d.id)}
-          // A deleted deal is gone from the list entirely, so this is the one
-          // case that warrants a full reload rather than patching a row.
-          onDeleted={() => { setEditingId(null); reload() }}
-        />
-      ))}
+      {/* GRID — the Figma card, three across. Replaces the old Cards view
+          and its inline Edit form: each field edits in place here with the
+          Deal hub's own pickers, and the deal's page still has every field. */}
+      {view === 'grid' && !error && deals.length > 0 && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
+          gap: 'var(--space-3)',
+          alignItems: 'start'
+        }}>
+          {deals.map((d) => (
+            <DealGridCard
+              key={d.id}
+              deal={d}
+              fieldOptions={fieldOptions}
+              users={refData?.users || null}
+              saving={gridSaving}
+              onSaveField={saveGridField}
+              onTagsChanged={(deal, next) => patchItem((x) => x.id === deal.id, { contactTags: next })}
+              onOpenInHub={onOpenDeal}
+              onOpenContact={onOpenContact}
+              onOpenBusiness={onOpenBusiness}
+            />
+          ))}
+        </div>
+      )}
+      {view === 'grid' && gridError && (
+        <p role="alert" style={{
+          margin: 0, padding: 'var(--space-2) var(--space-3)',
+          background: 'var(--tint-rose)', border: '1px solid var(--status-stuck)',
+          borderRadius: 'var(--radius-md)',
+          fontSize: 'var(--text-md)', color: 'var(--status-stuck-text)'
+        }}>
+          {gridError}
+        </p>
+      )}
 
       {/* Not on the board: this paginates the card/table list, and each board
           column pages itself. Shown there it read as the board's own total —
           "5 deals — that's everything" under a board holding far more. */}
-      {view !== 'board' && !loading && deals.length > 0 && (
+      {view === 'grid' && !loading && deals.length > 0 && (
         <LoadMore
           sentinelRef={sentinelRef}
           hasMore={hasMore}
@@ -814,338 +888,11 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
           noun="deal"
         />
       )}
+      </div>
+      </Panel>
     </Shell>
   )
 }
-
-function DealCard({
-  deal, onOpenDeal, onOpenInHub, onOpenContact, expanded, onToggleExpand,
-  pipelines, users, refError, onSaved, onDeleted
-}) {
-  // No edit state on the card any more — DealEditPanel owns the whole draft,
-  // so there is one place a change can live and one Update that commits it.
-  const people = deal.people || []
-  const daysInStage = daysSince(deal.currentStageEnteredAt)
-
-  // The strip under the controls: what it is, where it came from, how long
-  // it's sat there. Only facts we actually have — no "—" filler.
-  const facts = [
-    deal.product,
-    deal.leadSource,
-    daysInStage != null ? `${daysInStage} ${daysInStage === 1 ? 'day' : 'days'} in stage` : null,
-    deal.pipeline
-  ].filter(Boolean)
-
-  return (
-    <section
-      // .pp-card carries the border, the layered shadow and — the part that
-      // could not be done inline — the hover lift. .pp-card-open keeps the
-      // expanded row raised with a brand edge so it does not drop back when
-      // the pointer leaves the card being edited.
-      className={expanded ? 'pp-card pp-card-open' : 'pp-card'}
-      style={{
-        ['--panel-accent']: 'var(--accent-pine-text)',
-        ['--panel-tint']: 'var(--tint-pine)',
-        overflow: 'hidden'
-      }}
-    >
-      <header
-        style={{
-          display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)',
-          flexWrap: 'wrap', padding: '14px var(--space-4) 0'
-        }}
-      >
-        <span
-          className="ms"
-          style={{ fontSize: 'var(--text-xl)', color: 'var(--accent-pine)', marginTop: 2 }}
-        >
-          sell
-        </span>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <h2
-            style={{
-              fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--text-heading)',
-              margin: 0, lineHeight: 1.3
-            }}
-          >
-            {deal.dealTag || '(unnamed deal)'}
-          </h2>
-          {deal.opportunityName && deal.opportunityName !== deal.dealTag && (
-            <p style={{ margin: '3px 0 0', fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
-              {deal.opportunityName}
-            </p>
-          )}
-        </div>
-
-        {/* Edit before Open deal: editing is the action a rep takes on a row in
-            a list, and Open deal navigates away from it. */}
-        <button
-          onClick={onToggleExpand}
-          aria-expanded={expanded}
-          title={expanded ? 'Close the editor' : 'Edit this deal without leaving the list'}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            height: 34, padding: '0 13px',
-            border: '1px solid var(--border-strong)',
-            borderRadius: 'var(--radius-md)',
-            background: expanded ? 'var(--gray-100)' : '#fff',
-            color: 'var(--text-heading)',
-            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
-            cursor: 'pointer', flex: 'none'
-          }}
-        >
-          <span className="ms" style={{ fontSize: 16 }}>
-            {expanded ? 'expand_less' : 'edit'}
-          </span>
-          {expanded ? 'Close' : 'Edit'}
-        </button>
-
-        {/* Secondary to "Open deal": same destination the table's hub icon
-            reaches, so a rep who works from cards is not the only one who has
-            to open the editor first. */}
-        {onOpenInHub && (
-          <button
-            onClick={() => onOpenInHub(deal.id)}
-            title="Open on the deal hub"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 7,
-              height: 34, padding: '0 13px',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--surface-card)', color: 'var(--text-body)',
-              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
-              cursor: 'pointer', flex: 'none'
-            }}
-          >
-            <span className="ms" style={{ fontSize: 16 }}>space_dashboard</span>
-            Deal hub
-          </button>
-        )}
-
-        <button
-          onClick={() => onOpenDeal && onOpenDeal(deal.id)}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 7,
-            height: 34, padding: '0 15px',
-            border: 'none', borderRadius: 'var(--radius-md)',
-            background: 'var(--green-600)', color: '#fff',
-            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
-            cursor: 'pointer', flex: 'none'
-          }}
-        >
-          Open deal
-          <span className="ms" style={{ fontSize: 16 }}>arrow_forward</span>
-        </button>
-      </header>
-
-      {/* A read-only summary of the numbers a rep scans for. These were
-          editable controls on the card face; editing now happens in the
-          expander, so the card can show the value formatted (with its currency)
-          rather than as a raw number in a text input. */}
-      <div
-        style={{
-          display: 'flex', alignItems: 'baseline', gap: 'var(--space-4)',
-          flexWrap: 'wrap', padding: 'var(--space-3) var(--space-4) 0'
-        }}
-      >
-        <Stat label="Value" value={deal.value} mono />
-        <Stat label="Stage" value={deal.stage} />
-        <Stat
-          label="Expected close"
-          value={deal.forecastCloseDate ? formatDate(deal.forecastCloseDate) : null}
-        />
-        <Stat label="Owner" value={deal.owner} />
-      </div>
-
-      {(facts.length > 0 || deal.openTaskCount > 0 || deal.noteCount > 0) && (
-        <div
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
-            padding: '10px var(--space-4) 0'
-          }}
-        >
-          {facts.length > 0 && (
-            <p
-              style={{
-                margin: 0, flex: '1 1 auto', minWidth: 0,
-                fontSize: 'var(--text-base)', color: 'var(--text-muted)', lineHeight: 1.5
-              }}
-            >
-              {facts.join(' · ')}
-              {deal.lastCustomerContactAt && (
-                <> · last contact {formatDate(deal.lastCustomerContactAt)}</>
-              )}
-            </p>
-          )}
-          {/* FOLLOW-UP, ON THE CARD.
-              These were only visible after clicking Edit, so scanning a list
-              for deals with outstanding work meant opening every one. Chips
-              rather than another clause in the grey line: a count is a state
-              worth spotting, not one more attribute. */}
-          <FollowUpChips
-            tasks={deal.openTaskCount}
-            notes={deal.noteCount}
-          />
-        </div>
-      )}
-
-      {people.length > 0 && (
-        <div style={{ padding: 'var(--space-3) var(--space-4) var(--space-4)' }}>
-          <span
-            style={{
-              display: 'block', marginBottom: 7,
-              fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
-              textTransform: 'uppercase', color: 'var(--text-muted)'
-            }}
-          >
-            {people.length === 1 ? 'Contact on this deal' : 'Contacts on this deal'}
-          </span>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-            {people.map((p) => (
-              <PersonPill key={p.id} person={p} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Mounted only while expanded, so the panel's draft state resets when
-          it closes — a half-typed value must not survive a reopen and read as
-          the deal's actual figure. */}
-      {expanded && (
-        <DealEditPanel
-          deal={deal}
-          pipelines={pipelines}
-          users={users}
-          refError={refError}
-          onSaved={onSaved}
-          onOpenContact={onOpenContact}
-          // Same refetch as a save. A link change is written to GHL
-          // immediately, so the panel stays open and only the people list
-          // needs to catch up.
-          onPeopleChanged={onSaved}
-          onDeleted={onDeleted}
-          // Cancel closes the panel when there is nothing to discard, so it
-          // needs the same toggle the Edit button uses.
-          onClose={onToggleExpand}
-        />
-      )}
-    </section>
-  )
-}
-
-// A read-only label/value pair for the card face.
-//
-// Renders "Not set" rather than being omitted: on a card these four sit in a
-// fixed row, and dropping one would shift the others so the same field appears
-// in a different place on every card.
-function Stat({ label, value, mono = false }) {
-  const set = value != null && String(value).trim() !== ''
-  return (
-    <div style={{ minWidth: 0 }}>
-      <span
-        style={{
-          display: 'block', marginBottom: 2,
-          fontSize: 'var(--text-xs)', fontWeight: 600,
-          letterSpacing: 'var(--tracking-label)',
-          textTransform: 'uppercase', color: 'var(--text-muted)'
-        }}
-      >
-        {label}
-      </span>
-      <span
-        style={{
-          fontSize: 'var(--text-lg)', fontWeight: 600,
-          fontFamily: mono && set ? 'var(--font-mono)' : 'var(--font-sans)',
-          color: set ? 'var(--text-heading)' : 'var(--text-faint)'
-        }}
-      >
-        {set ? String(value) : 'Not set'}
-      </span>
-    </div>
-  )
-}
-
-function PersonPill({ person }) {
-  const accent = `var(--accent-${person.accent || 'sky'}-text)`
-  const tint = `var(--tint-${person.accent || 'sky'})`
-  const name = nameFor(person)
-
-  return (
-    <span
-      title={person.business || undefined}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 'var(--space-3)',
-        maxWidth: 340,
-        // Bigger overall: 28px avatar and 6px padding made a pill you had to
-        // squint at, and the two on this deal were visually identical.
-        padding: '8px 14px 8px 8px',
-        border: '1px solid var(--border-strong)',
-        borderRadius: 'var(--radius-md)',
-        background: '#fff'
-      }}
-    >
-      <span
-        style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          width: 38, height: 38, flex: 'none',
-          borderRadius: '50%',
-          background: tint, color: accent,
-          fontSize: 'var(--text-md)', fontWeight: 600
-        }}
-      >
-        {initialsFor(person.firstName, person.lastName, name)}
-      </span>
-      <span style={{ minWidth: 0 }}>
-        <Truncate style={{ display: 'block',
-            fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)' }}>
-          {name}
-        </Truncate>
-        {/* Something that distinguishes THIS person.
-            The contact type alone ("lead") is identical on every pill, so it's
-            the last resort. And whatever nameFor already used as the heading is
-            skipped — showing "mark@example.com" twice, once as the name and
-            once beneath it, says nothing the first line didn't. */}
-        {(() => {
-          const detail =
-            [person.business, person.email, person.phone, person.contactType]
-              .find((v) => v && String(v).trim() && String(v).trim() !== name)
-          if (!detail) return null
-          return (
-            <Truncate style={{ display: 'block', marginTop: 1,
-                fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
-              {detail}
-            </Truncate>
-          )
-        })()}
-      </span>
-      {person.primary && (
-        <span
-          style={{
-            flex: 'none',
-            fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
-            textTransform: 'uppercase',
-            padding: '2px 7px', borderRadius: 'var(--radius-sm)',
-            // Solid: on green-50 (1.13:1 against the white card) the badge
-            // was invisible and PRIMARY read as ordinary small text.
-            background: 'var(--green-600)', color: '#fff'
-          }}
-        >
-          Primary
-        </span>
-      )}
-    </span>
-  )
-}
-
-function daysSince(ts) {
-  if (!ts) return null
-  const then = new Date(ts).getTime()
-  if (Number.isNaN(then)) return null
-  return Math.max(0, Math.floor((Date.now() - then) / 86400000))
-}
-
-
-
 
 // The board, while its pipeline loads.
 //

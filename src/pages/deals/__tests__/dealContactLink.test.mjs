@@ -29,13 +29,15 @@ test('it matches the handler shape the rest of the app uses', () => {
   assert.match(table, /onOpenContact\(d\.contact\.id\)/)
 })
 
-test('the handler is threaded from the tab to the panel', () => {
-  // Three levels: DealsTab -> DealCard -> DealEditPanel. A break anywhere is
-  // invisible — React passes undefined and the name silently stops linking.
-  // The param list is matched loosely: what matters is that onOpenContact is
-  // one of DealCard's props, not which handlers sit beside it. Pinning the
-  // exact list failed the day an unrelated prop was added next to it.
-  assert.match(tab, /function DealCard\(\{[^}]*\bonOpenContact\b/)
+test('the handler is threaded from the tab to every place a contact shows', () => {
+  // DealsTab -> the grid card (View CONTACT), the table, and the deal's own
+  // page -> DealEditPanel. A break anywhere is invisible — React passes
+  // undefined and the name silently stops linking.
+  //
+  // The old Cards view (DealCard) was retired for the grid card in Oct 2026;
+  // the grid card now carries the link.
+  const grid = readFileSync(new URL('../DealGridCard.jsx', import.meta.url), 'utf8')
+  assert.match(grid, /onOpenContact\(deal\.contact\.id\)/)
   assert.ok((tab.match(/onOpenContact=\{onOpenContact\}/g) || []).length >= 3)
   assert.match(panel, /onOpenContact=\{onOpenContact\}/)
 })
