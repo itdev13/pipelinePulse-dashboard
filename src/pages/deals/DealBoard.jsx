@@ -215,7 +215,7 @@ function DealCard({ deal, onOpen, onOpenInHub, onDragStart, dragging }) {
 }
 
 // One stage. Owns its own deals, count and paging.
-function Column({ stage, search, status, tag, assignedTo, onOpen, onOpenInHub, onMoved, registerReload }) {
+function Column({ stage, search, status, tag, assignedTo, sort, dir, onOpen, onOpenInHub, onMoved, registerReload }) {
   const [deals, setDeals] = useState([])
   const [total, setTotal] = useState(null)
   // The STAGE's value from the server (sum over every matching deal), not the
@@ -248,7 +248,11 @@ function Column({ stage, search, status, tag, assignedTo, onOpen, onOpenInHub, o
         // The server has supported both all along (routes/deals.js) — they
         // simply never left the browser on this view.
         tag: tag || undefined,
-        assignedTo: assignedTo || undefined
+        assignedTo: assignedTo || undefined,
+        // The toolbar's Sort, so a column orders its cards the way the list
+        // views do. Omitted means the server default (last updated).
+        sort: sort || undefined,
+        dir: sort ? (dir || 'desc') : undefined
       })
       setDeals((prev) => (nextCursor ? [...prev, ...(r.deals || [])] : (r.deals || [])))
       setCursor(r.nextCursor || null)
@@ -260,7 +264,7 @@ function Column({ stage, search, status, tag, assignedTo, onOpen, onOpenInHub, o
     } finally {
       setLoading(false)
     }
-  }, [stage.id, search, status, tag, assignedTo])
+  }, [stage.id, search, status, tag, assignedTo, sort, dir])
 
   useEffect(() => { load(null) }, [load])
 
@@ -543,7 +547,14 @@ export function mergeStages(pipelines) {
     }))
 }
 
-export default function DealBoard({ pipeline, pipelines, search, status = 'open', tag, assignedTo, onOpenDeal, onOpenInHub }) {
+export default function DealBoard({
+  pipeline, pipelines, search, status = 'open', tag, assignedTo, onOpenDeal, onOpenInHub,
+  sort, dir,
+  // A stage id picked in the toolbar's Stage field. The board then shows only
+  // the column that holds it — the rest would be columns of deals the filter
+  // just excluded.
+  focusColumn
+}) {
   const [moveError, setMoveError] = useState(null)
   // stageId -> reload fn, so a move can refresh exactly the two columns it
   // touched rather than the whole board.
@@ -609,7 +620,7 @@ export default function DealBoard({ pipeline, pipelines, search, status = 'open'
         paddingBottom: 'var(--space-2)',
         minHeight: 420
       }}>
-        {stages.map((st) => (
+        {stages.filter((st) => !focusColumn || st.id.split(',').includes(focusColumn)).map((st) => (
           <Column
             key={st.id}
             stage={st}
@@ -617,6 +628,8 @@ export default function DealBoard({ pipeline, pipelines, search, status = 'open'
             status={status}
             tag={tag}
             assignedTo={assignedTo}
+            sort={sort}
+            dir={dir}
             onOpen={onOpenDeal}
             onOpenInHub={onOpenInHub}
             onMoved={move}

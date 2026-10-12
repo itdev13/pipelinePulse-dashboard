@@ -3,10 +3,9 @@ import { Select } from 'antd'
 import DealBoard, { mergeStages } from '../deals/DealBoard'
 import PipelineStrip from '../deals/PipelineStrip'
 import DealTable from '../deals/DealTable'
-import DealToolbar from '../deals/DealToolbar'
 import { useAuth } from '../../context/AuthContext'
 import DealFilters from '../deals/DealFilters'
-import { OwnerFilter, TagFilter } from '../shared/ListFilters'
+import { OwnerFilter } from '../shared/ListFilters'
 import DealEditPage from '../deals/DealEditPage'
 import ViewSwitch from '../shared/ViewSwitch'
 import { savedViewsAPI } from '../../api/deals'
@@ -34,6 +33,26 @@ import {
 // read-only and the full field set — everything GHL's own edit modal offers —
 // opens in place via DealEditPanel. That removed the half-working controls and
 // made the rest actually saveable.
+
+// The toolbar's sort choices. Only the keys the server's keyset cursor can
+// anchor to — see DealTable — so every option sorts the whole list, not just
+// the page that happens to be loaded.
+const SORT_OPTIONS = [
+  { value: 'recent', label: 'Last updated' },
+  { value: 'created', label: 'Date created' },
+  { value: 'value', label: 'Value' },
+  { value: 'lastCustomerMessage', label: 'Last customer message' }
+]
+
+// A toolbar field with its label stacked ABOVE it, the Figma row's shape.
+function ToolbarField({ label, children }) {
+  return (
+    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
+      <span className="pp-label" style={{ marginBottom: 0 }}>{label}</span>
+      {children}
+    </span>
+  )
+}
 
 export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId = null }) {
   // Which view. Persisted because it is a working preference, not a
@@ -220,6 +239,18 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
     // count on a view switch would be a request that cannot change the answer.
   }, [boardPipelineId, filters, search])
 
+  // The Stage field's options. With a pipeline chosen, its stages. With
+  // "All pipelines", every stage — names repeat across pipelines ("Won" is
+  // in most), so each is qualified; the id is what filters.
+  const stageOptions = useMemo(() => {
+    const all = refData?.pipelines || []
+    const scoped = boardPipelineId ? all.filter((p) => p.id === boardPipelineId) : all
+    return scoped.flatMap((p) => (p.stages || []).map((st) => ({
+      value: st.id,
+      label: scoped.length > 1 ? `${p.name} — ${st.name}` : st.name
+    })))
+  }, [refData, boardPipelineId])
+
   // The pipeline strip's columns and figures. Null until both the pipelines
   // and the stage totals have loaded, so the strip never flashes a row of
   // zeros that are really "not fetched yet".
@@ -281,13 +312,15 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [views])
 
-  const saveView = useCallback(async (name) => {
+  // `withFilters`: the Filters panel saves its DRAFT and applies it in the
+  // same click, and `filters` here has not caught up yet — so it passes them.
+  const saveView = useCallback(async (name, withFilters) => {
     try {
       const r = await savedViewsAPI.save({
         name,
         // No `view`: a saved view is a set of FILTERS. The layout is a
         // per-rep preference that outlives any one view — see applyView.
-        filters: { ...filters, ...(search ? { q: search } : {}) }
+        filters: { ...(withFilters || filters), ...(search ? { q: search } : {}) }
       })
       // Replace by id so re-saving a name updates its tab rather than adding
       // a second one — the server upserts, and the list must agree.
@@ -446,223 +479,173 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
     // sits empty is the worse problem, and the table scrolls inside its own
     // box rather than stretching its type.
     <Shell maxWidth="none">
-      {/* A Panel, like Tasks, Notes and Contacts — one header that owns its
-          toolbar band, rather than a bare heading with a separately bordered
-          toolbar under it reading as two stacked headers.
+      {/* THE FIGMA HEADER: a solid green band with the title and count, then
+          ONE grey row of labelled fields — Search, Pipeline, Stage, Owner,
+          Sort — with Filters, the view switch and Add deal on the right.
 
-          Deals keeps the BAND (unlike Contacts, which folds its controls onto
-          the title row): the pipeline picker, Filters and saved views are a
-          genuinely full row on their own.
-
-          Inside the band the layout now matches Contacts — search, Owner and
-          Tag on the first line, then Filters, chips and Save view on the
-          second. Search moved down from the title row to join them: it
-          narrows the list exactly as the other two do, and sat apart only
-          because it was there first. "New deal" stays on the title row, since
-          it acts on the account rather than on what is being shown. */}
+          Tag, Status and the saved views moved into the Filters panel: the
+          design has no room for them on the row, and they are reached for
+          far less often than the five fields that are there. */}
       <Panel
         icon="sell"
         title="Deals"
         accent="pine"
+        solidHeader
         count={pipelineCount}
         countTitle={
           pipelineCount != null ? `${pipelineCount} deals match these filters` : undefined
         }
-        // The action is a control ROW now (search, owner, tag, New deal), not
-        // a lone button, so it claims the width beside the title instead of
-        // hugging the right edge.
-        actionFill
-        action={
-          <>
-            {/* Search, Owner and Tag share the title row — the same shape as
-                Contacts. They are what a rep changes constantly; the filter
-                popover and saved views sit on the band below, which starts at
-                the panel's left padding. */}
-            <SearchInput
-              value={q}
-              onChange={setQ}
-              // The search text is SAVED into a view (see saveView), so
-              // changing it edits the applied view the same way a filter does.
-              // Only when the text actually CHANGED. Blur fires every time the
-              // box loses focus, and marking the view dirty on a no-op would
-              // offer "Update view1" to a rep who merely clicked away.
-              onKeyDown={(e) => { if (e.key === 'Enter') commitSearch() }}
-              onBlur={commitSearch}
-              placeholder="Search deal name — press Enter"
-              width={280}
-            />
-            {/* Owner and Tag sit OUTSIDE the filter popover, on the toolbar
-                itself. Both were reachable before — buried behind "Filters"
-                with a count badge — which meant the single most common thing
-                a rep wants ("just my deals") took two clicks and was invisible
-                until they went looking. The rest stay in the popover: they are
-                occasional, and putting nine controls on the toolbar would cost
-                the width that makes these two legible. */}
-            <OwnerFilter
-              value={filters.assignedTo ?? ''}
-              onChange={(v) => {
-                setFilters({ ...filters, assignedTo: v || undefined })
-                setDirtyView(activeViewId)
-              }}
-            />
-            <TagFilter
-              value={filters.tag || ''}
-              onChange={(v) => {
-                setFilters({ ...filters, tag: v || undefined })
-                setDirtyView(activeViewId)
-              }}
-            />
-            {/* Second line from here: the popover, its chips, and Save view.
-                Owner and Tag lead because they are what a rep changes most. */}
-            {/* "New deal" acts on the ACCOUNT, not on what is being shown, so
-                it sits apart from the narrowing controls. */}
-            {/* Opening the create form closes any open editor — see `creating`
-                above. */}
-            <button
-              onClick={() => { setCreating(true); setEditingId(null) }}
-              disabled={creating}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                // Pushed to the far right of the row, away from the three
-                // controls that narrow the list.
-                flex: 'none', marginLeft: 'auto',
-                height: 36, padding: '0 15px',
-                border: 'none', borderRadius: 'var(--radius-md)',
-                background: creating ? 'var(--gray-200)' : 'var(--brand-primary)',
-                color: creating ? 'var(--text-faint)' : '#fff',
-                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
-                cursor: creating ? 'default' : 'pointer'
-              }}
-            >
-              <span className="ms" style={{ fontSize: 18 }}>add</span>
-              New deal
-            </button>
-          </>
-        }
+        toolbarBackground="var(--gray-100)"
         toolbar={
-        <DealToolbar
-          bare
-          views={views}
-          activeViewId={activeViewId}
-          onSelectView={applyView}
-          onSaveView={saveView}
-          onDeleteView={deleteView}
-          filters={filters}
-          // Chips show NAMES, not ids. Without this a stage filter rendered as
-          // "Stage bc551c54-eb49-…", which tells a rep nothing about what their
-          // board is currently showing.
-          filterLabels={{
-            stageId: ((refData?.pipelines || []).flatMap((p) => p.stages || [])
-              .find((st) => st.id === filters.stageId) || {}).name,
-            assignedTo: ((refData?.users || [])
-              .find((u) => u.id === filters.assignedTo) || {}).name
-          }}
-          // Removing a chip EDITS the applied view, exactly like changing a
-          // filter in the panel does. It used to change the filters without
-          // marking the view dirty, so the toolbar went on offering "Save view"
-          // under a new name while "view1" sat active and no longer matched.
-          onClearFilter={(k) => {
-            setFilters((f) => {
-              const next = { ...f }; delete next[k]; return next
-            })
-            setDirtyView(activeViewId)
-          }}
-          onClearAll={() => { setFilters({}); setActiveViewId(null); setDirtyView(null) }}
-          // The view whose filters have been edited since it was applied. The
-          // toolbar turns this into "Update <name>", which saves over it rather
-          // than creating a second view with almost the same filters.
-          dirtyViewId={dirtyView}
-          onUpdateView={(id) => {
-            const v = views.find((x) => x.id === id)
-            if (v) saveView(v.name)
-          }}
-          filterControl={
-            <>
-            <DealFilters
-              filters={filters}
-              onChange={(next) => {
-                setFilters(next)
-                // The view that produced these filters is now EDITED, not
-                // abandoned. Keeping its id is what lets the toolbar offer
-                // "Update <name>" — clearing it here left a rep who tweaked a
-                // filter with no way back to the view they were working on,
-                // only "Save view" under a new name.
-                setDirtyView(activeViewId)
-              }}
-              // With a pipeline chosen, its stages. With "All pipelines", every
-              // stage — falling back to the FIRST pipeline's stages here would
-              // silently hide the rest, the same way the board used to.
-              // Names repeat across pipelines ("Won" exists in most), so each
-              // is qualified; ids stay untouched because that is what filters.
-              stages={
-                boardPipelineId
-                  ? ((refData?.pipelines || []).find((p) => p.id === boardPipelineId)?.stages || [])
-                  : (refData?.pipelines || []).flatMap((p) =>
-                      (p.stages || []).map((st) => ({
-                        ...st,
-                        name: (refData?.pipelines || []).length > 1 ? `${p.name} — ${st.name}` : st.name
-                      }))
-                    )
-              }
-              users={refData?.users || []}
-            />
-            </>
-          }
-          // The pipeline sits with Filters, not with the view icons: it decides
-          // WHICH deals are on screen, which is the same question Filters
-          // answers. The icons only decide how they are drawn.
-          secondaryControl={
-            (refData?.pipelines || []).length > 1 && (
-              // antd Select, not a native one: a browser renders <option> with
-              // the OS's own menu, so the list could not be styled, sized or
-              // given the app's type. This one shares the .pp-menu treatment
-              // every other picker in the app uses.
+          <div style={{
+            flex: 1, minWidth: 0,
+            display: 'flex', alignItems: 'flex-end', flexWrap: 'wrap',
+            gap: 'var(--space-3)'
+          }}>
+            <ToolbarField label="Search">
+              <SearchInput
+                value={q}
+                onChange={setQ}
+                // The search text is SAVED into a view (see saveView), so
+                // committing new text edits the applied view the same way a
+                // filter does — and only when it actually changed.
+                onKeyDown={(e) => { if (e.key === 'Enter') commitSearch() }}
+                onBlur={commitSearch}
+                placeholder="Search deal, contact or business"
+                width={320}
+              />
+            </ToolbarField>
+
+            <ToolbarField label="Pipeline">
+              {/* antd Select, not a native one: a browser renders <option>
+                  with the OS's own menu, which cannot be styled or searched.
+                  '' is a real choice — "all pipelines" — in every view. */}
               <Select
                 aria-label="Pipeline"
-                // On the BOARD an empty value is impossible — its columns are one
-                // pipeline's stages — so it falls back to the first. Elsewhere
-                // '' is a real choice meaning "all pipelines", and `||` would
-                // have swallowed it back to the first one.
                 value={boardPipelineId ?? ''}
-                onChange={setBoardPipelineId}
+                onChange={(v) => {
+                  setBoardPipelineId(v)
+                  // A stage belongs to one pipeline. Switching away leaves
+                  // a stage filter that can match nothing.
+                  if (filters.stageId) {
+                    setFilters((f) => { const next = { ...f }; delete next.stageId; return next })
+                  }
+                }}
                 options={[
-                  // "All pipelines" is offered everywhere, the board included.
-                  // It does NOT merge stage lists into one set of columns —
-                  // that would not be a board. The board renders one section
-                  // per pipeline, each with its own columns.
                   { value: '', label: 'All pipelines' },
-                  ...refData.pipelines.map((p) => ({ value: p.id, label: p.name }))
+                  ...(refData?.pipelines || []).map((p) => ({ value: p.id, label: p.name }))
                 ]}
                 popupClassName="pp-menu"
-                // Wide enough for a real pipeline name. The old control was
-                // sized to its current value, so "Marketing pipeline" was
-                // clipped while "James" left the box half empty.
-                // 36px matches Filters, the saved views and the view switch.
-                // antd's size="large" is 40px, so the pipeline stood a notch
-                // taller than everything beside it and the row lost its line.
-                // 280px: "Marketing pipeline" and "customer pipeline" both fit
-                // without truncation, which 220 did not manage.
-                style={{ width: 280 }}
-                styles={{ root: { height: 36 } }}
-                // The menu is wider than the control when a name needs it,
-                // rather than truncating every option to the box.
                 popupMatchSelectWidth={false}
+                style={{ width: 180 }}
+                styles={{ root: { height: 36 } }}
               />
-            )
-          }
-        >
-          <ViewSwitch
-            value={view}
-            onChange={setView}
-            options={[
-              { id: 'board', icon: 'view_kanban', label: 'Board' },
-              { id: 'table', icon: 'table_rows', label: 'Table' },
-              // Last: the only view that edits inline, but also the slowest to
-              // scan, so it is a destination rather than the default.
-              { id: 'cards', icon: 'view_agenda', label: 'Cards' }
-            ]}
-          />
-        </DealToolbar>
+            </ToolbarField>
+
+            <ToolbarField label="Stage">
+              <Select
+                aria-label="Stage"
+                value={filters.stageId || ''}
+                onChange={(v) => {
+                  setFilters((f) => {
+                    const next = { ...f }
+                    if (v) next.stageId = v
+                    else delete next.stageId
+                    return next
+                  })
+                  setDirtyView(activeViewId)
+                }}
+                showSearch
+                optionFilterProp="label"
+                options={[{ value: '', label: 'All stages' }, ...stageOptions]}
+                popupClassName="pp-menu"
+                popupMatchSelectWidth={false}
+                style={{ width: 170 }}
+                styles={{ root: { height: 36 } }}
+              />
+            </ToolbarField>
+
+            <ToolbarField label="Owner">
+              <OwnerFilter
+                bare
+                value={filters.assignedTo ?? ''}
+                onChange={(v) => {
+                  setFilters({ ...filters, assignedTo: v || undefined })
+                  setDirtyView(activeViewId)
+                }}
+              />
+            </ToolbarField>
+
+            <ToolbarField label="Sort">
+              {/* Server-side, and only on the keys the cursor can anchor to —
+                  see DealTable. Newest / largest first. */}
+              <Select
+                aria-label="Sort"
+                value={sort}
+                onChange={(v) => { setSort(v); setSortDir('desc') }}
+                options={SORT_OPTIONS}
+                popupClassName="pp-menu"
+                popupMatchSelectWidth={false}
+                style={{ width: 170 }}
+                styles={{ root: { height: 36 } }}
+              />
+            </ToolbarField>
+
+            {/* Display and create, pushed right — away from everything that
+                changes WHICH deals are shown. */}
+            <span style={{
+              marginLeft: 'auto',
+              display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)'
+            }}>
+              <DealFilters
+                filters={filters}
+                onChange={(next) => {
+                  setFilters(next)
+                  // EDITED, not abandoned: keeping the view's id is what lets
+                  // the panel offer "Update <name>".
+                  setDirtyView(activeViewId)
+                }}
+                views={views}
+                activeViewId={activeViewId}
+                dirtyViewId={dirtyView}
+                onSelectView={applyView}
+                onSaveView={saveView}
+                onDeleteView={deleteView}
+                onUpdateView={(id) => {
+                  const v = views.find((x) => x.id === id)
+                  if (v) saveView(v.name)
+                }}
+              />
+              <ViewSwitch
+                value={view}
+                onChange={setView}
+                options={[
+                  { id: 'board', icon: 'view_kanban', label: 'Board' },
+                  { id: 'table', icon: 'table_rows', label: 'Table' },
+                  { id: 'cards', icon: 'view_agenda', label: 'Cards' }
+                ]}
+              />
+              {/* Opening the create form closes any open editor — see
+                  `creating` above. */}
+              <button
+                onClick={() => { setCreating(true); setEditingId(null) }}
+                disabled={creating}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  flex: 'none',
+                  height: 36, padding: '0 15px',
+                  border: 'none', borderRadius: 'var(--radius-md)',
+                  background: creating ? 'var(--gray-200)' : 'var(--brand-primary)',
+                  color: creating ? 'var(--text-faint)' : '#fff',
+                  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
+                  cursor: creating ? 'default' : 'pointer'
+                }}
+              >
+                <span className="ms" style={{ fontSize: 18 }}>add</span>
+                Add deal
+              </button>
+            </span>
+          </div>
         }
       />
 
@@ -758,6 +741,11 @@ export default function DealsTab({ onOpenDeal, onOpenContact, initialEditDealId 
           // The screen showed "Deals 0" above columns full of deals.
           tag={filters.tag || undefined}
           assignedTo={filters.assignedTo || undefined}
+          sort={sort}
+          dir={sortDir}
+          // The toolbar's Stage narrows the board to that one column rather
+          // than being sent as a filter — the columns ARE the stages.
+          focusColumn={filters.stageId || undefined}
           // A card opens the deal's own page. It used to jump straight to the
           // deal hub, which is a different question — the hub is the record's
           // activity, this is the record itself. The hub is one button away

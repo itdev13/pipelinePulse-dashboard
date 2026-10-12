@@ -76,7 +76,10 @@ export function Panel({
   // so flipping the default here would restyle Businesses, Contacts, Tasks,
   // Notes and the rest at the same time. Deal hub passes it; nothing else
   // does, until the same design lands on those tabs too.
-  solidHeader = false
+  solidHeader = false,
+  // The toolbar band's fill. White by default (see the note on the band);
+  // the Deals design puts its labelled field row on a grey band instead.
+  toolbarBackground = 'var(--surface-card)'
 }) {
   // On a solid band the title and icon are white and the band carries the
   // accent; on the pale default the band is the tint and the TEXT carries the
@@ -237,7 +240,7 @@ export function Panel({
             // border is enough to separate it from the rows below — the top
             // edge is already implied by the header above it.
             borderBottom: '1px solid var(--border-default)',
-            background: 'var(--surface-card)'
+            background: toolbarBackground
           }}
         >
           {toolbar}
