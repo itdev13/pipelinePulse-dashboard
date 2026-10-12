@@ -1,26 +1,31 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Select } from 'antd'
 import ViewSwitch from '../shared/ViewSwitch'
-import ContactTable from '../contacts/ContactTable'
+import ContactTable, { CONTACT_COLUMNS } from '../contacts/ContactTable'
 import ContactFilters, { activityParams, contactFilterLabels } from '../contacts/ContactFilters'
 import DealToolbar from '../deals/DealToolbar'
+import ConfirmDialog from '../shared/ConfirmDialog'
 import { savedViewsAPI, dealsAPI } from '../../api/deals'
-import { FollowUpChips, Panel, DealPill, Truncate } from '../shared/ListChrome'
+import {
+  DealPill, LabelledControl, CardGridSkeleton, LoadMore
+} from '../shared/ListChrome'
+import { LinkedRow, LINK_TONES } from '../shared/LinkedRecords'
 import { contactsAPI } from '../../api/contacts'
 import BusinessPickerModal from '../shared/BusinessPickerModal'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
 import { useAuth } from '../../context/AuthContext'
 import { OwnerFilter, TagFilter } from '../shared/ListFilters'
-import { CardGridSkeleton, LoadMore } from '../shared/ListChrome'
 import ContactDetail from '../contacts/ContactDetail'
 
 
 // Contacts tab — every contact in this location.
-// Grid of cards with editable-in-future fields; today they're read-only.
-// Each card leads with the contact's accent (top-edge stripe + avatar tint)
-// so the identity stays consistent with the rest of the app.
+//
+// October 2026: a blue section header over a labelled toolbar band, as on
+// Tasks and Notes, and a card per contact whose fields read as a ruled table
+// with the contact's deals and business listed beneath.
 export default function ContactsTab({
-  onOpenDeal, openContactId, onContactViewed,
+  onOpenDeal, onOpenBusiness, openContactId, onContactViewed,
   // Opening a card is navigation the shell never sees — it happens entirely
   // inside this tab. Report it so the Back button has a step to return to,
   // and so pressing Back doesn't restore a record the user has already left.
@@ -63,6 +68,26 @@ export default function ContactsTab({
   const [activeViewId, setActiveViewId] = useTabState('contacts', 'activeViewId', null)
   const [dirtyView, setDirtyView] = useTabState('contacts', 'dirtyView', null)
   const [viewError, setViewError] = useState(null)
+  // The saved view awaiting a delete confirmation, or null.
+  const [confirmingView, setConfirmingView] = useState(null)
+  // Which linked records the cards list — see ShowOnCards. Persisted with
+  // the rest of the tab's state.
+  const [showOn, setShowOn] = useTabState('contacts', 'showOn', { deals: true })
+  // Selected contact ids, for bulk actions. Plain state: a selection is a
+  // moment's work, not somewhere to come back to. No bulk action exists yet —
+  // see PENDING_FUNCTIONALITY.md — so selecting only counts for now.
+  const [selected, setSelected] = useState(() => new Set())
+  const toggleSelected = (id) => setSelected((prev) => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
+  // A passing message under the toolbar — Add contact's "not yet".
+  const [notice, setNotice] = useState(null)
+  // The list's visible columns, by key — see CONTACT_COLUMNS. Starts with all.
+  const [columns, setColumns] = useTabState(
+    'contacts', 'columns', CONTACT_COLUMNS.map((c) => c.key)
+  )
   const [tagList, setTagList] = useState([])
   const [userList, setUserList] = useState([])
 
@@ -171,6 +196,19 @@ export default function ContactsTab({
   }, [activeViewId])
 
   const contacts = items || []
+  const activeView = views.find((v) => v.id === activeViewId) || null
+
+  // One toolbar filter changed — empty clears it — and any applied saved view
+  // is marked edited, so "Update <view>" can offer to keep the change.
+  const setFilter = (key, value) => {
+    setFilters({ ...filters, [key]: value || undefined })
+    setDirtyView(activeViewId)
+  }
+
+  const openRecord = (id) => {
+    setOpenId(id)
+    if (onNavigate) onNavigate({ contactId: id })
+  }
 
   if (openId) {
     return (
@@ -197,260 +235,683 @@ export default function ContactsTab({
         margin: '0 auto', padding: 'var(--space-4) 20px 28px'
       }}
     >
+      {/* A SECTION CARD with a solid blue header and a toolbar band beneath
+          it — the same build as the Tasks and Notes tabs, in the Contacts
+          colour. */}
+      <section style={{
+        border: '1px solid var(--border-default)',
+        borderRadius: 'var(--radius-md)',
+        boxShadow: 'var(--shadow-card)',
+        background: '#fff',
+        overflow: 'hidden'
+      }}>
+        <header style={{
+          display: 'flex', alignItems: 'center', gap: 9,
+          padding: '12px 16px',
+          background: 'var(--contacts-header)',
+          borderBottom: '1px solid var(--contacts-header-border)'
+        }}>
+          <span className="ms" style={{ fontSize: 19, color: '#fff' }}>group</span>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: '#fff' }}>Contacts</h2>
+          {/* The server's total for the CURRENT filter, not the loaded row
+              count — "20+" then "25" as you scrolled answered no question a
+              rep actually has. */}
+          {!loading && (
+            <span
+              title={total != null ? `${total} contacts match these filters` : undefined}
+              style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                minWidth: 24, height: 22, padding: '0 8px', flex: 'none',
+                borderRadius: 'var(--radius-pill)',
+                background: 'rgba(255,255,255,.22)',
+                fontSize: 13, fontWeight: 600, color: '#fff',
+                fontVariantNumeric: 'tabular-nums'
+              }}
+            >
+              {total ?? contacts.length}
+            </span>
+          )}
+        </header>
 
-      {/* A Panel, like Tasks and Notes — the title, count and controls on one
-          header, with the toolbar in the panel's own band. It used to be a
-          bare heading on the page ground with a separate bordered toolbar
-          below, so Contacts was the one tab that did not look like the rest. */}
-      <Panel
-        icon="group"
-        title="Contacts"
-        accent="sky"
-        // The server's total for the CURRENT filter. It used to be the loaded
-        // row count, so the badge read "20+" and then "25" as you scrolled —
-        // a number that answered no question a rep actually has.
-        count={loading ? null : (total ?? contacts.length)}
-        countTitle={total != null ? `${total} contacts match these filters` : undefined}
-        // The controls sit on the TITLE row, not in a band below it.
-        //
-        // Contacts has one row of them — search, filters, view switch — and a
-        // separate band for a single row put an empty strip under the title
-        // and left the switch stranded mid-row. Tasks keeps its band because
-        // it has two rows (Status and Due) that genuinely need their own line.
-        actionFill
-        contentPad
-        // Search, Owner and Tag share the TITLE row (`action`); Filters,
-        // chips and Save view go to `actionBreak`, a second header row that
-        // starts at the panel's left padding rather than at the title's right
-        // edge. Two lines, both aligned to the same margin.
-        // Row 1, beside the title: what a rep changes constantly.
-        action={
-          <>
-              <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') setSearch(q.trim()) }}
-          onBlur={() => setSearch(q.trim())}
-          placeholder="Search name, email, phone or business — press Enter"
-          style={{
-            // No marginLeft:auto — that pushed it to the far right of the
-            // page header it used to live in. In the toolbar it leads the row.
-            // Shrinks before the dropdowns do — a search box narrowed to 200px
-            // is still usable, whereas a truncated owner name is not.
-            width: 300, minWidth: 180, flex: '1 1 300px', maxWidth: 360,
-            height: 36, boxSizing: 'border-box',
-            padding: '0 var(--space-3)',
-            border: '1px solid var(--border-strong)',
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--surface-card)',
-            fontFamily: 'var(--font-sans)',
-            fontSize: 'var(--text-lg)', color: 'var(--text-body)'
-          }}
-        />
-              {/* Owner and Tag upfront, the rest behind "Filters" — see the
-                  same pair on DealsTab for why. */}
+        {/* The toolbar band, two rows.
+            Row 1 — the labelled controls a rep changes constantly, with the
+            display switch at the right.
+            Row 2 — the occasional ones: the Filters drawer, the chips it
+            produces, Save view, and what the cards show. */}
+        <div className="pp-task-toolbar" style={{
+          display: 'grid', gap: 12,
+          padding: '12px 14px',
+          background: 'var(--gray-100)',
+          borderBottom: '1px solid var(--border-default)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
+            <LabelledControl label="Search">
+              <ContactSearch
+                value={q}
+                onChange={setQ}
+                // Server-side, on Enter or blur — not per keystroke. Crittall
+                // has thousands of contacts and the list is paged.
+                onCommit={() => setSearch(q.trim())}
+              />
+            </LabelledControl>
+
+            <LabelledControl label="Owner">
               <OwnerFilter
                 value={filters.assignedTo ?? ''}
-                onChange={(v) => {
-                  setFilters({ ...filters, assignedTo: v || undefined })
-                  setDirtyView(activeViewId)
-                }}
+                onChange={(v) => setFilter('assignedTo', v)}
+                bare
               />
-              <TagFilter
-                value={filters.tag || ''}
-                onChange={(v) => {
-                  setFilters({ ...filters, tag: v || undefined })
-                  setDirtyView(activeViewId)
-                }}
+            </LabelledControl>
+
+            <LabelledControl label="Type">
+              <Select
+                value={filters.contactType || ''}
+                onChange={(v) => setFilter('contactType', v)}
+                options={[{ value: '', label: 'All' }, ...CONTACT_TYPES]}
+                popupClassName="pp-menu"
+                style={{ width: 140 }}
+                styles={{ root: { height: 34 } }}
               />
-              {/* Everything after this starts a second line: the popover of
-                  remaining filters, the chips it produces, and Save view.
-                  Search, Owner and Tag are what a rep reaches for constantly;
-                  the rest is occasional and belongs below rather than pushing
-                  the common controls off the right edge. */}
-          </>
-        }
-        // Row 2, at the panel's left padding: the filter popover, the chips it
-        // produces, saved views, and the display switch.
-        actionBreak={
-          <>
+            </LabelledControl>
+
+            {/* Only when the account HAS tags — an empty dropdown invites a
+                rep to open it and wonder what broke. */}
+            {tagList.length > 0 && (
+              <LabelledControl label="Tag">
+                <TagFilter
+                  value={filters.tag || ''}
+                  onChange={(v) => setFilter('tag', v)}
+                  bare
+                />
+              </LabelledControl>
+            )}
+
+            <LabelledControl label="Saved view">
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <Select
+                  value={activeViewId || ''}
+                  onChange={(id) => applyView(id || null)}
+                  options={[
+                    { value: '', label: 'All contacts' },
+                    ...views.map((v) => ({ value: v.id, label: v.name }))
+                  ]}
+                  popupClassName="pp-menu"
+                  style={{ width: 170 }}
+                  styles={{ root: { height: 34 } }}
+                  popupMatchSelectWidth={240}
+                />
+                {/* Deleting lives beside the picker, and only for your own
+                    views — a shared one belongs to whoever made it. */}
+                {activeView?.isMine && (
+                  <button
+                    onClick={() => setConfirmingView(activeView)}
+                    title={`Delete "${activeView.name}"`}
+                    aria-label={`Delete the saved view ${activeView.name}`}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      width: 34, height: 34, flex: 'none',
+                      border: '1px solid var(--border-strong)',
+                      borderRadius: 'var(--radius-md)',
+                      background: 'var(--surface-card)', color: 'var(--status-stuck)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <span className="ms" style={{ fontSize: 16 }}>delete</span>
+                  </button>
+                )}
+              </span>
+            </LabelledControl>
+
+            <span style={{
+              marginLeft: 'auto', flex: 'none',
+              display: 'inline-flex', alignItems: 'center', gap: 8
+            }}>
+              <ViewSwitch
+                value={view}
+                onChange={setView}
+                options={[
+                  { id: 'cards', icon: 'grid_view', label: 'Grid' },
+                  { id: 'table', icon: 'view_agenda', label: 'List' }
+                ]}
+              />
+              {/* In the design, but there is no create-contact API yet — so
+                  it says where contacts are added rather than opening a form
+                  that cannot save. See PENDING_FUNCTIONALITY.md. */}
+              <button
+                onClick={() => {
+                  setNotice('Adding contacts from here is not available yet — add them in your CRM and they will appear here.')
+                  window.setTimeout(() => setNotice(null), 5000)
+                }}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 7,
+                  height: 38, padding: '0 16px', flex: 'none',
+                  border: 'none', borderRadius: 'var(--radius-pill)',
+                  background: 'var(--contacts-header)', color: '#fff',
+                  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+                  fontWeight: 600, cursor: 'pointer'
+                }}
+              >
+                <span className="ms" style={{ fontSize: 17 }}>add</span>Add contact
+              </button>
+            </span>
+          </div>
+
           <DealToolbar
             bare
             countLabel="contacts"
-          views={views}
-          activeViewId={activeViewId}
-          onSelectView={applyView}
-          onSaveView={saveView}
-          onDeleteView={deleteView}
-          dirtyViewId={dirtyView}
-          onUpdateView={(id) => {
-            const v = views.find((x) => x.id === id)
-            if (v) saveView(v.name)
-          }}
-          filters={filters}
-          // Chips read as sentences, not raw values — "Quiet for 30+ days"
-          // rather than "Activity quiet:30".
-          filterLabels={contactFilterLabels(filters, userList)}
-          onClearFilter={(k) => {
-            setFilters((f) => { const next = { ...f }; delete next[k]; return next })
-            setDirtyView(activeViewId)
-          }}
-          onClearAll={() => { setFilters({}); setActiveViewId(null); setDirtyView(null) }}
-          // No count here — the panel's title badge carries it. Two counts a
-          // few pixels apart is one too many, and they disagreed the moment a
-          // filter narrowed the list.
-          filterControl={
-            <>
+            views={views}
+            // The Saved view dropdown above lists them; tabs here would show
+            // the same views twice.
+            showViewTabs={false}
+            activeViewId={activeViewId}
+            onSelectView={applyView}
+            onSaveView={saveView}
+            onDeleteView={deleteView}
+            dirtyViewId={dirtyView}
+            onUpdateView={(id) => {
+              const v = views.find((x) => x.id === id)
+              if (v) saveView(v.name)
+            }}
+            filters={filters}
+            // Chips read as sentences, not raw values — "Quiet for 30+ days"
+            // rather than "Activity quiet:30".
+            filterLabels={contactFilterLabels(filters, userList)}
+            onClearFilter={(k) => {
+              setFilters((f) => { const next = { ...f }; delete next[k]; return next })
+              setDirtyView(activeViewId)
+            }}
+            onClearAll={() => { setFilters({}); setActiveViewId(null); setDirtyView(null) }}
+            filterControl={
               <ContactFilters
-              filters={filters}
-              tags={tagList}
-              users={userList}
-              onChange={(next) => { setFilters(next); setDirtyView(activeViewId) }}
-            />
-            </>
-          }
-        >
-          <ViewSwitch
-            value={view}
-            onChange={setView}
-            options={[
-              { id: 'cards', icon: 'grid_view', label: 'Cards' },
-              { id: 'table', icon: 'table_rows', label: 'Table' }
-            ]}
-          />
-        </DealToolbar>
+                filters={filters}
+                tags={tagList}
+                users={userList}
+                onChange={(next) => { setFilters(next); setDirtyView(activeViewId) }}
+              />
+            }
+            afterViews={view === 'cards' && (
+              <ShowOnCards value={showOn} onChange={setShowOn} />
+            )}
+          >
+            {view === 'table' && (
+              <ColumnsControl value={columns} onChange={setColumns} />
+            )}
+          </DealToolbar>
           {viewError && (
-          <p style={{
-            margin: '8px 0 0', fontSize: 'var(--text-md)',
-            color: 'var(--status-stuck-text)'
-          }}>
-            {viewError}
-          </p>
+            <p style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--status-stuck-text)' }}>
+              {viewError}
+            </p>
           )}
-          </>
-        }
-      >
-
-      {error && (
-        <div
-          style={{
-            padding: 16, marginBottom: 14,
-            border: '1px solid var(--status-stuck)',
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--tint-rose)', color: 'var(--status-stuck)', fontSize: 'var(--text-md)'
-          }}
-        >
-          {error}
+          {notice && (
+            <p role="status" style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
+              {notice}
+            </p>
+          )}
         </div>
-      )}
 
-      {/* Card grid, so the skeleton mirrors the card shape and the layout
-          doesn't jump when the real contacts land. minWidth matches the real
-          grid's 320px track. */}
-      {loading && <CardGridSkeleton cards={6} minWidth={430} />}
+        <div style={{ background: 'var(--gray-50)', padding: 'var(--space-3)' }}>
+          {error && (
+            <div
+              style={{
+                padding: 16, marginBottom: 14,
+                border: '1px solid var(--status-stuck)',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--tint-rose)', color: 'var(--status-stuck)', fontSize: 'var(--text-md)'
+              }}
+            >
+              {error}
+            </div>
+          )}
 
-      {!loading && contacts.length === 0 && !error && (
-        <div style={{ padding: 24, color: 'var(--text-muted)', fontSize: 'var(--text-md)' }}>
-          {/* "No contacts in this sub-account yet" was shown whenever the list
-              came back empty for ANY reason — so an owner filter matching
-              nothing claimed an account with 2,406 contacts was empty, and
-              offered nothing to do about it. The filters are what a rep can
-              actually change, so they are what the message names. */}
-          {search || Object.keys(filters).length > 0
-            ? `No contacts match ${
-                [search && 'the search',
-                 Object.keys(filters).length > 0 && 'the filters']
-                  .filter(Boolean).join(' and ')
-              } — clear ${Object.keys(filters).length > 0 ? 'them' : 'it'} to see everything.`
-            : 'No contacts in this sub-account yet.'}
+          {/* Card-shaped, so the layout doesn't jump when the real contacts
+              land. minWidth matches the real grid's track. */}
+          {loading && <CardGridSkeleton cards={6} minWidth={430} />}
+
+          {!loading && contacts.length === 0 && !error && (
+            <div style={{ padding: 24, color: 'var(--text-muted)', fontSize: 'var(--text-md)' }}>
+              {/* Names what a rep can actually change — the search and the
+                  filters — rather than claiming an account with thousands of
+                  contacts is empty because an owner filter matched nothing. */}
+              {search || Object.keys(filters).length > 0
+                ? `No contacts match ${
+                    [search && 'the search',
+                     Object.keys(filters).length > 0 && 'the filters']
+                      .filter(Boolean).join(' and ')
+                  } — clear ${Object.keys(filters).length > 0 ? 'them' : 'it'} to see everything.`
+                : 'No contacts in this sub-account yet.'}
+            </div>
+          )}
+
+          {/* BULK ACTIONS — only while something is selected, above the list
+              in either view. */}
+          {selected.size > 0 && (
+            <BulkBar
+              selected={contacts.filter((c) => selected.has(c.id))}
+              count={selected.size}
+              tagList={tagList}
+              onClear={() => setSelected(new Set())}
+              onNotice={(msg) => {
+                setNotice(msg)
+                window.setTimeout(() => setNotice(null), 5000)
+              }}
+              onPatch={(id, p) => patchItem((x) => x.id === id, p)}
+            />
+          )}
+
+          {/* LIST — the same paged `contacts`, as a table. */}
+          {view === 'table' && contacts.length > 0 && (
+            <ContactTable
+              contacts={contacts}
+              columns={columns}
+              tagList={tagList}
+              onOpen={openRecord}
+              onOpenDeal={onOpenDeal}
+              onOpenBusiness={onOpenBusiness}
+              // Cells write straight to the CRM; the row is patched with the
+              // result rather than refetched.
+              onPatch={(id, p) => patchItem((x) => x.id === id, p)}
+              selected={selected}
+              onToggleSelected={toggleSelected}
+              // Select-all covers the rows LOADED — the list is paged, and
+              // ticking contacts nobody has seen would be a surprise.
+              onToggleAll={(on) => setSelected(on ? new Set(contacts.map((c) => c.id)) : new Set())}
+            />
+          )}
+
+          <div
+            style={view === 'table' ? { display: 'none' } : {
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(min(430px, 100%), 1fr))',
+              gap: 'var(--space-3)'
+            }}
+          >
+            {contacts.map((c) => (
+              <ContactCard
+                key={c.id}
+                c={c}
+                showOn={showOn}
+                selected={selected.has(c.id)}
+                onToggleSelected={() => toggleSelected(c.id)}
+                tagList={tagList}
+                onOpen={() => openRecord(c.id)}
+                onOpenDeal={onOpenDeal}
+                onOpenBusiness={onOpenBusiness}
+                // Link/unlink and tags write immediately — there is no Save
+                // on them, the way there is for the text fields — so the row
+                // is patched here rather than on the card's own save.
+                onBusinessChanged={(id, link) => {
+                  patchItem((x) => x.id === id, {
+                    businessId: link.businessId ?? null,
+                    businessName: link.businessName ?? null
+                  })
+                }}
+                onTagsChanged={(id, tags) => patchItem((x) => x.id === id, { tags })}
+                onSaved={(id, saved) => {
+                  // Apply what the CRM echoed rather than what was typed, so a
+                  // reformatted phone or trimmed name shows the stored value.
+                  if (!saved) return
+                  patchItem((x) => x.id === id, {
+                    firstName: saved.firstName ?? null,
+                    lastName: saved.lastName ?? null,
+                    email: saved.email ?? null,
+                    phone: saved.phone ?? null,
+                    business: saved.companyName ?? saved.business ?? null,
+                    address: saved.address1 ?? saved.address ?? null
+                  })
+                }}
+              />
+            ))}
+          </div>
+
+          {!loading && contacts.length > 0 && (
+            <LoadMore
+              sentinelRef={sentinelRef}
+              hasMore={hasMore}
+              loadingMore={loadingMore}
+              count={contacts.length}
+              total={total}
+              noun="contact"
+            />
+          )}
         </div>
-      )}
+      </section>
 
-      {/* TABLE — the same paged `contacts`, rendered dense. */}
-      {view === 'table' && contacts.length > 0 && (
-        <ContactTable
-          contacts={contacts}
-          onOpen={(id) => {
-            setOpenId(id)
-            if (onNavigate) onNavigate({ contactId: id })
+      {/* Deleting a saved view cannot be undone. */}
+      {confirmingView && (
+        <ConfirmDialog
+          title="Delete this view?"
+          message="This cannot be undone. The contacts it filtered are not affected."
+          preview={confirmingView.name}
+          confirmLabel="Delete view"
+          onConfirm={() => {
+            deleteView(confirmingView.id)
+            setConfirmingView(null)
           }}
+          onCancel={() => setConfirmingView(null)}
         />
       )}
-
-      <div
-        style={view === 'table' ? { display: 'none' } : {
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(430px, 1fr))',
-          gap: 14
-        }}
-      >
-        {contacts.map((c) => (
-          <ContactCard
-            key={c.id}
-            c={c}
-            onOpen={() => {
-              setOpenId(c.id)
-              if (onNavigate) onNavigate({ contactId: c.id })
-            }}
-            onOpenDeal={onOpenDeal}
-            // Link/unlink writes immediately — there is no Save on it, the
-            // way there is for the text fields — so the row is patched here
-            // rather than waiting for the card's own save cycle.
-            onBusinessChanged={(id, link) => {
-              patchItem((x) => x.id === id, {
-                businessId: link.businessId ?? null,
-                businessName: link.businessName ?? null
-              })
-            }}
-            onSaved={(id, saved) => {
-              // Apply what the CRM echoed rather than what was typed, so a
-              // reformatted phone or trimmed name shows the stored value.
-              if (!saved) return
-              patchItem((x) => x.id === id, {
-                firstName: saved.firstName ?? null,
-                lastName: saved.lastName ?? null,
-                email: saved.email ?? null,
-                phone: saved.phone ?? null,
-                business: saved.companyName ?? saved.business ?? null,
-                address: saved.address1 ?? saved.address ?? null
-              })
-            }}
-          />
-        ))}
-      </div>
-
-      {!loading && contacts.length > 0 && (
-        <LoadMore
-          sentinelRef={sentinelRef}
-          hasMore={hasMore}
-          loadingMore={loadingMore}
-          count={contacts.length}
-          total={total}
-          noun="contact"
-        />
-      )}
-      </Panel>
     </div>
   )
 }
 
-// One contact, as a record card.
+// The contact types a card can show and the toolbar can filter by. Contact
+// type is a GHL custom field, so these are the values that field holds.
+const CONTACT_TYPES = [
+  { value: 'lead', label: 'Lead' },
+  { value: 'customer', label: 'Customer' }
+]
+
+// The search box, with its icon inside and a clear button once typed in.
+function ContactSearch({ value, onChange, onCommit }) {
+  return (
+    <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+      <span className="ms" style={{
+        position: 'absolute', left: 10, fontSize: 18,
+        color: 'var(--text-faint)', pointerEvents: 'none'
+      }}>
+        search
+      </span>
+      <input
+        className="pp-task-search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') onCommit() }}
+        onBlur={onCommit}
+        placeholder="Search name, email, phone or business"
+        style={{
+          width: 320, maxWidth: '100%',
+          height: 34, boxSizing: 'border-box', padding: '0 12px 0 34px',
+          border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-md)',
+          background: '#fff', fontFamily: 'var(--font-sans)',
+          fontSize: 'var(--text-md)', color: 'var(--text-heading)'
+        }}
+      />
+    </span>
+  )
+}
+
+// "SHOW ON CARDS" — which linked records each card lists.
 //
-// Laid out as labelled fields rather than a summary line, because this is the
-// contact's record — the same shape a rep sees when editing it. Fields render
-// as inputs/selects so the card reads as the record it is, but they are
-// DISABLED: editing has to write back to GoHighLevel, which this app has never
-// done (no POST path, no write scopes). A live-looking input that silently
-// discards a change would be worse than a visibly read-only one.
-// Editable in place, like the business Company Info panel.
+// Tasks and Notes show a COUNT row ("3 open tasks · View TASK") that opens
+// the contact, not the items themselves: the contacts list returns only the
+// counts. See PENDING_FUNCTIONALITY.md.
+const SHOW_ON_CARDS = [
+  { key: 'deals', label: 'Deals', colour: 'var(--green-500)', tint: 'var(--tint-pine)' },
+  { key: 'tasks', label: 'Tasks', colour: 'var(--accent-clay)', tint: 'var(--tint-clay)' },
+  { key: 'notes', label: 'Notes', colour: 'var(--accent-brown)', tint: 'var(--tint-gold)' }
+]
+
+// The bulk action bar — "1 selected | Add tag · Assign owner · Change type ·
+// Export · Delete | Clear", as the October 2026 list design draws it.
 //
-// These fields used to be `disabled` inputs — they looked like a form and did
-// nothing, which is worse than plain text: a rep would type into one and watch
-// the change vanish. They write to the CRM now.
+// WORKING: Add tag (the additive tag endpoint, once per contact), Export (a
+// CSV built here from the rows already loaded) and Clear.
+// NOT YET: Assign owner, Change type and Delete say so instead of acting —
+// no endpoint is confirmed for any of them. See PENDING_FUNCTIONALITY.md.
 //
-// contactType is the exception and stays read-only: it is a GHL CUSTOM FIELD,
-// not a property of the contact, so the update endpoint rejects it. The server's
-// contactPatch drops it for the same reason.
+// `selected` is the selected contacts that are LOADED; `count` is every id
+// selected. They differ only if a selection outlives a filter change.
+function BulkBar({ selected, count, tagList, onClear, onNotice, onPatch }) {
+  const [tagging, setTagging] = useState(false)
+  const [tag, setTag] = useState('')
+  const [busy, setBusy] = useState(false)
+  const inputRef = useRef(null)
+
+  useEffect(() => { if (tagging) inputRef.current?.focus() }, [tagging])
+
+  const addTag = async () => {
+    const t = tag.trim()
+    setTagging(false); setTag('')
+    if (!t || busy) return
+    setBusy(true)
+    let failed = 0
+    // One contact at a time: the endpoint is per contact, and a burst of
+    // parallel writes to the CRM is how rate limits get hit.
+    for (const c of selected) {
+      const tags = c.tags || []
+      if (tags.some((x) => x.toLowerCase() === t.toLowerCase())) continue
+      try {
+        await contactsAPI.addTags(c.id, [t])
+        onPatch(c.id, { tags: [...tags, t] })
+      } catch {
+        failed++
+      }
+    }
+    setBusy(false)
+    onNotice(failed
+      ? `Tagged ${selected.length - failed} of ${selected.length} — ${failed} could not be tagged.`
+      : `Tagged ${selected.length} contact${selected.length === 1 ? '' : 's'} "${t}".`)
+  }
+
+  const notYet = (what) => onNotice(`${what} is not available yet — do it in your CRM for now.`)
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+      marginBottom: 'var(--space-3)', padding: '8px 12px',
+      border: '1px solid var(--border-default)',
+      borderRadius: 'var(--radius-md)',
+      background: 'var(--surface-card)'
+    }}>
+      <span style={{
+        paddingRight: 10, marginRight: 2,
+        borderRight: '1px solid var(--border-default)',
+        fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--accent-sky-text)'
+      }}>
+        {count} selected
+      </span>
+
+      {tagging ? (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <input
+            ref={inputRef}
+            className="pp-cc-input"
+            value={tag}
+            list="pp-bulk-tags"
+            onChange={(e) => setTag(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); addTag() }
+              if (e.key === 'Escape') { e.preventDefault(); setTagging(false); setTag('') }
+            }}
+            placeholder="Tag name"
+            style={{ width: 160, height: 32 }}
+          />
+          <datalist id="pp-bulk-tags">
+            {tagList.map((t) => <option key={t} value={t} />)}
+          </datalist>
+          <BulkButton icon="check" onClick={addTag}>Add</BulkButton>
+          <BulkButton icon="close" onClick={() => { setTagging(false); setTag('') }}>Cancel</BulkButton>
+        </span>
+      ) : (
+        <BulkButton icon="sell" onClick={() => setTagging(true)} disabled={busy}>
+          {busy ? 'Tagging…' : 'Add tag'}
+        </BulkButton>
+      )}
+      <BulkButton icon="person_add" onClick={() => notYet('Assigning an owner in bulk')}>Assign owner</BulkButton>
+      <BulkButton icon="swap_horiz" onClick={() => notYet('Changing the type in bulk')}>Change type</BulkButton>
+      <BulkButton icon="download" onClick={() => exportCsv(selected)}>Export</BulkButton>
+      <BulkButton icon="delete" danger onClick={() => notYet('Deleting contacts')}>Delete</BulkButton>
+
+      <button
+        onClick={onClear}
+        style={{
+          height: 32, padding: '0 6px',
+          border: 'none', background: 'none',
+          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
+          color: 'var(--accent-sky-text)', cursor: 'pointer'
+        }}
+      >
+        Clear
+      </button>
+    </div>
+  )
+}
+
+function BulkButton({ icon, children, onClick, danger, disabled }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        height: 32, padding: '0 12px',
+        border: `1px solid ${danger ? 'var(--status-stuck)' : 'var(--border-strong)'}`,
+        borderRadius: 'var(--radius-pill)',
+        background: 'var(--surface-card)',
+        color: danger ? 'var(--status-stuck-text)' : 'var(--text-body)',
+        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
+        cursor: disabled ? 'default' : 'pointer'
+      }}
+    >
+      <span className="ms" style={{ fontSize: 16 }}>{icon}</span>
+      {children}
+    </button>
+  )
+}
+
+// The selected contacts as a CSV download, built here from what the list
+// already holds — no server round trip, and exactly the rows the rep ticked.
+function exportCsv(contacts) {
+  const cell = (v) => {
+    const s = v == null ? '' : String(v)
+    // Quote anything with a comma, quote or newline; double inner quotes.
+    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  const header = ['Name', 'Type', 'Email', 'Phone', 'Business', 'Address', 'Tags',
+    'Open tasks', 'Notes', 'Deals']
+  const rows = contacts.map((c) => [
+    c.name, c.contactType, c.email, c.phone,
+    c.businessName || c.business, c.address,
+    (c.tags || []).join('; '),
+    c.openTaskCount || 0, c.noteCount || 0,
+    (c.deals || []).map((d) => d.name).join('; ')
+  ])
+  const csv = [header, ...rows].map((r) => r.map(cell).join(',')).join('\r\n')
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `contacts-${new Date().toISOString().slice(0, 10)}.csv`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
+function ShowOnCards({ value, onChange }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flex: 'none' }}>
+      <span aria-hidden="true" style={{
+        width: 1, height: 22, background: 'var(--border-default)', margin: '0 4px'
+      }} />
+      <span style={{
+        fontSize: 11, fontWeight: 600, letterSpacing: '.05em',
+        textTransform: 'uppercase', color: '#4a515c'
+      }}>
+        Show on cards
+      </span>
+      {SHOW_ON_CARDS.map((o) => {
+        const on = value[o.key] !== false
+        return (
+          <button
+            key={o.key}
+            onClick={() => onChange({ ...value, [o.key]: !on })}
+            aria-pressed={on}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              height: 30, padding: '0 12px',
+              border: `1px solid ${on ? o.colour : 'var(--border-strong)'}`,
+              borderRadius: 'var(--radius-pill)',
+              background: on ? o.tint : 'var(--surface-card)',
+              color: on ? o.colour : 'var(--text-muted)',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 15 }}>{on ? 'check' : 'add'}</span>
+            {o.label}
+          </button>
+        )
+      })}
+    </span>
+  )
+}
+
+// "Columns · 9 of 10" — which list columns show. Name always does, so it is
+// counted but not offered.
+function ColumnsControl({ value, onChange }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  const total = CONTACT_COLUMNS.length + 1
+
+  useEffect(() => {
+    if (!open) return
+    const close = (e) => {
+      if (e.type === 'keydown' && e.key !== 'Escape') return
+      if (e.type === 'mousedown' && ref.current?.contains(e.target)) return
+      setOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    document.addEventListener('keydown', close)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', close)
+    }
+  }, [open])
+
+  const toggle = (key) => onChange(
+    value.includes(key)
+      ? value.filter((k) => k !== key)
+      // Kept in the table's own order, whatever order they were ticked in.
+      : CONTACT_COLUMNS.map((c) => c.key).filter((k) => k === key || value.includes(k))
+  )
+
+  return (
+    <span ref={ref} style={{ position: 'relative', display: 'inline-flex' }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          height: 34, padding: '0 10px 0 12px',
+          border: '1px solid var(--border-strong)',
+          borderRadius: 'var(--radius-pill)',
+          background: 'var(--surface-card)', color: 'var(--text-body)',
+          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
+          cursor: 'pointer'
+        }}
+      >
+        <span className="ms" style={{ fontSize: 16 }}>view_column</span>
+        Columns · {value.length + 1} of {total}
+        <span className="ms" style={{ fontSize: 16 }}>{open ? 'expand_less' : 'expand_more'}</span>
+      </button>
+      {open && (
+        <span style={{
+          position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 20,
+          display: 'grid', gap: 2, minWidth: 190, padding: 6,
+          background: 'var(--surface-card)',
+          border: '1px solid var(--border-default)',
+          borderRadius: 'var(--radius-md)',
+          boxShadow: 'var(--shadow-overlay)'
+        }}>
+          {CONTACT_COLUMNS.map((c) => (
+            <label key={c.key} style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '6px 8px', borderRadius: 'var(--radius-sm)',
+              fontSize: 'var(--text-md)', color: 'var(--text-body)', cursor: 'pointer'
+            }}>
+              <input
+                type="checkbox"
+                checked={value.includes(c.key)}
+                onChange={() => toggle(c.key)}
+              />
+              {c.label}
+            </label>
+          ))}
+        </span>
+      )}
+    </span>
+  )
+}
 
 // ── The contact's link to a business, on a card ───────────────────────
 //
@@ -486,68 +947,50 @@ function CardBusinessLink({ contact, disabled, onChanged }) {
 
   return (
     <>
-      {/* The SHARED row classes, not hand-rolled styles.
-          This was a bespoke flex row with its own padding, a 64px label and a
-          16px icon — against .pp-cc-row's 7px/10px, 62px and 15px. Two pixels
-          out on the label pushed the value off the line the rows above it
-          sit on, and the custom background read as grey against their white.
-
-          Rendered as a <div>, not the <button> the editable rows use: this
-          row has its own controls inside it, and a button containing buttons
-          is invalid HTML. Hover is therefore set here rather than inherited. */}
-      <div
-        className="pp-cc-row"
-        style={{ cursor: 'default', background: 'var(--surface-card)' }}
-      >
-        <span className="ms pp-cc-icon">business</span>
-        <span className="pp-cc-label">Business</span>
-
-        {linked ? (
-          <>
-            <span className="pp-cc-value" title={linked.name}>{linked.name}</span>
-            <button
-              onClick={() => setPicking(true)}
-              disabled={disabled || busy}
-              title="Link a different business"
-              style={linkBtn}
-            >
-              Change
-            </button>
-            <button
-              onClick={unlink}
-              disabled={disabled || busy}
-              title="Unlink this business from the contact"
-              style={{ ...linkBtn, color: 'var(--status-stuck-text)' }}
-            >
-              {busy ? 'Working' : 'Unlink'}
-            </button>
-          </>
-        ) : (
+      {/* A <div> row, not the <button> the editable rows use: this row has
+          its own controls inside it, and a button containing buttons is
+          invalid HTML. */}
+      <div className="pp-cc-row" style={{ cursor: 'default' }}>
+        <span className="pp-cc-key">
+          <span className="ms pp-cc-icon">business</span>
+          <span className="pp-cc-label">Business</span>
+        </span>
+        <button
+          onClick={() => setPicking(true)}
+          disabled={disabled || busy}
+          title={linked ? 'Link a different business' : 'Link a business'}
+          className={linked ? 'pp-cc-value' : 'pp-cc-value pp-cc-value-empty'}
+          style={{
+            border: 'none', background: 'none', textAlign: 'left',
+            fontFamily: 'inherit', cursor: disabled ? 'default' : 'pointer'
+          }}
+        >
+          {linked ? linked.name : 'Add a business'}
+        </button>
+        {linked && (
           <button
-            onClick={() => setPicking(true)}
-            disabled={disabled}
-            className="pp-cc-value pp-cc-value-empty"
-            style={{
-              border: 'none', background: 'none', padding: 0, textAlign: 'left',
-              fontFamily: 'inherit', cursor: disabled ? 'default' : 'pointer'
-            }}
+            onClick={unlink}
+            disabled={disabled || busy}
+            className="pp-cc-act"
+            title="Unlink this business from the contact"
+            aria-label="Unlink business"
+            style={{ paddingRight: 0 }}
           >
-            Add a business
+            <span className="ms" style={{ fontSize: 15 }}>{busy ? 'progress_activity' : 'link_off'}</span>
           </button>
         )}
+        <button
+          onClick={() => setPicking(true)}
+          disabled={disabled || busy}
+          className="pp-cc-act"
+          title={linked ? 'Change the business' : 'Link a business'}
+          aria-label={linked ? 'Change business' : 'Link a business'}
+        >
+          <span className="ms" style={{ fontSize: 15 }}>edit</span>
+        </button>
       </div>
 
-      {/* Indented to the VALUE column: 10px row padding + 15px icon + 8px gap
-          + 62px label + 8px gap. Spelled out rather than a guessed number, so
-          it follows if .pp-cc-row's own metrics change. */}
-      {error && (
-        <p role="alert" style={{
-          margin: '0 0 6px calc(10px + 15px + 8px + 62px + 8px)',
-          fontSize: 'var(--text-sm)', color: 'var(--status-stuck-text)'
-        }}>
-          {error}
-        </p>
-      )}
+      {error && <RowError>{error}</RowError>}
 
       {picking && (
         <BusinessPickerModal
@@ -564,15 +1007,168 @@ function CardBusinessLink({ contact, disabled, onChanged }) {
   )
 }
 
-const linkBtn = {
-  flex: 'none', border: 'none', background: 'none', padding: 0,
-  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 600,
-  color: 'var(--accent-pine-text)', cursor: 'pointer'
+// TYPE — a GHL custom field, which the contact update endpoint rejects (the
+// server's contactPatch drops it too). The pencil is there because the design
+// draws one on every row; pressing it says where Type is changed instead of
+// opening an input whose value would be thrown away.
+function TypeRow({ value }) {
+  const [explain, setExplain] = useState(false)
+  const label = CONTACT_TYPES.find((t) => t.value === String(value || '').toLowerCase())?.label
+    || value
+  return (
+    <>
+      <button
+        type="button"
+        className="pp-cc-row"
+        onClick={() => setExplain((x) => !x)}
+        title="Type is set in your CRM"
+      >
+        <span className="pp-cc-key">
+          <span className="ms pp-cc-icon">badge</span>
+          <span className="pp-cc-label">Type</span>
+        </span>
+        <span className={label ? 'pp-cc-value' : 'pp-cc-value pp-cc-value-empty'}>
+          {label || 'Not set'}
+        </span>
+        <span className="ms pp-cc-pencil">edit</span>
+      </button>
+      {explain && (
+        <RowError tone="info">
+          Type is a custom field in your CRM — change it there and it updates here.
+        </RowError>
+      )}
+    </>
+  )
 }
 
-function ContactCard({ c, onOpen, onOpenDeal, onSaved, onBusinessChanged }) {
-  const initials = ((c.firstName?.[0] || '') + (c.lastName?.[0] || '')).toUpperCase() || '?'
+// TAGS — chips, removable on hover, and a dashed "+ Tag" that becomes an
+// input with the account's own tags offered as you type, so a rep picks an
+// existing tag rather than inventing a near-duplicate.
+//
+// Writes straight through, like the business link: the tag endpoints are
+// ADDITIVE (see contactsAPI.addTags), which the card's batched Save is not.
+function TagsRow({ contact, tagList, disabled, onChanged }) {
+  const tags = contact.tags || []
+  const [adding, setAdding] = useState(false)
+  const [draft, setDraft] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const inputRef = useRef(null)
+  const listId = `pp-tags-${contact.id}`
 
+  useEffect(() => { if (adding) inputRef.current?.focus() }, [adding])
+
+  const write = async (next, call) => {
+    setBusy(true); setError(null)
+    try {
+      await call()
+      onChanged && onChanged(next)
+    } catch (err) {
+      setError(err?.message || 'Could not update tags')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const add = () => {
+    const tag = draft.trim()
+    setAdding(false); setDraft('')
+    if (!tag || tags.some((t) => t.toLowerCase() === tag.toLowerCase())) return
+    write([...tags, tag], () => contactsAPI.addTags(contact.id, [tag]))
+  }
+
+  const remove = (tag) =>
+    write(tags.filter((t) => t !== tag), () => contactsAPI.removeTags(contact.id, [tag]))
+
+  return (
+    <>
+      <div className="pp-cc-row" style={{ cursor: 'default' }}>
+        <span className="pp-cc-key">
+          <span className="ms pp-cc-icon">sell</span>
+          <span className="pp-cc-label">Tags</span>
+        </span>
+        <span className="pp-cc-tags">
+          {tags.map((t) => (
+            <span key={t} className="pp-cc-tag">
+              {t}
+              <button
+                className="pp-cc-tag-x"
+                onClick={() => remove(t)}
+                disabled={disabled || busy}
+                title={`Remove ${t}`}
+                aria-label={`Remove tag ${t}`}
+              >
+                <span className="ms" style={{ fontSize: 13 }}>close</span>
+              </button>
+            </span>
+          ))}
+          {adding ? (
+            <>
+              <input
+                ref={inputRef}
+                className="pp-cc-input"
+                value={draft}
+                list={listId}
+                onChange={(e) => setDraft(e.target.value)}
+                onBlur={add}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') { e.preventDefault(); add() }
+                  if (e.key === 'Escape') { e.preventDefault(); setAdding(false); setDraft('') }
+                }}
+                placeholder="Tag name"
+                style={{ flex: '0 1 140px', height: 26 }}
+              />
+              <datalist id={listId}>
+                {tagList.filter((t) => !tags.includes(t)).map((t) => <option key={t} value={t} />)}
+              </datalist>
+            </>
+          ) : (
+            <button
+              className="pp-cc-tag-add"
+              onClick={() => setAdding(true)}
+              disabled={disabled || busy}
+            >
+              <span className="ms" style={{ fontSize: 14 }}>add</span>Tag
+            </button>
+          )}
+        </span>
+      </div>
+      {error && <RowError>{error}</RowError>}
+    </>
+  )
+}
+
+// A message under a field row — a failed write, or Type's explanation.
+function RowError({ children, tone = 'error' }) {
+  return (
+    <p role={tone === 'error' ? 'alert' : 'status'} style={{
+      margin: 0, padding: '6px 12px',
+      background: 'var(--surface-card)',
+      fontSize: 'var(--text-sm)',
+      color: tone === 'error' ? 'var(--status-stuck-text)' : 'var(--text-muted)'
+    }}>
+      {children}
+    </p>
+  )
+}
+
+// One contact, as a record card — the October 2026 design.
+//
+//   ┌ Clare Martin ─────────────────── [Open CONTACT] ┐   header
+//   │ CONTACT                                          │
+//   │ ┌ 👤 NAME     │ Clare Martin                ✎ ┐ │   the record, as a
+//   │ │ ✉ EMAIL    │ …                           ✎ │ │   ruled two-column
+//   │ └ 🏷 TAGS     │ (website) (warm-lead) (+ Tag)  ┘ │   table
+//   │ 🏷 Riverside Extension            [View DEAL]   │   linked records
+//   └ 🏢 Sample Homeowner           [View BUSINESS]   ┘
+//
+// Fields are readable lines that become inputs on click; the text fields
+// batch into one Save, while the business link and tags write straight
+// through.
+function ContactCard({
+  c, showOn, tagList, selected, onToggleSelected, onOpen, onOpenDeal, onOpenBusiness,
+  onSaved, onBusinessChanged, onTagsChanged
+}) {
   // name → edited value. Absent = untouched, which keeps '' (a deliberate
   // clear) distinguishable from "not edited".
   const [edits, setEdits] = useState({})
@@ -630,75 +1226,125 @@ function ContactCard({ c, onOpen, onOpenDeal, onSaved, onBusinessChanged }) {
     }
   }
 
+  // The linked records the card lists — deals (when Show on cards has them
+  // on) and the business. Built as a list so the last row drops its divider.
+  const links = []
+  if (showOn.deals !== false) {
+    for (const d of c.deals || []) {
+      // The row keeps the deal's detail the old card showed — its value and
+      // stage after the name, and PRIMARY when this contact OWNS the deal
+      // rather than is merely linked to it (an architect appears on a deal
+      // without owning it). Quiet, so the row still reads as the design's
+      // "name · View DEAL".
+      const meta = [d.value != null && money(d.value), d.stage].filter(Boolean).join(' · ')
+      links.push(
+        <LinkedRow
+          key={`deal-${d.id}`}
+          icon="sell"
+          name={d.name || 'Untitled deal'}
+          meta={meta || undefined}
+          iconColour={LINK_TONES.deal.fill}
+          large
+          action={(
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none' }}>
+              {d.primary && (
+                <span
+                  title="This contact owns the deal"
+                  style={{
+                    padding: '1px 6px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'var(--green-600)', color: '#fff',
+                    fontSize: 'var(--text-xs)', fontWeight: 700,
+                    letterSpacing: 'var(--tracking-label)'
+                  }}
+                >
+                  PRIMARY
+                </span>
+              )}
+              <DealPill
+                name={d.name}
+                onClick={onOpenDeal ? () => onOpenDeal(d.id) : undefined}
+              />
+            </span>
+          )}
+        />
+      )
+    }
+  }
+  if (c.businessId) {
+    links.push(
+      <LinkedRow
+        key="business"
+        icon="business"
+        name={c.businessName || 'Linked business'}
+        tone={LINK_TONES.business}
+        iconColour={LINK_TONES.business.fill}
+        large
+        onOpen={onOpenBusiness ? () => onOpenBusiness(c.businessId) : undefined}
+      />
+    )
+  }
+  // Tasks and notes as COUNT rows — the list carries no items, so the View
+  // pill opens the contact, where they are.
+  const tasks = c.openTaskCount || 0
+  const notes = c.noteCount || 0
+  if (showOn.tasks !== false && tasks > 0) {
+    links.push(
+      <LinkedRow
+        key="tasks"
+        icon="task_alt"
+        name={`${tasks} open task${tasks === 1 ? '' : 's'}`}
+        tone={{ fill: 'var(--accent-clay)', label: 'TASK' }}
+        iconColour="var(--accent-clay)"
+        large
+        onOpen={onOpen}
+      />
+    )
+  }
+  if (showOn.notes !== false && notes > 0) {
+    links.push(
+      <LinkedRow
+        key="notes"
+        icon="sticky_note_2"
+        name={`${notes} note${notes === 1 ? '' : 's'}`}
+        tone={{ fill: 'var(--accent-brown)', label: 'NOTE' }}
+        iconColour="var(--accent-brown)"
+        large
+        onOpen={onOpen}
+      />
+    )
+  }
+
   return (
     <div
       className="pp-card"
-      style={{
-        // The per-contact accent stripe stays: .pp-card sets a uniform border
-        // and this overrides the top edge only, so the card keeps its identity
-        // colour while gaining the shared shadow and hover lift.
-        borderTop: `3px solid var(--accent-${c.accent})`,
-        padding: 14,
-        display: 'grid', gap: 'var(--space-3)'
-      }}
+      style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
     >
-      {/* Identity + the way into the full record */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span
-          style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 38, height: 38, flex: 'none',
-            borderRadius: '50%',
-            background: `var(--tint-${c.accent})`,
-            color: `var(--accent-${c.accent}-text)`,
-            fontSize: 'var(--text-md)', fontWeight: 600
-          }}
-        >
-          {initials}
+      {/* HEADER — select, the name, and the way into the full record. */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '14px 16px',
+        borderBottom: '1px solid var(--border-default)'
+      }}>
+        <input
+          type="checkbox"
+          className="pp-check"
+          checked={!!selected}
+          onChange={onToggleSelected}
+          aria-label={`Select ${c.name || 'this contact'}`}
+        />
+        <span style={{
+          flex: 1, minWidth: 0,
+          fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--text-heading)',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+        }}>
+          {c.name || '—'}
         </span>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div
-            style={{
-              fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-            }}
-          >
-            {c.name || '—'}
-          </div>
-          {/* Type and follow-up on one line. The counts were not shown at all
-              — a contact with three open tasks looked identical to one with
-              none, so finding outstanding work meant opening each record. */}
-          {(c.contactType || c.openTaskCount > 0 || c.noteCount > 0) && (
-            <div
-              style={{
-                display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap',
-                marginTop: 2, fontSize: 'var(--text-base)', color: 'var(--text-muted)'
-              }}
-            >
-              {c.contactType && <span>{c.contactType}</span>}
-              <FollowUpChips tasks={c.openTaskCount} notes={c.noteCount} />
-            </div>
-          )}
-        </div>
-        {/* Save and Cancel sit BEFORE Record, so the action that keeps your work
-            is nearer than the one that navigates away from it. Both appear only
-            when something is edited — a permanently visible Save on twenty
-            cards would be twenty controls that do nothing. */}
+        {/* Save and Cancel sit BEFORE Open, so the action that keeps your
+            work is nearer than the one that navigates away from it. Both
+            appear only when something is edited. */}
         {dirty && !saving && (
-          <button
-            onClick={revert}
-            title="Discard these changes"
-            style={{
-              display: 'inline-flex', alignItems: 'center',
-              flex: 'none',
-              height: 30, padding: '0 11px',
-              border: '1px solid var(--border-strong)',
-              borderRadius: 'var(--radius-sm)',
-              background: '#fff',
-              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
-              color: 'var(--text-body)', cursor: 'pointer'
-            }}
-          >
+          <button onClick={revert} title="Discard these changes" style={smallBtn}>
             Cancel
           </button>
         )}
@@ -708,195 +1354,166 @@ function ContactCard({ c, onOpen, onOpenDeal, onSaved, onBusinessChanged }) {
             disabled={!dirty || saving}
             title={`Save ${Object.keys(changes).length} change${Object.keys(changes).length === 1 ? '' : 's'} to your CRM`}
             style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              flex: 'none',
-              height: 30, padding: '0 12px',
-              border: 'none', borderRadius: 'var(--radius-sm)',
+              ...smallBtn,
+              gap: 5, border: 'none',
               background: saved ? 'var(--status-done)' : 'var(--brand-primary)',
-              color: '#fff',
-              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 600,
+              color: '#fff', fontWeight: 600,
               cursor: saving ? 'default' : 'pointer'
             }}
           >
-            {saving && (
-              <span className="ms pp-spin" style={{ fontSize: 14 }}>progress_activity</span>
-            )}
+            {saving && <span className="ms pp-spin" style={{ fontSize: 14 }}>progress_activity</span>}
             {saved && <span className="ms" style={{ fontSize: 14 }}>check</span>}
             {saving ? 'Saving' : saved ? 'Saved' : 'Save'}
           </button>
         )}
-
-        <button
-          onClick={onOpen}
-          title="Open the full contact record"
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none',
-            cursor: 'pointer',
-            height: 30, padding: '0 var(--space-3)',
-            border: '1px solid var(--border-strong)',
-            borderRadius: 'var(--radius-sm)',
-            background: '#fff',
-            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
-            color: 'var(--text-body)'
-          }}
-        >
-          Open
-          <span className="ms" style={{ fontSize: 16 }}>arrow_forward</span>
-        </button>
+        <OpenContactPill onClick={onOpen} />
       </div>
 
-      {/* THE FIELDS, as READABLE LINES that become inputs on click.
-          Six permanently-open boxes per card turned a list of twenty people
-          into eighty inputs — the page read as a form, and finding someone
-          meant scanning label text rather than names. An InlineEdit shows the
-          value plainly and becomes a control only when the reader means to
-          change it. */}
-      <div className="pp-cc-fields">
-        <InlineEdit
-          label="Name" icon="person"
-          value={[valueOf('firstName'), valueOf('lastName')].filter(Boolean).join(' ')}
-          placeholder="Add a name"
-          disabled={saving}
-          dirty={'firstName' in changes || 'lastName' in changes}
-          invalid={errorField === 'firstName' || errorField === 'lastName'}
-          // One line for what a person calls themselves, split back on save.
-          // Two boxes for one name is a data-entry idea, not a reading one.
-          onChange={(v) => {
-            const parts = String(v).trim().split(/\s+/).filter(Boolean)
-            setField('firstName', parts.shift() || '')
-            setField('lastName', parts.join(' '))
-          }}
-        />
-        <InlineEdit
-          label="Email" icon="mail"
-          value={valueOf('email')} placeholder="Add an email"
-          disabled={saving} dirty={'email' in changes}
-          invalid={errorField === 'email'}
-          onChange={(v) => setField('email', v)}
-        />
-        <InlineEdit
-          label="Phone" icon="call"
-          value={valueOf('phone')} placeholder="Add a phone"
-          disabled={saving} dirty={'phone' in changes}
-          invalid={errorField === 'phone'}
-          onChange={(v) => setField('phone', v)}
-        />
-        {/* A LINK, not free text.
-            This was an InlineEdit writing GHL's companyName — a label someone
-            typed, connected to nothing. Typing "Acme" left you with the word
-            "Acme" and a contact linked to no business at all, while the detail
-            page right next door offered the real thing.
-            Same picker the detail page and the Deal Hub use, so there is one
-            way to link a business rather than three. */}
-        <CardBusinessLink
-          contact={c}
-          disabled={saving}
-          onChanged={(link) => onBusinessChanged && onBusinessChanged(c.id, link)}
-        />
-        <InlineEdit
-          label="Address" icon="location_on"
-          value={valueOf('address')} placeholder="Add an address"
-          disabled={saving} dirty={'address' in changes}
-          invalid={errorField === 'address'}
-          onChange={(v) => setField('address', v)}
-        />
-      </div>
-
-      {error && (
-        <div
-          style={{
-            display: 'flex', alignItems: 'flex-start', gap: 6,
-            padding: '8px 10px',
-            border: '1px solid var(--status-stuck)',
-            borderRadius: 'var(--radius-sm)',
-            background: 'var(--tint-rose)',
-            fontSize: 'var(--text-base)', color: 'var(--status-stuck-text)'
-          }}
-        >
-          <span className="ms" style={{ fontSize: 15, flex: 'none', marginTop: 1 }}>error</span>
-          {error}
+      {/* THE RECORD — a ruled table of fields. */}
+      <div style={{ padding: '12px 16px 14px', display: 'grid', gap: 8 }}>
+        <FieldLabel>Contact</FieldLabel>
+        <div className="pp-cc-fields">
+          <InlineEdit
+            label="Name" icon="person"
+            value={[valueOf('firstName'), valueOf('lastName')].filter(Boolean).join(' ')}
+            placeholder="Add a name"
+            disabled={saving}
+            dirty={'firstName' in changes || 'lastName' in changes}
+            invalid={errorField === 'firstName' || errorField === 'lastName'}
+            // One line for what a person calls themselves, split back on save.
+            onChange={(v) => {
+              const parts = String(v).trim().split(/\s+/).filter(Boolean)
+              setField('firstName', parts.shift() || '')
+              setField('lastName', parts.join(' '))
+            }}
+          />
+          <InlineEdit
+            label="Email" icon="mail"
+            value={valueOf('email')} placeholder="Add an email"
+            disabled={saving} dirty={'email' in changes}
+            invalid={errorField === 'email'}
+            onChange={(v) => setField('email', v)}
+          />
+          <InlineEdit
+            label="Phone" icon="call"
+            value={valueOf('phone')} placeholder="Add a phone"
+            disabled={saving} dirty={'phone' in changes}
+            invalid={errorField === 'phone'}
+            onChange={(v) => setField('phone', v)}
+          />
+          {/* A LINK to a business record, not free text — the same picker
+              the detail page and the Deal Hub use. */}
+          <CardBusinessLink
+            contact={c}
+            disabled={saving}
+            onChanged={(link) => onBusinessChanged && onBusinessChanged(c.id, link)}
+          />
+          <InlineEdit
+            label="Address" icon="location_on"
+            value={valueOf('address')} placeholder="Add an address"
+            disabled={saving} dirty={'address' in changes}
+            invalid={errorField === 'address'}
+            onChange={(v) => setField('address', v)}
+          />
+          <TypeRow value={c.contactType} />
+          <TagsRow
+            contact={c}
+            tagList={tagList}
+            disabled={saving}
+            onChanged={(tags) => onTagsChanged && onTagsChanged(c.id, tags)}
+          />
         </div>
-      )}
 
-      {/* Contact permissions. Loud on purpose — the AI draft gate refuses these
-          channels outright (spec rule 7), and a rep needs to see it before
-          picking up the phone. */}
-      {(c.dnd?.all || c.dnd?.blockedCount > 0) && <DndLine dnd={c.dnd} />}
-
-      {/* Deals. PRIMARY marks the ones this contact owns rather than is merely
-          linked to — an architect appears on a deal without owning it. */}
-      {c.deals?.length > 0 && (
-        <div>
-          <FieldLabel>Deals</FieldLabel>
-          <div style={{ display: 'grid', gap: 5 }}>
-            {c.deals.map((d) => (
-              <div
-                key={d.id}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 7,
-                  justifySelf: 'start', maxWidth: '100%',
-                  height: 28, padding: '0 4px 0 10px',
-                  border: '1px solid var(--green-100)',
-                  borderRadius: 'var(--radius-pill)',
-                  background: 'var(--tint-pine)',
-                  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
-                  color: 'var(--green-600)'
-                }}
-              >
-                <span className="ms" style={{ fontSize: 14, flex: 'none' }}>sell</span>
-                <Truncate>
-                  {d.name}
-                  {d.value != null && ` · ${money(d.value)}`}
-                  {d.stage && ` · ${d.stage}`}
-                </Truncate>
-                {d.primary && (
-                  <span
-                    style={{
-                      flex: 'none',
-                      padding: '1px 6px',
-                      borderRadius: 'var(--radius-sm)',
-                      background: 'var(--green-600)', color: '#fff',
-                      fontSize: 'var(--text-xs)', fontWeight: 700, letterSpacing: 'var(--tracking-label)'
-                    }}
-                  >
-                    PRIMARY
-                  </span>
-                )}
-                {/* The ACTION, same control as every other surface. The row
-                    around it carries the deal's name, value, stage and
-                    whether this contact owns it — information a bare pill
-                    cannot show — so the row stays and the pill is added to
-                    it rather than replacing it.
-
-                    The row itself is no longer a button: a button inside a
-                    button is invalid HTML, and it put two stops in the tab
-                    order for one destination. */}
-                <DealPill
-                  compact
-                  name={d.name}
-                  onClick={onOpenDeal ? () => onOpenDeal(d.id) : undefined}
-                />
-              </div>
-            ))}
+        {error && (
+          <div
+            style={{
+              display: 'flex', alignItems: 'flex-start', gap: 6,
+              padding: '8px 10px',
+              border: '1px solid var(--status-stuck)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--tint-rose)',
+              fontSize: 'var(--text-base)', color: 'var(--status-stuck-text)'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 15, flex: 'none', marginTop: 1 }}>error</span>
+            {error}
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Contact permissions. Loud on purpose — the AI draft gate refuses
+            these channels outright (spec rule 7), and a rep needs to see it
+            before picking up the phone. */}
+        {(c.dnd?.all || c.dnd?.blockedCount > 0) && <DndLine dnd={c.dnd} />}
+      </div>
+
+      {/* LINKED RECORDS — flex:1 so cards in a grid row share a floor. */}
+      <div style={{
+        flex: 1,
+        padding: '0 16px 4px',
+        borderTop: '1px solid var(--border-default)',
+        display: 'flex', flexDirection: 'column'
+      }}>
+        {links.length
+          ? links.map((row, i) =>
+              i === links.length - 1 ? React.cloneElement(row, { last: true }) : row)
+          : (
+            <span style={{ padding: '12px 0', fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
+              Nothing linked yet
+            </span>
+          )}
+      </div>
     </div>
   )
 }
 
-// A labelled field. Rendered as a real input/select so the card reads as the
-// record, but disabled — see ContactCard's note on write-back.
-// One field on a contact card.
-//
+const smallBtn = {
+  display: 'inline-flex', alignItems: 'center', flex: 'none',
+  height: 30, padding: '0 11px',
+  border: '1px solid var(--border-strong)',
+  borderRadius: 'var(--radius-sm)',
+  background: '#fff',
+  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
+  color: 'var(--text-body)', cursor: 'pointer'
+}
+
+// "Open CONTACT" — the View pill's shape in the contact blue, opening the
+// full record.
+function OpenContactPill({ onClick }) {
+  const fill = LINK_TONES.contact.fill
+  return (
+    <button
+      onClick={onClick}
+      title="Open the full contact record"
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 7, flex: 'none',
+        height: 26, padding: '0 4px 0 10px',
+        border: 'none', borderRadius: 'var(--radius-pill)',
+        background: fill, color: '#fff',
+        fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 600,
+        cursor: 'pointer', whiteSpace: 'nowrap'
+      }}
+    >
+      Open
+      <span style={{
+        display: 'inline-flex', alignItems: 'center',
+        height: 19, padding: '0 8px',
+        borderRadius: 'var(--radius-pill)',
+        background: '#fff', color: fill,
+        fontSize: 10, fontWeight: 700, letterSpacing: 'var(--tracking-label)'
+      }}>
+        CONTACT
+      </span>
+    </button>
+  )
+}
 
 function FieldLabel({ children }) {
   return (
     <span
       style={{
-        display: 'block', marginBottom: 4,
-        fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
-        textTransform: 'uppercase', color: 'var(--text-muted)'
+        display: 'block',
+        fontSize: 'var(--text-xs)', fontWeight: 700, letterSpacing: 'var(--tracking-label)',
+        textTransform: 'uppercase', color: '#4a515c'
       }}
     >
       {children}
@@ -905,7 +1522,7 @@ function FieldLabel({ children }) {
 }
 
 // "1 channel off" / "Do not contact" as an inline line rather than a corner
-// badge — at card width a badge competes with the Record button.
+// badge — at card width a badge competes with the Open button.
 function DndLine({ dnd }) {
   const all = dnd.all
   const n = dnd.blockedCount || 0
@@ -937,8 +1554,6 @@ function labelFor(k) {
 
 // One field as a READABLE LINE that becomes an input on click.
 //
-// The card rendered six permanently-open boxes, so twenty contacts were
-// eighty inputs and the page read as a form rather than a list of people.
 // The VALUE matters far more often than the control: a rep scans this list to
 // find someone and edits occasionally.
 //
@@ -959,25 +1574,33 @@ function InlineEdit({
     if (draft !== (value || '')) onChange(draft)
   }
 
+  const key = (
+    <span className="pp-cc-key">
+      {icon && <span className="ms pp-cc-icon">{icon}</span>}
+      <span className="pp-cc-label">{label}</span>
+    </span>
+  )
+
   if (open) {
     return (
       <label className="pp-cc-row pp-cc-row-open">
-        {icon && <span className="ms pp-cc-icon">{icon}</span>}
-        <span className="pp-cc-label">{label}</span>
-        <input
-          ref={ref}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') { e.preventDefault(); commit() }
-            // Escape abandons rather than commits — the reflex when you
-            // realise you opened the wrong field.
-            if (e.key === 'Escape') { e.preventDefault(); setOpen(false) }
-          }}
-          className={invalid ? 'pp-cc-input pp-cc-input-bad' : 'pp-cc-input'}
-          placeholder={placeholder}
-        />
+        {key}
+        <span style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '5px 12px' }}>
+          <input
+            ref={ref}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); commit() }
+              // Escape abandons rather than commits — the reflex when you
+              // realise you opened the wrong field.
+              if (e.key === 'Escape') { e.preventDefault(); setOpen(false) }
+            }}
+            className={invalid ? 'pp-cc-input pp-cc-input-bad' : 'pp-cc-input'}
+            placeholder={placeholder}
+          />
+        </span>
       </label>
     )
   }
@@ -990,15 +1613,10 @@ function InlineEdit({
       className={dirty ? 'pp-cc-row pp-cc-row-dirty' : 'pp-cc-row'}
       title={`${label} — click to edit`}
     >
-      {/* The icon carries the field's identity, so the label can stay small
-          and quiet rather than being the loudest thing in the row. */}
-      {icon && <span className="ms pp-cc-icon">{icon}</span>}
-      <span className="pp-cc-label">{label}</span>
+      {key}
       <span className={value ? 'pp-cc-value' : 'pp-cc-value pp-cc-value-empty'}>
         {value || placeholder}
       </span>
-      {/* On hover only — a pencil on every row of every card is six pencils
-          per person. */}
       <span className="ms pp-cc-pencil">edit</span>
     </button>
   )

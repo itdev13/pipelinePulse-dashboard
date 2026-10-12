@@ -90,7 +90,12 @@ export function LinkedRecords({ record: t, large = false, onOpenDeal, onOpenCont
 //
 // `large` is the grid card's form: the icon takes the record's colour and the
 // name steps up a size, as the card design draws it.
-export function LinkedRow({ icon, name, emptyText, tone, onOpen, last, action, iconColour, large = false }) {
+//
+// `meta` is quiet detail after the name — a contact's deal value and stage.
+// It is truncated with the name, never pushing the button off the row.
+export function LinkedRow({
+  icon, name, emptyText, tone, onOpen, last, action, iconColour, large = false, meta
+}) {
   const present = !!name
   return (
     <div
@@ -101,19 +106,33 @@ export function LinkedRow({ icon, name, emptyText, tone, onOpen, last, action, i
         minWidth: 0
       }}
     >
+      {/* A heavier stroke than the icon font's default 400 — the design's
+          record icons read as solid marks beside the names, and at 400 they
+          looked faint next to the coloured View pills. */}
       <span className="ms" style={{
-        fontSize: large ? 18 : 16, flex: 'none',
+        fontSize: large ? 18 : 17, flex: 'none',
+        fontVariationSettings: "'FILL' 0, 'wght' 600, 'GRAD' 0, 'opsz' 20",
         color: iconColour || 'var(--text-faint)'
       }}>
         {icon}
       </span>
+      {/* Medium weight in heading colour, in both sizes — the design's names
+          are the darkest text on the row after the title. */}
       <Truncate style={{
         flex: 1, minWidth: 0,
         fontSize: large ? 'var(--text-lg)' : 'var(--text-md)',
-        fontWeight: large ? 500 : 400,
-        color: present ? (large ? 'var(--text-heading)' : 'var(--text-body)') : 'var(--text-faint)'
+        fontWeight: 500,
+        color: present ? 'var(--text-heading)' : 'var(--text-faint)'
       }}>
         {present ? name : emptyText}
+        {present && meta && (
+          <span style={{
+            marginLeft: 6, fontSize: 'var(--text-base)', fontWeight: 400,
+            color: 'var(--text-muted)'
+          }}>
+            {meta}
+          </span>
+        )}
       </Truncate>
       {action || (
       <button

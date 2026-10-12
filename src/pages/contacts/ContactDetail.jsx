@@ -3,7 +3,8 @@ import React, { useEffect, useRef, useState } from 'react'
 import { contactsAPI } from '../../api/contacts'
 import CustomFieldSections from '../shared/CustomFieldSections'
 import {
-  Panel, StateMessage, SkeletonStyles, Bar, formatDate, initialsFor, nameFor, DealPill, Truncate } from '../shared/ListChrome'
+  Panel, StateMessage, SkeletonStyles, Bar, formatDate, initialsFor, nameFor, DealPill, Truncate
+} from '../shared/ListChrome'
 import TagSelect from '../shared/TagSelect'
 import { htmlToText } from '../../utils/sanitiseHtml'
 import EmailBody from '../dealhub/EmailBody'
@@ -12,10 +13,9 @@ import AttachmentViewer from '../dealhub/AttachmentViewer'
 import MessageDealPill from '../dealhub/MessageDealPill'
 import BusinessPickerModal from '../shared/BusinessPickerModal'
 
-// Contact record — everything about one person, in four panels:
+// Contact record — everything about one person, in five panels:
 //
-//   Header      identity + how to reach them
-//   Details     editable fields, saved on blur
+//   Details     identity, tags and the editable fields, in one record card
 //   Deals       which opportunities they're on
 //   All messages     every message, with the deal it's filed to
 //   Do not disturb   per-channel switches
@@ -104,7 +104,6 @@ export default function ContactDetail({ contactId, onBack, onOpenDeal }) {
 
   return (
     <Shell onBack={onBack}>
-      <Header contact={contact} />
       {/* PANEL ORDER: Details, Deals, All messages, Do not disturb, Custom
           fields. Asked for directly, and it reads as the order a rep works
           in: who they are, what they are buying, what has been said — then
@@ -148,14 +147,14 @@ function Shell({ children, onBack }) {
           style={{
             justifySelf: 'start',
             display: 'inline-flex', alignItems: 'center', gap: 6,
-            border: 'none', background: 'none', padding: 'var(--space-1) 0',
+            // A solid slate pill, as the design draws it — the same treatment
+            // as the nav's Back button, so "go back" looks like one control.
+            height: 32, padding: '0 14px 0 10px',
+            border: 'none', borderRadius: 'var(--radius-pill)',
+            background: 'var(--gray-800)', color: '#fff',
             cursor: 'pointer',
-            // Weighted: it is the only way back to the list, and at regular
-            // weight in link blue it read as a caption rather than a control.
-            // Size comes from the raised --text-md (14px).
             fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
-            fontWeight: 600,
-            color: 'var(--text-link)'
+            fontWeight: 600
           }}
         >
           <span className="ms" style={{ fontSize: 17 }}>arrow_back</span>
@@ -167,155 +166,58 @@ function Shell({ children, onBack }) {
   )
 }
 
-// ── Header ────────────────────────────────────────────────────────────
-
-function Header({ contact }) {
-  const accent = `var(--accent-${contact.accent || 'sky'})`
-  const tint = `var(--tint-${contact.accent || 'sky'})`
-  const name = nameFor(contact)
-
-  return (
-    <section
-      style={{
-        border: '1px solid var(--border-default)',
-        boxShadow: 'var(--shadow-card)',
-        ['--panel-accent']: accent,
-        ['--panel-tint']: tint,
-        borderRadius: 'var(--radius-md)',
-        background: '#fff',
-        padding: 'var(--space-4) 18px',
-        display: 'grid', gap: 'var(--space-3)'
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 13, flexWrap: 'wrap' }}>
-        <span
-          style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 46, height: 46, flex: 'none',
-            borderRadius: '50%',
-            background: tint, color: accent,
-            fontSize: 'var(--text-lg)', fontWeight: 600
-          }}
-        >
-          {initialsFor(contact.firstName, contact.lastName, name)}
-        </span>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
-            <h1 style={{ margin: 0, fontSize: 'var(--text-2xl)', fontWeight: 600, color: 'var(--text-heading)' }}>
-              {name}
-            </h1>
-            <span
-              style={{
-                fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
-                textTransform: 'uppercase',
-                padding: '3px 9px', borderRadius: 'var(--radius-sm)',
-                background: 'var(--gray-100)', color: 'var(--text-muted)'
-              }}
-            >
-              Contact record
-            </span>
-          </div>
-          <p style={{ margin: '4px 0 0', fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
-            {[contact.contactType, contact.business].filter(Boolean).join(' · ') || '—'}
-          </p>
-        </div>
-      </div>
-
-      <div
-        style={{
-          display: 'flex', flexWrap: 'wrap', gap: '8px 22px',
-          fontSize: 'var(--text-md)', color: 'var(--text-body)'
-        }}
-      >
-        {contact.email && <Fact icon="mail" href={`mailto:${contact.email}`}>{contact.email}</Fact>}
-        {contact.phone && <Fact icon="call" href={`tel:${contact.phone}`}>{contact.phone}</Fact>}
-        {contact.address && <Fact icon="location_on">{contact.address}</Fact>}
-        {contact.timezone && <Fact icon="schedule">{contact.timezone}</Fact>}
-      </div>
-
-      <TagStrip contactId={contact.id} tags={contact.tags || []} />
-    </section>
-  )
-}
-
-// Tags on the contact record. Editable through the dedicated add/remove
-// endpoints — the field-level save on this page goes through the contact update
-// endpoint, which REPLACES the whole tag array and is therefore refused for
-// tags (see the server's contactPatch.js). Hence a separate control rather than
-// another input in the form.
-function TagStrip({ contactId, tags }) {
-  const [current, setCurrent] = useState(tags)
-
-  // The select renders the pills AND edits them, so the hand-rolled pill list
-  // and the "Edit tags" button that opened a modal are both gone — three
-  // controls for one field became one.
-  return (
-    <TagSelect
-      contactId={contactId}
-      tags={current}
-      onChange={setCurrent}
-    />
-  )
-}
-
-function Fact({ icon, children, href }) {
-  const inner = (
-    <>
-      <span className="ms" style={{ fontSize: 15, color: 'var(--text-faint)' }}>{icon}</span>
-      {children}
-    </>
-  )
-  const style = {
-    display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0,
-    color: 'inherit', textDecoration: href ? 'none' : undefined
-  }
-  return href ? <a href={href} style={style}>{inner}</a> : <span style={style}>{inner}</span>
-}
-
-// ── Details (editable) ────────────────────────────────────────────────
+// ── Details — the record card ─────────────────────────────────────────
+//
+// The October 2026 design puts who the contact is and their editable fields
+// in ONE card:
+//
+//   (GB) Graham Bryant  [CONTACT RECORD]
+//        No tags  (+ Add a tag)
+//   ┌ 👤 FIRST NAME │ Graham       ✎ ┬ 👤 LAST NAME   │ Bryant       ✎ ┐
+//   │ ✉ EMAIL      │ …            ✎ │ 📞 PHONE       │ …            ✎ │
+//   │ 📍 ADDRESS    │ …            ✎ │ 🕓 TIMEZONE    │ Europe/London ✎ │
+//   └ 🏢 BUSINESS   │ (Link a business) │ 🪪 CONTACT TYPE │ Not set      ˅ ┘
+//   Saved changes are written to your CRM, which sends them back to every view.
+//
+// The header used to repeat email, phone, address and timezone as a line of
+// facts above a Details panel holding the same values as inputs — every fact
+// twice. Now each is one cell, read as text and edited in place.
 
 // NO 'business' TEXT FIELD HERE.
 //
 // It wrote GHL's `companyName` — a free-text label with no link to anything,
-// sitting directly above "Linked business", which sets the real relation
-// (contacts.business_id). Two controls, adjacent, both captioned about a
-// business, where only one of them connects the contact to a business
-// RECORD: filling the text one looked like it had worked and left the
-// contact linked to nothing.
+// sitting directly beside the business LINK, which sets the real relation
+// (contacts.business_id). Filling the text one looked like it had worked and
+// left the contact linked to nothing. contactPatch still maps business →
+// companyName, so anything stored is preserved; what is removed is the
+// invitation to type into it.
 //
-// The field itself is untouched — contactPatch still maps business →
-// companyName, so anything already stored is preserved and the API still
-// accepts it. What is removed is the invitation to type into it.
+// In the table's reading order — the grid fills left to right, so each pair
+// here is one row.
 const FIELDS = [
-  ['firstName', 'First name', 'text'],
-  ['lastName', 'Last name', 'text'],
-  ['address', 'Address', 'text'],
-  ['email', 'Primary email', 'email'],
-  ['phone', 'Primary phone', 'tel']
+  ['firstName', 'First name', 'text', 'person'],
+  ['lastName', 'Last name', 'text', 'person'],
+  ['email', 'Email', 'email', 'mail'],
+  ['phone', 'Phone', 'tel', 'call'],
+  ['address', 'Address', 'text', 'location_on'],
+  // Mapped by fromGhl and named by labelFor, so the server's patch handles
+  // it. Unconfirmed against the backend — see PENDING_FUNCTIONALITY.md.
+  ['timezone', 'Timezone', 'text', 'schedule']
 ]
 
 // GHL's own two values, and there are only two — its contact panel offers
-// Lead and Customer and nothing else.
-//
-// This list previously read ['Homeowner', 'Architect', 'Builder', 'Trade
-// account', 'Developer'], which is not a GHL concept at all: those are this
-// client's CLIENT TYPE custom field. The control was disabled, so the wrong
-// list never surfaced.
-//
-// Stored lowercase, shown capitalised.
+// Lead and Customer and nothing else. Stored lowercase, shown capitalised.
 const CONTACT_TYPES = [
   { value: 'lead', label: 'Lead' },
   { value: 'customer', label: 'Customer' }
 ]
 
-// The contact's link to a business record, as a chip you can change.
+// The contact's link to a business record, in a table cell.
 //
 // Writes PATCH /contacts/:id { businessId } — the same single write the Deal
 // Hub's "Add business" makes, through the same shared picker, so the two
-// surfaces cannot drift apart on what linking means.
-//
-// `businessId: null` is a real unlink and the server treats it as one (see
-// the hasOwnProperty check on that route); it is not the same as omitting
+// surfaces cannot drift apart on what linking means. `businessId: null` is a
+// real unlink and the server treats it as one; it is not the same as omitting
 // the field.
 function BusinessLink({ contact, onSaved }) {
   const [picking, setPicking] = useState(false)
@@ -340,42 +242,46 @@ function BusinessLink({ contact, onSaved }) {
   }
 
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+    <span style={{
+      flex: 1, minWidth: 0, alignSelf: 'center',
+      display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+      padding: '6px 12px'
+    }}>
       {linked ? (
         <>
-          <span
-            title={linked.name}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              maxWidth: '100%',
-              padding: '6px 11px',
-              border: '1px solid var(--accent-sky)',
-              borderRadius: 'var(--radius-md)',
-              background: 'var(--tint-sky)',
-              fontSize: 'var(--text-md)', fontWeight: 600,
-              color: 'var(--accent-sky-text)'
-            }}
-          >
-            <span className="ms" style={{ fontSize: 16, flex: 'none' }}>domain</span>
-            <Truncate>
-              {linked.name}
-            </Truncate>
+          <span title={linked.name} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5, maxWidth: '100%',
+            height: 26, padding: '0 10px',
+            border: '1px solid var(--accent-plum)',
+            borderRadius: 'var(--radius-pill)',
+            background: 'var(--tint-plum)',
+            fontSize: 'var(--text-base)', fontWeight: 600,
+            color: 'var(--accent-plum-text)'
+          }}>
+            <span className="ms" style={{ fontSize: 15, flex: 'none' }}>business</span>
+            <Truncate>{linked.name}</Truncate>
           </span>
           <button
             type="button"
+            className="pp-cc-act"
             onClick={() => setPicking(true)}
             disabled={busy}
-            style={linkButtonStyle}
+            title="Link a different business"
+            aria-label="Change business"
+            style={{ padding: '0 4px' }}
           >
-            Change
+            <span className="ms" style={{ fontSize: 15 }}>edit</span>
           </button>
           <button
             type="button"
+            className="pp-cc-act"
             onClick={unlink}
             disabled={busy}
-            style={linkButtonStyle}
+            title="Unlink this business from the contact"
+            aria-label="Unlink business"
+            style={{ padding: '0 4px' }}
           >
-            {busy ? 'Working…' : 'Unlink'}
+            <span className="ms" style={{ fontSize: 15 }}>{busy ? 'progress_activity' : 'link_off'}</span>
           </button>
         </>
       ) : (
@@ -384,16 +290,16 @@ function BusinessLink({ contact, onSaved }) {
           onClick={() => setPicking(true)}
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 5,
-            height: 32, padding: '0 12px 0 9px',
+            height: 26, padding: '0 10px',
             border: '1px dashed var(--border-strong)',
-            borderRadius: 'var(--radius-md)',
+            borderRadius: 'var(--radius-pill)',
             background: 'var(--surface-card)',
             color: 'var(--text-body)',
-            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)',
             cursor: 'pointer'
           }}
         >
-          <span className="ms" style={{ fontSize: 16 }}>add_business</span>
+          <span className="ms" style={{ fontSize: 15 }}>add_business</span>
           Link a business
         </button>
       )}
@@ -418,30 +324,36 @@ function BusinessLink({ contact, onSaved }) {
   )
 }
 
-const linkButtonStyle = {
-  height: 28, padding: '0 10px',
-  border: '1px solid var(--border-strong)',
-  borderRadius: 'var(--radius-sm)',
-  background: '#fff', color: 'var(--text-heading)',
-  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)',
-  cursor: 'pointer'
+// Tags on the contact record. Editable through the dedicated add/remove
+// endpoints — the field save on this card goes through the contact update
+// endpoint, which REPLACES the whole tag array and is therefore refused for
+// tags (see the server's contactPatch.js). Hence a separate control.
+function TagStrip({ contactId, tags }) {
+  const [current, setCurrent] = useState(tags)
+  return (
+    <TagSelect
+      contactId={contactId}
+      tags={current}
+      onChange={setCurrent}
+    />
+  )
 }
 
 function Details({ contact, onSaved }) {
+  const name = nameFor(contact)
   const [draft, setDraft] = useState(() =>
     Object.fromEntries(FIELDS.map(([k]) => [k, contact[k] || '']))
   )
   const [type, setType] = useState(contact.contactType || '')
+  // The field being edited, by key. One at a time: the others read as text.
+  const [editing, setEditing] = useState(null)
   const [state, setState] = useState('idle')
   const [error, setError] = useState(null)
-  // Which field GHL rejected, so the message can sit beside the box rather
+  // Which field GHL rejected, so the message can sit on that cell rather
   // than as a banner that doesn't say what's wrong.
   const [errorField, setErrorField] = useState(null)
   const timer = useRef(null)
 
-  // Save on blur rather than per keystroke: a PATCH per character is a lot of
-  // requests for no benefit, and a half-typed email saved mid-word then shown
-  // "everywhere this contact appears" reads as data corruption.
   const save = async (patch) => {
     setState('saving')
     setError(null)
@@ -458,7 +370,7 @@ function Details({ contact, onSaved }) {
       timer.current = setTimeout(() => setState('idle'), 2000)
     } catch (err) {
       // The API names the offending field, so mark it rather than showing a
-      // banner that doesn't say which box is wrong.
+      // banner that doesn't say which cell is wrong.
       setError(err?.response?.data?.error || err.message || 'Could not save')
       setErrorField(err?.response?.data?.field || null)
       setState('error')
@@ -475,28 +387,21 @@ function Details({ contact, onSaved }) {
     return (contact[key] || '') !== (current || '')
   }
 
-  // contactType is deliberately NOT included: it's a GHL custom field, not a
-  // property of the contact object, so the update endpoint drops it. Including
-  // it here would let someone change the dropdown, press Save, and see nothing
-  // happen.
+  // contactType is deliberately NOT included: the update endpoint drops it,
+  // so including it would let someone change the dropdown, press Save, and
+  // see nothing happen. See PENDING_FUNCTIONALITY.md.
   const dirtyKeys = FIELDS.map(([k]) => k).filter(isDirty)
 
   // One request for every change, not one per field. Each PATCH is a round trip
   // to GHL plus a webhook back, so saving five fields separately would fire
   // five of each and the last webhook would win in an unpredictable order.
   const saveAll = () => {
+    setEditing(null)
     if (!dirtyKeys.length) return
 
-    // CHECKED BEFORE SENDING.
-    //
-    // The server rejects a malformed address (contactPatch.js) and the panel
-    // reports it — but only after a round trip, and the reader has usually
-    // moved on by then. The same rule applied here turns that into instant
-    // feedback on the field they are still looking at.
-    //
-    // Deliberately the SERVER'S regex, character for character. A stricter
-    // one here would refuse addresses the API accepts; a looser one would let
-    // the round trip happen anyway and change nothing.
+    // CHECKED BEFORE SENDING — deliberately the SERVER'S regex, character for
+    // character. A stricter one here would refuse addresses the API accepts;
+    // a looser one would let the round trip happen anyway and change nothing.
     if (dirtyKeys.includes('email')) {
       const email = (draft.email || '').trim()
       if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -517,181 +422,170 @@ function Details({ contact, onSaved }) {
   const revert = () => {
     setDraft(Object.fromEntries(FIELDS.map(([k]) => [k, contact[k] || ''])))
     setType(contact.contactType || '')
+    setEditing(null)
     setError(null)
     setErrorField(null)
     setState('idle')
   }
 
+  // Saving / Saved / the rejected field's message, beside the name.
+  const status =
+    state === 'saving' ? 'Saving…'
+      : state === 'saved' ? 'Saved'
+      // Name the field GHL rejected — the same message with no field named
+      // on an eight-cell table is not clear.
+      : state === 'error'
+        ? (errorField ? `${labelFor(errorField)}: ${error}` : error)
+      : null
+
   return (
-    <Panel
-      icon="badge"
-      title="Details"
-      accent="sky"
-      meta={
-        state === 'saving' ? 'Saving…'
-          : state === 'saved' ? 'Saved'
-          // Name the field GHL rejected. "That email address is not valid" is
-          // clear; the same message with no field named on a six-input form is
-          // not.
-          : state === 'error'
-            ? (errorField ? `${labelFor(errorField)}: ${error}` : error)
-          : 'Editable'
-      }
-      // Red and announced, not the same grey as "Editable" — see Panel.
-      metaTone={state === 'error' ? 'error' : 'muted'}
-    >
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: 'var(--space-3)', padding: '14px var(--space-4)'
-        }}
-      >
-        {FIELDS.map(([key, label, type_]) => (
-          <label key={key} style={{ display: 'grid', gap: 5, minWidth: 0 }}>
-            <span
-              style={{
-                fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
-                textTransform: 'uppercase', color: 'var(--text-muted)'
-              }}
-            >
-              {label}
+    <section style={{
+      border: '1px solid var(--border-default)',
+      boxShadow: 'var(--shadow-card)',
+      borderRadius: 'var(--radius-md)',
+      background: '#fff',
+      overflow: 'hidden'
+    }}>
+      {/* IDENTITY — avatar, name, the record badge, and the tags beneath. */}
+      <div style={{
+        display: 'flex', alignItems: 'flex-start', gap: 13,
+        padding: 'var(--space-4) 18px var(--space-3)'
+      }}>
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 40, height: 40, flex: 'none', marginTop: 2,
+          borderRadius: '50%',
+          background: `var(--tint-${contact.accent || 'plum'})`,
+          color: `var(--accent-${contact.accent || 'plum'}-text)`,
+          fontSize: 'var(--text-md)', fontWeight: 700
+        }}>
+          {initialsFor(contact.firstName, contact.lastName, name)}
+        </span>
+        <div style={{ minWidth: 0, flex: 1, display: 'grid', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+            <h1 style={{
+              margin: 0, fontSize: 'var(--text-2xl)', fontWeight: 600,
+              letterSpacing: '-0.01em', color: 'var(--text-heading)'
+            }}>
+              {name}
+            </h1>
+            <span style={{
+              fontSize: 'var(--text-xs)', fontWeight: 700, letterSpacing: 'var(--tracking-label)',
+              textTransform: 'uppercase',
+              padding: '3px 9px', borderRadius: 'var(--radius-sm)',
+              background: 'var(--gray-100)', color: 'var(--text-muted)'
+            }}>
+              Contact record
             </span>
-            <input
+            {status && (
+              <Status metaTone={state === 'error' ? 'error' : 'muted'}>{status}</Status>
+            )}
+          </div>
+          <TagStrip contactId={contact.id} tags={contact.tags || []} />
+        </div>
+      </div>
+
+      {/* THE FIELDS — a ruled two-column table. */}
+      <div style={{ padding: '0 18px var(--space-3)' }}>
+        <div className="pp-cc-fields pp-cc-fields-2">
+          {FIELDS.map(([key, label, type_, icon]) => (
+            <FieldCell
+              key={key}
+              fieldKey={key}
+              errorField={errorField}
+              icon={icon}
+              label={label}
               type={type_}
               value={draft[key]}
-              onChange={(e) => {
-                setDraft((d) => ({ ...d, [key]: e.target.value }))
+              open={editing === key}
+              // THE REJECTED FIELD WINS OVER "DIRTY". Dirty is pine — right
+              // for "this will be sent", wrong the moment the save came back
+              // rejecting that field: an invalid email sat highlighted green,
+              // reading as success.
+              line={errorField === key
+                ? 'var(--status-stuck)'
+                : isDirty(key) ? 'var(--brand-primary)' : undefined}
+              tint={errorField === key
+                ? 'var(--tint-rose)'
+                : isDirty(key) ? 'var(--tint-pine)' : undefined}
+              onOpen={() => setEditing(key)}
+              onClose={() => setEditing((k) => (k === key ? null : k))}
+              onChange={(v) => {
+                setDraft((d) => ({ ...d, [key]: v }))
                 // Typing in the field that was rejected clears the complaint.
                 // Leaving it up while the reader fixes the value makes a
-                // corrected field look broken, and the red highlight would
-                // stay on a now-valid address.
+                // corrected field look broken.
                 if (errorField === key) {
                   setError(null); setErrorField(null); setState('idle')
                 }
               }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') { e.preventDefault(); saveAll() }
-                if (e.key === 'Escape') { e.preventDefault(); revert() }
-              }}
-              placeholder={`Add ${label.toLowerCase()}`}
-              // Announced with the header's message, and marked for a screen
-              // reader as the field that failed.
-              aria-invalid={errorField === key || undefined}
-              style={{
-                ...inputStyle,
-                // THE REJECTED FIELD WINS OVER "DIRTY".
-                //
-                // Dirty is pine — green — which is right for "this will be
-                // sent". It is wrong the moment the save came back rejecting
-                // that field: an invalid email sat highlighted GREEN, reading
-                // as success, while the only sign of failure was grey text in
-                // the far corner of the header.
-                borderColor: errorField === key
-                  ? 'var(--status-stuck)'
-                  : isDirty(key) ? 'var(--brand-primary)' : undefined,
-                background: errorField === key
-                  ? 'var(--tint-rose)'
-                  : isDirty(key) ? 'var(--tint-pine)' : undefined
-              }}
+              onSave={saveAll}
+              onCancel={revert}
             />
-          </label>
-        ))}
+          ))}
 
-        {/* THE BUSINESS LINK — not the same thing as the "Business" text
-            box above.
-            
-            That box is GHL's companyName: a label somebody typed, with no
-            record behind it. This is contacts.business_id, the actual link
-            to a business record (migration 056) — what the Businesses page
-            lists its contacts by, and the only route a DEAL has to a
-            business. Until now nothing in the app could set it from either
-            side, so a contact could show a company name while the business
-            record showed "No contacts linked".
-            
-            Its own row rather than a seventh input in the grid above: those
-            all save on blur through the same PATCH, and this one opens a
-            picker and writes immediately. */}
-        <label style={{ display: 'grid', gap: 5, minWidth: 0 }}>
-          <span
-            style={{
-              fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
-              textTransform: 'uppercase', color: 'var(--text-muted)'
-            }}
-          >
-            Linked business
-          </span>
-          <BusinessLink contact={contact} onSaved={onSaved} />
-        </label>
+          {/* THE BUSINESS LINK — contacts.business_id, the actual link to a
+              business record, not GHL's free-text companyName. Opens a
+              picker and writes immediately, unlike the cells above. */}
+          <div className="pp-cc-row" style={{ cursor: 'default' }}>
+            <span className="pp-cc-key">
+              <span className="ms pp-cc-icon">business</span>
+              <span className="pp-cc-label">Business</span>
+            </span>
+            <BusinessLink contact={contact} onSaved={onSaved} />
+          </div>
 
-        <label style={{ display: 'grid', gap: 5, minWidth: 0 }}>
-          <span
-            style={{
-              fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
-              textTransform: 'uppercase', color: 'var(--text-muted)'
-            }}
-          >
-            Contact type
-          </span>
-          {/* EDITABLE. It was disabled on the belief that contactType is a
-              custom field; it is not. GHL calls it `type` on the contact
-              object — @HideApiProperty on PUT, so absent from the docs, but
-              applied. Same pattern as the opportunity's contactId. */}
-          <Select
-            title="Lead or Customer, as in your CRM"
-            // Lower-cased so a stored "Lead" still matches the 'lead' option
-            // and renders as the label rather than as an unknown value.
-            value={type ? String(type).toLowerCase() : undefined}
-            onChange={(v) => {
-              // No immediate commit — it joins the same Save as the text
-              // fields, so one edit session is one request.
-              //
-              // No allowClear: GHL has no "no type" state, and offering a
-              // clear that the server then refuses would be a control that
-              // fails on use.
-              setType(v ?? '')
-            }}
-            placeholder="Not set"
-            style={{ width: '100%' }}
-            popupClassName="pp-menu"
-            options={[
-              // A value GHL sent that is not one of the two stays selectable
-              // rather than being silently rewritten — but it cannot be
-              // chosen, and saving one is refused by contactPatch.
-              ...(type && !CONTACT_TYPES.some((o) => o.value === String(type).toLowerCase())
-                ? [{ value: type, label: type }]
-                : []),
-              ...CONTACT_TYPES
-            ]}
-          />
-        </label>
+          <div className="pp-cc-row" style={{ cursor: 'default' }}>
+            <span className="pp-cc-key">
+              <span className="ms pp-cc-icon">badge</span>
+              <span className="pp-cc-label">Contact type</span>
+            </span>
+            <span style={{ flex: 1, minWidth: 0, alignSelf: 'center', padding: '0 4px' }}>
+              <Select
+                title="Lead or Customer, as in your CRM"
+                variant="borderless"
+                // Lower-cased so a stored "Lead" still matches the 'lead'
+                // option and renders as the label rather than as an unknown
+                // value.
+                value={type ? String(type).toLowerCase() : undefined}
+                // No allowClear: GHL has no "no type" state, and offering a
+                // clear that the server then refuses would be a control that
+                // fails on use.
+                onChange={(v) => setType(v ?? '')}
+                placeholder="Not set"
+                style={{ width: '100%' }}
+                popupClassName="pp-menu"
+                options={[
+                  // A value GHL sent that is not one of the two stays
+                  // selectable rather than being silently rewritten.
+                  ...(type && !CONTACT_TYPES.some((o) => o.value === String(type).toLowerCase())
+                    ? [{ value: type, label: type }]
+                    : []),
+                  ...CONTACT_TYPES
+                ]}
+              />
+            </span>
+          </div>
+        </div>
       </div>
 
       {(contact.secondaryEmails?.length > 0 || contact.secondaryPhones?.length > 0) && (
-        <div
-          style={{
-            padding: '0 var(--space-4) var(--space-3)',
-            display: 'flex', flexWrap: 'wrap', gap: '6px 18px',
-            fontSize: 'var(--text-base)', color: 'var(--text-muted)'
-          }}
-        >
-          {contact.secondaryEmails?.map((e) => (
-            <span key={e}>Also: {e}</span>
-          ))}
-          {contact.secondaryPhones?.map((p) => (
-            <span key={p}>Also: {p}</span>
-          ))}
+        <div style={{
+          padding: '0 18px var(--space-3)',
+          display: 'flex', flexWrap: 'wrap', gap: '6px 18px',
+          fontSize: 'var(--text-base)', color: 'var(--text-muted)'
+        }}>
+          {contact.secondaryEmails?.map((e) => <span key={e}>Also: {e}</span>)}
+          {contact.secondaryPhones?.map((p) => <span key={p}>Also: {p}</span>)}
         </div>
       )}
 
-      <p
-        style={{
-          margin: 0, padding: '10px var(--space-4)',
-          borderTop: '1px solid var(--border-default)',
-          background: 'var(--gray-25)',
-          fontSize: 'var(--text-base)', color: 'var(--text-muted)'
-        }}
-      >
+      <p style={{
+        margin: 0, padding: '10px 18px',
+        borderTop: '1px solid var(--border-default)',
+        background: 'var(--gray-25)',
+        fontSize: 'var(--text-base)', color: 'var(--text-muted)'
+      }}>
         {dirtyKeys.length > 0
           ? `${dirtyKeys.length} unsaved ${dirtyKeys.length === 1 ? 'change' : 'changes'} — press Enter or Save to send them to your CRM.`
           : 'Saved changes are written to your CRM, which sends them back to every view here.'}
@@ -701,14 +595,12 @@ function Details({ contact, onSaved }) {
           GHL the moment focus moved, and there was no way to abandon an edit —
           nor any sign that anything was unsaved. */}
       {dirtyKeys.length > 0 && (
-        <div
-          style={{
-            display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-            padding: '11px var(--space-4)',
-            borderTop: '1px solid var(--border-default)',
-            background: 'var(--tint-pine)'
-          }}
-        >
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+          padding: '11px 18px',
+          borderTop: '1px solid var(--border-default)',
+          background: 'var(--tint-pine)'
+        }}>
           <button
             onClick={saveAll}
             disabled={state === 'saving'}
@@ -726,7 +618,6 @@ function Details({ contact, onSaved }) {
             <span className="ms" style={{ fontSize: 17 }}>check</span>
             {state === 'saving' ? 'Saving…' : `Save ${dirtyKeys.length}`}
           </button>
-
           <button
             onClick={revert}
             disabled={state === 'saving'}
@@ -742,23 +633,95 @@ function Details({ contact, onSaved }) {
           >
             Cancel
           </button>
-
           <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
             Enter saves · Esc cancels
           </span>
         </div>
       )}
-    </Panel>
+    </section>
   )
 }
 
-const inputStyle = {
-  width: '100%', height: 36, boxSizing: 'border-box',
-  padding: '0 11px',
-  border: '1px solid var(--border-strong)',
-  borderRadius: 'var(--radius-md)',
-  background: '#fff',
-  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', color: 'var(--text-heading)'
+// The save state beside the name. An error is announced, not just shown: a
+// screen-reader user gets no colour, and this text is the only report of the
+// failure — the same treatment Panel gives its meta.
+function Status({ metaTone, children }) {
+  const isError = metaTone === 'error'
+  return (
+    <span
+      role={isError ? 'alert' : undefined}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        marginLeft: 'auto',
+        fontSize: 'var(--text-md)', fontWeight: isError ? 600 : 400,
+        color: isError ? 'var(--status-stuck-text)' : 'var(--text-muted)'
+      }}
+    >
+      {isError && <span className="ms" style={{ fontSize: 16 }}>error</span>}
+      {children}
+    </span>
+  )
+}
+
+// One cell of the field table: the value as text with a pencil, or the input
+// while it is being edited. Enter saves every change, Escape abandons them,
+// and leaving the cell keeps the edit (marked) for the Save bar.
+function FieldCell({
+  fieldKey: key, errorField, icon, label, type, value, open, line, tint,
+  onOpen, onClose, onChange, onSave, onCancel
+}) {
+  const head = (
+    <span className="pp-cc-key">
+      <span className="ms pp-cc-icon">{icon}</span>
+      <span className="pp-cc-label">{label}</span>
+    </span>
+  )
+
+  if (open) {
+    return (
+      <label className="pp-cc-row pp-cc-row-open">
+        {head}
+        <span style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '5px 12px' }}>
+          <input
+            autoFocus
+            type={type}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onBlur={onClose}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); onSave() }
+              if (e.key === 'Escape') { e.preventDefault(); onCancel() }
+            }}
+            placeholder={`Add ${label.toLowerCase()}`}
+            // Marked for a screen reader as the field that failed.
+            aria-invalid={errorField === key || undefined}
+            className={errorField === key ? 'pp-cc-input pp-cc-input-bad' : 'pp-cc-input'}
+          />
+        </span>
+      </label>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="pp-cc-row"
+      title={`${label} — click to edit`}
+      aria-invalid={errorField === key || undefined}
+      style={{
+        // A bar on the cell's left edge in the state colour, plus its tint.
+        boxShadow: line ? `inset 3px 0 0 ${line}` : undefined,
+        background: tint
+      }}
+    >
+      {head}
+      <span className={value ? 'pp-cc-value' : 'pp-cc-value pp-cc-value-empty'}>
+        {value || 'Not set'}
+      </span>
+      <span className="ms pp-cc-pencil">edit</span>
+    </button>
+  )
 }
 
 // ── Custom fields ─────────────────────────────────────────────────────
@@ -1118,14 +1081,19 @@ function Deals({ deals = [], onOpenDeal }) {
               {[d.stage, d.pipeline].filter(Boolean).join(' · ')}
             </span>
           </span>
-          {d.value && (
+          {/* "£0" included — a zero-value deal is still a value, and the
+              design shows it. Only a missing one is left blank. */}
+          {d.value != null && d.value !== '' && (
             <span
               style={{
-                fontFamily: 'var(--font-mono)', fontSize: 'var(--text-md)',
+                fontSize: 'var(--text-md)', fontWeight: 600,
+                fontVariantNumeric: 'tabular-nums',
                 color: 'var(--text-heading)', flex: 'none'
               }}
             >
-              {d.value}
+              {Number.isFinite(Number(d.value))
+                ? `£${Number(d.value).toLocaleString('en-GB', { maximumFractionDigits: 0 })}`
+                : d.value}
             </span>
           )}
           {/* The same green chip every other surface uses to open a deal —

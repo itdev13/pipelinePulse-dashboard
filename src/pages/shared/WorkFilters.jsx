@@ -4,11 +4,12 @@ import ContactPicker from './ContactPicker'
 import RemotePicker from './RemotePicker'
 import { searchDeals } from '../../hooks/useLinkTargets'
 
-// Contact / deal filters for the Tasks and Notes tabs.
+// Contact / deal filters for the Tasks and Notes tabs — the October 2026
+// design's "Filter notes" drawer.
 //
-// Same shape as DealFilters and ContactFilters: a portal so nothing clips it,
-// staged edits so two changes are one request, and a badge counting only what
-// is actually narrowing the list.
+// A portal so nothing clips it, staged edits so two changes are one request
+// (Clear all · Cancel · Apply in the footer, as the design has it), and a
+// badge counting only what is actually narrowing the list.
 //
 // Pickers rather than dropdowns: a location has thousands of contacts and
 // hundreds of deals, so these SEARCH the server. A <select> would have to
@@ -19,10 +20,37 @@ export function countWorkFilters(f = {}) {
   return Object.entries(f).filter(([k, v]) => v && k !== 'view').length
 }
 
+// The toolbar label style — the same small dark caps as SEARCH and SORT.
 const LABEL = {
-  fontSize: 'var(--text-sm)', fontWeight: 600,
-  textTransform: 'uppercase', letterSpacing: '0.04em',
-  color: 'var(--text-muted)'
+  fontSize: 11, fontWeight: 600,
+  textTransform: 'uppercase', letterSpacing: '.05em',
+  color: '#4a515c'
+}
+
+// The "Filters" pill — shared with ContactFilters so every tab's toolbar
+// opens its filters with the same control.
+export function FiltersButton({ applied, onClick, title }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        height: 34, padding: '0 14px 0 12px', flex: 'none',
+        border: '1px solid',
+        borderColor: applied ? 'var(--green-300)' : 'var(--border-strong)',
+        borderRadius: 'var(--radius-pill)',
+        background: applied ? 'var(--tint-pine)' : 'var(--surface-card)',
+        color: applied ? 'var(--green-600)' : 'var(--text-body)',
+        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+        fontWeight: applied ? 600 : 500,
+        cursor: 'pointer'
+      }}
+    >
+      <span className="ms" style={{ fontSize: 17 }}>tune</span>
+      Filters{applied ? ` (${applied})` : ''}
+    </button>
+  )
 }
 
 export default function WorkFilters({ filters = {}, onChange, noun = 'tasks' }) {
@@ -39,15 +67,14 @@ export default function WorkFilters({ filters = {}, onChange, noun = 'tasks' }) 
   }, [open])
 
   const applied = countWorkFilters(filters)
+  const drafted = countWorkFilters(draft)
 
-  const set = (key, value) => {
-    setDraft((d) => {
-      const next = { ...d }
-      if (!value) delete next[key]
-      else next[key] = value
-      return next
-    })
-  }
+  // Staged until Apply — see the note at the top.
+  const update = (patch) => setDraft((d) => {
+    const next = { ...d, ...patch }
+    for (const k of Object.keys(next)) if (!next[k]) delete next[k]
+    return next
+  })
 
   // The deal picker is scoped to the chosen contact when there is one — the
   // same rule the note and task editors follow, so a filter cannot offer a
@@ -59,27 +86,15 @@ export default function WorkFilters({ filters = {}, onChange, noun = 'tasks' }) 
 
   return (
     <>
-      <button
+      <FiltersButton
+        applied={applied}
         onClick={() => setOpen(true)}
         title={`Filter these ${noun}`}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          height: 36, padding: '0 12px', flex: 'none',
-          border: '1px solid',
-          borderColor: applied ? 'var(--green-300)' : 'var(--border-strong)',
-          borderRadius: 'var(--radius-md)',
-          background: applied ? 'var(--tint-pine)' : 'var(--surface-card)',
-          color: applied ? 'var(--green-600)' : 'var(--text-body)',
-          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-lg)',
-          fontWeight: applied ? 600 : 500,
-          cursor: 'pointer'
-        }}
-      >
-        <span className="ms" style={{ fontSize: 17 }}>filter_list</span>
-        Filters{applied ? ` (${applied})` : ''}
-      </button>
+      />
 
       {open && createPortal(
+        // .pp-portal — tokens and the icon font are scoped to [data-dealhub],
+        // which a portal escapes.
         <div
           className="pp-portal"
           role="dialog"
@@ -93,7 +108,7 @@ export default function WorkFilters({ filters = {}, onChange, noun = 'tasks' }) 
           }}
         >
           <div style={{
-            width: 'min(380px, 100vw)', height: '100%',
+            width: 'min(340px, 100vw)', height: '100%',
             background: 'var(--surface-card)',
             display: 'flex', flexDirection: 'column',
             boxShadow: '-8px 0 28px rgba(0,0,0,0.14)'
@@ -101,14 +116,14 @@ export default function WorkFilters({ filters = {}, onChange, noun = 'tasks' }) 
             <header style={{
               flex: 'none',
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              gap: 'var(--space-3)', padding: 'var(--space-4)',
+              gap: 'var(--space-3)', padding: '14px var(--space-4)',
               borderBottom: '1px solid var(--border-default)'
             }}>
               <h2 style={{
                 margin: 0, fontSize: 'var(--text-xl)', fontWeight: 600,
                 color: 'var(--text-heading)', letterSpacing: '-0.01em'
               }}>
-                Filters
+                Filter {noun}
               </h2>
               <button
                 onClick={() => setOpen(false)}
@@ -116,7 +131,8 @@ export default function WorkFilters({ filters = {}, onChange, noun = 'tasks' }) 
                 style={{
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                   width: 30, height: 30, flex: 'none',
-                  border: '1px solid var(--border-default)', borderRadius: '50%',
+                  border: '1px solid var(--border-strong)',
+                  borderRadius: 'var(--radius-sm)',
                   background: 'transparent', color: 'var(--text-muted)',
                   cursor: 'pointer'
                 }}
@@ -133,12 +149,10 @@ export default function WorkFilters({ filters = {}, onChange, noun = 'tasks' }) 
                 <span style={LABEL}>Contact</span>
                 <ContactPicker
                   value={draft.contactId || null}
-                  onChange={(id) => {
-                    set('contactId', id)
-                    // The deal picker is scoped to the contact, so a deal
-                    // chosen under the previous one may no longer be valid.
-                    setDraft((d) => { const n = { ...d }; delete n.dealId; return n })
-                  }}
+                  // The deal picker is scoped to the contact, so a deal chosen
+                  // under the previous one may no longer be valid — cleared in
+                  // the same change.
+                  onChange={(id) => update({ contactId: id, dealId: undefined })}
                   placeholder="Anyone"
                 />
               </label>
@@ -147,7 +161,7 @@ export default function WorkFilters({ filters = {}, onChange, noun = 'tasks' }) 
                 <span style={LABEL}>Deal</span>
                 <RemotePicker
                   value={draft.dealId || null}
-                  onChange={(id) => set('dealId', id)}
+                  onChange={(id) => update({ dealId: id })}
                   search={dealSearch}
                   seed={[]}
                   placeholder="Any deal"
@@ -160,19 +174,19 @@ export default function WorkFilters({ filters = {}, onChange, noun = 'tasks' }) 
             <footer style={{
               flex: 'none',
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              gap: 'var(--space-3)', padding: 'var(--space-4)',
+              gap: 'var(--space-3)', padding: '12px var(--space-4)',
               borderTop: '1px solid var(--border-default)'
             }}>
               <button
                 onClick={() => setDraft({})}
-                disabled={!countWorkFilters(draft)}
+                disabled={!drafted}
                 style={{
-                  height: 36, padding: '0 4px',
+                  height: 34, padding: 0,
                   border: 'none', background: 'transparent',
-                  color: countWorkFilters(draft) ? 'var(--text-muted)' : 'var(--text-faint)',
+                  color: drafted ? 'var(--text-muted)' : 'var(--text-faint)',
                   fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
-                  textDecoration: countWorkFilters(draft) ? 'underline' : 'none',
-                  cursor: countWorkFilters(draft) ? 'pointer' : 'default'
+                  textDecoration: 'underline',
+                  cursor: drafted ? 'pointer' : 'default'
                 }}
               >
                 Clear all
@@ -182,7 +196,7 @@ export default function WorkFilters({ filters = {}, onChange, noun = 'tasks' }) 
                 <button
                   onClick={() => setOpen(false)}
                   style={{
-                    height: 36, padding: '0 14px',
+                    height: 34, padding: '0 14px',
                     border: '1px solid var(--border-strong)',
                     borderRadius: 'var(--radius-md)',
                     background: 'var(--surface-card)',
@@ -196,7 +210,7 @@ export default function WorkFilters({ filters = {}, onChange, noun = 'tasks' }) 
                   onClick={() => { onChange(draft); setOpen(false) }}
                   className="pp-btn-primary"
                   style={{
-                    height: 36, padding: '0 16px',
+                    height: 34, padding: '0 16px',
                     border: 'none', borderRadius: 'var(--radius-md)',
                     background: 'var(--brand-primary)', color: '#fff',
                     fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',

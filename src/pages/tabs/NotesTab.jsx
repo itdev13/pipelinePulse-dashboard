@@ -13,7 +13,7 @@ import { useLinkTargets } from '../../hooks/useLinkTargets'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import { noteColourStyle } from '../../utils/noteColour'
 import {
-  Shell, ContactChip, DealPill, RowAction, LabelledControl,
+  Shell, DealPill, RowAction, LabelledControl,
   NoteChip, StateMessage, LoadMore, RichBody, relativeTime,
   AttachmentCount
 } from '../shared/ListChrome'
@@ -26,8 +26,8 @@ import { LinkedRecords } from '../shared/LinkedRecords'
 // and notes linked to this note appear as gold chips beneath.
 //
 // October 2026: a brown section header and a labelled toolbar band (Author,
-// Sort), as on Tasks, and a card per note in the grid — see NoteCard. The
-// design's search box is held back until /api/notes supports a query.
+// Sort), as on Tasks, and a card per note in the grid — see NoteCard. Search
+// sends `q` to /api/notes, which may not honour it yet.
 //
 // GHL notes have no title column (migration 017), so the heading is derived
 // from the body's first block — see splitNote.
@@ -50,18 +50,27 @@ export default function NotesTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
   // import date is when we synced it, and on backfilled data every note
   // shares one, so ordering by it looks chronological and is not.
   const [sort, setSort] = useTabState('notes', 'sort', 'desc')
+  // Search by who a note is about — business, contact or deal — as on Tasks.
+  //
+  // Sent to the SERVER as `q`: the list is paged, so a client-side filter
+  // would only search the notes already loaded. Whether /api/notes honours
+  // `q` is unconfirmed — see PENDING_FUNCTIONALITY.md. If it does not, the
+  // box is ignored and the list is simply unfiltered.
+  const [q, setQ] = useTabState('notes', 'q', '')
 
   const fetchPage = useCallback(
     ({ cursor }) => notesAPI.list({
       limit: 20, cursor, sort,
+      // Omitted when empty, so the request carries no q= at all.
+      ...(q.trim() ? { q: q.trim() } : {}),
       authorId: resolveOwner(author),
       contactId: filters.contactId || undefined,
       dealId: filters.dealId || undefined
     }),
-    [filters, author, sort]
+    [filters, author, sort, q]
   )
   const { items, error, hasMore, loadingMore, loading, loadMore, patchItem, reload } =
-    usePagedList({ fetchPage, key: 'notes', deps: [filters, author, sort] })
+    usePagedList({ fetchPage, key: 'notes', deps: [filters, author, sort, q] })
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
   const notes = items || []
@@ -196,6 +205,29 @@ export default function NotesTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
           background: 'var(--gray-100)',
           borderBottom: '1px solid var(--border-default)'
         }}>
+          <LabelledControl label="Search">
+            <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+              <span className="ms" style={{
+                position: 'absolute', left: 10, fontSize: 18,
+                color: 'var(--text-faint)', pointerEvents: 'none'
+              }}>
+                search
+              </span>
+              <input
+                className="pp-task-search"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search business, contact or deal"
+                style={{
+                  width: 300, maxWidth: '100%',
+                  height: 34, boxSizing: 'border-box', padding: '0 12px 0 34px',
+                  border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-md)',
+                  background: '#fff', fontFamily: 'var(--font-sans)',
+                  fontSize: 'var(--text-md)', color: 'var(--text-heading)'
+                }}
+              />
+            </span>
+          </LabelledControl>
           {/* "Author", not "Owner": a note is not assigned to anyone and
               cannot be reassigned, so calling it an owner would promise
               something the record does not support. "No author" covers
@@ -606,104 +638,133 @@ function NoteCard({
   )
 }
 
-// A note in ROWS: colour tile · heading, body and meta · its people and deal,
-// then edit and delete at the end of the line, where the eye finishes it.
+// A note in ROWS — the October 2026 row design, the same four ruled columns
+// as a task row:
+//
+//   ▣ │ 👤 contact  [View CONTACT] │ 🕓 CREATED    │ heading            │
+//     │ 🏷 deal     [View DEAL]    │ 6 hours ago   │ body               │
+//     │ 🏢 business [View BUSINESS]│ [No DEAL]     │ by Jordan Blake ✎ ✕│
+//
+// Which note · who it is about · when (and whether a deal is missing) · what
+// it says. Fixed widths up to the heading, so the tiles, View pills and dates
+// land on the same x down the whole list.
 function NoteRow({
   note: n, onEdit, onDelete,
-  onOpenDeal, onOpenContact
+  onOpenDeal, onOpenContact, onOpenBusiness
 }) {
   const { heading, rest } = noteParts(n)
   const col = noteColourStyle(n.color)
   const hasChips = n.noteChips?.length > 0
+  const rule = '1px solid var(--border-default)'
 
   return (
     <div style={{
-      // A CARD IN BOTH VIEWS — see TasksTab.
-      border: '1px solid var(--border-default)',
-      // The author's colour as a left stripe — matches the deal rail, so the
-      // same note looks the same in both places.
-      borderLeft: col.stripe
-        ? `3px solid ${col.stripe}`
-        : '1px solid var(--border-default)',
+      display: 'grid',
+      // tile · records · created · heading+body+actions — the Tasks row's
+      // columns, so the two tabs' rows line up. No `order` anywhere: the
+      // children are written in the order they appear (see TasksTab).
+      gridTemplateColumns: '56px minmax(280px, 400px) minmax(140px, auto) minmax(0, 1fr)',
+      // Stretch, so each column's divider runs the full row height.
+      alignItems: 'stretch',
+      // A CARD IN BOTH VIEWS — the same border, radius and surface as
+      // NoteCard; the grey list ground separates rows.
+      border: rule,
       borderRadius: 'var(--radius-md)',
-      background: 'var(--surface-card)'
+      background: 'var(--surface-card)',
+      overflow: 'hidden'
     }}>
+      {/* 1 · WHICH — the colour tile, centred in its own ruled column. */}
       <div style={{
-        display: 'flex', alignItems: 'flex-start', gap: 10,
-        // The stripe eats the left padding rather than adding to it, so
-        // coloured and uncoloured rows keep their text on one vertical line.
-        padding: col.stripe
-          ? 'var(--space-3) var(--space-4) var(--space-3) calc(var(--space-4) - 3px)'
-          : 'var(--space-3) var(--space-4)'
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        borderRight: rule
       }}>
-        <span style={{ marginTop: 1 }}><NoteIcon col={col} /></span>
+        <NoteIcon col={col} />
+      </div>
 
-        <div style={{ minWidth: 0, flex: 1 }}>
+      {/* 2 · WHO — only the records the note has. */}
+      <div style={{
+        display: 'flex', flexDirection: 'column', justifyContent: 'center',
+        minWidth: 0, padding: '4px 16px',
+        borderRight: rule
+      }}>
+        <LinkedRecords
+          record={n}
+          onOpenDeal={onOpenDeal}
+          onOpenContact={onOpenContact}
+          onOpenBusiness={onOpenBusiness}
+        />
+      </div>
+
+      {/* 3 · WHEN — "CREATED" over how long ago, and the No DEAL pill
+          beneath when the note is off any deal. */}
+      <div style={{
+        display: 'flex', flexDirection: 'column', justifyContent: 'center',
+        alignItems: 'flex-start', gap: 4,
+        padding: '12px 14px',
+        borderRight: rule
+      }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--text-muted)' }}>
+          <span className="ms" style={{ fontSize: 15 }}>schedule</span>
+          <span className="pp-label" style={{ marginBottom: 0, color: 'inherit' }}>Created</span>
+        </span>
+        <span style={{
+          fontSize: 'var(--text-lg)', fontWeight: 500,
+          color: 'var(--text-heading)', whiteSpace: 'nowrap'
+        }}>
+          {relativeTime(n.createdAt) || 'Unknown'}
+        </span>
+        {!n.deal && <DealPill name="No deal" empty compact />}
+      </div>
+
+      {/* 4 · WHAT — heading, body and author, with edit and delete in the
+          bottom-right corner. */}
+      <div style={{
+        display: 'flex', alignItems: 'flex-end', gap: 'var(--space-3)',
+        minWidth: 0, padding: '14px 16px'
+      }}>
+        <div style={{ flex: 1, minWidth: 0, alignSelf: 'center' }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap'
           }}>
             <span style={{
-              fontSize: 'var(--text-xl)', fontWeight: 600,
-              lineHeight: 1.3, letterSpacing: '-0.01em',
-              color: 'var(--text-heading)'
+              fontSize: 'var(--text-lg)', fontWeight: 600,
+              lineHeight: 1.3, color: 'var(--text-heading)',
+              overflowWrap: 'anywhere'
             }}>
               {heading}
             </span>
             <HeadingBadges note={n} />
           </div>
           {rest && (
-            <div style={{ marginTop: 3 }}>
+            <div style={{ marginTop: 6 }}>
               <RichBody
                 html={rest}
-                color="var(--text-body)"
-                size="var(--text-lg)"
+                color="var(--text-muted)"
+                size="var(--text-md)"
                 leading="var(--leading-normal)"
+                maxWidth={680}
                 showPlainToggle
               />
             </div>
           )}
-          <div style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)', marginTop: 4 }}>
-            {noteMeta(n)}
-          </div>
+          {n.author && (
+            <div style={{ marginTop: 6, fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
+              by {n.author}
+            </div>
+          )}
+          {hasChips && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
+              {n.noteChips.map((c) => (
+                <NoteChip key={c.id} label={c.label} />
+              ))}
+            </div>
+          )}
         </div>
-
-        <div style={{
-          display: 'flex', gap: 6, flexWrap: 'wrap',
-          justifyContent: 'flex-end', alignItems: 'center'
-        }}>
-          {/* A note can involve several people. A contact whose name IS the
-              deal name is skipped — GHL default-names an opportunity after
-              its contact, so the two chips printed the same person twice. */}
-          {(n.contacts?.length ? n.contacts : n.contact ? [n.contact] : [])
-            .filter((c) => !sameName(c.name, n.deal?.name))
-            .map((c) => (
-              <ContactChip
-                key={c.id}
-                name={c.name}
-                onClick={onOpenContact ? () => onOpenContact(c.id) : undefined}
-              />
-            ))}
-          {/* Always rendered — "No deal" is a real state, not an absence. */}
-          <DealPill
-            name={n.deal?.name || 'No deal'}
-            empty={!n.deal}
-            onClick={n.deal && onOpenDeal ? () => onOpenDeal(n.deal.id) : undefined}
-          />
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none' }}>
           <RowAction icon="edit" title="Edit this note" onClick={onEdit} />
           <RowAction icon="close" danger title="Delete this note" onClick={onDelete} />
-        </div>
+        </span>
       </div>
-
-      {hasChips && (
-        <div style={{
-          display: 'flex', flexWrap: 'wrap', gap: 5,
-          padding: '0 var(--space-4) var(--space-3) var(--space-7)'
-        }}>
-          {n.noteChips.map((c) => (
-            <NoteChip key={c.id} label={c.label} />
-          ))}
-        </div>
-      )}
     </div>
   )
 }
@@ -761,12 +822,6 @@ function previewOf(note) {
   return title || body || '(empty note)'
 }
 
-// Case- and space-insensitive name match. GHL stores whatever was typed, so
-// "james stevens" and "James Stevens" are the same person.
-function sameName(a, b) {
-  if (!a || !b) return false
-  return String(a).trim().toLowerCase() === String(b).trim().toLowerCase()
-}
 
 function AIBadge() {
   return (

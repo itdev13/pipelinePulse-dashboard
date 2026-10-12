@@ -99,6 +99,20 @@ test('THE DUE DATE IS A SIBLING OF THE TITLE COLUMN, NOT A CHILD', () => {
   assert.match(what, /icon="close"/);
 });
 
+test('only an OVERDUE date is red; the DUE DATE label stays grey', () => {
+  const when = row.slice(row.indexOf('3 · WHEN'), row.indexOf('4 · WHAT'));
+  assert.match(when, /color: overdue \? 'var\(--status-stuck\)' : 'var\(--text-heading\)'/);
+  assert.match(when, /className="pp-label" style=\{\{ marginBottom: 0, color: 'var\(--text-muted\)' \}\}/);
+  // Today is black too — "(today)" says it, not a colour.
+  assert.match(tab, /text: `\$\{date\} \(today\)`, colour: 'var\(--text-heading\)'/);
+  assert.doesNotMatch(tab, /accent-gold-text/);
+});
+
+test('linked record names and icons are weighted as the design draws them', () => {
+  assert.match(linked, /'wght' 600/);
+  assert.match(linked, /fontWeight: 500,\s*\n\s*color: present \? 'var\(--text-heading\)'/);
+});
+
 test('no `order` is used to place the row grid columns', () => {
   // The columns are written in the order they appear. Reaching for `order`
   // here is what hid the nesting bug above: the style said four columns while

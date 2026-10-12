@@ -957,14 +957,17 @@ function TaskRow({
         padding: '12px 14px',
         borderRight: rule
       }}>
-        <span style={{
-          display: 'flex', alignItems: 'center', gap: 5,
-          color: overdue ? 'var(--status-stuck)' : 'var(--text-muted)'
-        }}>
-          <span className="ms" style={{ fontSize: 15 }}>
+        {/* Only the ICON and the DATE carry overdue red, as the design draws
+            it — the "DUE DATE" label stays grey on every row, so the one red
+            word on a row is the date that is late. */}
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span className="ms" style={{
+            fontSize: 15,
+            color: overdue ? 'var(--status-stuck)' : 'var(--text-heading)'
+          }}>
             {done ? 'event_available' : 'calendar_today'}
           </span>
-          <span className="pp-label" style={{ marginBottom: 0, color: 'inherit' }}>
+          <span className="pp-label" style={{ marginBottom: 0, color: 'var(--text-muted)' }}>
             {done ? 'Done' : 'Due date'}
           </span>
         </span>
@@ -1037,6 +1040,10 @@ function TaskRow({
 // The due date as both views show it: "18 Sep (overdue)", "30 Sep",
 // "2 days ago" once done. The year only appears when it is not this year — a
 // task list is almost all this year, and "2026" on every item is noise.
+//
+// RED FOR OVERDUE ONLY; every other open date is black, as the design has it.
+// Today's tasks say "(today)" rather than taking a colour of their own, so
+// the list has one alarm colour and it means late.
 function dueLine(t, done, overdue, dueToday) {
   if (done) {
     return {
@@ -1054,7 +1061,7 @@ function dueLine(t, done, overdue, dueToday) {
     return { label: 'Due', text: `${date} (overdue)`, colour: 'var(--status-stuck-text)' }
   }
   if (dueToday) {
-    return { label: 'Due', text: `${date} (today)`, colour: 'var(--accent-gold-text)' }
+    return { label: 'Due', text: `${date} (today)`, colour: 'var(--text-heading)' }
   }
   return { label: 'Due', text: date, colour: 'var(--text-heading)' }
 }
