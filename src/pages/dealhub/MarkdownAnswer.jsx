@@ -44,10 +44,19 @@ const LABEL_VALUE = /^\s{0,6}([A-Z][\w '&/-]{0,28}):\s+(\S.*)$/;
 // Deliberately narrow otherwise: no sentence punctuation, at most four words.
 // The risk is turning a real sentence into a list item, so anything with a
 // full stop, a comma, or more words is left alone.
-const BARE_OPTION = /^\s{0,6}([A-Za-z][\w()+&./-]*(?:\s+[\w()+&./-]+){0,3})\s*$/;
+//
+// Plus an optional " — (annotation)" tail. The model marks the sender a
+// thread already uses as "WhatsApp (native) — (used in this thread)", and the
+// em dash broke the run: that line failed the test, the two below it were
+// one short of the threshold, and the menu rendered with no numbers at all.
+const BARE_OPTION = /^\s{0,6}([A-Za-z][\w()+&./-]*(?:\s+[\w()+&./-]+){0,3})(?:\s+[—–-]\s+\(?[\w ]{1,40}\)?)?\s*$/;
 
 function listify(text) {
-  if (!text.includes(':')) return text
+  // The colon test only gates the Label: value repair — NOT the numbering
+  // below it. An early `return text` here used to skip numberOptions too, so
+  // a sender menu with no colon anywhere in the answer was never numbered,
+  // however plainly it said "reply with a number".
+  if (!text.includes(':')) return numberOptions(text)
   const lines = text.split('\n');
   const out = [];
   let run = [];
@@ -80,9 +89,11 @@ function listify(text) {
 // does not show what to pick.
 //
 // Only fires when the text actually asks for a number, and only on a run of
-// three or more bare lines. Both conditions matter: without the first, any
+// two or more bare lines. Both conditions matter: without the first, any
 // short capitalised line could be swept into a list; without the second, a
-// two-line aside becomes a menu.
+// lone line becomes a menu. Two, not three: "WhatsApp (native)" versus
+// "WhatsApp QR" is the commonest choice the model now offers, and the
+// "reply with a number" gate is what makes a two-line run safe to number.
 function numberOptions(text) {
   if (!/reply with (a |the )?number|pick a number|choose a number/i.test(text)) return text
   const lines = text.split('\n');
@@ -90,7 +101,7 @@ function numberOptions(text) {
   let run = [];
 
   const flush = () => {
-    if (run.length >= 3) out.push(...run.map((l, i) => `${i + 1}. ${l.trim()}`))
+    if (run.length >= 2) out.push(...run.map((l, i) => `${i + 1}. ${l.trim()}`))
     else out.push(...run)
     run = []
   };
