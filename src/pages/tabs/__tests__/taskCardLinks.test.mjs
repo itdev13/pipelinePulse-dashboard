@@ -13,14 +13,16 @@ import { readFileSync } from 'node:fs';
 
 const tab = readFileSync(new URL('../TasksTab.jsx', import.meta.url), 'utf8');
 const shell = readFileSync(new URL('../../DealHubShell.jsx', import.meta.url), 'utf8');
+// The linked-record rows, shared with the Notes tab.
+const linked = readFileSync(new URL('../../shared/LinkedRecords.jsx', import.meta.url), 'utf8');
 
 test('all three records get a row', () => {
   // The business was missing entirely, though the server has returned
   // `business: { id, name }` on every task all along.
   for (const icon of ['person', 'sell', 'business']) {
-    assert.match(tab, new RegExp(`icon="${icon}"`), `no row for ${icon}`);
+    assert.match(linked, new RegExp(`icon="${icon}"`), `no row for ${icon}`);
   }
-  assert.match(tab, /business: \{ fill: 'var\(--accent-plum\)', label: 'BUSINESS' \}/);
+  assert.match(linked, /business: \{ fill: 'var\(--accent-plum\)', label: 'BUSINESS' \}/);
 });
 
 test('only the records a task HAS get a row; a missing deal is called out', () => {
@@ -28,8 +30,6 @@ test('only the records a task HAS get a row; a missing deal is called out', () =
   // three "No X" lines on an unattached task were most of its item — but a
   // missing DEAL is the state a rep needs to spot, so both views draw a red
   // "No DEAL" pill in its own place.
-  const linked = tab.slice(tab.indexOf('function LinkedRecords('), tab.indexOf('function dueLine('));
-  assert.ok(linked.length > 0, 'LinkedRecords not found');
   assert.match(linked, /if \(contact\) \{/);
   assert.match(linked, /if \(t\.deal\) \{/);
   assert.match(linked, /if \(t\.business\) \{/);
@@ -60,7 +60,7 @@ test('both views share one LinkedRecords', () => {
 
 // ── The row — October 2026 design ────────────────────────────────────────────
 
-const row = tab.slice(tab.indexOf('function TaskRow('), tab.indexOf('function LinkedRecords('));
+const row = tab.slice(tab.indexOf('function TaskRow('), tab.indexOf('function dueLine('));
 
 test('rows view is four ruled columns: done · who · when · what', () => {
   assert.ok(row.length > 0, 'TaskRow not found');
@@ -154,7 +154,6 @@ test('every linked record can be opened', () => {
   // View CONTACT / DEAL / BUSINESS each route somewhere — a pill that looks
   // like a button and does nothing is worse than no pill. Both views render
   // these through the one LinkedRecords.
-  const linked = tab.slice(tab.indexOf('function LinkedRecords('), tab.indexOf('function dueLine('));
   assert.match(linked, /onOpenContact \? \(\) => onOpenContact\(contact\.id\)/);
   assert.match(linked, /onOpenDeal \? \(\) => onOpenDeal\(t\.deal\.id\)/);
   assert.match(linked, /onOpenBusiness \? \(\) => onOpenBusiness\(t\.business\.id\)/);

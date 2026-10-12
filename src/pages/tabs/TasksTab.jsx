@@ -16,10 +16,11 @@ import TaskDealsPopover from '../shared/TaskDealsPopover'
 import { useLinkTargets } from '../../hooks/useLinkTargets'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import {
-  Shell, Panel, DealPill, RowAction,
-  PrimaryAction, NoteChip, StateMessage, LoadMore,
-  RichBody, Truncate, formatDate, formatDue, relativeTime
+  Shell, DealPill, RowAction, LabelledControl,
+  NoteChip, StateMessage, LoadMore,
+  RichBody, formatDate, formatDue, relativeTime
 } from '../shared/ListChrome'
+import { LinkedRecords } from '../shared/LinkedRecords'
 
 // Tasks — v5.
 //
@@ -71,24 +72,6 @@ const STATUS_FILTERS = [
 // endpoint to OAuth apps.
 const TASK_DEAL_EDITING = false
 
-
-// A toolbar control with its label ABOVE it.
-//
-// flex:none on the stack, so a label and its control always wrap together —
-// inline labels let a row break between "ASSIGNEE" and the select it names.
-function LabelledControl({ label, children }) {
-  return (
-    <span style={{ display: 'flex', flexDirection: 'column', gap: 5, flex: 'none' }}>
-      <span style={{
-        fontSize: 11, fontWeight: 600, letterSpacing: '.05em',
-        textTransform: 'uppercase', color: '#4a515c'
-      }}>
-        {label}
-      </span>
-      {children}
-    </span>
-  )
-}
 
 // Search by WHO a task is about, not what it is called.
 //
@@ -806,7 +789,7 @@ function TaskCard({
           the card. */}
       <div style={{ flex: 1, padding: '0 20px', display: 'flex', flexDirection: 'column' }}>
         <LinkedRecords
-          task={t}
+          record={t}
           large
           onOpenDeal={onOpenDeal}
           onOpenContact={onOpenContact}
@@ -941,7 +924,7 @@ function TaskRow({
         borderRight: rule
       }}>
         <LinkedRecords
-          task={t}
+          record={t}
           onOpenDeal={onOpenDeal}
           onOpenContact={onOpenContact}
           onOpenBusiness={onOpenBusiness}
@@ -1051,73 +1034,6 @@ function TaskRow({
   )
 }
 
-// The records a task is linked to, one LinkedRow each — shared by TaskRow and
-// TaskCard so "View CONTACT / DEAL / BUSINESS" opens the same way in both.
-//
-// Only the records the task HAS: the designs call out a missing DEAL in its
-// own place (the card header, the row's due column) and simply give a
-// missing contact or business no row. Built as a list so the LAST one present
-// drops its divider, whichever it is.
-function LinkedRecords({ task: t, large = false, onOpenDeal, onOpenContact, onOpenBusiness }) {
-  const contact = t.contacts?.[0] || t.contact || null
-  const rows = []
-  if (contact) {
-    rows.push(
-      <LinkedRow
-        key="contact"
-        icon="person"
-        name={contact.name || 'Unnamed contact'}
-        tone={LINK_TONES.contact}
-        iconColour={LINK_TONES.contact.fill}
-        large={large}
-        onOpen={onOpenContact ? () => onOpenContact(contact.id) : undefined}
-      />
-    )
-  }
-  if (t.deal) {
-    // The SHARED DealPill — opening a deal has one treatment across every
-    // surface (dealPill.test.mjs pins it).
-    rows.push(
-      <LinkedRow
-        key="deal"
-        icon="sell"
-        name={t.deal.name || 'Untitled deal'}
-        iconColour={LINK_TONES.deal.fill}
-        large={large}
-        action={(
-          <DealPill
-            name={t.deal.name}
-            compact={!large}
-            onClick={onOpenDeal ? () => onOpenDeal(t.deal.id) : undefined}
-          />
-        )}
-      />
-    )
-  }
-  if (t.business) {
-    rows.push(
-      <LinkedRow
-        key="business"
-        icon="business"
-        name={t.business.name || 'Unnamed business'}
-        tone={LINK_TONES.business}
-        iconColour={LINK_TONES.business.fill}
-        large={large}
-        onOpen={onOpenBusiness ? () => onOpenBusiness(t.business.id) : undefined}
-      />
-    )
-  }
-  if (!rows.length) {
-    return (
-      <span style={{ padding: '12px 0', fontSize: 'var(--text-md)', color: 'var(--text-faint)' }}>
-        No linked records
-      </span>
-    )
-  }
-  return rows.map((row, i) =>
-    i === rows.length - 1 ? React.cloneElement(row, { last: true }) : row)
-}
-
 // The due date as both views show it: "18 Sep (overdue)", "30 Sep",
 // "2 days ago" once done. The year only appears when it is not this year — a
 // task list is almost all this year, and "2026" on every item is noise.
@@ -1141,91 +1057,6 @@ function dueLine(t, done, overdue, dueToday) {
     return { label: 'Due', text: `${date} (today)`, colour: 'var(--accent-gold-text)' }
   }
   return { label: 'Due', text: date, colour: 'var(--text-heading)' }
-}
-
-// One linked record on a task card: icon, name, and a "View X" button.
-//
-// These were bare pills — a ContactChip and a DealPill side by side — which
-// said WHO and WHICH DEAL but not what kind of record each was, and gave no
-// affordance for opening them beyond the pill itself being clickable.
-//
-// The design makes each a row: the type is named by its icon and by the chip
-// inside the button, so "Riley Nakamura · View CONTACT" and "Brightwell ·
-// View BUSINESS" cannot be mistaken for one another at a glance.
-//
-// Rendered even when the record is MISSING (`name` null) — an unattached task
-// is a real state worth seeing, not an absence to hide. The button is then
-// inert and the row says so.
-// `action` overrides the built-in button, for a row whose control already
-// exists as a shared component — the deal row hands it a DealPill.
-//
-// `large` is the grid card's form: the icon takes the record's colour and the
-// name steps up a size, as the card design draws it.
-function LinkedRow({ icon, name, emptyText, tone, onOpen, last, action, iconColour, large = false }) {
-  const present = !!name
-  return (
-    <div
-      style={{
-        display: 'flex', alignItems: 'center', gap: large ? 10 : 'var(--space-2)',
-        padding: large ? '10px 0' : '7px 0',
-        borderBottom: last ? 'none' : '1px solid var(--border-default)',
-        minWidth: 0
-      }}
-    >
-      <span className="ms" style={{
-        fontSize: large ? 18 : 16, flex: 'none',
-        color: iconColour || 'var(--text-faint)'
-      }}>
-        {icon}
-      </span>
-      <Truncate style={{
-        flex: 1, minWidth: 0,
-        fontSize: large ? 'var(--text-lg)' : 'var(--text-md)',
-        fontWeight: large ? 500 : 400,
-        color: present ? (large ? 'var(--text-heading)' : 'var(--text-body)') : 'var(--text-faint)'
-      }}>
-        {present ? name : emptyText}
-      </Truncate>
-      {action || (
-      <button
-        type="button"
-        onClick={present && onOpen ? onOpen : undefined}
-        disabled={!present || !onOpen}
-        title={present && onOpen ? `Open ${name}` : emptyText}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none',
-          height: 24, padding: '0 4px 0 10px',
-          border: 'none', borderRadius: 'var(--radius-pill)',
-          background: present ? tone.fill : 'var(--status-stuck)',
-          color: '#fff',
-          fontFamily: 'var(--font-sans)',
-          fontSize: 'var(--text-sm)', fontWeight: 600,
-          cursor: present && onOpen ? 'pointer' : 'default',
-          opacity: present ? 1 : 1
-        }}
-      >
-        {present ? 'View' : 'No'}
-        <span style={{
-          display: 'inline-flex', alignItems: 'center',
-          height: 18, padding: '0 7px',
-          borderRadius: 'var(--radius-pill)',
-          background: '#fff',
-          color: present ? tone.fill : 'var(--status-stuck)',
-          fontSize: 10, fontWeight: 700,
-          letterSpacing: 'var(--tracking-label)'
-        }}>
-          {tone.label}
-        </span>
-      </button>
-      )}
-    </div>
-  )
-}
-
-const LINK_TONES = {
-  contact: { fill: 'var(--accent-sky)', label: 'CONTACT' },
-  deal: { fill: 'var(--green-500)', label: 'DEAL' },
-  business: { fill: 'var(--accent-plum)', label: 'BUSINESS' }
 }
 
 // Mark complete / mark open — a tick in a circle: outlined while the task is

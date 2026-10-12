@@ -58,6 +58,10 @@
   --tasks-header: #c25a1f;
   --tasks-header-border: #b5501a;
   --tasks-header-hover: #a94d19;
+  /* The Notes page's header — the design's brown band. Same reasoning as
+     --tasks-header: deep enough to hold white 18px/600 text (about 6:1). */
+  --notes-header: #8b5a2b;
+  --notes-header-border: #7a4e24;
   --accent-gold: #b8860b;
   /* The People rail's "Add someone" fill — the design's bright yellow,
      which is not --accent-gold (a dark goldenrod used for text and badges).

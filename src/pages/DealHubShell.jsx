@@ -483,7 +483,11 @@ export default function DealHubShell() {
           />
         )}
         {activeTab === 'notes' && (
-          <NotesTab onOpenDeal={openDeal} onOpenContact={openContact} />
+          <NotesTab
+            onOpenDeal={openDeal}
+            onOpenContact={openContact}
+            onOpenBusiness={openBusiness}
+          />
         )}
         {activeTab === 'control' && <ControlCentreTab />}
       </main>
