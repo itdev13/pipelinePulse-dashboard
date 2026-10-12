@@ -1,23 +1,44 @@
-import React from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Truncate } from '../shared/ListChrome'
+import BusinessPickerModal from '../shared/BusinessPickerModal'
+import { contactsAPI } from '../../api/contacts'
 
-// The contacts list as a table — the dense, scannable view.
+// The contacts list as a table — the October 2026 list design.
 //
-// Columns mirror what the CRM shows: name, phone, email, business, type,
-// tags, deals and open work. No column picker, for the same reason the deals
-// table has none — every field here is read on every row.
+//   NAME · TYPE · EMAIL · PHONE · BUSINESS · ADDRESS · TAGS · TASKS · NOTES · DEALS
+//
+// Name opens the record. Business, address and tags are worked on in place,
+// each writing straight to the CRM. Tasks, notes and deals are pills with a
+// count; deals opens a menu of the contact's deals. Every column but Name can
+// be hidden from the toolbar's Columns control — see CONTACT_COLUMNS.
 //
 // SORTING IS NOT HERE. The server orders by "recently updated" and pages with
 // a keyset cursor anchored to that order, so a sort control could only
 // reorder the page already loaded — which looks like sorting and is not.
 
+// The hideable columns, in order. Name always shows — a row you cannot name
+// is a row you cannot read.
+export const CONTACT_COLUMNS = [
+  { key: 'type', label: 'Type' },
+  { key: 'email', label: 'Email' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'business', label: 'Business' },
+  { key: 'address', label: 'Address' },
+  { key: 'tags', label: 'Tags' },
+  { key: 'tasks', label: 'Tasks' },
+  { key: 'notes', label: 'Notes' },
+  { key: 'deals', label: 'Deals' }
+]
+
 const TH = {
   textAlign: 'left',
-  padding: '11px var(--space-4)',
-  fontSize: 'var(--text-base)', fontWeight: 600,
-  textTransform: 'uppercase', letterSpacing: '0.04em',
-  color: 'var(--text-muted)',
+  padding: '12px 14px',
+  fontSize: 11, fontWeight: 700,
+  textTransform: 'uppercase', letterSpacing: '0.05em',
+  color: '#4a515c',
   borderBottom: '1px solid var(--border-strong)',
+  borderRight: '1px solid var(--border-default)',
   whiteSpace: 'nowrap',
   background: 'var(--surface-sunken)',
   // The header stays put while the body scrolls: a 20-row page is taller than
@@ -26,59 +47,33 @@ const TH = {
 }
 
 const TD = {
-  padding: '14px var(--space-4)',
-  fontSize: 'var(--text-lg)',
+  padding: '10px 14px',
+  fontSize: 'var(--text-md)',
   color: 'var(--text-body)',
   borderBottom: '1px solid var(--border-default)',
+  borderRight: '1px solid var(--border-default)',
   verticalAlign: 'middle'
 }
 
-// The last row's divider doubles up with the container's own border.
-const TD_LAST = { ...TD, borderBottom: 'none' }
+const TYPE_LABEL = { lead: 'Lead', customer: 'Customer' }
 
-const TYPE_TONE = {
-  lead: { bg: 'var(--tint-sky)', fg: 'var(--text-body)' },
-  customer: { bg: 'var(--tint-pine)', fg: 'var(--green-600)' }
+const PILL_TONES = {
+  // A contact with no open tasks is the one to chase — red, as the design has.
+  tasksNone: { line: 'var(--status-stuck)', fg: 'var(--status-stuck-text)', icon: 'task_alt' },
+  tasks: { line: 'var(--accent-clay)', fg: 'var(--accent-clay-text)', icon: 'task_alt' },
+  notes: { line: 'var(--accent-brown)', fg: 'var(--accent-brown-text)', icon: 'sticky_note_2' },
+  deals: { line: 'var(--green-500)', fg: 'var(--green-600)', icon: 'sell' },
+  none: { line: 'var(--border-strong)', fg: 'var(--text-muted)' }
 }
 
-function Pill({ children, bg, fg, title }) {
-  return (
-    <span
-      title={title}
-      style={{
-        display: 'inline-block', maxWidth: 200,
-        padding: '3px 9px', borderRadius: 'var(--radius-pill)',
-        background: bg, color: fg,
-        fontSize: 'var(--text-base)', fontWeight: 500,
-        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        verticalAlign: 'middle'
-      }}
-    >
-      {children}
-    </span>
-  )
-}
-
-// Initials, matching the avatar on the contact card so the same person reads
-// the same in both views.
-function Avatar({ name }) {
-  const initials = String(name || '?')
-    .split(/\s+/).filter(Boolean).slice(0, 2)
-    .map((w) => w[0]?.toUpperCase()).join('') || '?'
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      width: 28, height: 28, flex: 'none',
-      borderRadius: '50%', background: 'var(--tint-gray)',
-      fontSize: 'var(--text-base)', fontWeight: 600, color: 'var(--text-muted)'
-    }}>
-      {initials}
-    </span>
-  )
-}
-
-export default function ContactTable({ contacts = [], onOpen }) {
+export default function ContactTable({
+  contacts = [], columns, tagList = [],
+  onOpen, onOpenDeal, onOpenBusiness, onPatch
+}) {
   if (!contacts.length) return null
+  // undefined = every column; the toolbar hands an explicit list once a rep
+  // has hidden one.
+  const show = (key) => !columns || columns.includes(key)
 
   return (
     // Scrolls sideways inside its own box — without this the page body scrolls
@@ -87,7 +82,7 @@ export default function ContactTable({ contacts = [], onOpen }) {
       width: '100%', overflowX: 'auto',
       background: 'var(--surface-card)',
       border: '1px solid var(--border-default)',
-      borderRadius: 'var(--radius-lg)'
+      borderRadius: 'var(--radius-md)'
     }}>
       <table style={{
         width: '100%', borderCollapse: 'collapse',
@@ -95,112 +90,515 @@ export default function ContactTable({ contacts = [], onOpen }) {
       }}>
         <thead>
           <tr>
-            <th style={TH}>Contact</th>
-            <th style={TH}>Phone</th>
-            <th style={TH}>Email</th>
-            <th style={TH}>Business</th>
-            <th style={TH}>Type</th>
-            <th style={TH}>Tags</th>
-            <th style={{ ...TH, textAlign: 'right' }}>Deals</th>
-            <th style={{ ...TH, textAlign: 'right' }}>Open work</th>
+            <th style={TH}>Name</th>
+            {CONTACT_COLUMNS.filter((col) => show(col.key)).map((col) => (
+              <th key={col.key} style={TH}>{col.label}</th>
+            ))}
           </tr>
         </thead>
         <tbody>
-          {contacts.map((c, i) => {
-            const td = i === contacts.length - 1 ? TD_LAST : TD
-            const tags = Array.isArray(c.tags) ? c.tags : []
-            const tone = TYPE_TONE[String(c.contactType || '').toLowerCase()]
-            const openWork = (c.openTaskCount || 0)
-            return (
-              <tr
-                key={c.id}
-                style={{ cursor: 'pointer' }}
-                onClick={() => onOpen && onOpen(c.id)}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--surface-sunken)'
-                }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
-              >
-                <td style={{ ...td, maxWidth: 260 }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 9 }}>
-                    <Avatar name={c.name} />
-                    <Truncate style={{ fontWeight: 600, color: 'var(--text-heading)' }}>
-                      {c.name || 'Unknown contact'}
-                    </Truncate>
-                  </span>
-                </td>
-
-                <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                  {c.phone || <span style={{ color: 'var(--text-faint)' }}>—</span>}
-                </td>
-
-                <td style={{ ...td, maxWidth: 240 }}>
-                  <Truncate style={{ display: 'block' }}>
-                    {c.email || <span style={{ color: 'var(--text-faint)' }}>—</span>}
-                  </Truncate>
-                </td>
-
-                <td style={{ ...td, maxWidth: 180 }}>
-                  <Truncate style={{ display: 'block' }}>
-                    {c.business || <span style={{ color: 'var(--text-faint)' }}>—</span>}
-                  </Truncate>
-                </td>
-
-                <td style={td}>
-                  {tone
-                    ? <Pill bg={tone.bg} fg={tone.fg}>{c.contactType}</Pill>
-                    : <span style={{ color: 'var(--text-faint)' }}>—</span>}
-                </td>
-
-                {/* Two tags, then a count. A contact with a dozen tags would
-                    otherwise set the width of the whole column. */}
-                <td style={{ ...td, maxWidth: 200 }}>
-                  {tags.length
-                    ? (
-                      <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
-                        {tags.slice(0, 2).map((t) => (
-                          <Pill key={t} bg="var(--tint-gray)" fg="var(--text-muted)">{t}</Pill>
-                        ))}
-                        {tags.length > 2 && (
-                          <span
-                            title={tags.join(', ')}
-                            style={{
-                              fontSize: 'var(--text-base)', fontWeight: 600,
-                              color: 'var(--text-muted)'
-                            }}
-                          >
-                            +{tags.length - 2}
-                          </span>
-                        )}
-                      </span>
-                    )
-                    : <span style={{ color: 'var(--text-faint)' }}>—</span>}
-                </td>
-
-                {/* Counts right-aligned and tabular, so the columns read as
-                    columns of figures. A zero is greyed rather than hidden —
-                    "none" is information here. */}
-                <td style={{
-                  ...td, textAlign: 'right',
-                  fontVariantNumeric: 'tabular-nums',
-                  color: c.openDeals ? 'var(--text-heading)' : 'var(--text-faint)',
-                  fontWeight: c.openDeals ? 600 : 400
-                }}>
-                  {c.openDeals || 0}
-                </td>
-                <td style={{
-                  ...td, textAlign: 'right',
-                  fontVariantNumeric: 'tabular-nums',
-                  color: openWork ? 'var(--text-heading)' : 'var(--text-faint)',
-                  fontWeight: openWork ? 600 : 400
-                }}>
-                  {openWork}
-                </td>
-              </tr>
-            )
-          })}
+          {contacts.map((c) => (
+            <ContactRow
+              key={c.id}
+              c={c}
+              show={show}
+              tagList={tagList}
+              onOpen={onOpen}
+              onOpenDeal={onOpenDeal}
+              onOpenBusiness={onOpenBusiness}
+              onPatch={onPatch}
+            />
+          ))}
         </tbody>
       </table>
     </div>
+  )
+}
+
+function ContactRow({ c, show, tagList, onOpen, onOpenDeal, onOpenBusiness, onPatch }) {
+  const [picking, setPicking] = useState(false)
+  const [error, setError] = useState(null)
+  const patch = (p) => onPatch && onPatch(c.id, p)
+  const businessName = c.businessName || c.business || null
+  const deals = c.deals || []
+  const tasks = c.openTaskCount || 0
+  const notes = c.noteCount || 0
+
+  // A write from a cell: run it, patch the row on success, say why on failure.
+  const write = async (call, onDone) => {
+    setError(null)
+    try {
+      const res = await call()
+      onDone(res)
+    } catch (err) {
+      setError(err?.message || 'Could not save that — try again')
+    }
+  }
+
+  return (
+    <>
+      <tr
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--gray-25)' }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+      >
+        <td style={{ ...TD, maxWidth: 260 }}>
+          <button
+            onClick={() => onOpen && onOpen(c.id)}
+            title="Open the full contact record"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 10, maxWidth: '100%',
+              border: 'none', background: 'none', padding: 0,
+              fontFamily: 'inherit', cursor: 'pointer', textAlign: 'left'
+            }}
+          >
+            <Avatar name={c.name} />
+            <Truncate style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)' }}>
+              {c.name || 'Unknown contact'}
+            </Truncate>
+          </button>
+        </td>
+
+        {show('type') && (
+          <td style={{ ...TD, whiteSpace: 'nowrap' }}>
+            {TYPE_LABEL[String(c.contactType || '').toLowerCase()] || c.contactType || <Faint>—</Faint>}
+          </td>
+        )}
+
+        {show('email') && (
+          <td style={{ ...TD, maxWidth: 200 }}>
+            <Truncate style={{ display: 'block' }} title={c.email || undefined}>
+              {c.email || <Faint>—</Faint>}
+            </Truncate>
+          </td>
+        )}
+
+        {show('phone') && (
+          <td style={{ ...TD, whiteSpace: 'nowrap' }}>
+            {c.phone || <Faint>—</Faint>}
+          </td>
+        )}
+
+        {/* BUSINESS — a menu when linked (open, change, unlink), the empty
+            prompt when not. Same picker the card and the detail page use. */}
+        {show('business') && (
+          <td style={{ ...TD, maxWidth: 190 }}>
+            {businessName && c.businessId ? (
+              <PillMenu
+                label={businessName}
+                icon="business"
+                tone={{ line: 'var(--accent-plum)', fg: 'var(--accent-plum-text)', fill: 'var(--tint-plum)' }}
+                items={[
+                  onOpenBusiness && { label: 'Open business', icon: 'open_in_new', onSelect: () => onOpenBusiness(c.businessId) },
+                  { label: 'Change business', icon: 'swap_horiz', onSelect: () => setPicking(true) },
+                  {
+                    label: 'Unlink', icon: 'link_off', danger: true,
+                    onSelect: () => write(
+                      () => contactsAPI.update(c.id, { businessId: null }),
+                      () => patch({ businessId: null, businessName: null })
+                    )
+                  }
+                ].filter(Boolean)}
+              />
+            ) : (
+              <EmptyEdit title="Link a business" onClick={() => setPicking(true)} />
+            )}
+          </td>
+        )}
+
+        {show('address') && (
+          <td style={{ ...TD, maxWidth: 200 }}>
+            <AddressCell
+              value={c.address}
+              onSave={(address) => write(
+                () => contactsAPI.update(c.id, { address }),
+                (res) => patch({ address: res?.contact?.address1 ?? res?.contact?.address ?? address })
+              )}
+            />
+          </td>
+        )}
+
+        {show('tags') && (
+          <td style={{ ...TD, maxWidth: 200 }}>
+            <TagsCell
+              contactId={c.id}
+              tags={Array.isArray(c.tags) ? c.tags : []}
+              tagList={tagList}
+              onAdd={(tag, next) => write(() => contactsAPI.addTags(c.id, [tag]), () => patch({ tags: next }))}
+              onRemove={(tag, next) => write(() => contactsAPI.removeTags(c.id, [tag]), () => patch({ tags: next }))}
+            />
+          </td>
+        )}
+
+        {/* TASKS and NOTES — counts only: the list does not carry the items,
+            so the pill opens the record, where they are. */}
+        {show('tasks') && (
+          <td style={{ ...TD, whiteSpace: 'nowrap' }}>
+            <CountPill
+              tone={tasks ? PILL_TONES.tasks : PILL_TONES.tasksNone}
+              label={`${tasks} task${tasks === 1 ? '' : 's'}`}
+              title="Open this contact to see their tasks"
+              onClick={() => onOpen && onOpen(c.id)}
+            />
+          </td>
+        )}
+
+        {show('notes') && (
+          <td style={{ ...TD, whiteSpace: 'nowrap' }}>
+            <CountPill
+              tone={notes ? PILL_TONES.notes : { ...PILL_TONES.none, icon: 'sticky_note_2' }}
+              label={notes ? `${notes} note${notes === 1 ? '' : 's'}` : 'No notes'}
+              title="Open this contact to see their notes"
+              onClick={() => onOpen && onOpen(c.id)}
+            />
+          </td>
+        )}
+
+        {/* DEALS — "2 · £15,550", opening a menu of the deals themselves. */}
+        {show('deals') && (
+          <td style={{ ...TD, whiteSpace: 'nowrap', borderRight: 'none' }}>
+            {deals.length ? (
+              <PillMenu
+                label={dealsLabel(deals)}
+                icon="sell"
+                tone={{ ...PILL_TONES.deals, fill: 'var(--tint-pine)' }}
+                items={deals.map((d) => ({
+                  label: d.name || 'Untitled deal',
+                  hint: [d.value != null && money(d.value), d.stage, d.primary && 'Primary']
+                    .filter(Boolean).join(' · '),
+                  icon: 'sell',
+                  onSelect: onOpenDeal ? () => onOpenDeal(d.id) : undefined
+                }))}
+              />
+            ) : (
+              <CountPill tone={{ ...PILL_TONES.none, icon: 'sell' }} label="No deals" />
+            )}
+          </td>
+        )}
+      </tr>
+
+      {error && (
+        <tr>
+          <td colSpan={99} style={{
+            ...TD, borderRight: 'none', padding: '6px 14px',
+            fontSize: 'var(--text-sm)', color: 'var(--status-stuck-text)',
+            background: 'var(--tint-rose)'
+          }}>
+            {c.name || 'This contact'}: {error}
+          </td>
+        </tr>
+      )}
+
+      {picking && (
+        <BusinessPickerModal
+          contact={c}
+          blurb="Type a name to search the businesses in this sub-account."
+          onClose={() => setPicking(false)}
+          onLinked={(business) => {
+            setPicking(false)
+            patch({ businessId: business.id, businessName: business.name })
+          }}
+        />
+      )}
+    </>
+  )
+}
+
+function dealsLabel(deals) {
+  const total = deals.reduce((sum, d) => sum + (Number(d.value) || 0), 0)
+  return total > 0
+    ? `${deals.length} · ${money(total)}`
+    : `${deals.length} deal${deals.length === 1 ? '' : 's'}`
+}
+
+function money(v) {
+  return `£${Number(v).toLocaleString('en-GB', { maximumFractionDigits: 0 })}`
+}
+
+function Faint({ children }) {
+  return <span style={{ color: 'var(--text-faint)' }}>{children}</span>
+}
+
+// Initials on a pale blue square, as the list design draws them.
+function Avatar({ name }) {
+  const initials = String(name || '?')
+    .split(/\s+/).filter(Boolean).slice(0, 2)
+    .map((w) => w[0]?.toUpperCase()).join('') || '?'
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      width: 28, height: 28, flex: 'none',
+      borderRadius: 'var(--radius-sm)', background: 'var(--tint-sky)',
+      fontSize: 11, fontWeight: 700, color: 'var(--accent-sky-text)'
+    }}>
+      {initials}
+    </span>
+  )
+}
+
+// "…. ✎" — an empty field that can be filled from here.
+function EmptyEdit({ onClick, title }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        border: 'none', background: 'none', padding: 0,
+        fontFamily: 'inherit', fontSize: 'var(--text-md)',
+        color: 'var(--text-faint)', cursor: 'pointer'
+      }}
+    >
+      ….
+      <span className="ms" style={{ fontSize: 14 }}>edit</span>
+    </button>
+  )
+}
+
+// A one-line text input for a cell. Enter or blur saves, Escape abandons.
+function CellInput({ initial = '', placeholder, list, onDone, onCancel }) {
+  const [draft, setDraft] = useState(initial)
+  const ref = useRef(null)
+  useEffect(() => { ref.current?.focus() }, [])
+  return (
+    <input
+      ref={ref}
+      className="pp-cc-input"
+      value={draft}
+      list={list}
+      placeholder={placeholder}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => onDone(draft.trim())}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') { e.preventDefault(); onDone(draft.trim()) }
+        if (e.key === 'Escape') { e.preventDefault(); onCancel() }
+      }}
+      style={{ width: '100%', minWidth: 120, height: 28 }}
+    />
+  )
+}
+
+function AddressCell({ value, onSave }) {
+  const [editing, setEditing] = useState(false)
+  if (editing) {
+    return (
+      <CellInput
+        initial={value || ''}
+        placeholder="Add an address"
+        onCancel={() => setEditing(false)}
+        onDone={(next) => {
+          setEditing(false)
+          if (next !== (value || '')) onSave(next)
+        }}
+      />
+    )
+  }
+  if (!value) return <EmptyEdit title="Add an address" onClick={() => setEditing(true)} />
+  return (
+    <button
+      onClick={() => setEditing(true)}
+      title={`${value} — click to edit`}
+      style={{
+        display: 'block', maxWidth: '100%',
+        border: 'none', background: 'none', padding: 0, textAlign: 'left',
+        fontFamily: 'inherit', fontSize: 'var(--text-md)', color: 'var(--text-body)',
+        cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+      }}
+    >
+      {value}
+    </button>
+  )
+}
+
+// Tags as stacked chips, removable on hover, with a quiet + to add one. The
+// tag endpoints are ADDITIVE — see contactsAPI.addTags — so each change is
+// its own write rather than a replacement of the whole list.
+function TagsCell({ contactId, tags, tagList, onAdd, onRemove }) {
+  const [adding, setAdding] = useState(false)
+  const listId = `pp-row-tags-${contactId}`
+
+  const add = (tag) => {
+    setAdding(false)
+    if (!tag || tags.some((t) => t.toLowerCase() === tag.toLowerCase())) return
+    onAdd(tag, [...tags, tag])
+  }
+
+  return (
+    <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+      {tags.map((t) => (
+        <span key={t} className="pp-cc-tag">
+          {t}
+          <button
+            className="pp-cc-tag-x"
+            onClick={() => onRemove(t, tags.filter((x) => x !== t))}
+            title={`Remove ${t}`}
+            aria-label={`Remove tag ${t}`}
+          >
+            <span className="ms" style={{ fontSize: 13 }}>close</span>
+          </button>
+        </span>
+      ))}
+      {adding ? (
+        <>
+          <CellInput
+            placeholder="Tag name"
+            list={listId}
+            onCancel={() => setAdding(false)}
+            onDone={add}
+          />
+          <datalist id={listId}>
+            {tagList.filter((t) => !tags.includes(t)).map((t) => <option key={t} value={t} />)}
+          </datalist>
+        </>
+      ) : tags.length ? (
+        <button className="pp-cc-tag-add" onClick={() => setAdding(true)} title="Add a tag">
+          <span className="ms" style={{ fontSize: 14 }}>add</span>Tag
+        </button>
+      ) : (
+        <EmptyEdit title="Add a tag" onClick={() => setAdding(true)} />
+      )}
+    </span>
+  )
+}
+
+// An outlined count pill — "4 tasks", "1 note", "No deals".
+//
+// The chevron is the design's. On tasks and notes it does not open a list:
+// the contacts list carries only the COUNTS, so the pill opens the contact's
+// record instead (see PENDING_FUNCTIONALITY.md).
+function CountPill({ tone, label, onClick, title, chevron = true }) {
+  const Tag = onClick ? 'button' : 'span'
+  return (
+    <Tag
+      onClick={onClick}
+      title={title}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        height: 28, padding: '0 8px 0 10px',
+        border: `1px solid ${tone.line}`,
+        borderRadius: 'var(--radius-pill)',
+        background: tone.fill || 'var(--surface-card)',
+        color: tone.fg,
+        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 600,
+        cursor: onClick ? 'pointer' : 'default', whiteSpace: 'nowrap'
+      }}
+    >
+      {tone.icon && <span className="ms" style={{ fontSize: 15 }}>{tone.icon}</span>}
+      {label}
+      {chevron && <span className="ms" style={{ fontSize: 16 }}>expand_more</span>}
+    </Tag>
+  )
+}
+
+// A pill that opens a small menu — the business cell and the deals cell.
+//
+// The menu renders in a body portal: the table scrolls sideways inside an
+// overflow box, which would clip a menu positioned inside it. It closes on an
+// outside click, Escape, or any scroll, since a scroll would leave it
+// floating away from its pill.
+function PillMenu({ label, icon, tone, items }) {
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState(null)
+  const btn = useRef(null)
+  const menu = useRef(null)
+
+  useLayoutEffect(() => {
+    if (!open || !btn.current) return
+    const r = btn.current.getBoundingClientRect()
+    setPos({ top: r.bottom + 4, left: Math.min(r.left, window.innerWidth - 280) })
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    const close = (e) => {
+      if (e.type === 'keydown' && e.key !== 'Escape') return
+      if (e.type === 'mousedown' && (menu.current?.contains(e.target) || btn.current?.contains(e.target))) return
+      setOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    document.addEventListener('keydown', close)
+    window.addEventListener('scroll', close, true)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', close)
+      window.removeEventListener('scroll', close, true)
+    }
+  }, [open])
+
+  return (
+    <>
+      <button
+        ref={btn}
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title={label}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5, maxWidth: '100%',
+          height: 28, padding: '0 8px 0 10px',
+          border: `1px solid ${tone.line}`,
+          borderRadius: 'var(--radius-pill)',
+          background: tone.fill || 'var(--surface-card)',
+          color: tone.fg,
+          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 600,
+          cursor: 'pointer', whiteSpace: 'nowrap'
+        }}
+      >
+        <span className="ms" style={{ fontSize: 15, flex: 'none' }}>{icon}</span>
+        <Truncate>{label}</Truncate>
+        <span className="ms" style={{ fontSize: 16, flex: 'none' }}>
+          {open ? 'expand_less' : 'expand_more'}
+        </span>
+      </button>
+
+      {open && pos && createPortal(
+        // .pp-portal — tokens and the icon font are scoped to [data-dealhub],
+        // which a portal escapes.
+        <div
+          ref={menu}
+          role="menu"
+          className="pp-portal"
+          style={{
+            position: 'fixed', top: pos.top, left: pos.left, zIndex: 1000,
+            minWidth: 200, maxWidth: 280, padding: 4,
+            background: 'var(--surface-card)',
+            border: '1px solid var(--border-default)',
+            borderRadius: 'var(--radius-md)',
+            boxShadow: 'var(--shadow-overlay)'
+          }}
+        >
+          {items.map((it, i) => (
+            <button
+              key={i}
+              role="menuitem"
+              disabled={!it.onSelect}
+              onClick={() => { setOpen(false); it.onSelect && it.onSelect() }}
+              style={{
+                display: 'flex', alignItems: 'flex-start', gap: 8, width: '100%',
+                padding: '8px 10px',
+                border: 'none', borderRadius: 'var(--radius-sm)',
+                background: 'none', textAlign: 'left',
+                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+                color: it.danger ? 'var(--status-stuck-text)' : 'var(--text-body)',
+                cursor: it.onSelect ? 'pointer' : 'default'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--gray-50)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'none' }}
+            >
+              <span className="ms" style={{ fontSize: 16, flex: 'none', marginTop: 1 }}>{it.icon}</span>
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: 'block', fontWeight: 500 }}>{it.label}</span>
+                {it.hint && (
+                  <span style={{ display: 'block', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+                    {it.hint}
+                  </span>
+                )}
+              </span>
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </>
   )
 }

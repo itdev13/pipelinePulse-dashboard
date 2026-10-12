@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Select } from 'antd'
 import ViewSwitch from '../shared/ViewSwitch'
-import ContactTable from '../contacts/ContactTable'
+import ContactTable, { CONTACT_COLUMNS } from '../contacts/ContactTable'
 import ContactFilters, { activityParams, contactFilterLabels } from '../contacts/ContactFilters'
 import DealToolbar from '../deals/DealToolbar'
 import ConfirmDialog from '../shared/ConfirmDialog'
@@ -73,6 +73,10 @@ export default function ContactsTab({
   // Which linked records the cards list — see ShowOnCards. Persisted with
   // the rest of the tab's state.
   const [showOn, setShowOn] = useTabState('contacts', 'showOn', { deals: true })
+  // The list's visible columns, by key — see CONTACT_COLUMNS. Starts with all.
+  const [columns, setColumns] = useTabState(
+    'contacts', 'columns', CONTACT_COLUMNS.map((c) => c.key)
+  )
   const [tagList, setTagList] = useState([])
   const [userList, setUserList] = useState([])
 
@@ -353,7 +357,7 @@ export default function ContactsTab({
                 onChange={setView}
                 options={[
                   { id: 'cards', icon: 'grid_view', label: 'Grid' },
-                  { id: 'table', icon: 'view_agenda', label: 'Rows' }
+                  { id: 'table', icon: 'view_agenda', label: 'List' }
                 ]}
               />
             </span>
@@ -395,7 +399,11 @@ export default function ContactsTab({
             afterViews={view === 'cards' && (
               <ShowOnCards value={showOn} onChange={setShowOn} />
             )}
-          />
+          >
+            {view === 'table' && (
+              <ColumnsControl value={columns} onChange={setColumns} />
+            )}
+          </DealToolbar>
           {viewError && (
             <p style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--status-stuck-text)' }}>
               {viewError}
@@ -436,9 +444,19 @@ export default function ContactsTab({
             </div>
           )}
 
-          {/* ROWS — the same paged `contacts`, rendered dense. */}
+          {/* LIST — the same paged `contacts`, as a table. */}
           {view === 'table' && contacts.length > 0 && (
-            <ContactTable contacts={contacts} onOpen={openRecord} />
+            <ContactTable
+              contacts={contacts}
+              columns={columns}
+              tagList={tagList}
+              onOpen={openRecord}
+              onOpenDeal={onOpenDeal}
+              onOpenBusiness={onOpenBusiness}
+              // Cells write straight to the CRM; the row is patched with the
+              // result rather than refetched.
+              onPatch={(id, p) => patchItem((x) => x.id === id, p)}
+            />
           )}
 
           <div
@@ -595,6 +613,83 @@ function ShowOnCards({ value, onChange }) {
           </button>
         )
       })}
+    </span>
+  )
+}
+
+// "Columns · 9 of 10" — which list columns show. Name always does, so it is
+// counted but not offered.
+function ColumnsControl({ value, onChange }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  const total = CONTACT_COLUMNS.length + 1
+
+  useEffect(() => {
+    if (!open) return
+    const close = (e) => {
+      if (e.type === 'keydown' && e.key !== 'Escape') return
+      if (e.type === 'mousedown' && ref.current?.contains(e.target)) return
+      setOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    document.addEventListener('keydown', close)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', close)
+    }
+  }, [open])
+
+  const toggle = (key) => onChange(
+    value.includes(key)
+      ? value.filter((k) => k !== key)
+      // Kept in the table's own order, whatever order they were ticked in.
+      : CONTACT_COLUMNS.map((c) => c.key).filter((k) => k === key || value.includes(k))
+  )
+
+  return (
+    <span ref={ref} style={{ position: 'relative', display: 'inline-flex' }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          height: 34, padding: '0 10px 0 12px',
+          border: '1px solid var(--border-strong)',
+          borderRadius: 'var(--radius-pill)',
+          background: 'var(--surface-card)', color: 'var(--text-body)',
+          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
+          cursor: 'pointer'
+        }}
+      >
+        <span className="ms" style={{ fontSize: 16 }}>view_column</span>
+        Columns · {value.length + 1} of {total}
+        <span className="ms" style={{ fontSize: 16 }}>{open ? 'expand_less' : 'expand_more'}</span>
+      </button>
+      {open && (
+        <span style={{
+          position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 20,
+          display: 'grid', gap: 2, minWidth: 190, padding: 6,
+          background: 'var(--surface-card)',
+          border: '1px solid var(--border-default)',
+          borderRadius: 'var(--radius-md)',
+          boxShadow: 'var(--shadow-overlay)'
+        }}>
+          {CONTACT_COLUMNS.map((c) => (
+            <label key={c.key} style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '6px 8px', borderRadius: 'var(--radius-sm)',
+              fontSize: 'var(--text-md)', color: 'var(--text-body)', cursor: 'pointer'
+            }}>
+              <input
+                type="checkbox"
+                checked={value.includes(c.key)}
+                onChange={() => toggle(c.key)}
+              />
+              {c.label}
+            </label>
+          ))}
+        </span>
+      )}
     </span>
   )
 }
