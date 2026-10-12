@@ -2221,21 +2221,53 @@
   border-top: 1px solid var(--border-default);
 }
 
+/* EACH FIELD SPANS TWO ROWS OF THE BODY GRID — a label row and a control row
+ * — and shares them with its neighbours through subgrid.
+ *
+ * Each field used to stack its own label over its own control, so one label
+ * that wrapped ("PLEASE EXPLAIN YOUR INQUIRY ENQUIRIES AT GMAIL") pushed its
+ * box a line lower than every other box in the row. With the rows shared, the
+ * label row is as tall as the tallest label in it, and every control in the
+ * row starts on the same line.
+ *
+ * Without subgrid support the field falls back to its own two rows — the old
+ * layout, still usable. */
 [data-dealhub] .pp-cf-field {
   display: grid;
-  gap: 5px;
+  grid-row: span 2;
+  grid-template-rows: subgrid;
+  /* The label-to-control gap. The body's 12px stays between ROWS of fields. */
+  row-gap: 5px;
   /* Same reason as everywhere else: a grid child defaults to min-width auto
      and refuses to shrink, so a long option string would widen the column. */
   min-width: 0;
 }
 
+@supports not (grid-template-rows: subgrid) {
+  [data-dealhub] .pp-cf-field {
+    grid-row: auto;
+    grid-template-rows: auto auto;
+  }
+}
+
 [data-dealhub] .pp-cf-label {
+  /* Sits on the control below it whatever the label row's height: a one-line
+   * label beside a two-line one stays attached to its box rather than floating
+   * at the top of the row. */
+  align-self: end;
   font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--text-muted);
   overflow-wrap: anywhere;
+}
+
+/* Controls sit at the top of the shared control row, so a two-line textarea
+ * beside a one-line input grows downward instead of pushing the input to the
+ * middle. */
+[data-dealhub] .pp-cf-field > :not(.pp-cf-label) {
+  align-self: start;
 }
 
 /* FILE_UPLOAD. No OAuth documents API, so it is shown and not offered — a
