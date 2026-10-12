@@ -393,9 +393,14 @@ export function DealPill({
           color: fill,
           fontSize: compact ? 9 : 10,
           fontWeight: 700,
-          letterSpacing: 'var(--tracking-label)'
+          letterSpacing: 'var(--tracking-label)',
+          gap: compact ? 3 : 4
         }}
       >
+        {/* The record's glyph inside the capsule — a tag for a deal, a
+            person for a contact (LinkedRow) — so the two pills tell apart
+            at a glance without reading the word. */}
+        <span className="ms" style={{ fontSize: compact ? 11 : 12 }}>sell</span>
         DEAL
       </span>
     </Tag>

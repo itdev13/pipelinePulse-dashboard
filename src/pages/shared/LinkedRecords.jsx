@@ -160,8 +160,10 @@ export function LinkedRow({
           background: '#fff',
           color: present ? tone.fill : 'var(--status-stuck)',
           fontSize: 10, fontWeight: 700,
-          letterSpacing: 'var(--tracking-label)'
+          letterSpacing: 'var(--tracking-label)',
+          gap: 4
         }}>
+          {tone.glyph && <span className="ms" style={{ fontSize: 12 }}>{tone.glyph}</span>}
           {tone.label}
         </span>
       </button>
@@ -170,8 +172,12 @@ export function LinkedRow({
   )
 }
 
+// `glyph` is the record's icon, drawn inside the white capsule beside the
+// word — a person for a contact, a tag for a deal, a building for a
+// business — so the three pills tell apart at a glance. Same glyphs the
+// rows' leading icons use, so the capsule and the row agree.
 export const LINK_TONES = {
-  contact: { fill: 'var(--accent-sky)', label: 'CONTACT' },
-  deal: { fill: 'var(--green-500)', label: 'DEAL' },
-  business: { fill: 'var(--accent-plum)', label: 'BUSINESS' }
+  contact: { fill: 'var(--accent-sky)', label: 'CONTACT', glyph: 'person' },
+  deal: { fill: 'var(--green-500)', label: 'DEAL', glyph: 'sell' },
+  business: { fill: 'var(--accent-plum)', label: 'BUSINESS', glyph: 'domain' }
 }
