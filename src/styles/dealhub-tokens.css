@@ -2471,6 +2471,20 @@
   overflow: hidden;
 }
 
+/* Two columns — the contact record page's field table, where each pair of
+ * fields (first and last name, email and phone) reads as one row. One column
+ * again on a narrow screen, where two key columns would leave no room for a
+ * value. */
+[data-dealhub] .pp-cc-fields-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 720px) {
+  [data-dealhub] .pp-cc-fields-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
 [data-dealhub] .pp-cc-row {
   display: flex;
   align-items: stretch;
