@@ -68,12 +68,17 @@ const PILL_TONES = {
 
 export default function ContactTable({
   contacts = [], columns, tagList = [],
-  onOpen, onOpenDeal, onOpenBusiness, onPatch
+  onOpen, onOpenDeal, onOpenBusiness, onPatch,
+  // Selection, for bulk actions — owned by the tab so the cards and the list
+  // share one selection.
+  selected = new Set(), onToggleSelected, onToggleAll
 }) {
   if (!contacts.length) return null
   // undefined = every column; the toolbar hands an explicit list once a rep
   // has hidden one.
   const show = (key) => !columns || columns.includes(key)
+  const allOn = contacts.every((c) => selected.has(c.id))
+  const someOn = !allOn && contacts.some((c) => selected.has(c.id))
 
   return (
     // Scrolls sideways inside its own box — without this the page body scrolls
@@ -90,6 +95,18 @@ export default function ContactTable({
       }}>
         <thead>
           <tr>
+            <th style={{ ...TH, width: 44, textAlign: 'center' }}>
+              <input
+                type="checkbox"
+                className="pp-check"
+                checked={allOn}
+                // Indeterminate when some, not all, are ticked — set on the
+                // element, since React has no prop for it.
+                ref={(el) => { if (el) el.indeterminate = someOn }}
+                onChange={() => onToggleAll && onToggleAll(!allOn)}
+                aria-label="Select every contact shown"
+              />
+            </th>
             <th style={TH}>Name</th>
             {CONTACT_COLUMNS.filter((col) => show(col.key)).map((col) => (
               <th key={col.key} style={TH}>{col.label}</th>
@@ -107,6 +124,8 @@ export default function ContactTable({
               onOpenDeal={onOpenDeal}
               onOpenBusiness={onOpenBusiness}
               onPatch={onPatch}
+              selected={selected.has(c.id)}
+              onToggleSelected={() => onToggleSelected && onToggleSelected(c.id)}
             />
           ))}
         </tbody>
@@ -115,7 +134,9 @@ export default function ContactTable({
   )
 }
 
-function ContactRow({ c, show, tagList, onOpen, onOpenDeal, onOpenBusiness, onPatch }) {
+function ContactRow({
+  c, show, tagList, onOpen, onOpenDeal, onOpenBusiness, onPatch, selected, onToggleSelected
+}) {
   const [picking, setPicking] = useState(false)
   const [error, setError] = useState(null)
   const patch = (p) => onPatch && onPatch(c.id, p)
@@ -141,6 +162,15 @@ function ContactRow({ c, show, tagList, onOpen, onOpenDeal, onOpenBusiness, onPa
         onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--gray-25)' }}
         onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
       >
+        <td style={{ ...TD, textAlign: 'center' }}>
+          <input
+            type="checkbox"
+            className="pp-check"
+            checked={!!selected}
+            onChange={onToggleSelected}
+            aria-label={`Select ${c.name || 'this contact'}`}
+          />
+        </td>
         <td style={{ ...TD, maxWidth: 260 }}>
           <button
             onClick={() => onOpen && onOpen(c.id)}

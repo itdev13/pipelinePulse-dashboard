@@ -19,8 +19,14 @@ test('the header is a solid brown band, its own token', () => {
 });
 
 test('the toolbar labels its controls and keeps the Author filter', () => {
+  assert.match(tab, /<LabelledControl label="Search">/);
   assert.match(tab, /<LabelledControl label="Author">/);
   assert.match(tab, /<LabelledControl label="Sort">/);
+});
+
+test('search goes to the server, not the loaded page', () => {
+  assert.match(tab, /\.\.\.\(q\.trim\(\) \? \{ q: q\.trim\(\) \} : \{\}\)/);
+  assert.match(tab, /deps: \[filters, author, sort, q\]/);
 });
 
 test('the grid renders NoteCard and rows render NoteRow', () => {

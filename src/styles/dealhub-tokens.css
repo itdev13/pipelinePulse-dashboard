@@ -2622,6 +2622,17 @@
   opacity: 1;
 }
 
+/* The selection checkbox on a contact card and a list row — the design's
+ * 18px rounded square, in the contact blue when ticked. */
+[data-dealhub] .pp-check {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--contacts-header);
+  cursor: pointer;
+}
+
 [data-dealhub] .pp-cc-tag-add {
   display: inline-flex;
   align-items: center;

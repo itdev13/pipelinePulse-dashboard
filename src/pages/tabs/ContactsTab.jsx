@@ -73,6 +73,17 @@ export default function ContactsTab({
   // Which linked records the cards list — see ShowOnCards. Persisted with
   // the rest of the tab's state.
   const [showOn, setShowOn] = useTabState('contacts', 'showOn', { deals: true })
+  // Selected contact ids, for bulk actions. Plain state: a selection is a
+  // moment's work, not somewhere to come back to. No bulk action exists yet —
+  // see PENDING_FUNCTIONALITY.md — so selecting only counts for now.
+  const [selected, setSelected] = useState(() => new Set())
+  const toggleSelected = (id) => setSelected((prev) => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
+  // A passing message under the toolbar — Add contact's "not yet".
+  const [notice, setNotice] = useState(null)
   // The list's visible columns, by key — see CONTACT_COLUMNS. Starts with all.
   const [columns, setColumns] = useTabState(
     'contacts', 'columns', CONTACT_COLUMNS.map((c) => c.key)
@@ -351,7 +362,10 @@ export default function ContactsTab({
               </span>
             </LabelledControl>
 
-            <span style={{ marginLeft: 'auto', flex: 'none' }}>
+            <span style={{
+              marginLeft: 'auto', flex: 'none',
+              display: 'inline-flex', alignItems: 'center', gap: 8
+            }}>
               <ViewSwitch
                 value={view}
                 onChange={setView}
@@ -360,6 +374,25 @@ export default function ContactsTab({
                   { id: 'table', icon: 'view_agenda', label: 'List' }
                 ]}
               />
+              {/* In the design, but there is no create-contact API yet — so
+                  it says where contacts are added rather than opening a form
+                  that cannot save. See PENDING_FUNCTIONALITY.md. */}
+              <button
+                onClick={() => {
+                  setNotice('Adding contacts from here is not available yet — add them in your CRM and they will appear here.')
+                  window.setTimeout(() => setNotice(null), 5000)
+                }}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 7,
+                  height: 38, padding: '0 16px', flex: 'none',
+                  border: 'none', borderRadius: 'var(--radius-pill)',
+                  background: 'var(--contacts-header)', color: '#fff',
+                  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
+                  fontWeight: 600, cursor: 'pointer'
+                }}
+              >
+                <span className="ms" style={{ fontSize: 17 }}>add</span>Add contact
+              </button>
             </span>
           </div>
 
@@ -396,8 +429,13 @@ export default function ContactsTab({
                 onChange={(next) => { setFilters(next); setDirtyView(activeViewId) }}
               />
             }
-            afterViews={view === 'cards' && (
-              <ShowOnCards value={showOn} onChange={setShowOn} />
+            afterViews={(
+              <>
+                {view === 'cards' && <ShowOnCards value={showOn} onChange={setShowOn} />}
+                {selected.size > 0 && (
+                  <SelectionBar count={selected.size} onClear={() => setSelected(new Set())} />
+                )}
+              </>
             )}
           >
             {view === 'table' && (
@@ -407,6 +445,11 @@ export default function ContactsTab({
           {viewError && (
             <p style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--status-stuck-text)' }}>
               {viewError}
+            </p>
+          )}
+          {notice && (
+            <p role="status" style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
+              {notice}
             </p>
           )}
         </div>
@@ -456,6 +499,11 @@ export default function ContactsTab({
               // Cells write straight to the CRM; the row is patched with the
               // result rather than refetched.
               onPatch={(id, p) => patchItem((x) => x.id === id, p)}
+              selected={selected}
+              onToggleSelected={toggleSelected}
+              // Select-all covers the rows LOADED — the list is paged, and
+              // ticking contacts nobody has seen would be a surprise.
+              onToggleAll={(on) => setSelected(on ? new Set(contacts.map((c) => c.id)) : new Set())}
             />
           )}
 
@@ -471,6 +519,8 @@ export default function ContactsTab({
                 key={c.id}
                 c={c}
                 showOn={showOn}
+                selected={selected.has(c.id)}
+                onToggleSelected={() => toggleSelected(c.id)}
                 tagList={tagList}
                 onOpen={() => openRecord(c.id)}
                 onOpenDeal={onOpenDeal}
@@ -571,12 +621,41 @@ function ContactSearch({ value, onChange, onCommit }) {
 
 // "SHOW ON CARDS" — which linked records each card lists.
 //
-// Deals only for now. The design also has Tasks and Notes, but the contacts
-// list returns only COUNTS of those — the items themselves need the server to
-// send them per contact, and a toggle that showed nothing would be broken.
+// Tasks and Notes show a COUNT row ("3 open tasks · View TASK") that opens
+// the contact, not the items themselves: the contacts list returns only the
+// counts. See PENDING_FUNCTIONALITY.md.
 const SHOW_ON_CARDS = [
-  { key: 'deals', label: 'Deals', colour: 'var(--green-500)', tint: 'var(--tint-pine)' }
+  { key: 'deals', label: 'Deals', colour: 'var(--green-500)', tint: 'var(--tint-pine)' },
+  { key: 'tasks', label: 'Tasks', colour: 'var(--accent-clay)', tint: 'var(--tint-clay)' },
+  { key: 'notes', label: 'Notes', colour: 'var(--accent-brown)', tint: 'var(--tint-gold)' }
 ]
+
+// "3 selected · Clear" — what a selection amounts to until bulk actions exist.
+function SelectionBar({ count, onClear }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 8, flex: 'none',
+      height: 30, padding: '0 6px 0 12px',
+      borderRadius: 'var(--radius-pill)',
+      background: 'var(--tint-sky)', color: 'var(--accent-sky-text)',
+      fontSize: 'var(--text-md)', fontWeight: 600
+    }}>
+      {count} selected
+      <button
+        onClick={onClear}
+        style={{
+          height: 22, padding: '0 8px',
+          border: 'none', borderRadius: 'var(--radius-pill)',
+          background: '#fff', color: 'var(--accent-sky-text)',
+          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 600,
+          cursor: 'pointer'
+        }}
+      >
+        Clear
+      </button>
+    </span>
+  )
+}
 
 function ShowOnCards({ value, onChange }) {
   return (
@@ -947,7 +1026,7 @@ function RowError({ children, tone = 'error' }) {
 // batch into one Save, while the business link and tags write straight
 // through.
 function ContactCard({
-  c, showOn, tagList, onOpen, onOpenDeal, onOpenBusiness,
+  c, showOn, tagList, selected, onToggleSelected, onOpen, onOpenDeal, onOpenBusiness,
   onSaved, onBusinessChanged, onTagsChanged
 }) {
   // name → edited value. Absent = untouched, which keeps '' (a deliberate
@@ -1065,18 +1144,55 @@ function ContactCard({
       />
     )
   }
+  // Tasks and notes as COUNT rows — the list carries no items, so the View
+  // pill opens the contact, where they are.
+  const tasks = c.openTaskCount || 0
+  const notes = c.noteCount || 0
+  if (showOn.tasks !== false && tasks > 0) {
+    links.push(
+      <LinkedRow
+        key="tasks"
+        icon="task_alt"
+        name={`${tasks} open task${tasks === 1 ? '' : 's'}`}
+        tone={{ fill: 'var(--accent-clay)', label: 'TASK' }}
+        iconColour="var(--accent-clay)"
+        large
+        onOpen={onOpen}
+      />
+    )
+  }
+  if (showOn.notes !== false && notes > 0) {
+    links.push(
+      <LinkedRow
+        key="notes"
+        icon="sticky_note_2"
+        name={`${notes} note${notes === 1 ? '' : 's'}`}
+        tone={{ fill: 'var(--accent-brown)', label: 'NOTE' }}
+        iconColour="var(--accent-brown)"
+        large
+        onOpen={onOpen}
+      />
+    )
+  }
 
   return (
     <div
       className="pp-card"
       style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
     >
-      {/* HEADER — the name and the way into the full record. */}
+      {/* HEADER — select, the name, and the way into the full record. */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8,
         padding: '14px 16px',
         borderBottom: '1px solid var(--border-default)'
       }}>
+        <input
+          type="checkbox"
+          className="pp-check"
+          checked={!!selected}
+          onChange={onToggleSelected}
+          aria-label={`Select ${c.name || 'this contact'}`}
+        />
         <span style={{
           flex: 1, minWidth: 0,
           fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--text-heading)',

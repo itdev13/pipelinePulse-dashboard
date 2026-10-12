@@ -36,6 +36,12 @@ test('deals open from a menu; tasks and notes open the record', () => {
   assert.match(tasks, /onClick=\{\(\) => onOpen && onOpen\(c\.id\)\}/);
 });
 
+test('rows can be selected, with select-all over the loaded rows', () => {
+  assert.match(table, /aria-label="Select every contact shown"/);
+  assert.match(table, /el\.indeterminate = someOn/);
+  assert.match(tab, /onToggleAll=\{\(on\) => setSelected\(on \? new Set\(contacts\.map\(\(c\) => c\.id\)\) : new Set\(\)\)\}/);
+});
+
 test('the menu escapes the scrolling table', () => {
   // Inside the overflow box it would be clipped.
   assert.match(table, /createPortal\(/);

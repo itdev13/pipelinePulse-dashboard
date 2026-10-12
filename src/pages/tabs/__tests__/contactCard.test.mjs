@@ -27,18 +27,25 @@ test('the toolbar labels Search, Owner, Type, Tag and Saved view', () => {
   assert.match(tab, /showViewTabs=\{false\}/);
 });
 
-test('Show on cards offers Deals only until tasks and notes come per contact', () => {
-  const opts = tab.slice(tab.indexOf('const SHOW_ON_CARDS'), tab.indexOf('function ShowOnCards'));
-  assert.match(opts, /key: 'deals'/);
-  assert.doesNotMatch(opts, /key: '(tasks|notes)'/);
+test('Show on cards offers Deals, Tasks and Notes', () => {
+  const opts = tab.slice(tab.indexOf('const SHOW_ON_CARDS'), tab.indexOf('function SelectionBar'));
+  for (const key of ['deals', 'tasks', 'notes']) assert.match(opts, new RegExp(`key: '${key}'`));
   assert.match(card, /if \(showOn\.deals !== false\)/);
+  // Tasks and notes are COUNT rows — the list carries no items — opening
+  // the contact.
+  assert.match(card, /if \(showOn\.tasks !== false && tasks > 0\)/);
+  assert.match(card, /if \(showOn\.notes !== false && notes > 0\)/);
 });
 
-test('no Add contact button and no selection checkboxes yet', () => {
-  // No create-contact endpoint and no bulk action exist — a control that
-  // does nothing is worse than no control.
-  assert.doesNotMatch(tab, /Add contact/);
-  assert.doesNotMatch(card, /type="checkbox"/);
+test('Add contact is shown, and says where contacts are added', () => {
+  // No create-contact endpoint yet — see PENDING_FUNCTIONALITY.md.
+  assert.match(tab, /<span className="ms" style=\{\{ fontSize: 17 \}\}>add<\/span>Add contact/);
+  assert.match(tab, /add them in your CRM/);
+});
+
+test('cards carry a selection checkbox, counted in the toolbar', () => {
+  assert.match(card, /type="checkbox"\s*\n\s*className="pp-check"/);
+  assert.match(tab, /<SelectionBar count=\{selected\.size\}/);
 });
 
 test('the card leads with the name and an Open CONTACT pill', () => {

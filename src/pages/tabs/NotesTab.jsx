@@ -26,8 +26,8 @@ import { LinkedRecords } from '../shared/LinkedRecords'
 // and notes linked to this note appear as gold chips beneath.
 //
 // October 2026: a brown section header and a labelled toolbar band (Author,
-// Sort), as on Tasks, and a card per note in the grid — see NoteCard. The
-// design's search box is held back until /api/notes supports a query.
+// Sort), as on Tasks, and a card per note in the grid — see NoteCard. Search
+// sends `q` to /api/notes, which may not honour it yet.
 //
 // GHL notes have no title column (migration 017), so the heading is derived
 // from the body's first block — see splitNote.
@@ -50,18 +50,27 @@ export default function NotesTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
   // import date is when we synced it, and on backfilled data every note
   // shares one, so ordering by it looks chronological and is not.
   const [sort, setSort] = useTabState('notes', 'sort', 'desc')
+  // Search by who a note is about — business, contact or deal — as on Tasks.
+  //
+  // Sent to the SERVER as `q`: the list is paged, so a client-side filter
+  // would only search the notes already loaded. Whether /api/notes honours
+  // `q` is unconfirmed — see PENDING_FUNCTIONALITY.md. If it does not, the
+  // box is ignored and the list is simply unfiltered.
+  const [q, setQ] = useTabState('notes', 'q', '')
 
   const fetchPage = useCallback(
     ({ cursor }) => notesAPI.list({
       limit: 20, cursor, sort,
+      // Omitted when empty, so the request carries no q= at all.
+      ...(q.trim() ? { q: q.trim() } : {}),
       authorId: resolveOwner(author),
       contactId: filters.contactId || undefined,
       dealId: filters.dealId || undefined
     }),
-    [filters, author, sort]
+    [filters, author, sort, q]
   )
   const { items, error, hasMore, loadingMore, loading, loadMore, patchItem, reload } =
-    usePagedList({ fetchPage, key: 'notes', deps: [filters, author, sort] })
+    usePagedList({ fetchPage, key: 'notes', deps: [filters, author, sort, q] })
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
   const notes = items || []
@@ -196,6 +205,29 @@ export default function NotesTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
           background: 'var(--gray-100)',
           borderBottom: '1px solid var(--border-default)'
         }}>
+          <LabelledControl label="Search">
+            <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+              <span className="ms" style={{
+                position: 'absolute', left: 10, fontSize: 18,
+                color: 'var(--text-faint)', pointerEvents: 'none'
+              }}>
+                search
+              </span>
+              <input
+                className="pp-task-search"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search business, contact or deal"
+                style={{
+                  width: 300, maxWidth: '100%',
+                  height: 34, boxSizing: 'border-box', padding: '0 12px 0 34px',
+                  border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-md)',
+                  background: '#fff', fontFamily: 'var(--font-sans)',
+                  fontSize: 'var(--text-md)', color: 'var(--text-heading)'
+                }}
+              />
+            </span>
+          </LabelledControl>
           {/* "Author", not "Owner": a note is not assigned to anyone and
               cannot be reassigned, so calling it an owner would promise
               something the record does not support. "No author" covers
