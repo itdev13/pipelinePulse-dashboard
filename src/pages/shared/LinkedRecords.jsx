@@ -153,18 +153,21 @@ export function LinkedRow({
         }}
       >
         {present ? 'View' : 'No'}
-        <span style={{
-          display: 'inline-flex', alignItems: 'center',
-          height: 18, padding: '0 7px',
-          borderRadius: 'var(--radius-pill)',
-          background: '#fff',
-          color: present ? tone.fill : 'var(--status-stuck)',
-          fontSize: 10, fontWeight: 700,
-          letterSpacing: 'var(--tracking-label)',
-          gap: 4
-        }}>
-          {tone.glyph && <span className="ms" style={{ fontSize: 12 }}>{tone.glyph}</span>}
-          {tone.label}
+        {/* Glyph only. The word moved to the tooltip and the accessible
+            name — the icon says CONTACT / DEAL / BUSINESS on its own, and
+            the capsule was wider than the "View" beside it with both. */}
+        <span
+          title={tone.label}
+          aria-label={tone.label}
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            height: 18, minWidth: 18, padding: '0 5px',
+            borderRadius: 'var(--radius-pill)',
+            background: '#fff',
+            color: present ? tone.fill : 'var(--status-stuck)'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 13 }}>{tone.glyph || 'link'}</span>
         </span>
       </button>
       )}

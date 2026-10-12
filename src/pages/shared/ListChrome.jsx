@@ -386,25 +386,21 @@ export function DealPill({
       {empty ? 'No' : 'View'}
       {/* The white capsule. Its colour matches the pill so the two read as
           one object rather than a badge sitting on a button. */}
+      {/* Glyph only — a tag for a deal, matching LinkedRow's capsules. The
+          word is the tooltip and the accessible name. */}
       <span
+        title="Deal"
+        aria-label="Deal"
         style={{
-          display: 'inline-flex', alignItems: 'center',
-          height: compact ? 16 : 19,
-          padding: compact ? '0 6px' : '0 8px',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          height: compact ? 16 : 19, minWidth: compact ? 16 : 19,
+          padding: compact ? '0 4px' : '0 5px',
           borderRadius: 'var(--radius-pill)',
           background: '#fff',
-          color: fill,
-          fontSize: compact ? 9 : 10,
-          fontWeight: 700,
-          letterSpacing: 'var(--tracking-label)',
-          gap: compact ? 3 : 4
+          color: fill
         }}
       >
-        {/* The record's glyph inside the capsule — a tag for a deal, a
-            person for a contact (LinkedRow) — so the two pills tell apart
-            at a glance without reading the word. */}
-        <span className="ms" style={{ fontSize: compact ? 11 : 12 }}>sell</span>
-        DEAL
+        <span className="ms" style={{ fontSize: compact ? 12 : 13 }}>sell</span>
       </span>
     </Tag>
   )
