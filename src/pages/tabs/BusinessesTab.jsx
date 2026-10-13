@@ -9,12 +9,24 @@ import { businessesAPI } from '../../api/businesses'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
 import {
-  Shell, Panel, Row, Chip, SearchInput, PrimaryAction, StateMessage,
+  Shell, Panel, Row, Chip, SearchInput, StateMessage,
   SkeletonStyles, Bar, LoadMore, formatDate, DealPill, Truncate } from '../shared/ListChrome'
-import { Select } from 'antd'
+import { Popover, Select } from 'antd'
 import { countryOptions } from '../../constants/countries'
 import BusinessEditor from '../shared/BusinessEditor'
 import ConfirmDialog from '../shared/ConfirmDialog'
+import BusinessGridCard from '../businesses/BusinessGridCard'
+
+// A toolbar field with its label stacked ABOVE it — the Figma row's shape,
+// shared with the Deals header.
+function ToolbarField({ label, children }) {
+  return (
+    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
+      <span className="pp-label" style={{ marginBottom: 0 }}>{label}</span>
+      {children}
+    </span>
+  )
+}
 
 // Businesses — the roll-up.
 //
@@ -61,7 +73,7 @@ export default function BusinessesTab({
     [q]
   )
 
-  const { items, error, hasMore, loadingMore, loadMore, reload } = usePagedList({
+  const { items, error, hasMore, loadingMore, loadMore, reload, patchItem } = usePagedList({
     fetchPage,
     key: 'businesses',
     deps: [q]
@@ -69,6 +81,23 @@ export default function BusinessesTab({
 
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
   const [creating, setCreating] = useState(false)
+
+  // Ticked cards. Selection only for now — the design has the checkbox, and
+  // bulk actions will act on this set when they exist.
+  const [selected, setSelected] = useState(() => new Set())
+  const toggleSelected = useCallback((id) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  const openBusiness = (id) => {
+    setOpenId(id)
+    if (onNavigate) onNavigate({ businessId: id })
+  }
 
   if (openId) {
     return (
@@ -103,92 +132,222 @@ export default function BusinessesTab({
         />
       )}
 
-      {error && <StateMessage error={error} />}
+      {/* THE FIGMA HEADER: a solid purple band with the title and count, then
+          one grey row of labelled fields — Search, Type, Owner, Sort — with
+          Filters, the view switch, Sync and Add business on the right.
 
-      {/* Bespoke skeleton rather than StateMessage's generic rows — these
-          cards have a distinct shape and a mismatched placeholder reads as a
-          layout glitch when the real rows land. */}
-      {items === null && !error && <ListSkeleton />}
+          Shown in every state, loading and empty included: it holds Search
+          and Add business, and a page that drops its own header when a search
+          matches nothing leaves no way to change the search. */}
+      <Panel
+        icon="domain"
+        title="Businesses"
+        accent="plum"
+        solidHeader
+        count={items ? `${items.length}${hasMore ? '+' : ''}` : null}
+        toolbarBackground="var(--gray-100)"
+        toolbar={
+          <div style={{
+            flex: 1, minWidth: 0,
+            display: 'flex', alignItems: 'flex-end', flexWrap: 'wrap',
+            gap: 'var(--space-3)'
+          }}>
+            <ToolbarField label="Search">
+              <SearchInput
+                value={q}
+                onChange={setQ}
+                // Says only what the search can do: the server matches name,
+                // email, city and website — not contacts.
+                placeholder="Search business, email or location"
+                width={320}
+              />
+            </ToolbarField>
 
-      <StateMessage
-        empty={items?.length === 0}
-        emptyText={
-          q
-            ? 'No businesses match that search — try a company name, city, email or website.'
-            : 'No businesses yet. Businesses sync once a day, so a newly added one appears after the next sync.'
+            {/* Type, Owner and Sort are in the design but have nothing to
+                filter on yet — businesses carry no type or owner, and the list
+                is keyset-paged on last update only. Shown, disabled, so the
+                layout is final and they switch on when the API does. */}
+            <ToolbarField label="Type">
+              <Select
+                aria-label="Type"
+                value=""
+                disabled
+                title="Business type isn't available yet"
+                options={[{ value: '', label: 'All types' }]}
+                style={{ width: 160 }}
+                styles={{ root: { height: 36 } }}
+              />
+            </ToolbarField>
+            <ToolbarField label="Owner">
+              <Select
+                aria-label="Owner"
+                value=""
+                disabled
+                title="Business owner isn't available yet"
+                options={[{ value: '', label: 'Everyone' }]}
+                style={{ width: 160 }}
+                styles={{ root: { height: 36 } }}
+              />
+            </ToolbarField>
+            <ToolbarField label="Sort">
+              <Select
+                aria-label="Sort"
+                value="recent"
+                disabled
+                title="Sorted by last update — more sorts are coming"
+                options={[{ value: 'recent', label: 'Last updated' }]}
+                style={{ width: 160 }}
+                styles={{ root: { height: 36 } }}
+              />
+            </ToolbarField>
+
+            <span style={{
+              marginLeft: 'auto',
+              display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)'
+            }}>
+              {/* FILTERS — the design's button. There are no business filters
+                  yet, so it holds the one action that has no other home on the
+                  design's header: Sync. Businesses arrive by NO webhook (GHL
+                  fires nothing when one is created, renamed or deleted), so
+                  this is how a rep fetches one made in the CRM this morning
+                  rather than waiting for the nightly run. */}
+              <Popover
+                trigger="click"
+                placement="bottomRight"
+                // Rendered at the document root, outside [data-dealhub]; the
+                // class is what gives it the tokens.
+                rootClassName="pp-portal"
+                content={
+                  <div style={{ display: 'grid', gap: 10, width: 260 }}>
+                    <span className="pp-label" style={{ marginBottom: 0 }}>Filters</span>
+                    <p style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
+                      Type and owner filters are coming.
+                    </p>
+                    <div style={{
+                      display: 'grid', gap: 6, paddingTop: 10,
+                      borderTop: '1px solid var(--border-default)'
+                    }}>
+                      <span className="pp-label" style={{ marginBottom: 0 }}>Sync from CRM</span>
+                      <p style={{ margin: 0, fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
+                        New businesses otherwise appear after the nightly sync.
+                      </p>
+                      <SyncButton
+                        kind="businesses"
+                        label="Sync now"
+                        noun="businesses"
+                        onSynced={reload}
+                        compact
+                      />
+                    </div>
+                  </div>
+                }
+              >
+                <button
+                  type="button"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    height: 36, padding: '0 12px', flex: 'none',
+                    border: '1px solid var(--border-strong)',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--surface-card)', color: 'var(--text-body)',
+                    fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <span className="ms" style={{ fontSize: 17 }}>tune</span>
+                  Filters
+                </button>
+              </Popover>
+              <ViewSwitch
+                value={view}
+                onChange={setView}
+                options={[
+                  { id: 'grid', icon: 'grid_view', label: 'Grid' },
+                  { id: 'rows', icon: 'view_agenda', label: 'List' }
+                ]}
+              />
+              <button
+                type="button"
+                onClick={() => setCreating(true)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none',
+                  height: 36, padding: '0 15px',
+                  border: 'none', borderRadius: 'var(--radius-md)',
+                  background: 'var(--panel-head-plum, var(--accent-plum))', color: '#fff',
+                  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                <span className="ms" style={{ fontSize: 18 }}>add</span>
+                Add business
+              </button>
+            </span>
+          </div>
         }
-      />
+      >
+        {error && <StateMessage error={error} />}
+
+        {/* Bespoke skeleton rather than StateMessage's generic rows — these
+            cards have a distinct shape and a mismatched placeholder reads as a
+            layout glitch when the real rows land. */}
+        {items === null && !error && <ListSkeleton />}
+
+        <StateMessage
+          empty={items?.length === 0}
+          emptyText={
+            q
+              ? 'No businesses match that search — try a company name, city, email or website.'
+              : 'No businesses yet. Businesses sync once a day, so a newly added one appears after the next sync.'
+          }
+        />
+
+        {items?.length > 0 && (
+          view === 'grid'
+            ? (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+                gap: 'var(--space-3)', padding: 'var(--space-3)',
+                alignItems: 'start'
+              }}>
+                {items.map((b) => (
+                  <BusinessGridCard
+                    key={b.id}
+                    business={b}
+                    selected={selected.has(b.id)}
+                    onToggleSelect={toggleSelected}
+                    onOpen={() => openBusiness(b.id)}
+                    onOpenContact={onOpenContact}
+                    onOpenDeal={onOpenDeal}
+                    onSaved={(patch) => patchItem((x) => x.id === b.id, patch)}
+                  />
+                ))}
+              </div>
+            )
+            : (
+              <div style={{ display: 'grid', gap: 0 }}>
+                {items.map((b) => (
+                  <BusinessCard
+                    key={b.id}
+                    business={b}
+                    view="rows"
+                    onOpen={() => openBusiness(b.id)}
+                  />
+                ))}
+              </div>
+            )
+        )}
+      </Panel>
 
       {items?.length > 0 && (
-        <>
-          {/* In a Panel, like Tasks and Notes. The cards used to float bare on
-              the page ground with no container, which is why this tab read as
-              unfinished beside the others. */}
-          <Panel
-            icon="domain"
-            title="Businesses"
-            accent="rose"
-            count={`${items.length}${hasMore ? '+' : ''}`}
-            action={
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                <SearchInput
-                  value={q}
-                  onChange={setQ}
-                  placeholder="Search businesses"
-                  width={260}
-                />
-                <ViewSwitch
-                  value={view}
-                  onChange={setView}
-                  options={[
-                    { id: 'grid', icon: 'grid_view', label: 'Grid' },
-                    { id: 'rows', icon: 'view_agenda', label: 'Rows' }
-                  ]}
-                />
-                {/* Businesses arrive by NO webhook — GHL fires nothing when
-                    one is created, renamed or deleted — so one made in the CRM
-                    this morning is invisible here until the 3am run. This
-                    fetches them now, and reloads the list so the new row is
-                    actually on screen rather than merely in the database. */}
-                <SyncButton
-                  kind="businesses"
-                  label="Sync"
-                  noun="businesses"
-                  onSynced={reload}
-                  compact
-                />
-                <PrimaryAction onClick={() => setCreating(true)} icon="add">
-                  New business
-                </PrimaryAction>
-              </span>
-            }
-          >
-          <div style={view === 'grid' ? {
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))',
-            gap: 'var(--space-3)', padding: 'var(--space-3)'
-          } : { display: 'grid', gap: 0 }}>
-            {items.map((b) => (
-              <BusinessCard
-                key={b.id}
-                business={b}
-                view={view}
-                onOpen={() => {
-                  setOpenId(b.id)
-                  if (onNavigate) onNavigate({ businessId: b.id })
-                }}
-              />
-            ))}
-          </div>
-          </Panel>
-          <LoadMore
-            sentinelRef={sentinelRef}
-            hasMore={hasMore}
-            loadingMore={loadingMore}
-            count={items.length}
-            noun="business"
-          />
-        </>
+        <LoadMore
+          sentinelRef={sentinelRef}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          count={items.length}
+          noun="business"
+          plural="businesses"
+        />
       )}
     </Shell>
   )

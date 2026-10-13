@@ -39,7 +39,11 @@ const ROWS = [
 // The picklist definition for one field. Both spellings, because GHL's own key
 // is inconsistent across locations (first_contact__method) — the same lookup
 // FieldChipRow does on the Deal hub.
-function specFor(fieldOptions, dealKey) {
+function specFor(options, dealKey) {
+  // NULL while the picklists load — the Deals tab holds null as its "not
+  // fetched yet" marker, and a default parameter does not replace null, so
+  // reading options[...] here crashed the whole grid on first render.
+  const fieldOptions = options || {}
   const chip = FIELD_CHIPS.find((f) => f[1] === dealKey)
   if (!chip) return null
   const ghlKey = chip[2]
