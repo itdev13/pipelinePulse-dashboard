@@ -68,35 +68,32 @@ export default function BusinessesTab({
     if (openBusinessId) setOpenId(openBusinessId)
   }, [openBusinessId, setOpenId])
 
+  // The toolbar's Sort. Server-side (GET /api/businesses?sort=), so the order
+  // covers every business, not just the loaded page. Remembered like the
+  // search. "Last activity" is the design's default.
+  const [sort, setSort] = useTabState('businesses', 'sort', 'activity')
+
   const fetchPage = useCallback(
     ({ cursor }) =>
       businessesAPI.list({
         ...(q.trim() ? { q: q.trim() } : {}),
+        sort,
         ...(cursor ? { cursor } : {})
       }),
-    [q]
+    [q, sort]
   )
 
   const { items, error, hasMore, loadingMore, loadMore, reload, patchItem } = usePagedList({
     fetchPage,
     key: 'businesses',
-    deps: [q]
+    // A sort change starts the list over — a cursor from one order is
+    // meaningless in another, and the server refuses it.
+    deps: [q, sort]
   })
 
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
   const [creating, setCreating] = useState(false)
 
-  // Ticked cards. Selection only for now — the design has the checkbox, and
-  // bulk actions will act on this set when they exist.
-  const [selected, setSelected] = useState(() => new Set())
-  const toggleSelected = useCallback((id) => {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }, [])
 
   const openBusiness = (id) => {
     setOpenId(id)
@@ -194,12 +191,21 @@ export default function BusinessesTab({
               />
             </ToolbarField>
             <ToolbarField label="Sort">
+              {/* Newest / largest first in every option. No name sort — the
+                  server pages on a date or a number, see BUSINESS_SORTS in
+                  routes/businesses.js. */}
               <Select
                 aria-label="Sort"
-                value="recent"
-                disabled
-                title="Sorted by last update — more sorts are coming"
-                options={[{ value: 'recent', label: 'Last updated' }]}
+                value={sort}
+                onChange={setSort}
+                options={[
+                  { value: 'activity', label: 'Last activity' },
+                  { value: 'recent', label: 'Last updated' },
+                  { value: 'created', label: 'Newest added' },
+                  { value: 'value', label: 'Pipeline value' }
+                ]}
+                popupClassName="pp-menu"
+                popupMatchSelectWidth={false}
                 style={{ width: 160 }}
                 styles={{ root: { height: 36 } }}
               />
@@ -318,8 +324,6 @@ export default function BusinessesTab({
                   <BusinessGridCard
                     key={b.id}
                     business={b}
-                    selected={selected.has(b.id)}
-                    onToggleSelect={toggleSelected}
                     onOpen={() => openBusiness(b.id)}
                     onOpenContact={onOpenContact}
                     onOpenDeal={onOpenDeal}
@@ -329,14 +333,10 @@ export default function BusinessesTab({
               </div>
             )
             : (
-              // The Figma List view. Same selection set as the grid, so
-              // ticking cards and switching views keeps what was ticked.
+              // The Figma List view.
               <div style={{ padding: 'var(--space-3)' }}>
                 <BusinessList
                   items={items}
-                  selected={selected}
-                  onToggleSelect={toggleSelected}
-                  onSetSelected={setSelected}
                   onOpen={openBusiness}
                   onOpenContact={onOpenContact}
                   onOpenDeal={onOpenDeal}

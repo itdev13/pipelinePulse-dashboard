@@ -230,7 +230,7 @@ function useLinkedOnView(ref, business) {
 }
 
 export default function BusinessGridCard({
-  business: b, selected = false, onToggleSelect,
+  business: b,
   onOpen, onOpenContact, onOpenDeal, onSaved
 }) {
   const ref = useRef(null)
@@ -255,24 +255,16 @@ export default function BusinessGridCard({
         display: 'flex', flexDirection: 'column',
         background: 'var(--surface-card)',
         borderRadius: 'var(--radius-md)',
-        overflow: 'hidden',
-        outline: selected ? '2px solid var(--accent-plum)' : 'none',
-        outlineOffset: -1
+        overflow: 'hidden'
       }}
     >
-      {/* HEADER — select, name (wraps rather than truncating a company name),
-          and the status badge. */}
+      {/* HEADER — name (wraps rather than truncating a company name) and the
+          status badge. No selection checkbox: businesses have no bulk
+          actions, so it was removed (Oct 2026, client request). */}
       <header style={{
         display: 'flex', alignItems: 'flex-start', gap: 10,
         padding: '14px 14px 12px'
       }}>
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={() => onToggleSelect && onToggleSelect(b.id)}
-          aria-label={`Select ${b.name}`}
-          style={{ width: 17, height: 17, marginTop: 3, flex: 'none', accentColor: 'var(--accent-plum)', cursor: 'pointer' }}
-        />
         <button
           type="button"
           onClick={onOpen}

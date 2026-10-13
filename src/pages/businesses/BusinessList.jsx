@@ -161,7 +161,7 @@ function WebsiteCell({ business: b, onSaved }) {
   )
 }
 
-function Row({ business: b, hidden, selected, onToggleSelect, onOpen, onOpenContact, onOpenDeal, onSaved }) {
+function Row({ business: b, hidden, onOpen, onOpenContact, onOpenDeal, onSaved }) {
   const [{ data, error }, load] = useDetailOnOpen(b.id)
   const show = (k) => !hidden.has(k)
   const location = [b.city, b.country].filter(Boolean).join(', ')
@@ -185,19 +185,10 @@ function Row({ business: b, hidden, selected, onToggleSelect, onOpen, onOpenCont
   return (
     <tr
       onClick={onOpen}
-      style={{ cursor: 'pointer', background: selected ? 'var(--tint-plum)' : 'var(--surface-card)' }}
-      onMouseEnter={(e) => { if (!selected) e.currentTarget.style.background = 'var(--gray-25)' }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = selected ? 'var(--tint-plum)' : 'var(--surface-card)' }}
+      style={{ cursor: 'pointer', background: 'var(--surface-card)' }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--gray-25)' }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-card)' }}
     >
-      <td style={{ ...TD, width: 44, textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={() => onToggleSelect(b.id)}
-          aria-label={`Select ${b.name}`}
-          style={{ width: 17, height: 17, accentColor: 'var(--accent-plum)', cursor: 'pointer' }}
-        />
-      </td>
       <td style={{ ...TD, maxWidth: 240 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
           <span style={{
@@ -325,7 +316,7 @@ function Row({ business: b, hidden, selected, onToggleSelect, onOpen, onOpenCont
 }
 
 export default function BusinessList({
-  items = [], selected, onToggleSelect, onSetSelected,
+  items = [],
   onOpen, onOpenContact, onOpenDeal, onSaved
 }) {
   const [hidden, setHidden] = useState(readHidden)
@@ -334,8 +325,6 @@ export default function BusinessList({
   }, [hidden])
 
   const visible = COLUMNS.filter((c) => !hidden.has(c.key))
-  const allSelected = items.length > 0 && items.every((b) => selected.has(b.id))
-  const someSelected = !allSelected && items.some((b) => selected.has(b.id))
 
   return (
     <section style={{
@@ -350,11 +339,6 @@ export default function BusinessList({
       }}>
         <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-body)' }}>
           {plural(items.length, 'business', 'businesses')}
-          {selected.size > 0 && (
-            <span style={{ marginLeft: 10, fontWeight: 600, color: 'var(--accent-plum-text)' }}>
-              {selected.size} selected
-            </span>
-          )}
         </span>
         <span style={{ marginLeft: 'auto' }}>
           <ColumnsMenu
@@ -373,16 +357,8 @@ export default function BusinessList({
         <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-sans)' }}>
           <thead>
             <tr>
-              <th style={{ ...TH, width: 44, textAlign: 'center' }}>
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  ref={(el) => { if (el) el.indeterminate = someSelected }}
-                  onChange={() => onSetSelected(allSelected ? new Set() : new Set(items.map((b) => b.id)))}
-                  aria-label="Select all businesses shown"
-                  style={{ width: 17, height: 17, accentColor: 'var(--accent-plum)', cursor: 'pointer' }}
-                />
-              </th>
+              {/* No selection column — businesses have no bulk actions, so
+                  the checkboxes were removed (Oct 2026, client request). */}
               <th style={TH}>Name</th>
               {visible.map((c) => <th key={c.key} style={TH}>{c.label}</th>)}
             </tr>
@@ -393,8 +369,6 @@ export default function BusinessList({
                 key={b.id}
                 business={b}
                 hidden={hidden}
-                selected={selected.has(b.id)}
-                onToggleSelect={onToggleSelect}
                 onOpen={() => onOpen(b.id)}
                 onOpenContact={onOpenContact}
                 onOpenDeal={onOpenDeal}
