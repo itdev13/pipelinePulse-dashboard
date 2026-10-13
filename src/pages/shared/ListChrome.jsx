@@ -418,6 +418,8 @@ const RECORD_FILL = {
   CONTACT: 'var(--accent-sky)',
   BUSINESS: 'var(--panel-head-plum, var(--accent-plum))'
 }
+// The capsule's icon — the same glyphs LinkedRecords' LINK_TONES use.
+const RECORD_GLYPH = { CONTACT: 'person', BUSINESS: 'domain' }
 export function RecordPill({ kind, name, onClick, draggable, onDragStart }) {
   const live = typeof onClick === 'function'
   const Tag = live ? 'button' : 'span'
@@ -429,24 +431,33 @@ export function RecordPill({ kind, name, onClick, draggable, onDragStart }) {
       title={live ? `Open ${name || `this ${kind.toLowerCase()}`}` : (name || undefined)}
       draggable={draggable}
       onDragStart={onDragStart}
+      // LinkedRow's pill exactly (shared/LinkedRecords.jsx) — the same
+      // numbers DealPill's compact size took. Change all three or none.
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 5,
-        height: 22, padding: '0 3px 0 8px', flex: 'none',
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        height: 24, padding: '0 4px 0 10px', flex: 'none',
         border: 'none', borderRadius: 'var(--radius-pill)',
         background: fill,
-        fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 600,
+        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', fontWeight: 600,
         color: '#fff', whiteSpace: 'nowrap',
         cursor: live ? 'pointer' : 'default'
       }}
     >
       View
-      <span style={{
-        display: 'inline-flex', alignItems: 'center',
-        height: 16, padding: '0 6px',
-        borderRadius: 'var(--radius-pill)', background: '#fff', color: fill,
-        fontSize: 9, fontWeight: 700, letterSpacing: 'var(--tracking-label)'
-      }}>
-        {kind}
+      {/* GLYPH ONLY, like the DEAL pill: a person for a contact, a building
+          for a business. The word is the tooltip and the accessible name —
+          the icon says it on its own, and "CONTACT" / "BUSINESS" made the
+          capsule wider than the "View" beside it. */}
+      <span
+        title={kind}
+        aria-label={kind}
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          height: 18, minWidth: 18, padding: '0 5px',
+          borderRadius: 'var(--radius-pill)', background: '#fff', color: fill
+        }}
+      >
+        <span className="ms" style={{ fontSize: 13 }}>{RECORD_GLYPH[kind] || 'link'}</span>
       </span>
     </Tag>
   )

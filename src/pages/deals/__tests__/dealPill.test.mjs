@@ -133,14 +133,19 @@ t('the board chip does not break card dragging', () => {
 });
 
 
+// DealPill alone — RecordPill now sits between it and Chip.
+const dealPillSource = (chrome) =>
+  chrome.slice(chrome.indexOf('export function DealPill'), chrome.indexOf('const RECORD_FILL'));
+
 t('the pill has both halves, in both states', () => {
-  const chrome = read('../../shared/ListChrome.jsx');
-  const pill = chrome.slice(chrome.indexOf('export function DealPill'), chrome.indexOf('export function Chip'));
-  // Green "View | DEAL" when linked, red "No | DEAL" when not: the COLOUR
-  // carries the state, so both words and both fills must be present.
+  const pill = dealPillSource(read('../../shared/ListChrome.jsx'));
+  // Green "View | 🏷" when linked, red "No | 🏷" when not: the COLOUR carries
+  // the state. The capsule is a GLYPH now (Oct 2026), not the word DEAL —
+  // the word is its tooltip and accessible name.
   assert.match(pill, /'View'/, 'the pill never says View');
   assert.match(pill, /'No'/, 'the pill has no unlinked state');
-  assert.match(pill, />\s*DEAL\s*</, 'the white DEAL capsule is gone');
+  assert.match(pill, />sell</, 'the white tag capsule is gone');
+  assert.match(pill, /aria-label="Deal"/, 'the capsule has no accessible name');
   assert.match(pill, /--green-500/, 'the linked state is not green');
   assert.match(pill, /--status-stuck/, 'the unlinked state is not red');
 });
@@ -211,23 +216,16 @@ t('the contacts deal row is not a button around a button', () => {
 });
 
 t('the pill text is small enough for a control', () => {
-  const chrome = read('../../shared/ListChrome.jsx');
-  const pill = chrome.slice(chrome.indexOf('export function DealPill'), chrome.indexOf('export function Chip'));
-
-  // BOTH sizes, found by position rather than by one regex: the label and the
-  // white capsule each set their own, and a single match silently read the
-  // capsule's while the label kept a token — the test passed while pinning
-  // nothing.
-  const sizes = [...pill.matchAll(/fontSize: compact \? (\d+) : (\d+)/g)];
-  assert.equal(sizes.length, 2, `expected a numeric size for the label AND the capsule, found ${sizes.length}`);
-
-  const [label, capsule] = sizes.map((m) => ({ compact: Number(m[1]), full: Number(m[2]) }));
-  // Two below the 12/13px tokens this started on: at --text-base the word
-  // "View" outweighed the deal names beside it.
-  assert.ok(label.full <= 11, `label is ${label.full}px, expected 11 or less`);
-  assert.ok(label.compact <= 10, `compact label is ${label.compact}px, expected 10 or less`);
-  assert.ok(capsule.full <= 10, `DEAL capsule is ${capsule.full}px, expected 10 or less`);
-  assert.ok(capsule.compact <= 9, `compact capsule is ${capsule.compact}px, expected 9 or less`);
+  const pill = dealPillSource(read('../../shared/ListChrome.jsx'));
+  // The full-size label stays two below the 12/13px tokens it started on —
+  // at --text-base the word "View" outweighed the deal names beside it. The
+  // compact size is the linked-records size (--text-sm), shared with the
+  // CONTACT and BUSINESS pills.
+  const m = pill.match(/fontSize: compact \? 'var\(--text-sm\)' : (\d+)/);
+  assert.ok(m, 'the label size is not compact ? --text-sm : N');
+  assert.ok(Number(m[1]) <= 11, `label is ${m[1]}px, expected 11 or less`);
+  // The capsule holds a glyph, sized on its own.
+  assert.match(pill, /className="ms" style=\{\{ fontSize: 13 \}\}>sell</, 'the tag glyph lost its size');
 });
 
 let failed = 0;
