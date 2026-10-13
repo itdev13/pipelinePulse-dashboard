@@ -35,10 +35,15 @@ export function NotSet() {
       display: 'inline-flex', alignItems: 'center',
       height: 22, padding: '0 9px',
       borderRadius: 'var(--radius-sm)',
-      border: '1px solid var(--accent-gold)',
-      background: 'var(--tint-gold)',
+      // SOFTENED (Oct 2026, client feedback: "looks very bright"). Still the
+      // amber family, so an empty field reads as a gap worth filling, but a
+      // half-strength border, a paler fill and regular weight — on a card
+      // with four empty fields the old full-strength chips outshouted the
+      // values that WERE set.
+      border: '1px solid color-mix(in srgb, var(--accent-gold) 40%, transparent)',
+      background: 'color-mix(in srgb, var(--tint-gold) 55%, #fff)',
       color: 'var(--accent-gold-text)',
-      fontSize: 'var(--text-sm)', fontWeight: 600,
+      fontSize: 'var(--text-sm)', fontWeight: 500,
       whiteSpace: 'nowrap'
     }}>
       Not set

@@ -504,8 +504,10 @@ test('an unset field is an amber "Not set" chip, not a dash or a dashed box', ()
   const card = read('FieldCard.jsx');
   assert.doesNotMatch(deal, /'1px dashed var\(--accent-gold\)'/);
   assert.match(card, /export function NotSet\(\)/);
-  assert.match(card, /border: '1px solid var\(--accent-gold\)'/);
-  assert.match(card, /background: 'var\(--tint-gold\)'/);
+  // Still a SOLID amber chip — softened in Oct 2026 (client: "looks very
+  // bright") to a half-strength border and a paler fill, not removed.
+  assert.match(card, /border: '1px solid color-mix\(in srgb, var\(--accent-gold\) \d+%, transparent\)'/);
+  assert.match(card, /background: 'color-mix\(in srgb, var\(--tint-gold\) \d+%, #fff\)'/);
   // Opt-in, so People keeps its dash: "not set" is worth flagging on a deal's
   // product type and not on a contact's middle name.
   assert.match(card, /notSet = false/);

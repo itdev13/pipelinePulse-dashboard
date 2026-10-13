@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { businessesAPI } from '../../api/businesses'
 import { formatMoney } from '../../utils/money'
 import { DealPill, RecordPill, relativeTime } from '../shared/ListChrome'
-import { MenuChip, MenuHeading, MenuNote, ColumnsMenu } from '../shared/MenuChip'
+import { MenuChip, MenuHeading, MenuNote, MenuFooter, ColumnsMenu } from '../shared/MenuChip'
 
 // The businesses as a LIST — the Figma Businesses List view (Oct 2026):
 //
@@ -170,6 +170,15 @@ function Row({ business: b, hidden, selected, onToggleSelect, onOpen, onOpenCont
   // OPEN pipeline when the API sends it; until then every deal's value.
   const pipeline = b.openPipelineValue ?? b.totalValue
 
+  // A chip menu that says one thing and offers the business page.
+  const openMenu = (heading, text) => (
+    <>
+      <MenuHeading>{heading}</MenuHeading>
+      <MenuNote>{text}</MenuNote>
+      <MenuFooter label="Open business" onClick={onOpen} />
+    </>
+  )
+
   const loading = <MenuNote>Loading…</MenuNote>
   const failed = error ? <MenuNote danger>{error}</MenuNote> : null
 
@@ -234,26 +243,39 @@ function Row({ business: b, hidden, selected, onToggleSelect, onOpen, onOpenCont
               }
             />
           ) : (
-            <MenuChip icon="group" tone="muted" label="No contacts" />
+            <MenuChip icon="group" tone="muted" label="No contacts"
+              menu={openMenu('Contacts', 'No contacts are linked to this business yet.')} />
           )}
         </td>
       )}
       {show('website') && <td style={TD}><WebsiteCell business={b} onSaved={onSaved} /></td>}
       {show('owner') && <td style={TD}>{b.owner || DASH}</td>}
+      {/* The design's chips, "No tasks ▾" / "No notes ▾" included. Until the
+          list endpoint sends openTaskCount / noteCount there is no count, and
+          the grey chip stands in; its menu points to the business page, where
+          the Tasks panel lists them. */}
       {show('tasks') && (
         <td style={TD}>
-          {b.openTaskCount == null
-            ? DASH
-            : <MenuChip icon="task_alt" tone={b.openTaskCount ? 'tasks' : 'muted'}
-                label={b.openTaskCount ? plural(b.openTaskCount, 'task', 'tasks') : 'No tasks'} />}
+          <MenuChip
+            icon="task_alt"
+            tone={b.openTaskCount ? 'tasks' : 'muted'}
+            label={b.openTaskCount ? plural(b.openTaskCount, 'task', 'tasks') : 'No tasks'}
+            menu={openMenu('Tasks', b.openTaskCount
+              ? `${plural(b.openTaskCount, 'open task', 'open tasks')} for this business.`
+              : 'Open tasks are listed on the business page.')}
+          />
         </td>
       )}
       {show('notes') && (
         <td style={TD}>
-          {b.noteCount == null
-            ? DASH
-            : <MenuChip icon="sticky_note_2" tone={b.noteCount ? 'notes' : 'muted'}
-                label={b.noteCount ? plural(b.noteCount, 'note', 'notes') : 'No notes'} />}
+          <MenuChip
+            icon="sticky_note_2"
+            tone={b.noteCount ? 'notes' : 'muted'}
+            label={b.noteCount ? plural(b.noteCount, 'note', 'notes') : 'No notes'}
+            menu={openMenu('Notes', b.noteCount
+              ? `${plural(b.noteCount, 'note', 'notes')} for this business.`
+              : 'Notes are kept on each contact and deal.')}
+          />
         </td>
       )}
       {show('deals') && (
@@ -285,7 +307,8 @@ function Row({ business: b, hidden, selected, onToggleSelect, onOpen, onOpenCont
               }
             />
           ) : (
-            <MenuChip icon="sell" tone="muted" label="No deals" />
+            <MenuChip icon="sell" tone="muted" label="No deals"
+              menu={openMenu('Deals', 'No deals at this business yet.')} />
           )}
         </td>
       )}
