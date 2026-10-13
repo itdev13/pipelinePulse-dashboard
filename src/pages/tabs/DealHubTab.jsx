@@ -1595,15 +1595,12 @@ export default function DealHubTab({
         )}
         {!loading && !error && messages && (
           <>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(0, 2fr) minmax(320px, 1fr)',
-                gap: 14,
-                alignItems: 'start',
-                marginBottom: 14
-              }}
-            >
+            {/* TIMELINE ACROSS THE FULL ROW, then Tasks and Notes side by
+                side in equal halves below it (client request, Oct 2026).
+                The timeline was two-thirds of the width with the two rails
+                stacked in a 320px column beside it — message bodies wrapped
+                early, and the rails were tall and thin. */}
+            <div style={{ display: 'grid', gap: 14, marginBottom: 14, minWidth: 0 }}>
               <Timeline
                 messages={filtered}
                 dealId={dealId}
@@ -1621,11 +1618,14 @@ export default function DealHubTab({
                 filtersActive={channelFilter.length > 0 || peopleFilter.length > 0}
                 onClearFilters={() => { setChannelFilter([]); setPeopleFilter([]) }}
               />
-              {/* All three panels stacked, no tab to pick between them. With
-                  only three sections left, switching cost a click and hid two
-                  of them for no reason — a rep reading a deal wants the tasks
-                  AND the notes. */}
-              <div style={{ display: 'grid', gap: 14, minWidth: 0 }}>
+              {/* Both panels shown, no tab to pick between them — a rep reading
+                  a deal wants the tasks AND the notes. Two equal columns; on a
+                  narrow screen (each under 340px) they stack instead. */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+                gap: 14, alignItems: 'start', minWidth: 0
+              }}>
                 {/* people: a task is stored against a contact, so creating
                     one from the rail needs someone to attach it to. */}
                 <DealTasksSection
