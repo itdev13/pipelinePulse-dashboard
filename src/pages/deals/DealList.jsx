@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Popover } from 'antd'
 import { dealsAPI } from '../../api/deals'
 import { tasksAPI } from '../../api/tasks'
 import { notesAPI } from '../../api/notes'
 import { formatMoney } from '../../utils/money'
 import { RecordPill, relativeTime, formatDate, formatDue } from '../shared/ListChrome'
+import { MenuChip, MenuHeading, MenuNote, MenuFooter, TOOL_BUTTON, ColumnsMenu } from '../shared/MenuChip'
 
 // The deals as a LIST, grouped by stage — the Figma List view (Oct 2026):
 //
@@ -58,18 +58,6 @@ const TD = {
   verticalAlign: 'middle'
 }
 
-// Chip colours, by what the chip is. Tasks and Notes carry a STATE: no open
-// tasks on an open deal is the thing to notice, so it is red.
-const TONES = {
-  contact:  { border: 'var(--accent-sky)', fg: 'var(--accent-sky-text)', bg: 'var(--surface-card)' },
-  business: { border: 'var(--accent-plum)', fg: 'var(--accent-plum-text)', bg: 'var(--surface-card)' },
-  neutral:  { border: 'var(--border-strong)', fg: 'var(--text-body)', bg: 'var(--surface-card)' },
-  tasks:    { border: 'var(--accent-clay)', fg: 'var(--accent-clay-text)', bg: 'var(--tint-clay)' },
-  noTasks:  { border: 'var(--status-stuck)', fg: 'var(--status-stuck-text)', bg: 'var(--surface-card)' },
-  notes:    { border: 'var(--accent-gold)', fg: 'var(--accent-gold-text)', bg: 'var(--tint-gold)' },
-  muted:    { border: 'var(--border-strong)', fg: 'var(--text-muted)', bg: 'var(--surface-card)' }
-}
-
 function readHidden() {
   try {
     const raw = localStorage.getItem(HIDDEN_KEY)
@@ -79,71 +67,6 @@ function readHidden() {
 }
 
 const capitalise = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
-
-// A chip with a ▾ that opens `menu`. The row behind it opens the deal, so a
-// click here must not reach it.
-function MenuChip({ icon, tone = 'neutral', label, title, menu, onOpenChange, maxWidth = 150 }) {
-  const t = TONES[tone] || TONES.neutral
-  const chip = (
-    <button
-      type="button"
-      onClick={(e) => e.stopPropagation()}
-      title={title || label}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 5,
-        maxWidth, height: 26, padding: '0 6px 0 9px',
-        border: `1px solid ${t.border}`, borderRadius: 'var(--radius-pill)',
-        background: t.bg, color: t.fg,
-        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 500,
-        cursor: menu ? 'pointer' : 'default', whiteSpace: 'nowrap'
-      }}
-    >
-      <span className="ms" style={{ fontSize: 15, flex: 'none' }}>{icon}</span>
-      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
-      {menu && <span className="ms" style={{ fontSize: 16, flex: 'none' }}>expand_more</span>}
-    </button>
-  )
-  if (!menu) return chip
-  return (
-    <Popover
-      trigger="click"
-      placement="bottomLeft"
-      // .pp-portal: the popover renders at the document root, outside
-      // [data-dealhub], and without this class every token in it is unset.
-      rootClassName="pp-portal"
-      content={<div onClick={(e) => e.stopPropagation()} style={{ minWidth: 220, maxWidth: 300 }}>{menu}</div>}
-      onOpenChange={onOpenChange}
-    >
-      {chip}
-    </Popover>
-  )
-}
-
-function MenuHeading({ children }) {
-  return (
-    <div className="pp-label" style={{ marginBottom: 6 }}>{children}</div>
-  )
-}
-
-function MenuFooter({ label, onClick }) {
-  if (!onClick) return null
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 4, width: '100%',
-        marginTop: 8, paddingTop: 8, border: 'none',
-        borderTop: '1px solid var(--border-default)', background: 'none',
-        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
-        color: 'var(--text-link)', cursor: 'pointer'
-      }}
-    >
-      {label}
-      <span className="ms" style={{ fontSize: 16 }}>arrow_forward</span>
-    </button>
-  )
-}
 
 // The deal's open tasks or its notes, fetched the first time the menu opens —
 // a list of 25 rows should not cost 50 requests on load for menus nobody
@@ -234,17 +157,6 @@ function NotesChip({ deal, onOpenInHub }) {
         </>
       }
     />
-  )
-}
-
-function MenuNote({ children, danger }) {
-  return (
-    <p style={{
-      margin: '2px 0', fontSize: 'var(--text-md)',
-      color: danger ? 'var(--status-stuck-text)' : 'var(--text-muted)'
-    }}>
-      {children}
-    </p>
   )
 }
 
@@ -653,41 +565,15 @@ export default function DealList({
             <span className="ms" style={{ fontSize: 17 }}>{allCollapsed ? 'unfold_more' : 'unfold_less'}</span>
             {allCollapsed ? 'Expand all' : 'Collapse all'}
           </button>
-          <Popover
-            trigger="click"
-            placement="bottomRight"
-            rootClassName="pp-portal"
-            content={
-              <div style={{ display: 'grid', gap: 4, minWidth: 190 }}>
-                <MenuHeading>Show columns</MenuHeading>
-                {COLUMNS.map((c) => (
-                  <label key={c.key} style={{
-                    display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0',
-                    fontSize: 'var(--text-md)', color: 'var(--text-body)', cursor: 'pointer'
-                  }}>
-                    <input
-                      type="checkbox"
-                      checked={!hidden.has(c.key)}
-                      onChange={() => setHidden((prev) => {
-                        const next = new Set(prev)
-                        if (next.has(c.key)) next.delete(c.key); else next.add(c.key)
-                        return next
-                      })}
-                      style={{ accentColor: 'var(--brand-primary)' }}
-                    />
-                    {c.label}
-                  </label>
-                ))}
-              </div>
-            }
-          >
-            <button type="button" style={TOOL_BUTTON}>
-              <span className="ms" style={{ fontSize: 17 }}>view_column</span>
-              {/* +1 for Deal, which is always shown. */}
-              Columns · {visibleCols.length + 1} of {COLUMNS.length + 1}
-              <span className="ms" style={{ fontSize: 17 }}>expand_more</span>
-            </button>
-          </Popover>
+          <ColumnsMenu
+            columns={COLUMNS}
+            hidden={hidden}
+            onToggle={(key) => setHidden((prev) => {
+              const next = new Set(prev)
+              if (next.has(key)) next.delete(key); else next.add(key)
+              return next
+            })}
+          />
         </span>
       </header>
 
@@ -736,13 +622,4 @@ export default function DealList({
       </div>
     </section>
   )
-}
-
-const TOOL_BUTTON = {
-  display: 'inline-flex', alignItems: 'center', gap: 6,
-  height: 32, padding: '0 12px',
-  border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-pill)',
-  background: 'var(--surface-card)', color: 'var(--text-body)',
-  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 500,
-  cursor: 'pointer'
 }

@@ -10,12 +10,14 @@ import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
 import {
   Shell, Panel, Row, Chip, SearchInput, StateMessage,
-  SkeletonStyles, Bar, LoadMore, formatDate, DealPill, Truncate } from '../shared/ListChrome'
+  SkeletonStyles, Bar, LoadMore, formatDate, DealPill, RecordPill, Truncate } from '../shared/ListChrome'
 import { Popover, Select } from 'antd'
 import { countryOptions } from '../../constants/countries'
 import BusinessEditor from '../shared/BusinessEditor'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import BusinessGridCard from '../businesses/BusinessGridCard'
+import BusinessList from '../businesses/BusinessList'
+import BusinessTasksPanel from '../businesses/BusinessTasksPanel'
 
 // A toolbar field with its label stacked ABOVE it — the Figma row's shape,
 // shared with the Deals header.
@@ -325,15 +327,19 @@ export default function BusinessesTab({
               </div>
             )
             : (
-              <div style={{ display: 'grid', gap: 0 }}>
-                {items.map((b) => (
-                  <BusinessCard
-                    key={b.id}
-                    business={b}
-                    view="rows"
-                    onOpen={() => openBusiness(b.id)}
-                  />
-                ))}
+              // The Figma List view. Same selection set as the grid, so
+              // ticking cards and switching views keeps what was ticked.
+              <div style={{ padding: 'var(--space-3)' }}>
+                <BusinessList
+                  items={items}
+                  selected={selected}
+                  onToggleSelect={toggleSelected}
+                  onSetSelected={setSelected}
+                  onOpen={openBusiness}
+                  onOpenContact={onOpenContact}
+                  onOpenDeal={onOpenDeal}
+                  onSaved={(id, patch) => patchItem((x) => x.id === id, patch)}
+                />
               </div>
             )
         )}
@@ -350,158 +356,6 @@ export default function BusinessesTab({
         />
       )}
     </Shell>
-  )
-}
-
-// ── List card ─────────────────────────────────────────────────────────
-
-function BusinessCard({ business: b, onOpen, view = 'rows' }) {
-  // Defined once and rendered by both layouts — the two differ in how they
-  // ARRANGE the chips, not in what the chips say.
-  const chips = (
-    <>
-      <Chip icon="group">
-        {b.contactCount} {b.contactCount === 1 ? 'contact' : 'contacts'}
-      </Chip>
-      <Chip icon="sell" tone="deal">
-        {b.dealCount} {b.dealCount === 1 ? 'deal' : 'deals'}
-      </Chip>
-      <Chip icon="forum">{b.messageCount}</Chip>
-    </>
-  )
-  return (
-    <button
-      onClick={onOpen}
-      // Hover moved to .pp-card. It was two JS mouse handlers mutating inline
-      // styles — which worked, but meant this card's hover was defined
-      // separately from every other card's (and the others had none at all).
-      // CSS also covers focus-visible and touch, which the handlers did not.
-      // .pp-card in the GRID (a bordered card); a plain row inside the Panel
-      // otherwise — a bordered card inside a bordered panel is a box in a box,
-      // and the list reads as nested rather than as one list.
-      className={view === 'grid' ? 'pp-card' : undefined}
-      style={{
-        display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
-        padding: '14px var(--space-4)',
-        fontFamily: 'var(--font-sans)',
-        ...(view === 'grid'
-          ? { height: '100%' }
-          : { borderBottom: '1px solid var(--border-default)', background: 'transparent' })
-      }}
-    >
-      {/* ROW: text and chips on one line. CARD: stacked, because in a
-          360px column the chips and the name compete for the same line and
-          the name loses — "company desc1…" and a clipped URL. */}
-      <span style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        flexDirection: view === 'grid' ? 'column' : 'row',
-        gap: view === 'grid' ? 10 : 11
-      }}>
-        <span style={{ minWidth: 0, flex: 1 }}>
-          <span
-            style={{
-              display: 'block',
-              fontSize: 'var(--text-lg)', fontWeight: 600,
-              color: b.hasName ? 'var(--text-heading)' : 'var(--text-faint)',
-              fontStyle: b.hasName ? 'normal' : 'italic',
-              // A card has the vertical room to wrap; a row does not, so it
-              // ellipses. Truncating a company name in a card that is mostly
-              // empty below it is the worst of both.
-              ...(view === 'grid'
-                ? { overflowWrap: 'anywhere' }
-                : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' })
-            }}
-          >
-            {b.name}
-          </span>
-          {(b.city || b.description) && (
-            <span
-              style={{
-                display: 'block', marginTop: 2,
-                fontSize: 'var(--text-base)', color: 'var(--text-muted)',
-                ...(view === 'grid'
-                  ? { overflowWrap: 'anywhere' }
-                  : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' })
-              }}
-            >
-              {[b.city, b.description].filter(Boolean).join(' · ')}
-            </span>
-          )}
-
-          {/* Address, phone, email and website — the things a rep needs BEFORE
-              deciding to open the record. The card showed only a name and a
-              description, so every one of those lookups meant a click through
-              and a click back. Read-only here; editing stays in the detail
-              view behind the arrow.
-
-              Only the parts that exist: four empty labelled slots read as a
-              broken record rather than a sparse one. */}
-          {(b.address || b.phone || b.email || b.website) && (
-            <span style={{
-              display: 'flex', flexWrap: 'wrap', gap: '2px 14px',
-              marginTop: 4,
-              fontSize: 'var(--text-base)', color: 'var(--text-muted)',
-              lineHeight: 1.5
-            }}>
-              {[
-                ['location_on', b.address],
-                ['call', b.phone],
-                ['mail', b.email],
-                ['language', b.website]
-              ].filter(([, v]) => v).map(([icon, v]) => (
-                <span
-                  key={icon}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    // A card is narrower than a row, so the cap follows it —
-                    // 260px inside a 360px column pushed the URL off the edge,
-                    // which is the clipped "https://www.g" in the grid.
-                    maxWidth: view === 'grid' ? '100%' : 260,
-                    minWidth: 0,
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                  }}
-                >
-                  <span className="ms" style={{ fontSize: 15, color: 'var(--text-faint)', flex: 'none' }}>
-                    {icon}
-                  </span>
-                  {v}
-                </span>
-              ))}
-            </span>
-          )}
-        </span>
-
-        {/* No "Open" affordance in a card: the whole card is the button and
-            it hovers, so a label repeating that is chrome on every tile for
-            something the click already does. The ROW keeps its arrow — down a
-            dense list the right edge is where the eye looks for "this goes
-            somewhere". */}
-        {view === 'grid' ? (
-          <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', width: '100%' }}>
-            {chips}
-          </span>
-        ) : (
-          // Chips and arrow are one group, centred on the TITLE's line rather
-          // than on the whole three-line block. The wrapper's height is that
-          // line, so ordinary centring aligns them however tall a chip gets —
-          // no margin arithmetic tied to a fixed chip height.
-          <span style={{
-            display: 'flex', alignItems: 'center', gap: 11, flex: 'none',
-            height: 'calc(var(--text-lg) * 1.45)'
-          }}>
-            <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {chips}
-            </span>
-            {/* In a ROW the arrow has the chips beside it and the right edge
-                to anchor to, so a bare glyph reads correctly here. */}
-            <span className="ms" style={{ fontSize: 18, color: 'var(--text-faint)', flex: 'none' }}>
-              arrow_forward
-            </span>
-          </span>
-        )}
-      </span>
-    </button>
   )
 }
 
@@ -566,13 +420,16 @@ function BusinessDetail({ businessId, onBack, onOpenDeal, onOpenContact, onDelet
       <div style={{ marginBottom: 14 }}>
         <button
           onClick={onBack}
+          // Dark, like the shell's own Back chip — the design draws both the
+          // same, and they do the same thing at two levels.
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer',
             height: 32, padding: '0 var(--space-3)',
-            border: '1px solid var(--border-strong)',
+            border: 'none',
             borderRadius: 'var(--radius-pill)',
-            background: '#fff',
-            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', color: 'var(--text-body)'
+            background: 'var(--gray-800)',
+            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
+            color: '#fff'
           }}
         >
           <span className="ms" style={{ fontSize: 16 }}>arrow_back</span>
@@ -622,6 +479,10 @@ function BusinessDetail({ businessId, onBack, onOpenDeal, onOpenContact, onDelet
               onUnlinked={reload}
             />
           </div>
+
+          {/* Between the people and the conversation, where the design puts
+              it: what is owed to this business, before what was said. */}
+          <BusinessTasksPanel contacts={data.contacts} />
 
           <ConversationsPanel
             businessId={businessId}
@@ -705,6 +566,11 @@ function CompanyInfoPanel({ business: b, onSaved, onDelete }) {
   const [error, setError] = useState(null)
   const [errorField, setErrorField] = useState(null)
   const [saved, setSaved] = useState(false)
+  // Fields whose pencil was clicked — they show an input; the rest show their
+  // value. Edits still collect into ONE save (the design's Save button), so
+  // opening a field is not committing it.
+  const [open, setOpen] = useState(() => new Set())
+  const openField = (name) => setOpen((prev) => new Set(prev).add(name))
 
   const valueOf = (f) => (f.name in edits ? edits[f.name] : (f.value ?? ''))
 
@@ -730,6 +596,7 @@ function CompanyInfoPanel({ business: b, onSaved, onDelete }) {
 
   const revert = () => {
     setEdits({})
+    setOpen(new Set())
     setError(null)
     setErrorField(null)
   }
@@ -745,6 +612,7 @@ function CompanyInfoPanel({ business: b, onSaved, onDelete }) {
       // otherwise a value GHL normalised (a trimmed domain, an upper-cased
       // country) would keep showing what was typed.
       setEdits({})
+      setOpen(new Set())
       setSaved(true)
       window.setTimeout(() => setSaved(false), 2200)
       if (onSaved) onSaved(res.business || null)
@@ -760,77 +628,44 @@ function CompanyInfoPanel({ business: b, onSaved, onDelete }) {
     <Panel
       icon="domain"
       title={b.name}
-      accent="sky"
-      meta="Company Info"
+      // Plum, the business colour everywhere else — the list's header band,
+      // the grid's badge. No helper paragraph and no {{business.x}} merge
+      // keys: the design has neither, and the keys were developer detail.
+      accent="plum"
+      meta="Company info"
     >
-      <p
-        style={{
-          margin: 0, padding: '11px var(--space-4)',
-          borderTop: '1px solid var(--border-default)',
-          borderBottom: '1px solid var(--border-default)',
-          background: 'var(--gray-50)',
-          fontSize: 'var(--text-base)', lineHeight: 1.55, color: 'var(--text-muted)'
-        }}
-      >
-        Company Info fields — the bracketed key is the field identity. Edit
-        writes straight back to your CRM; the nightly sync reconciles anything
-        changed there
-        {b.lastSyncedAt ? ` (last synced ${formatDate(b.lastSyncedAt)})` : ''}.
-      </p>
-
-      <div
-        style={{
-          display: 'grid', gap: 14,
-          gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-          padding: 16
-        }}
-      >
-        {b.companyInfo.map((f) => (
-          <div key={f.name} style={{ minWidth: 0 }}>
-            <span
-              style={{
-                display: 'flex', alignItems: 'baseline', gap: 6,
-                marginBottom: 5, flexWrap: 'wrap'
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
-                  textTransform: 'uppercase', color: 'var(--text-muted)'
-                }}
-              >
-                {f.label}
-              </span>
-              <span
-                style={{
-                  fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)',
-                  color: 'var(--text-faint)'
-                }}
-              >
-                {f.key}
-              </span>
-            </span>
-            <FieldInput
-              field={f}
-              value={valueOf(f)}
-              onChange={(v) => setField(f.name, v)}
-              disabled={saving || f.writable === false}
-              invalid={errorField === f.name}
-              // Dirty marker per field, so with several edited it's clear which.
-              dirty={f.name in changes}
-            />
-            {errorField === f.name && (
-              <span
-                style={{
-                  display: 'block', marginTop: 4,
-                  fontSize: 'var(--text-sm)', color: 'var(--status-stuck-text)'
-                }}
-              >
-                {error}
-              </span>
-            )}
-          </div>
-        ))}
+      {/* THE DESIGN'S FIELD TABLE — three columns of label | value | ✎.
+          Description takes a full row; it is the one field that runs long. */}
+      <div style={{ padding: 'var(--space-3) var(--space-4)' }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+          border: '1px solid var(--border-default)',
+          borderRadius: 'var(--radius-sm)',
+          overflow: 'hidden',
+          // Each cell draws its own right/bottom rule; the container's border
+          // closes the last ones.
+          background: 'var(--border-default)', gap: 1
+        }}>
+          {COMPANY_FIELD_ORDER
+            .map(([name, icon]) => [b.companyInfo.find((f) => f.name === name), icon])
+            .filter(([f]) => f)
+            .map(([f, icon]) => (
+              <CompanyField
+                key={f.name}
+                field={f}
+                icon={icon}
+                value={valueOf(f)}
+                open={open.has(f.name) || errorField === f.name}
+                onOpen={() => openField(f.name)}
+                onChange={(v) => setField(f.name, v)}
+                disabled={saving || f.writable === false}
+                invalid={errorField === f.name}
+                dirty={f.name in changes}
+                error={errorField === f.name ? error : null}
+              />
+            ))}
+        </div>
       </div>
 
       {/* An error with no field of its own — a permission problem, a rename
@@ -930,11 +765,12 @@ function CompanyInfoPanel({ business: b, onSaved, onDelete }) {
           onClick={onDelete}
           disabled={saving}
           title="Delete this business"
+          // Round and red-edged, as the design draws it.
           style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: 34, height: 34,
-            border: '1px solid var(--border-strong)',
-            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--status-stuck)',
+            borderRadius: '50%',
             background: '#fff', color: 'var(--status-stuck)',
             cursor: saving ? 'default' : 'pointer'
           }}
@@ -961,6 +797,121 @@ const COUNTRY_OPTIONS = countryOptions()
 // small button beside the box. Making the value itself a link would mean you
 // couldn't click into it to edit — and losing "call this number" to gain
 // editing would be a bad trade.
+// The design's order and icon per Company info field. Fields the server
+// sends that are not listed here are not drawn.
+const COMPANY_FIELD_ORDER = [
+  ['name', 'domain'],
+  ['website', 'language'],
+  ['email', 'mail'],
+  ['phone', 'call'],
+  ['domainname', 'public'],
+  ['address', 'location_on'],
+  ['city', 'location_city'],
+  ['state', 'map'],
+  ['postalCode', 'markunread_mailbox'],
+  ['country', 'flag'],
+  ['description', 'notes']
+]
+
+// One cell of the field table: label | value | ✎.
+//
+// Shows the VALUE until its pencil is clicked, then FieldInput — the same
+// input the panel always used, so validation and the one-Save flow are
+// unchanged. Country is a picker in the design (a chevron, no pencil), so it
+// is always its Select. Description spans the full row.
+function CompanyField({ field: f, icon, value, open, onOpen, onChange, disabled, invalid, dirty, error }) {
+  const isSelect = f.type === 'select' || f.type === 'country'
+  const wide = f.type === 'multiline'
+  const empty = value == null || String(value).trim() === ''
+  const editing = open || isSelect
+  const linkable = !empty && !editing && ['url', 'email', 'phone', 'domain'].includes(f.type)
+  const href = !linkable ? null
+    : f.type === 'email' ? `mailto:${value}`
+      : f.type === 'phone' ? `tel:${String(value).replace(/\s+/g, '')}`
+        : withProtocol(value)
+
+  return (
+    <div style={{
+      gridColumn: wide ? '1 / -1' : undefined,
+      display: 'grid', gridTemplateColumns: '130px minmax(0, 1fr) auto',
+      background: '#fff', minWidth: 0
+    }}>
+      <span style={{
+        display: 'flex', alignItems: wide ? 'flex-start' : 'center', gap: 6,
+        padding: '9px 10px', minWidth: 0,
+        background: 'var(--gray-25)',
+        borderRight: '1px solid var(--border-default)'
+      }}>
+        <span className="ms" style={{ fontSize: 15, color: 'var(--text-muted)', flex: 'none' }}>{icon}</span>
+        <span className="pp-label" style={{ marginBottom: 0 }}>{f.label}</span>
+      </span>
+
+      <span style={{ display: 'grid', alignItems: 'center', padding: editing ? '5px 8px' : '9px 10px', minWidth: 0 }}>
+        {editing ? (
+          <FieldInput
+            field={f}
+            value={value}
+            onChange={onChange}
+            disabled={disabled}
+            invalid={invalid}
+            dirty={dirty}
+          />
+        ) : (
+          <span title={empty ? undefined : String(value)} style={{
+            fontSize: 'var(--text-md)',
+            color: empty ? 'var(--text-faint)' : 'var(--text-body)',
+            // The description keeps its line breaks; the rest stay one line.
+            whiteSpace: wide ? 'pre-wrap' : 'nowrap',
+            overflow: 'hidden', textOverflow: 'ellipsis', overflowWrap: 'anywhere'
+          }}>
+            {empty ? '…' : value}
+          </span>
+        )}
+        {error && (
+          <span style={{ display: 'block', marginTop: 4, fontSize: 'var(--text-sm)', color: 'var(--status-stuck-text)' }}>
+            {error}
+          </span>
+        )}
+      </span>
+
+      <span style={{ display: 'flex', alignItems: wide ? 'flex-start' : 'center', gap: 2, padding: '6px 8px 6px 0' }}>
+        {href && (
+          <a
+            href={href}
+            target={f.type === 'email' || f.type === 'phone' ? undefined : '_blank'}
+            rel="noreferrer noopener"
+            title={f.type === 'email' ? `Email ${value}` : f.type === 'phone' ? `Call ${value}` : `Open ${value}`}
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 24, height: 24, color: 'var(--text-muted)', textDecoration: 'none'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 15 }}>
+              {f.type === 'email' ? 'mail' : f.type === 'phone' ? 'call' : 'open_in_new'}
+            </span>
+          </a>
+        )}
+        {!isSelect && !open && (
+          <button
+            type="button"
+            onClick={onOpen}
+            disabled={disabled}
+            title={`Edit ${f.label.toLowerCase()}`}
+            aria-label={`Edit ${f.label.toLowerCase()}`}
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 24, height: 24, padding: 0, border: 'none', background: 'none',
+              color: 'var(--text-muted)', cursor: disabled ? 'default' : 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 16 }}>edit</span>
+          </button>
+        )}
+      </span>
+    </div>
+  )
+}
+
 function FieldInput({ field: f, value, onChange, disabled, invalid, dirty }) {
   const empty = value == null || value === ''
 
@@ -1178,7 +1129,9 @@ function ContactsPanel({ contacts, businessId, onOpenContact, onLinked, onUnlink
     <Panel
       icon="group"
       title="Contacts"
-      accent="clay"
+      // Sky, the contact colour — the design's band, and the same blue as
+      // every View CONTACT pill.
+      accent="sky"
       meta={`${contacts.length} ${contacts.length === 1 ? 'contact' : 'contacts'}`}
       action={
         adding ? (
@@ -1268,10 +1221,9 @@ function ContactsPanel({ contacts, businessId, onOpenContact, onLinked, onUnlink
                 ].filter(Boolean).join(' · ')}
               </span>
             </span>
-            <button onClick={() => onOpenContact?.(c.id)} style={ghostBtn}>
-              Record
-              <span className="ms" style={{ fontSize: 15 }}>arrow_forward</span>
-            </button>
+            {/* The shared View CONTACT pill, as the design draws it — the
+                same control every other surface uses to open a person. */}
+            <RecordPill kind="CONTACT" name={c.name} onClick={onOpenContact ? () => onOpenContact(c.id) : undefined} />
             {/* Icon only, and muted: unlinking is the rarer of the two
                 actions on this row, and a second full-width button beside
                 "Record" would read as its equal. */}
@@ -1285,7 +1237,7 @@ function ContactsPanel({ contacts, businessId, onOpenContact, onLinked, onUnlink
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 width: 30, height: 30, flex: 'none',
                 border: '1px solid var(--border-default)',
-                borderRadius: 'var(--radius-md)',
+                borderRadius: '50%',
                 background: 'var(--surface-card)',
                 color: 'var(--text-muted)',
                 cursor: busy ? 'default' : 'pointer'
@@ -1365,7 +1317,9 @@ function ConversationsPanel({ businessId, total, dealCount, onOpenDeal }) {
     <Panel
       icon="forum"
       title="Conversations"
-      accent="teal"
+      // Grey — the design's band. Teal was a sixth colour for a panel that
+      // is the page's reading area, not a kind of record.
+      accent="gray"
       meta={meta}
       toolbar={
         <>
@@ -1381,17 +1335,6 @@ function ConversationsPanel({ businessId, total, dealCount, onOpenDeal }) {
         </>
       }
     >
-      <p
-        style={{
-          margin: 0, padding: '11px var(--space-4)',
-          borderBottom: '1px solid var(--border-default)',
-          background: 'var(--gray-50)',
-          fontSize: 'var(--text-base)', lineHeight: 1.55, color: 'var(--text-muted)'
-        }}
-      >
-        Every conversation with any contact at this business, aggregated across
-        all its deals — the deal-by-deal view cannot show this.
-      </p>
 
       {error && <EmptyLine text={error} />}
       {items === null && !error && <ConversationSkeleton />}
@@ -1548,14 +1491,6 @@ function ChannelChip({ label, active, onClick }) {
 
 // ── Bits ──────────────────────────────────────────────────────────────
 
-const ghostBtn = {
-  display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer',
-  height: 30, padding: '0 11px', flex: 'none',
-  border: '1px solid var(--border-strong)',
-  borderRadius: 'var(--radius-pill)',
-  background: '#fff',
-  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', color: 'var(--text-body)'
-}
 
 function EmptyLine({ text }) {
   return (
