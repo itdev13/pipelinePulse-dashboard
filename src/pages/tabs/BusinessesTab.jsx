@@ -23,7 +23,9 @@ import BusinessTasksPanel from '../businesses/BusinessTasksPanel'
 // shared with the Deals header.
 function ToolbarField({ label, children }) {
   return (
-    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
+    // .pp-filter-field: the dropdown value and chevron weights — see the
+    // rule in dealhub-tokens.css.
+    <span className="pp-filter-field" style={{ display: 'inline-flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
       <span className="pp-label" style={{ marginBottom: 0 }}>{label}</span>
       {children}
     </span>
