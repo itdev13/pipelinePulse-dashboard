@@ -390,7 +390,14 @@ function Column({ stage, search, status, tag, assignedTo, sort, dir, onOpen, onO
       <div style={{
         flex: 1, overflowY: 'auto', minHeight: 80,
         padding: 'var(--space-2)', display: 'grid', gap: 'var(--space-2)',
-        alignContent: 'start'
+        alignContent: 'start',
+        // EVERY CARD AT ITS FULL HEIGHT; the column scrolls instead.
+        //
+        // Without this the rows are `auto` inside a fixed-height column, and
+        // a card with overflow:hidden has a minimum height of zero — so when
+        // a column held more cards than fit, the grid SHRANK each card to
+        // share the height out, cutting them off after two field rows.
+        gridAutoRows: 'max-content'
       }}>
         {error && (
           <p style={{ margin: 0, fontSize: 'var(--text-base)', color: 'var(--status-stuck-text)' }}>

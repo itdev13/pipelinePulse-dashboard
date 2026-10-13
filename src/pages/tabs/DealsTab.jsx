@@ -700,6 +700,13 @@ export default function DealsTab({ onOpenDeal, onOpenContact, onOpenBusiness, in
           16px gap: the page read as four loose cards, not one panel. */}
       <div style={{
         display: 'grid', gap: 'var(--space-3)',
+        // ONE COLUMN, NO WIDER THAN THE PANEL. An implicit `auto` column
+        // grows to its widest child's content — and with every pipeline in
+        // scope the strip and the board carry fifteen-odd stages, so it grew
+        // past the screen and pushed the whole page sideways (the nav was cut
+        // off on the left). minmax(0, 1fr) caps it; the strip and the board
+        // each scroll sideways inside their own box instead.
+        gridTemplateColumns: 'minmax(0, 1fr)',
         padding: 'var(--space-3)',
         background: 'var(--gray-100)',
         minWidth: 0
