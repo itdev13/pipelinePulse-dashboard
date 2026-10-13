@@ -7,11 +7,9 @@ Controls from the October 2026 designs that are on screen but don't fully work y
 | Tab | Control | What it does now | What's missing |
 |---|---|---|---|
 | Contacts | **Add contact** button | Shows "Adding contacts from here is not available yet — add them in your CRM" | No create-contact API (`contactsAPI` has list/get/update only). Needs `POST /api/contacts`. |
-| Contacts (grid + list) | **Selection checkboxes** (per card, per row, header select-all) | Selecting shows the bulk bar. **Add tag**, **Export** (CSV of the selected rows) and **Clear** work | See the three bulk actions below. |
+| Contacts (grid + list) | **Selection checkboxes** (per card, per row, header select-all) | Selecting shows the bulk bar. **Add tag** and **Clear** work. Bulk Change type and Export were removed (Oct 2026, client request) | See the bulk actions below. |
 | Contacts | Bulk **Assign owner** | Says "not available yet — do it in your CRM" | Nothing in the frontend writes a contact's owner. Confirm whether `PATCH /api/contacts/:id` accepts `assignedTo`; if so, loop it per contact like Add tag. |
-| Contacts | Bulk **Change type** | Says "not available yet" | Same blocker as the Type pencil — no confirmed write path for contact type. |
 | Contacts | Bulk **Delete** | Says "not available yet" | No delete-contact API. Needs `DELETE /api/contacts/:id` (and a confirm dialog, since it can't be undone). |
-| Contacts | Bulk **Export** | Downloads a CSV built in the browser | Works, but a CSV download from inside the GHL iframe depends on the iframe allowing downloads. Check it in GHL; if blocked, the export needs a server route. |
 | Contacts (grid) | **Type** row pencil | Shows "Type is a custom field in your CRM — change it there." | Type is a GHL custom field; `PATCH /api/contacts/:id` rejects it (server `contactPatch` drops it). Needs a custom-field write path. |
 | Contact record | **Contact type** dropdown | You can pick Lead or Customer, but Save never sends it (it is left out of the save on purpose) | Was already the case before the redesign. One code comment says GHL accepts `type` on the contact, another says the update endpoint drops it. Confirm what the backend's `contactPatch` does with `contactType`, then either send it or make the cell read-only. |
 | Contact record | **Timezone** cell | Editable and sent with Save | New in the redesign. The frontend maps `timezone` both ways, but it is unconfirmed that the backend's `contactPatch` accepts it. If it doesn't, Save shows the error. |

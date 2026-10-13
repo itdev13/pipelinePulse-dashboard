@@ -653,20 +653,20 @@ const SHOW_ON_CARDS = [
   { key: 'notes', label: 'Notes', colour: 'var(--accent-brown)', tint: 'var(--tint-gold)' }
 ]
 
-// The bulk action bar — "1 selected | Add tag · Assign owner · Change type ·
-// Export · Delete | Clear", as the October 2026 list design draws it.
+// The bulk action bar — "1 selected | Add tag · Assign owner · Delete |
+// Clear".
 //
-// WORKING: Add tag (the additive tag endpoint, once per contact), Export (a
-// CSV built here from the rows already loaded) and Clear.
-// NOT YET: Assign owner, Change type and Delete say so instead of acting —
-// no endpoint is confirmed for any of them. See PENDING_FUNCTIONALITY.md.
+// Change type and Export were REMOVED (Oct 2026, at the client's request).
+// The October design drew both; Change type had no confirmed write path for
+// contact type, and Export's CSV download depended on the GHL iframe
+// allowing downloads.
 //
 // `selected` is the selected contacts that are LOADED; `count` is every id
 // selected. They differ only if a selection outlives a filter change.
 function BulkBar({ selected, count, tagList, onClear, onNotice, onPatch, onReload }) {
   // The two pickers and the delete confirm. One at a time — a second
   // control opening beside the first would be two half-finished actions.
-  const [picking, setPicking] = useState(null)   // 'owner' | 'type' | null
+  const [picking, setPicking] = useState(null)   // 'owner' | null
   const [users, setUsers] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -809,22 +809,6 @@ function BulkBar({ selected, count, tagList, onClear, onNotice, onPatch, onReloa
       ) : (
         <BulkButton icon="person_add" onClick={() => setPicking('owner')} disabled={busy}>Assign owner</BulkButton>
       )}
-      {picking === 'type' ? (
-        <Select
-          autoFocus
-          defaultOpen
-          placeholder="Change type to…"
-          options={CONTACT_TYPES}
-          onChange={(v) => applyToAll('Changed the type of', { contactType: v }, { contactType: v })}
-          onOpenChange={(o) => { if (!o) setPicking(null) }}
-          popupClassName="pp-menu"
-          style={{ width: 170 }}
-          styles={{ root: { height: 32 } }}
-        />
-      ) : (
-        <BulkButton icon="swap_horiz" onClick={() => setPicking('type')} disabled={busy}>Change type</BulkButton>
-      )}
-      <BulkButton icon="download" onClick={() => exportCsv(selected)}>Export</BulkButton>
       <BulkButton icon="delete" danger onClick={() => setConfirmDelete(true)} disabled={busy || deleting}>
         {deleting ? 'Deleting…' : 'Delete'}
       </BulkButton>
@@ -875,34 +859,6 @@ function BulkButton({ icon, children, onClick, danger, disabled }) {
       {children}
     </button>
   )
-}
-
-// The selected contacts as a CSV download, built here from what the list
-// already holds — no server round trip, and exactly the rows the rep ticked.
-function exportCsv(contacts) {
-  const cell = (v) => {
-    const s = v == null ? '' : String(v)
-    // Quote anything with a comma, quote or newline; double inner quotes.
-    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-  }
-  const header = ['Name', 'Type', 'Email', 'Phone', 'Business', 'Address', 'Tags',
-    'Open tasks', 'Notes', 'Deals']
-  const rows = contacts.map((c) => [
-    c.name, c.contactType, c.email, c.phone,
-    c.businessName || c.business, c.address,
-    (c.tags || []).join('; '),
-    c.openTaskCount || 0, c.noteCount || 0,
-    (c.deals || []).map((d) => d.name).join('; ')
-  ])
-  const csv = [header, ...rows].map((r) => r.map(cell).join(',')).join('\r\n')
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `contacts-${new Date().toISOString().slice(0, 10)}.csv`
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
 }
 
 function ShowOnCards({ value, onChange }) {
