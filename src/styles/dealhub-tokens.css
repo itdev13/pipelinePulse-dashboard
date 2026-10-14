@@ -2678,6 +2678,29 @@
   background: var(--surface-card);
   font-size: var(--text-base);
   color: var(--text-body);
+  /* ONE LINE, never wider than its cell. The pill is a fixed 24px tall, and
+   * without these a long tag ("another-device-replied-whatsapp") wrapped to
+   * two lines inside it and spilled over the pill below. The name ellipsises
+   * in .pp-cc-tag-text; the full name is the pill's title. */
+  max-width: 100%;
+  min-width: 0;
+  white-space: nowrap;
+}
+[data-dealhub] .pp-cc-tag-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* "+3 more" / "Show less" under a capped tag list. */
+[data-dealhub] .pp-cc-tag-more {
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--accent-sky-text);
+  cursor: pointer;
 }
 
 [data-dealhub] .pp-cc-tag-x {

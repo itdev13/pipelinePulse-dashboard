@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useModal } from '../../hooks/useModal'
-import { DatePicker, Input } from 'antd'
+import { DatePicker, Input, Select } from 'antd'
+import { useAuth } from '../../context/AuthContext'
+import { useUsers } from './ListFilters'
 import dayjs from 'dayjs'
 import { tasksAPI } from '../../api/tasks'
 import ContactPicker from './ContactPicker'
@@ -133,6 +135,28 @@ export default function TaskEditor({
   const [dueDate, setDueDate] = useState(
     task?.dueAt ? dayjs(task.dueAt) : null
   )
+
+  // ASSIGN TO — who the task is for (client request, Oct 2026). Without it
+  // every task made here was unassigned, so filtering Tasks by a salesperson
+  // never found it.
+  //
+  // A NEW task defaults to the signed-in user: most tasks are made for
+  // yourself, and it is the default that keeps the filter honest. An EDIT
+  // starts from the task's assignee — its id when the list sends one, else
+  // the user whose name matches `owner` (older servers send only the name).
+  // undefined = not resolved yet; nothing is sent for it until it is.
+  const { session } = useAuth()
+  const users = useUsers()
+  const [assignee, setAssignee] = useState(() => (
+    editing ? (task.assignedTo ?? (task.owner ? undefined : null)) : (session?.user?.id || null)
+  ))
+  const [initialAssignee, setInitialAssignee] = useState(() => (editing ? (task.assignedTo ?? undefined) : null))
+  useEffect(() => {
+    if (!editing || assignee !== undefined || !users.length) return
+    const match = users.find((u) => (u.name || '').toLowerCase() === String(task.owner || '').toLowerCase())
+    setAssignee(match ? match.id : null)
+    setInitialAssignee(match ? match.id : null)
+  }, [editing, assignee, users, task])
   // A new task's due date is a commitment being made now — it can't be in
   // the past. Kept as `useMemo` (not a plain function) only so the identity
   // is stable across renders; antd re-invokes disabledDate on every open
@@ -196,8 +220,12 @@ export default function TaskEditor({
     const sameDue = (!wasDue && !dueDate)
       || (wasDue && dueDate && wasDue.isSame(dueDate, 'minute'))
     if (!sameDue) out.dueDate = dueDate ? dueDate.toISOString() : null
+    // null clears the assignee — taskPatch accepts it as "unassigned".
+    if (assignee !== undefined && (assignee || null) !== (initialAssignee ?? (task.assignedTo || null))) {
+      out.assignedTo = assignee || null
+    }
     return out
-  }, [editing, task, title, body, dueDate])
+  }, [editing, task, title, body, dueDate, assignee, initialAssignee])
 
   // Relations count as changes, but are NOT part of `changes`: that object is
   // the task PATCH body and the server rejects unknown fields there. They go
@@ -259,6 +287,7 @@ export default function TaskEditor({
           title: title.trim(),
           body: body.trim() || undefined,
           dueDate: dueDate.toISOString(),
+          assignedTo: assignee || undefined,
           // NOT sent on create: the server would forward them to GHL's
           // relations endpoint, which rejects every task relation write. The
           // links are applied locally straight after instead.
@@ -286,7 +315,18 @@ export default function TaskEditor({
           return
         }
       }
-      onSaved(res.task || null)
+      // The assignee as we SENT it, id and display name, so the caller can
+      // repaint its row now — GHL's echo carries the id but not the name, and
+      // the row's chip shows the name.
+      const assignedPatch = editing && changes && 'assignedTo' in changes
+        ? {
+            assignedTo: changes.assignedTo,
+            owner: changes.assignedTo
+              ? ((users.find((u) => u.id === changes.assignedTo) || {}).name || null)
+              : null
+          }
+        : null
+      onSaved(res.task ? { ...res.task, ...(assignedPatch || {}) } : null)
       onClose()
     } catch (err) {
       setError(err.message || 'Could not save that — try again')
@@ -523,6 +563,30 @@ export default function TaskEditor({
               </Field>
             )}
           </div>
+
+          {/* ASSIGN TO — the user the task is for. Full width, as GHL's own
+              task panel draws it. Searchable: a sub-account can have dozens. */}
+          <Field label="Assign to" error={errorField === 'assignedTo' ? error : null}>
+            <Select
+              value={assignee === undefined ? undefined : (assignee || '')}
+              onChange={(v) => setAssignee(v || null)}
+              disabled={saving}
+              loading={assignee === undefined}
+              showSearch
+              optionFilterProp="label"
+              placeholder="Select assignee"
+              options={[
+                { value: '', label: 'Unassigned' },
+                ...users.map((u) => ({
+                  value: u.id,
+                  label: (u.name || u.email || u.id) + (u.id === session?.user?.id ? ' (you)' : '')
+                }))
+              ]}
+              status={errorField === 'assignedTo' ? 'error' : undefined}
+              popupClassName="pp-menu"
+              style={{ width: '100%' }}
+            />
+          </Field>
 
           {/* A task belongs to a contact, and that's worth saying once rather
               than leaving the rep to wonder why a deal isn't enough.

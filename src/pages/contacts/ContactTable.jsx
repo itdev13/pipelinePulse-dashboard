@@ -487,9 +487,16 @@ function AddressCell({ value, onSave }) {
 // Tags as stacked chips, removable on hover, with a quiet + to add one. The
 // tag endpoints are ADDITIVE — see contactsAPI.addTags — so each change is
 // its own write rather than a replacement of the whole list.
+// How many tags a row shows before "+N more". A contact with eight tags made
+// its row four times the height of its neighbours.
+const ROW_TAG_LIMIT = 2
+
 function TagsCell({ contactId, tags, tagList, onAdd, onRemove }) {
   const [adding, setAdding] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   const listId = `pp-row-tags-${contactId}`
+  const hiddenCount = Math.max(0, tags.length - ROW_TAG_LIMIT)
+  const visible = expanded ? tags : tags.slice(0, ROW_TAG_LIMIT)
 
   const add = (tag) => {
     setAdding(false)
@@ -498,10 +505,10 @@ function TagsCell({ contactId, tags, tagList, onAdd, onRemove }) {
   }
 
   return (
-    <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-      {tags.map((t) => (
-        <span key={t} className="pp-cc-tag">
-          {t}
+    <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, minWidth: 0, maxWidth: '100%' }}>
+      {visible.map((t) => (
+        <span key={t} className="pp-cc-tag" title={t}>
+          <span className="pp-cc-tag-text">{t}</span>
           <button
             className="pp-cc-tag-x"
             onClick={() => onRemove(t, tags.filter((x) => x !== t))}
@@ -512,6 +519,16 @@ function TagsCell({ contactId, tags, tagList, onAdd, onRemove }) {
           </button>
         </span>
       ))}
+      {hiddenCount > 0 && (
+        <button
+          type="button"
+          className="pp-cc-tag-more"
+          onClick={() => setExpanded((v) => !v)}
+          title={expanded ? undefined : tags.slice(ROW_TAG_LIMIT).join(', ')}
+        >
+          {expanded ? 'Show less' : `+${hiddenCount} more`}
+        </button>
+      )}
       {adding ? (
         <>
           <CellInput

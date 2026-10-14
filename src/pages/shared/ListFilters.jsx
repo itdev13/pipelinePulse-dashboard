@@ -43,7 +43,8 @@ export function resolveOwner(value) {
 // for a list that had not changed.
 const USER_CACHE = { users: null, promise: null }
 
-function useUsers() {
+// Exported for the task editor's Assign to picker — one cached user list.
+export function useUsers() {
   const [users, setUsers] = useState(USER_CACHE.users || [])
   useEffect(() => {
     // NO EARLY RETURN WHEN THE CACHE IS WARM.

@@ -472,6 +472,8 @@ export default function DealHubShell() {
             openContactId={openContactId}
             onContactViewed={() => setOpenContactId(null)}
             onNavigate={noteInternalMove}
+            // The contact record's Tasks / Notes "All →" links.
+            onOpenTab={(tab) => navigate({ tab })}
           />
         )}
         {/* Deal chips on tasks + notes jump to that deal in the hub, which

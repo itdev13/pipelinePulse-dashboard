@@ -12,11 +12,13 @@ import AttachmentChip from '../dealhub/AttachmentChip'
 import AttachmentViewer from '../dealhub/AttachmentViewer'
 import MessageDealPill from '../dealhub/MessageDealPill'
 import BusinessPickerModal from '../shared/BusinessPickerModal'
+import { DealTasksSection, DealNotesSection } from '../dealhub/DealTasksSection'
 
 // Contact record — everything about one person, in five panels:
 //
 //   Details     identity, tags and the editable fields, in one record card
 //   Deals       which opportunities they're on
+//   Tasks and notes  everything filed against this person, side by side
 //   All messages     every message, with the deal it's filed to
 //   Do not disturb   per-channel switches
 //   Custom fields    GHL's own folders
@@ -51,7 +53,7 @@ function fromGhl(c) {
   return Object.keys(out).length ? out : null
 }
 
-export default function ContactDetail({ contactId, onBack, onOpenDeal }) {
+export default function ContactDetail({ contactId, onBack, onOpenDeal, onOpenTab }) {
   const [contact, setContact] = useState(null)
   const [error, setError] = useState(null)
 
@@ -104,7 +106,8 @@ export default function ContactDetail({ contactId, onBack, onOpenDeal }) {
 
   return (
     <Shell onBack={onBack}>
-      {/* PANEL ORDER: Details, Deals, All messages, Do not disturb, Custom
+      {/* PANEL ORDER: Details, Deals, Tasks and notes, All messages, Do not
+          disturb, Custom
           fields. Asked for directly, and it reads as the order a rep works
           in: who they are, what they are buying, what has been said — then
           the two panels that are settings and reference rather than the
@@ -114,6 +117,7 @@ export default function ContactDetail({ contactId, onBack, onOpenDeal }) {
         onSaved={(patch) => setContact((c) => ({ ...c, ...patch }))}
       />
       <Deals deals={contact.deals} onOpenDeal={onOpenDeal} />
+      <TasksAndNotes contactId={contactId} contact={contact} onOpenTab={onOpenTab} />
       <AllMessages
         contactId={contactId}
         deals={contact.deals || []}
@@ -129,6 +133,40 @@ export default function ContactDetail({ contactId, onBack, onOpenDeal }) {
         onSaved={(groups) => setContact((c) => ({ ...c, customFieldGroups: groups }))}
       />
     </Shell>
+  )
+}
+
+// EVERY TASK AND NOTE FILED AGAINST THIS PERSON, side by side — the client
+// asked for them on the contact record (Oct 2026). The Deal hub's own rails,
+// scoped to the contact: the same list, editor, tick-to-complete and delete,
+// so a task changed here behaves exactly as it does on a deal. Equal halves;
+// they stack on a narrow screen.
+function TasksAndNotes({ contactId, contact, onOpenTab }) {
+  // The rails create against one of `people`; here that is this contact.
+  const people = [{
+    id: contactId,
+    firstName: contact.firstName,
+    lastName: contact.lastName,
+    email: contact.email,
+    primary: true
+  }]
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+      gap: 14, alignItems: 'start', minWidth: 0
+    }}>
+      <DealTasksSection
+        contactId={contactId}
+        people={people}
+        onOpenAll={onOpenTab ? () => onOpenTab('tasks') : undefined}
+      />
+      <DealNotesSection
+        contactId={contactId}
+        people={people}
+        onOpenAll={onOpenTab ? () => onOpenTab('notes') : undefined}
+      />
+    </div>
   )
 }
 

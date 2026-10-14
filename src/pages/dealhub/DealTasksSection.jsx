@@ -27,10 +27,14 @@ import { noteColourStyle } from '../../utils/noteColour'
 // from here needs a person picked from the deal — which is why `people` is
 // passed in.
 
-export function DealTasksSection({ dealId, people = [], onOpenAll }) {
+// SCOPED TO A DEAL OR TO A CONTACT. The Deal hub passes dealId; the contact
+// record passes contactId (and no dealId) to list everything filed against
+// that person — the same rail, the same editor, the same save paths.
+export function DealTasksSection({ dealId = null, contactId = null, people = [], onOpenAll }) {
+  const scope = dealId ? 'deal' : 'contact'
   const { items, loading, error, patchItem, reload, reloadSoon } = useDealList(
-    dealId,
-    (id) => tasksAPI.list({ dealId: id, status: 'all', limit: 50 }),
+    dealId || contactId,
+    (id) => tasksAPI.list({ ...(dealId ? { dealId: id } : { contactId: id }), status: 'all', limit: 50 }),
     'tasks'
   )
 
@@ -159,7 +163,9 @@ export function DealTasksSection({ dealId, people = [], onOpenAll }) {
             onNew={() => setEditor({ task: null })}
             newDisabledReason={
               people.length === 0
-                ? 'This deal has no contacts, and a task is stored against a contact'
+                ? (scope === 'deal'
+                  ? 'This deal has no contacts, and a task is stored against a contact'
+                  : 'No contact to attach the task to')
                 : null
             }
           />
@@ -168,7 +174,7 @@ export function DealTasksSection({ dealId, people = [], onOpenAll }) {
       loading={loading}
       error={error}
       empty={!loading && items.length === 0}
-      emptyText="No tasks on this deal yet."
+      emptyText={scope === 'deal' ? 'No tasks on this deal yet.' : 'No tasks for this contact yet.'}
     >
       {/* An empty result from a filter is different from an empty deal — say
           which, or the Completed tab on a deal with two open tasks looks
@@ -356,14 +362,16 @@ export function DealTasksSection({ dealId, people = [], onOpenAll }) {
           // when wrong. Showing it pre-filled states the answer; changing it
           // is then a deliberate act, not an accident waiting to happen.
           deals={linkTargets.deals}
-          defaultOpportunityId={dealId}
+          defaultOpportunityId={dealId || null}
           onClose={() => setEditor(null)}
           onSaved={(saved) => {
             if (editor.task && saved) {
               patchItem((x) => x.id === editor.task.id, {
                 title: saved.title ?? editor.task.title,
                 body: saved.body ?? editor.task.body,
-                dueAt: saved.dueDate ?? editor.task.dueAt
+                dueAt: saved.dueDate ?? editor.task.dueAt,
+                // Present only when the editor changed the assignee.
+                ...('owner' in saved ? { owner: saved.owner, assignedTo: saved.assignedTo } : {})
               })
             } else {
               // A new task arrives via the CRM's webhook, so refetch rather
@@ -381,10 +389,12 @@ export function DealTasksSection({ dealId, people = [], onOpenAll }) {
 // `onNoteSaved(noteId, patch)` lets the page patch its OTHER copy of the note —
 // the timeline renders the same note from its own fetch, and without this it
 // kept showing the pre-edit text after the rail had updated.
-export function DealNotesSection({ dealId, people = [], onOpenAll, onNoteSaved }) {
+// Deal or contact scope — see DealTasksSection.
+export function DealNotesSection({ dealId = null, contactId = null, people = [], onOpenAll, onNoteSaved }) {
+  const scope = dealId ? 'deal' : 'contact'
   const { items, loading, error, patchItem, reload, reloadSoon } = useDealList(
-    dealId,
-    (id) => notesAPI.list({ dealId: id, limit: 50 }),
+    dealId || contactId,
+    (id) => notesAPI.list({ ...(dealId ? { dealId: id } : { contactId: id }), limit: 50 }),
     'notes'
   )
 
@@ -469,7 +479,9 @@ export function DealNotesSection({ dealId, people = [], onOpenAll, onNoteSaved }
             onNew={() => setEditor({ note: null })}
             newDisabledReason={
               people.length === 0
-                ? 'This deal has no contacts, and a note is stored against a contact'
+                ? (scope === 'deal'
+                  ? 'This deal has no contacts, and a note is stored against a contact'
+                  : 'No contact to attach the note to')
                 : null
             }
           />
@@ -478,7 +490,7 @@ export function DealNotesSection({ dealId, people = [], onOpenAll, onNoteSaved }
       loading={loading}
       error={error}
       empty={!loading && items.length === 0}
-      emptyText="No notes on this deal yet."
+      emptyText={scope === 'deal' ? 'No notes on this deal yet.' : 'No notes for this contact yet.'}
     >
       {shown.map((n, i) => {
         // The note's OWN title when the author gave one — the server has
@@ -623,7 +635,7 @@ export function DealNotesSection({ dealId, people = [], onOpenAll, onNoteSaved }
           // is pre-filled with this rail's, so the rep can see what the note
           // is attached to and change it if it is wrong.
           deals={linkTargets.deals}
-          defaultOpportunityId={dealId}
+          defaultOpportunityId={dealId || null}
           // How many notes are already pinned on the target contact, so the pin
           // toggle can say when there's no room rather than failing on save.
           pinnedCount={
@@ -646,7 +658,9 @@ export function DealNotesSection({ dealId, people = [], onOpenAll, onNoteSaved }
             // NoteUpdate webhook had landed — so the old text stayed on
             // screen until a manual refresh. NoteEditor adds opportunityId
             // to `saved` itself when the deal link really changed.
-            const movedAway = editor.note && saved && 'opportunityId' in saved
+            // Only a DEAL-scoped rail loses a note by moving it: the contact
+            // rail lists the note whatever deal it is filed against.
+            const movedAway = scope === 'deal' && editor.note && saved && 'opportunityId' in saved
               && (saved.opportunityId ?? null) !== (editor.note.opportunityId ?? null)
             if (editor.note && saved && !movedAway) {
               // `applied` first: GHL's note PUT does not reliably echo
@@ -1012,7 +1026,8 @@ function RailFooter({ newLabel, allLabel, onNew, onAll, newDisabledReason }) {
         disabled={!live}
         title={
           newDisabledReason
-            || (live ? `${newLabel} on this deal` : 'Creating writes back to your CRM — coming next')
+            // Scope-neutral: the rail also lives on the contact record.
+            || (live ? newLabel : 'Creating writes back to your CRM — coming next')
         }
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,

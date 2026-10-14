@@ -594,7 +594,9 @@ export default function TasksTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
               patchItem((x) => x.id === editor.task.id, {
                 title: saved.title ?? editor.task.title,
                 body: saved.body ?? editor.task.body,
-                dueAt: saved.dueDate ?? editor.task.dueAt
+                dueAt: saved.dueDate ?? editor.task.dueAt,
+                // Present only when the editor changed the assignee.
+                ...('owner' in saved ? { owner: saved.owner, assignedTo: saved.assignedTo } : {})
               })
               setToast('Task saved')
             } else {

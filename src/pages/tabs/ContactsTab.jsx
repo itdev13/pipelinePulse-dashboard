@@ -28,7 +28,9 @@ export default function ContactsTab({
   // Opening a card is navigation the shell never sees — it happens entirely
   // inside this tab. Report it so the Back button has a step to return to,
   // and so pressing Back doesn't restore a record the user has already left.
-  onNavigate
+  onNavigate,
+  // Switch to another tab — the contact record's "All tasks →" / "All notes →".
+  onOpenTab
 }) {
   // Which contact's record is open. Null = the grid. Local navigation within
   // this tab, except when another tab hands us a contact to open (a contact
@@ -225,6 +227,7 @@ export default function ContactsTab({
           if (onNavigate) onNavigate({ contactId: null })
         }}
         onOpenDeal={onOpenDeal}
+        onOpenTab={onOpenTab}
       />
     )
   }
@@ -1174,8 +1177,10 @@ function TagsRow({ contact, tagList, disabled, onChanged }) {
         </span>
         <span className="pp-cc-tags">
           {tags.map((t) => (
-            <span key={t} className="pp-cc-tag">
-              {t}
+            <span key={t} className="pp-cc-tag" title={t}>
+              {/* The text in its own span so a long name ellipsises on one
+                  line instead of wrapping inside the 24px pill. */}
+              <span className="pp-cc-tag-text">{t}</span>
               <button
                 className="pp-cc-tag-x"
                 onClick={() => remove(t)}
