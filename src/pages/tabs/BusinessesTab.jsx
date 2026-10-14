@@ -641,13 +641,19 @@ function CompanyInfoPanel({ business: b, onSaved, onDelete }) {
       <div style={{ padding: 'var(--space-3) var(--space-4)' }}>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+          // AT MOST THREE COLUMNS, the design's. Each column's minimum is a
+          // third of the row (or 300px, whichever is larger), so a wide screen
+          // cannot fit a fourth — plain auto-fit at 300px put four or five
+          // across, and the fields wrapped into different places from the
+          // design. Narrow screens still drop to two, then one.
+          gridTemplateColumns: 'repeat(auto-fit, minmax(max(300px, calc((100% - 2px) / 3)), 1fr))',
           border: '1px solid var(--border-default)',
           borderRadius: 'var(--radius-sm)',
           overflow: 'hidden',
-          // Each cell draws its own right/bottom rule; the container's border
-          // closes the last ones.
-          background: 'var(--border-default)', gap: 1
+          // White, with each cell drawing its own right and bottom rule. The
+          // old grey-background-through-a-1px-gap trick painted any empty
+          // space at the end of a row grey — the gap beside Country.
+          background: '#fff'
         }}>
           {COMPANY_FIELD_ORDER
             .map(([name, icon]) => [b.companyInfo.find((f) => f.name === name), icon])
@@ -836,7 +842,11 @@ function CompanyField({ field: f, icon, value, open, onOpen, onChange, disabled,
     <div style={{
       gridColumn: wide ? '1 / -1' : undefined,
       display: 'grid', gridTemplateColumns: '130px minmax(0, 1fr) auto',
-      background: '#fff', minWidth: 0
+      background: '#fff', minWidth: 0,
+      // This cell's right and bottom rules. Drawn as an inset-free shadow so
+      // they sit on the cell's edge without changing its size; the table's
+      // own border and overflow:hidden absorb the outermost ones.
+      boxShadow: '1px 0 0 var(--border-default), 0 1px 0 var(--border-default)'
     }}>
       <span style={{
         display: 'flex', alignItems: wide ? 'flex-start' : 'center', gap: 6,
@@ -1175,7 +1185,9 @@ function ContactsPanel({ contacts, businessId, onOpenContact, onLinked, onUnlink
               cursor: 'pointer'
             }}
           >
-            <span className="ms" style={{ fontSize: 15 }}>person_add</span>
+            {/* Coloured: the contact blue, matching the panel's header and
+                its View CONTACT pills — it inherited the button's grey. */}
+            <span className="ms" style={{ fontSize: 15, color: 'var(--accent-sky)' }}>person_add</span>
             Link a contact
           </button>
         )
