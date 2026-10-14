@@ -114,7 +114,11 @@ export default function DealHubShell() {
   // Restored once, on the first render, from where we were before a reload.
   // Lazy initialisers so localStorage is read once rather than every render.
   const restored = useRef(readPosition(location?.id)).current
-  const [activeTab, setActiveTab] = useState(() => restored?.tab || 'hub')
+  // HOME when nothing is remembered — a first visit, a new browser, an
+  // incognito window. It fell back to the Deal hub, which predates Home and
+  // opened a new user on an empty deal picker. A remembered tab still wins,
+  // so a refresh returns to where the rep was.
+  const [activeTab, setActiveTab] = useState(() => restored?.tab || 'home')
   const [selectedDealId, setSelectedDealId] = useState(() => restored?.dealId || null)
   // Location-wide totals for the top-nav pill counters. One fetch on mount.
   // Matches what each tab actually shows (Deals 343 = every open opp, etc).
