@@ -489,6 +489,8 @@ function ActionFields({ actionType, fields, setField }) {
           channel={fields.type}
           value={fields.conversationProviderId ?? null}
           onChange={(id) => setField('conversationProviderId', id)}
+          // An email always shows its From, even with nothing to choose.
+          alwaysShow={isEmail}
         />
         {/* A reply says what it is replying to. The server threads it onto
             that email (replyMessageId + threadId), so the rep should see the

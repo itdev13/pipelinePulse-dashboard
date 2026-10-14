@@ -34,7 +34,10 @@ const DOT = {
   WhatsApp: 'var(--accent-pine)',
 }
 
-export default function SenderPicker({ channel, value, onChange, disabled = false }) {
+// `alwaysShow` keeps the control on screen when there is exactly one sender,
+// as a static line rather than a dropdown. Email composers pass it: an email
+// with no visible From reads as a gap, where an SMS with none is normal.
+export default function SenderPicker({ channel, value, onChange, disabled = false, alwaysShow = false }) {
   const [channels, setChannels] = useState(null)
   const [error, setError] = useState(false)
   const [open, setOpen] = useState(false)
@@ -84,7 +87,11 @@ export default function SenderPicker({ channel, value, onChange, disabled = fals
     }
   }, [open])
 
-  if (error || !group || options.length <= 1) return null
+  if (error || !group || options.length === 0) return null
+  if (options.length <= 1 && !alwaysShow) return null
+  // One sender and asked to show it: the same label and pill, no caret, no
+  // menu — nothing to pick, so nothing that looks pickable.
+  const single = options.length <= 1
 
   const collides = group.hasCollision
   const dot = DOT[channel] || 'var(--accent-gray-text)'
@@ -116,17 +123,18 @@ export default function SenderPicker({ channel, value, onChange, disabled = fals
 
       <button
         type="button"
-        disabled={disabled}
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
+        disabled={disabled || single}
+        onClick={() => { if (!single) setOpen((v) => !v) }}
+        aria-haspopup={single ? undefined : 'listbox'}
+        aria-expanded={single ? undefined : open}
+        title={single ? 'The only sender set up for this channel' : undefined}
         style={{
           width: '100%', display: 'flex', alignItems: 'center', gap: 8,
           padding: '7px 10px', borderRadius: 8,
           border: `1px solid ${collides ? 'var(--border-prominent)' : 'var(--border-default)'}`,
           background: disabled ? 'var(--surface-sunken)' : 'var(--surface-card)',
           color: 'var(--text-body)', fontSize: 'var(--text-sm)',
-          cursor: disabled ? 'not-allowed' : 'pointer', textAlign: 'left',
+          cursor: disabled ? 'not-allowed' : single ? 'default' : 'pointer', textAlign: 'left',
           fontFamily: 'var(--font-sans)',
         }}
       >
@@ -137,7 +145,7 @@ export default function SenderPicker({ channel, value, onChange, disabled = fals
           {selected ? labelFor(selected, channel) : 'Default sender'}
         </Truncate>
         {selected && kindTag(selected, collides)}
-        <span style={{ color: 'var(--text-faint)', fontSize: 10 }}>▾</span>
+        {!single && <span style={{ color: 'var(--text-faint)', fontSize: 10 }}>▾</span>}
       </button>
 
       {open && (
