@@ -16,8 +16,12 @@ export default function SectionCard({
   children,
   footer
 }) {
-  const color = `var(--accent-${accent}-text)`
-  const tint = `var(--tint-${accent})`
+  // SOLID HEADER BAND, the Deal hub panels' look (Oct 2026): the accent at
+  // full strength, white title. It was a pale tint with accent-coloured text,
+  // which read as the old style beside every redesigned tab.
+  const band = `var(--panel-head-${accent}, var(--accent-${accent}))`
+  const color = '#fff'
+  const tint = band
 
   return (
     <section
@@ -34,7 +38,9 @@ export default function SectionCard({
       <header
         style={{
           display: 'flex', alignItems: 'center', gap: 9,
-          padding: 'var(--space-3) var(--space-4)'
+          padding: 'var(--space-3) var(--space-4)',
+          background: band,
+          borderBottom: `1px solid var(--panel-head-${accent}-border, var(--border-default))`
         }}
       >
         <span className="ms" style={{ fontSize: 20, color }}>{icon}</span>
@@ -42,23 +48,27 @@ export default function SectionCard({
           {title}
         </h2>
         {meta && (
-          <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>{meta}</span>
+          <span style={{ fontSize: 'var(--text-md)', color: 'rgba(255,255,255,0.92)' }}>{meta}</span>
+        )}
+        {/* THE HELP TEXT AS AN ⓘ, not a paragraph. Every redesigned panel
+            dropped its explanatory band; this keeps the explanation one hover
+            (or keyboard focus) away instead of a grey strip under every
+            header. */}
+        {help && (
+          <span
+            tabIndex={0}
+            role="img"
+            aria-label={help}
+            title={help}
+            style={{
+              display: 'inline-flex', flex: 'none', cursor: 'help',
+              color: 'rgba(255,255,255,0.92)'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 18 }}>info</span>
+          </span>
         )}
       </header>
-
-      {help && (
-        <p
-          style={{
-            margin: 0, padding: '10px var(--space-4)',
-            borderTop: '1px solid var(--border-default)',
-            borderBottom: '1px solid var(--border-default)',
-            background: 'var(--gray-50)',
-            fontSize: 'var(--text-base)', lineHeight: 1.5, color: 'var(--text-body)'
-          }}
-        >
-          {help}
-        </p>
-      )}
 
       {children}
 
