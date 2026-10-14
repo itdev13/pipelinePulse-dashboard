@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import PanelHead from './PanelHead'
 import { RichBody, StateMessage, AttachmentCount, Truncate, formatDue } from '../shared/ListChrome'
 import AttachmentChip, { accentVar } from './AttachmentChip'
@@ -673,6 +673,195 @@ function Badge({ children, tone, icon }) {
 }
 
 
+// AN EMAIL THREAD AS ONE CARD — the way GHL's conversation view shows it
+// (client request, Oct 2026). A thread of three replies was three rows, each
+// repeating the subject; now it is one card at the time of its LATEST reply:
+//
+//   ┌ how are you ─────────────────── 3 messages  ⤢  ▾ ┐
+//   │            ⊕ 2 messages earlier                   │
+//   │ ↗ J srini                                   11:15 │
+//   │   sample third message in this thread…        ▾  │
+//   └──────────────────────────────────────────────────┘
+//
+// Earlier replies fold behind "+ N messages earlier" and open INSIDE the card.
+// ⤢ opens the thread dialog; ▾ collapses the card to its header. The timeline
+// stays newest-first — only the grouping changed.
+//
+// Co-Pilot ticks: the card's own box ticks the whole thread; each reply keeps
+// its own box once the earlier ones are shown.
+function EmailThreadCard({
+  thread, highlightedId, onToggleSelect, onOpenThread, onOpenAttachment
+}) {
+  // `thread` is oldest → newest; the newest is the card's anchor.
+  const latest = thread[thread.length - 1]
+  const earlier = thread.slice(0, -1)
+  const [showEarlier, setShowEarlier] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
+  // Opened from a highlight (a Co-Pilot citation, a media jump) the cited
+  // reply must be visible, not folded away.
+  const highlightedEarlier = earlier.some((m) => m.id === highlightedId)
+  useEffect(() => { if (highlightedEarlier) { setShowEarlier(true); setCollapsed(false) } }, [highlightedEarlier])
+
+  const allSelected = thread.every((m) => m.included !== false)
+  const toggleAll = () => {
+    // Flip only the ones not already in the target state.
+    for (const m of thread) {
+      const sel = m.included !== false
+      if (sel === allSelected) onToggleSelect && onToggleSelect(m)
+    }
+  }
+  const subject = latest.subject || thread.find((m) => m.subject)?.subject || '(no subject)'
+
+  const iconBtn = {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    width: 26, height: 26, padding: 0, flex: 'none',
+    border: 'none', borderRadius: 'var(--radius-sm)', background: 'none',
+    color: 'var(--text-muted)', cursor: 'pointer'
+  }
+
+  return (
+    <Row id={`tl-${latest.id}`} highlighted={thread.some((m) => m.id === highlightedId)}>
+      <SelectBox
+        selected={allSelected}
+        onToggle={onToggleSelect ? toggleAll : null}
+        title={allSelected ? 'Whole thread selected — the agent reads it' : 'Select the whole thread'}
+      />
+      <RowIcon
+        icon={latest.channelIcon}
+        colour={accentTextVar(latest.channelAccent)}
+        soft={tintVar(latest.channelAccent)}
+        title="Email thread"
+      />
+      <div style={{ minWidth: 0 }}>
+        <div style={{
+          border: '1px solid var(--border-default)',
+          borderRadius: 'var(--radius-md)',
+          overflow: 'hidden', background: '#fff'
+        }}>
+          <header style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 10px 8px 14px',
+            background: 'var(--gray-50)',
+            borderBottom: collapsed ? 'none' : '1px solid var(--border-default)'
+          }}>
+            <span title={subject} style={{
+              flex: 1, minWidth: 0,
+              fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+            }}>
+              {subject}
+            </span>
+            <span style={{ flex: 'none', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+              {thread.length} messages
+            </span>
+            <button type="button" onClick={() => onOpenThread(latest)} title="Open the whole thread" style={iconBtn}>
+              <span className="ms" style={{ fontSize: 17 }}>open_in_full</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setCollapsed((v) => !v)}
+              aria-expanded={!collapsed}
+              title={collapsed ? 'Show this thread' : 'Collapse this thread'}
+              style={iconBtn}
+            >
+              <span className="ms" style={{ fontSize: 19 }}>{collapsed ? 'expand_more' : 'expand_less'}</span>
+            </button>
+          </header>
+
+          {!collapsed && (
+            <>
+              {earlier.length > 0 && !showEarlier && (
+                <div style={{
+                  display: 'flex', justifyContent: 'center',
+                  padding: '6px 0', borderBottom: '1px solid var(--border-default)'
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowEarlier(true)}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      height: 26, padding: '0 12px',
+                      border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-pill)',
+                      background: '#fff', fontFamily: 'var(--font-sans)',
+                      fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-body)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <span className="ms" style={{ fontSize: 15 }}>add</span>
+                    {earlier.length} {earlier.length === 1 ? 'message' : 'messages'} earlier
+                  </button>
+                </div>
+              )}
+              {showEarlier && earlier.map((m) => (
+                <ThreadReply
+                  key={m.id}
+                  m={m}
+                  showBox
+                  highlighted={m.id === highlightedId}
+                  onToggleSelect={onToggleSelect}
+                  onOpenAttachment={onOpenAttachment}
+                />
+              ))}
+              <ThreadReply
+                m={latest}
+                showBox={showEarlier}
+                last
+                highlighted={latest.id === highlightedId}
+                onToggleSelect={onToggleSelect}
+                onOpenAttachment={onOpenAttachment}
+              />
+            </>
+          )}
+        </div>
+      </div>
+    </Row>
+  )
+}
+
+// One reply inside a thread card: who, which way, when — then the email.
+function ThreadReply({ m, showBox, last, highlighted, onToggleSelect, onOpenAttachment }) {
+  const inbound = m.direction === 'inbound'
+  return (
+    <div
+      id={`tl-${m.id}`}
+      style={{
+        padding: '8px 14px',
+        borderBottom: last ? 'none' : '1px solid var(--border-default)',
+        background: highlighted ? 'var(--tint-gold)' : '#fff'
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        {showBox && onToggleSelect && (
+          <input
+            type="checkbox"
+            checked={m.included !== false}
+            onChange={() => onToggleSelect(m)}
+            title={m.included !== false ? 'Selected — the agent reads this reply' : 'Not selected — the agent skips this reply'}
+            style={{ width: 15, height: 15, accentColor: 'var(--brand-primary)', cursor: 'pointer' }}
+          />
+        )}
+        <span
+          className="ms"
+          title={inbound ? 'Received from the customer' : 'Sent by us'}
+          style={{ flex: 'none', fontSize: 16, color: inbound ? accentVar(m.senderAccent) : 'var(--text-faint)' }}
+        >
+          {inbound ? 'south_west' : 'north_east'}
+        </span>
+        <span style={{
+          flex: 1, minWidth: 0, fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+        }}>
+          {m.senderName}
+        </span>
+        <span style={{ flex: 'none', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+          {formatClock(m.ts)}
+        </span>
+      </div>
+      <EmailBody m={m} compact onOpenAttachment={onOpenAttachment} />
+    </div>
+  )
+}
+
 export default function Timeline({
   messages,
   highlightedId = null,
@@ -707,6 +896,20 @@ export default function Timeline({
 
   // Email threads, indexed once for the whole list — see buildThreads.
   const threads = useMemo(() => buildThreads(messages), [messages])
+
+  // The rows actually drawn: each multi-message email thread collapses to ONE
+  // entry — its newest reply, which carries the card — and its other replies
+  // are dropped from the stream (the card shows them). Everything else passes
+  // through, so the list stays newest-first with day headers intact.
+  const rows = useMemo(() => {
+    const newest = new Map()
+    for (const [id, arr] of threads) {
+      newest.set(id, arr.reduce((a, b) => (new Date(b.ts) > new Date(a.ts) ? b : a)))
+    }
+    return messages.filter((m) => !(m.threadId && newest.has(m.threadId)) || newest.get(m.threadId) === m)
+  }, [messages, threads])
+  // Each thread oldest → newest, for the card.
+  const threadOrdered = (id) => [...threads.get(id)].sort((a, b) => new Date(a.ts) - new Date(b.ts))
 
   // The attachment being previewed: { attachments, index } or null.
   //
@@ -857,13 +1060,21 @@ export default function Timeline({
           maxHeight: 620, overflowY: 'auto'
         }}
       >
-        {messages.map((m, i) => {
-          const prev = i > 0 ? messages[i - 1] : null
+        {rows.map((m, i) => {
+          const prev = i > 0 ? rows[i - 1] : null
           const newDay = !prev || !sameDay(prev.ts, m.ts)
           return (
             <React.Fragment key={m.id}>
               {newDay && m.ts && <DayHeader iso={m.ts} />}
-              {m.kind === 'task' || m.kind === 'note' ? (
+              {m.threadId && threads.has(m.threadId) ? (
+                <EmailThreadCard
+                  thread={threadOrdered(m.threadId)}
+                  highlightedId={highlightedId}
+                  onToggleSelect={onToggleSelect}
+                  onOpenThread={setThreadOf}
+                  onOpenAttachment={openAttachment}
+                />
+              ) : m.kind === 'task' || m.kind === 'note' ? (
                 <EntryRow
                   m={m}
                   highlighted={highlightedId === m.id}
