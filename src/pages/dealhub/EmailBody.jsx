@@ -11,10 +11,7 @@ import AttachmentChip from './AttachmentChip'
 // different ways depending on which page you were on — subject-and-chevron in
 // one, a flat paragraph in the other.
 //
-// `compact`: a reply inside a thread card (Timeline's EmailThreadCard). The
-// card header already shows the subject once, so the subject slot carries
-// this message's preview instead and the separate preview line is dropped.
-export default function EmailBody({ m, thread, onOpenThread, onOpenAttachment, compact = false }) {
+export default function EmailBody({ m, thread, onOpenThread, onOpenAttachment }) {
   const [open, setOpen] = useState(false)
 
   // THE BODY IS HTML, not text.
@@ -65,8 +62,8 @@ export default function EmailBody({ m, thread, onOpenThread, onOpenAttachment, c
       <div className="pp-email-bar">
         <span className="ms pp-email-icon">mail</span>
 
-        <span className="pp-email-subject" style={compact ? { fontWeight: 400 } : undefined}>
-          {compact ? (preview || '(no text)') : (m.subject || '(no subject)')}
+        <span className="pp-email-subject">
+          {m.subject || '(no subject)'}
         </span>
 
         {/* ATTACHMENT COUNT, collapsed view.
@@ -113,7 +110,7 @@ export default function EmailBody({ m, thread, onOpenThread, onOpenAttachment, c
         {/* One preview line while collapsed, so the row says what the mail is
             about without opening it. Hidden when open — repeating the first
             line directly above the full body reads as a bug. */}
-        {!open && preview && !compact && (
+        {!open && preview && (
           <span className="pp-email-preview">{preview}</span>
         )}
 

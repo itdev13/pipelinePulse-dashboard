@@ -7,6 +7,7 @@ import EmailThreadModal from './EmailThreadModal'
 import EmailBody from './EmailBody'
 import MessageDealPill from './MessageDealPill'
 import { noteColourStyle } from '../../utils/noteColour'
+import { htmlToText } from '../../utils/sanitiseHtml'
 
 // One deal's merged message timeline.
 //
@@ -770,28 +771,6 @@ function EmailThreadCard({
 
           {!collapsed && (
             <>
-              {earlier.length > 0 && !showEarlier && (
-                <div style={{
-                  display: 'flex', justifyContent: 'center',
-                  padding: '6px 0', borderBottom: '1px solid var(--border-default)'
-                }}>
-                  <button
-                    type="button"
-                    onClick={() => setShowEarlier(true)}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      height: 26, padding: '0 12px',
-                      border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-pill)',
-                      background: '#fff', fontFamily: 'var(--font-sans)',
-                      fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-body)',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <span className="ms" style={{ fontSize: 15 }}>add</span>
-                    {earlier.length} {earlier.length === 1 ? 'message' : 'messages'} earlier
-                  </button>
-                </div>
-              )}
               {showEarlier && earlier.map((m) => (
                 <ThreadReply
                   key={m.id}
@@ -802,14 +781,42 @@ function EmailThreadCard({
                   onOpenAttachment={onOpenAttachment}
                 />
               ))}
-              <ThreadReply
-                m={latest}
-                showBox={showEarlier}
-                last
-                highlighted={latest.id === highlightedId}
-                onToggleSelect={onToggleSelect}
-                onOpenAttachment={onOpenAttachment}
-              />
+              {/* The latest reply carries the "+ N messages earlier" pill ON
+                  ITS TOP EDGE — straddling the line between the header and
+                  the reply, as GHL draws it — rather than in a row of its own,
+                  which spent a whole line on one button. */}
+              <div style={{ position: 'relative' }}>
+                {earlier.length > 0 && !showEarlier && (
+                  <button
+                    type="button"
+                    onClick={() => setShowEarlier(true)}
+                    style={{
+                      position: 'absolute', top: 0, left: '50%', zIndex: 1,
+                      transform: 'translate(-50%, -50%)',
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      height: 26, padding: '0 12px',
+                      border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-pill)',
+                      background: '#fff', fontFamily: 'var(--font-sans)',
+                      fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-body)',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+                      whiteSpace: 'nowrap', cursor: 'pointer'
+                    }}
+                  >
+                    <span className="ms" style={{ fontSize: 15 }}>add</span>
+                    {earlier.length} {earlier.length === 1 ? 'message' : 'messages'} earlier
+                  </button>
+                )}
+                <ThreadReply
+                  m={latest}
+                  showBox={showEarlier}
+                  last
+                  // Room for the pill's lower half, so it never sits on the name.
+                  roomForPill={earlier.length > 0 && !showEarlier}
+                  highlighted={latest.id === highlightedId}
+                  onToggleSelect={onToggleSelect}
+                  onOpenAttachment={onOpenAttachment}
+                />
+              </div>
             </>
           )}
         </div>
@@ -818,46 +825,136 @@ function EmailThreadCard({
   )
 }
 
-// One reply inside a thread card: who, which way, when — then the email.
-function ThreadReply({ m, showBox, last, highlighted, onToggleSelect, onOpenAttachment }) {
+// One reply inside a thread card — GHL's conversation row:
+//
+//   (JS) J srini                                    11:26 PM
+//        fourth message test…
+//
+// Click the row to open it IN PLACE: "To: …", then the full message and its
+// attachments, in the row itself rather than a bordered card inside the
+// card. Click the header line again to fold it.
+function ThreadReply({ m, showBox, last, roomForPill, highlighted, onToggleSelect, onOpenAttachment }) {
+  const [open, setOpen] = useState(false)
+  // A cited reply opens, so the quote is on screen.
+  useEffect(() => { if (highlighted) setOpen(true) }, [highlighted])
   const inbound = m.direction === 'inbound'
+  const preview = useMemo(() => htmlToText(m.body || ''), [m.body])
+  const atts = Array.isArray(m.attachments) ? m.attachments : []
+  const words = String(m.senderName || '').trim().split(/\s+/).filter(Boolean)
+  const initials = words.length > 1
+    ? (words[0][0] + words[1][0]).toUpperCase()
+    : (words[0] || '?').slice(0, 2).toUpperCase()
+  const accent = m.senderAccent || 'gray'
+
   return (
     <div
-      id={`tl-${m.id}`}
+      id={'tl-' + m.id}
       style={{
-        padding: '8px 14px',
+        padding: (roomForPill ? '18px' : '10px') + ' 14px 10px',
         borderBottom: last ? 'none' : '1px solid var(--border-default)',
         background: highlighted ? 'var(--tint-gold)' : '#fff'
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen((v) => !v) } }}
+        title={open ? 'Fold this message' : 'Open this message'}
+        style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}
+      >
         {showBox && onToggleSelect && (
           <input
             type="checkbox"
             checked={m.included !== false}
+            onClick={(e) => e.stopPropagation()}
             onChange={() => onToggleSelect(m)}
             title={m.included !== false ? 'Selected — the agent reads this reply' : 'Not selected — the agent skips this reply'}
-            style={{ width: 15, height: 15, accentColor: 'var(--brand-primary)', cursor: 'pointer' }}
+            style={{ width: 15, height: 15, marginTop: 9, flex: 'none', accentColor: 'var(--brand-primary)', cursor: 'pointer' }}
           />
         )}
-        <span
-          className="ms"
-          title={inbound ? 'Received from the customer' : 'Sent by us'}
-          style={{ flex: 'none', fontSize: 16, color: inbound ? accentVar(m.senderAccent) : 'var(--text-faint)' }}
-        >
-          {inbound ? 'south_west' : 'north_east'}
-        </span>
+        {/* The sender's initials, in their colour, with the direction on a
+            small badge — GHL's avatar-with-channel-badge. */}
         <span style={{
-          flex: 1, minWidth: 0, fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+          position: 'relative', flex: 'none',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 32, height: 32, borderRadius: '50%',
+          background: tintVar(accent), color: accentTextVar(accent),
+          fontSize: 'var(--text-xs)', fontWeight: 700
         }}>
-          {m.senderName}
+          {initials}
+          <span
+            className="ms"
+            title={inbound ? 'Received from the customer' : 'Sent by us'}
+            style={{
+              position: 'absolute', right: -3, bottom: -3,
+              fontSize: 12, padding: 1, borderRadius: '50%',
+              background: '#fff', color: inbound ? accentVar(accent) : 'var(--text-faint)'
+            }}
+          >
+            {inbound ? 'south_west' : 'north_east'}
+          </span>
         </span>
-        <span style={{ flex: 'none', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: 'block', fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)' }}>
+            {m.senderName}
+          </span>
+          {open ? (
+            m.emailTo ? (
+              <span style={{ display: 'block', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+                To: {m.emailTo}
+              </span>
+            ) : null
+          ) : (
+            <span style={{
+              display: 'block', fontSize: 'var(--text-md)', color: 'var(--text-body)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+            }}>
+              {preview || (atts.length ? 'Attachment only' : '(no text)')}
+            </span>
+          )}
+        </span>
+        {atts.length > 0 && !open && (
+          <span className="ms" title={atts.length + ' attachment' + (atts.length === 1 ? '' : 's')}
+            style={{ flex: 'none', fontSize: 15, marginTop: 3, color: 'var(--text-muted)' }}>
+            attach_file
+          </span>
+        )}
+        <span style={{ flex: 'none', marginTop: 2, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
           {formatClock(m.ts)}
         </span>
       </div>
-      <EmailBody m={m} compact onOpenAttachment={onOpenAttachment} />
+
+      {open && (
+        <div style={{ margin: '10px 0 2px', paddingLeft: showBox && onToggleSelect ? 67 : 42 }}>
+          {preview ? (
+            <RichBody
+              html={m.body}
+              color="var(--text-body)"
+              size="var(--text-md)"
+              leading="var(--leading-normal)"
+              maxWidth={680}
+            />
+          ) : atts.length === 0 ? (
+            <p style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--text-faint)' }}>
+              This email has no message text.
+            </p>
+          ) : null}
+          {atts.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+              {atts.map((att, i) => (
+                <AttachmentChip
+                  key={(att.name || 'file') + '-' + i}
+                  att={att}
+                  channelAccent={m.channelAccent}
+                  onClick={() => onOpenAttachment(atts, i)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
