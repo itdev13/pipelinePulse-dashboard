@@ -490,6 +490,21 @@ function ActionFields({ actionType, fields, setField }) {
           value={fields.conversationProviderId ?? null}
           onChange={(id) => setField('conversationProviderId', id)}
         />
+        {/* A reply says what it is replying to. The server threads it onto
+            that email (replyMessageId + threadId), so the rep should see the
+            original's subject here rather than infer it from a "Re:". */}
+        {isEmail && fields.replyMessageId && (
+          <p style={{
+            margin: 0, display: 'flex', alignItems: 'center', gap: 6,
+            fontSize: 'var(--text-sm)', color: 'var(--text-muted)'
+          }}>
+            <span className="ms" style={{ fontSize: 15 }}>reply</span>
+            Replying to <strong style={{ color: 'var(--text-body)' }}>
+              {fields.replyToSubject || 'the earlier email'}
+            </strong>
+            {fields.emailReplyMode === 'reply_all' && <span>· reply all</span>}
+          </p>
+        )}
         {isEmail && (
           <label>
             <span style={labelStyle}>Subject</span>
