@@ -76,7 +76,8 @@ export function useUsers() {
   return users
 }
 
-function useTags() {
+// Exported for the list views' Tags chip — one cached tag catalogue.
+export function useTags() {
   const [tags, setTags] = useState(TAG_CACHE.tags || [])
   useEffect(() => {
     // Same as useUsers: setting state rather than returning, or a cache that

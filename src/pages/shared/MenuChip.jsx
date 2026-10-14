@@ -18,6 +18,8 @@ export const TONES = {
   tasks:    { border: 'var(--accent-clay)', fg: 'var(--accent-clay-text)', bg: 'var(--tint-clay)' },
   noTasks:  { border: 'var(--status-stuck)', fg: 'var(--status-stuck-text)', bg: 'var(--surface-card)' },
   notes:    { border: 'var(--accent-gold)', fg: 'var(--accent-gold-text)', bg: 'var(--tint-gold)' },
+  // Pine — the Deal hub's tag pills are pine, so a tag reads the same here.
+  tags:     { border: 'var(--accent-pine)', fg: 'var(--accent-pine-text)', bg: 'var(--tint-pine)' },
   muted:    { border: 'var(--border-strong)', fg: 'var(--text-muted)', bg: 'var(--surface-card)' }
 }
 
@@ -92,6 +94,119 @@ export function MenuFooter({ label, onClick }) {
       <span className="ms" style={{ fontSize: 16 }}>arrow_forward</span>
     </button>
   )
+}
+
+// TAGS AS ONE CHIP, like Tasks and Notes beside it (client request, Oct
+// 2026): "🏷 3 tags ▾", or a grey "No tags ▾". The menu lists them, removes
+// one with its ✕, and adds one from the account's tag catalogue. A row keeps
+// one slim height however many tags it carries — the stacked pills made a
+// contact with four tags four times as tall as its neighbours.
+//
+//   tags        editable — the CONTACT's tags (GHL's tags are contact-scoped)
+//   lockedTags  shown with a lock, not editable — a deal's own tags, which the
+//               contact endpoints cannot change (the Deal hub's same split)
+//   catalogue   suggestions for the add box
+//   onAdd(tag), onRemove(tag) — the caller writes and repaints; omit both for
+//               a read-only chip
+export function TagsChip({ tags = [], lockedTags = [], catalogue = [], onAdd, onRemove }) {
+  const [draft, setDraft] = React.useState('')
+  const [listId] = React.useState(() => `pp-tagchip-${Math.random().toString(36).slice(2, 8)}`)
+  const locked = lockedTags.filter((t) => !tags.includes(t))
+  const total = tags.length + locked.length
+  const editable = typeof onAdd === 'function'
+
+  const add = () => {
+    const t = draft.trim()
+    if (!t || tags.some((x) => x.toLowerCase() === t.toLowerCase())) { setDraft(''); return }
+    setDraft('')
+    onAdd(t)
+  }
+
+  return (
+    <MenuChip
+      icon="sell"
+      tone={total ? 'tags' : 'muted'}
+      label={total ? `${total} ${total === 1 ? 'tag' : 'tags'}` : 'No tags'}
+      title={total ? [...tags, ...locked].join(', ') : 'No tags'}
+      menu={
+        <>
+          <MenuHeading>Tags</MenuHeading>
+          {total === 0 && <MenuNote>No tags yet.</MenuNote>}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: editable ? 8 : 0 }}>
+            {tags.map((t) => (
+              <span key={t} title={t} style={TAG_PILL}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{t}</span>
+                {typeof onRemove === 'function' && (
+                  <button
+                    type="button"
+                    onClick={() => onRemove(t)}
+                    title={`Remove ${t}`}
+                    aria-label={`Remove tag ${t}`}
+                    style={{
+                      display: 'inline-flex', padding: 0, border: 'none', background: 'none',
+                      color: 'var(--text-faint)', cursor: 'pointer'
+                    }}
+                  >
+                    <span className="ms" style={{ fontSize: 13 }}>close</span>
+                  </button>
+                )}
+              </span>
+            ))}
+            {locked.map((t) => (
+              <span key={`l-${t}`} title="On the deal — change it on the deal record"
+                style={{ ...TAG_PILL, background: 'var(--surface-sunken)', color: 'var(--text-muted)' }}>
+                <span className="ms" style={{ fontSize: 12 }}>lock</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{t}</span>
+              </span>
+            ))}
+          </div>
+          {editable && (
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
+                list={listId}
+                placeholder="Add a tag"
+                aria-label="Add a tag"
+                style={{
+                  flex: 1, minWidth: 0, height: 30, padding: '0 9px',
+                  border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-md)',
+                  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', color: 'var(--text-body)'
+                }}
+              />
+              <datalist id={listId}>
+                {catalogue.filter((t) => !tags.includes(t)).map((t) => <option key={t} value={t} />)}
+              </datalist>
+              <button
+                type="button"
+                onClick={add}
+                disabled={!draft.trim()}
+                style={{
+                  height: 30, padding: '0 12px', flex: 'none',
+                  border: 'none', borderRadius: 'var(--radius-md)',
+                  background: draft.trim() ? 'var(--brand-primary)' : 'var(--gray-200)',
+                  color: draft.trim() ? '#fff' : 'var(--text-faint)',
+                  fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
+                  cursor: draft.trim() ? 'pointer' : 'default'
+                }}
+              >
+                Add
+              </button>
+            </div>
+          )}
+        </>
+      }
+    />
+  )
+}
+
+const TAG_PILL = {
+  display: 'inline-flex', alignItems: 'center', gap: 3,
+  maxWidth: 220, height: 22, padding: '0 6px 0 9px',
+  border: '1px solid var(--border-default)', borderRadius: 'var(--radius-pill)',
+  background: 'var(--tint-pine)', color: 'var(--accent-pine-text)',
+  fontSize: 'var(--text-sm)', fontWeight: 600, whiteSpace: 'nowrap'
 }
 
 // The list toolbar's pill buttons — Collapse all, Columns.

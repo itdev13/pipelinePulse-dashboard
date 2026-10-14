@@ -2691,17 +2691,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* "+3 more" / "Show less" under a capped tag list. */
-[data-dealhub] .pp-cc-tag-more {
-  padding: 0;
-  border: none;
-  background: none;
-  font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--accent-sky-text);
-  cursor: pointer;
-}
 
 [data-dealhub] .pp-cc-tag-x {
   display: inline-flex;

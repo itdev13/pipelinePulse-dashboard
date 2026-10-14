@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Truncate, formatDue, relativeTime } from '../shared/ListChrome'
 import BusinessPickerModal from '../shared/BusinessPickerModal'
 import { contactsAPI } from '../../api/contacts'
+import { TagsChip } from '../shared/MenuChip'
 
 // The contacts list as a table — the October 2026 list design.
 //
@@ -249,12 +250,18 @@ function ContactRow({
 
         {show('tags') && (
           <td style={{ ...TD, maxWidth: 200 }}>
-            <TagsCell
-              contactId={c.id}
+            {/* One chip, like Tasks and Notes beside it — see TagsChip. */}
+            <TagsChip
               tags={Array.isArray(c.tags) ? c.tags : []}
-              tagList={tagList}
-              onAdd={(tag, next) => write(() => contactsAPI.addTags(c.id, [tag]), () => patch({ tags: next }))}
-              onRemove={(tag, next) => write(() => contactsAPI.removeTags(c.id, [tag]), () => patch({ tags: next }))}
+              catalogue={tagList}
+              onAdd={(tag) => {
+                const now = Array.isArray(c.tags) ? c.tags : []
+                write(() => contactsAPI.addTags(c.id, [tag]), () => patch({ tags: [...now, tag] }))
+              }}
+              onRemove={(tag) => {
+                const now = Array.isArray(c.tags) ? c.tags : []
+                write(() => contactsAPI.removeTags(c.id, [tag]), () => patch({ tags: now.filter((x) => x !== tag) }))
+              }}
             />
           </td>
         )}
@@ -487,70 +494,6 @@ function AddressCell({ value, onSave }) {
 // Tags as stacked chips, removable on hover, with a quiet + to add one. The
 // tag endpoints are ADDITIVE — see contactsAPI.addTags — so each change is
 // its own write rather than a replacement of the whole list.
-// How many tags a row shows before "+N more". A contact with eight tags made
-// its row four times the height of its neighbours.
-const ROW_TAG_LIMIT = 2
-
-function TagsCell({ contactId, tags, tagList, onAdd, onRemove }) {
-  const [adding, setAdding] = useState(false)
-  const [expanded, setExpanded] = useState(false)
-  const listId = `pp-row-tags-${contactId}`
-  const hiddenCount = Math.max(0, tags.length - ROW_TAG_LIMIT)
-  const visible = expanded ? tags : tags.slice(0, ROW_TAG_LIMIT)
-
-  const add = (tag) => {
-    setAdding(false)
-    if (!tag || tags.some((t) => t.toLowerCase() === tag.toLowerCase())) return
-    onAdd(tag, [...tags, tag])
-  }
-
-  return (
-    <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, minWidth: 0, maxWidth: '100%' }}>
-      {visible.map((t) => (
-        <span key={t} className="pp-cc-tag" title={t}>
-          <span className="pp-cc-tag-text">{t}</span>
-          <button
-            className="pp-cc-tag-x"
-            onClick={() => onRemove(t, tags.filter((x) => x !== t))}
-            title={`Remove ${t}`}
-            aria-label={`Remove tag ${t}`}
-          >
-            <span className="ms" style={{ fontSize: 13 }}>close</span>
-          </button>
-        </span>
-      ))}
-      {hiddenCount > 0 && (
-        <button
-          type="button"
-          className="pp-cc-tag-more"
-          onClick={() => setExpanded((v) => !v)}
-          title={expanded ? undefined : tags.slice(ROW_TAG_LIMIT).join(', ')}
-        >
-          {expanded ? 'Show less' : `+${hiddenCount} more`}
-        </button>
-      )}
-      {adding ? (
-        <>
-          <CellInput
-            placeholder="Tag name"
-            list={listId}
-            onCancel={() => setAdding(false)}
-            onDone={add}
-          />
-          <datalist id={listId}>
-            {tagList.filter((t) => !tags.includes(t)).map((t) => <option key={t} value={t} />)}
-          </datalist>
-        </>
-      ) : tags.length ? (
-        <button className="pp-cc-tag-add" onClick={() => setAdding(true)} title="Add a tag">
-          <span className="ms" style={{ fontSize: 14 }}>add</span>Tag
-        </button>
-      ) : (
-        <EmptyEdit title="Add a tag" onClick={() => setAdding(true)} />
-      )}
-    </span>
-  )
-}
 
 // An outlined count pill — "4 tasks", "1 note", "No deals".
 //

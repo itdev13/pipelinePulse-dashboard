@@ -4,7 +4,9 @@ import { tasksAPI } from '../../api/tasks'
 import { notesAPI } from '../../api/notes'
 import { formatMoney } from '../../utils/money'
 import { RecordPill, relativeTime, formatDate, formatDue } from '../shared/ListChrome'
-import { MenuChip, MenuHeading, MenuNote, MenuFooter, TOOL_BUTTON, ColumnsMenu } from '../shared/MenuChip'
+import { MenuChip, MenuHeading, MenuNote, MenuFooter, TOOL_BUTTON, ColumnsMenu, TagsChip } from '../shared/MenuChip'
+import { contactsAPI } from '../../api/contacts'
+import { useTags } from '../shared/ListFilters'
 
 // The deals as a LIST, grouped by stage — the Figma List view (Oct 2026):
 //
@@ -34,6 +36,9 @@ const COLUMNS = [
   { key: 'product', label: 'Product / details' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'notes', label: 'Notes' },
+  // The contact's tags (editable) and the deal's own (locked), as one chip
+  // like Tasks and Notes — the client asked for Deals and Contacts both.
+  { key: 'tags', label: 'Tags' },
   { key: 'updated', label: 'Updated', align: 'right' }
 ]
 const HIDDEN_KEY = 'pp.deals.listHiddenColumns'
@@ -164,7 +169,14 @@ function stripHtml(html) {
   return String(html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80)
 }
 
-function Row({ deal, hidden, selected, onToggleSelect, onOpenDeal, onOpenInHub, onOpenContact, onOpenBusiness }) {
+function Row({ deal, hidden, selected, onToggleSelect, onOpenDeal, onOpenInHub, onOpenContact, onOpenBusiness, catalogue, onPatch }) {
+  // Tag writes go to the CONTACT (GHL's tags are contact-scoped): painted
+  // first, rolled back if the CRM refuses.
+  const contactTags = Array.isArray(deal.contactTags) ? deal.contactTags : []
+  const writeTags = async (next, call) => {
+    onPatch(deal.id, { contactTags: next })
+    try { await call() } catch { onPatch(deal.id, { contactTags }) }
+  }
   const name = deal.dealTag || deal.opportunityName || 'Untitled deal'
   const value = Number(deal.monetaryValue)
   const contactName = deal.contact
@@ -312,6 +324,18 @@ function Row({ deal, hidden, selected, onToggleSelect, onOpenDeal, onOpenInHub, 
       {show('notes') && (
         <td style={TD}><NotesChip deal={deal} onOpenInHub={onOpenInHub} /></td>
       )}
+      {show('tags') && (
+        <td style={TD}>
+          <TagsChip
+            tags={contactTags}
+            lockedTags={Array.isArray(deal.tags) ? deal.tags : []}
+            catalogue={catalogue}
+            // No contact, nothing to tag — the chip is read-only.
+            onAdd={deal.contact?.id ? (tag) => writeTags([...contactTags, tag], () => contactsAPI.addTags(deal.contact.id, [tag])) : undefined}
+            onRemove={deal.contact?.id ? (tag) => writeTags(contactTags.filter((t) => t !== tag), () => contactsAPI.removeTags(deal.contact.id, [tag])) : undefined}
+          />
+        </td>
+      )}
       {show('updated') && (
         <td style={{ ...TD, textAlign: 'right', whiteSpace: 'nowrap', color: 'var(--text-body)', borderRight: 'none' }}>
           {capitalise(relativeTime(deal.updatedAt)) || '—'}
@@ -327,6 +351,10 @@ function StageGroup({
   selected, onToggleSelect, onLoaded, rowHandlers
 }) {
   const [deals, setDeals] = useState([])
+  // One row changed in place — a tag added or removed from its chip.
+  const patchDeal = useCallback((id, p) => {
+    setDeals((prev) => prev.map((d) => (d.id === id ? { ...d, ...p } : d)))
+  }, [])
   const [cursor, setCursor] = useState(null)
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -426,6 +454,7 @@ function StageGroup({
           hidden={hidden}
           selected={selected.has(d.id)}
           onToggleSelect={onToggleSelect}
+          onPatch={patchDeal}
           {...rowHandlers}
         />
       ))}
@@ -533,7 +562,10 @@ export default function DealList({
     })
   }, [])
 
-  const rowHandlers = { onOpenDeal, onOpenInHub, onOpenContact, onOpenBusiness }
+  // The account's tag catalogue, for the Tags chip's add box. Cached and
+  // shared with the Tag filter.
+  const catalogue = useTags()
+  const rowHandlers = { onOpenDeal, onOpenInHub, onOpenContact, onOpenBusiness, catalogue }
 
   return (
     <section style={{
