@@ -460,7 +460,10 @@ function CatalogueSyncSection() {
       help: 'The tag list itself. Tags ON a contact arrive with the contact; this is the catalogue of what exists.' },
     { kind: 'customFields', title: 'Custom fields',
       noun: 'fields',
-      help: 'Field definitions for contacts and opportunities — names, types and picklist options. The values on each record arrive with the record.' }
+      help: 'Field definitions for contacts and opportunities — names, types and picklist options. The values on each record arrive with the record.' },
+    { kind: 'users', title: 'Users',
+      noun: 'users',
+      help: 'Everyone on this sub-account — role, agency or account type, which sub-accounts they belong to, and any two-way email sync. Runs nightly; run it now after changing a rep\'s role or connecting their mailbox in your CRM.' }
   ]
 
   return (
