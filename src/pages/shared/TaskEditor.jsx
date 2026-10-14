@@ -103,6 +103,8 @@ export default function TaskEditor({
   showDealLink = true,
   showCompanyLink = true,
   defaultOpportunityId = null,
+  // Pre-selected company for a CREATE — the business page passes its own.
+  defaultBusinessId = null,
   onClose,
   // Called with the CRM's echoed task after a successful save.
   onSaved
@@ -119,7 +121,7 @@ export default function TaskEditor({
   const [opportunityId, setOpportunityId] = useState(
     task?.opportunityId || defaultOpportunityId || null
   )
-  const [businessId, setBusinessId] = useState(task?.businessId || null)
+  const [businessId, setBusinessId] = useState(task?.businessId || defaultBusinessId || null)
 
   const [title, setTitle] = useState(task?.title || '')
   // HTML, not stripped text — see the note in NoteEditor. initialBody comes
@@ -560,6 +562,13 @@ export default function TaskEditor({
                   emptyText="No company matches that"
                   style={{ width: '100%' }}
                 />
+                {/* Says where the link lives. GHL refuses task relation writes
+                    from apps ("Relations cannot be modified via OAuth
+                    channel"), so it is kept in our database — it shows on the
+                    business's page here, and not in GHL's own task panel. */}
+                <span style={{ display: 'block', marginTop: 4, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+                  Linked in PipelinePulse — shows on this business's page here, not in GoHighLevel.
+                </span>
               </Field>
             )}
           </div>

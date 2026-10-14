@@ -484,7 +484,7 @@ function BusinessDetail({ businessId, onBack, onOpenDeal, onOpenContact, onDelet
 
           {/* Between the people and the conversation, where the design puts
               it: what is owed to this business, before what was said. */}
-          <BusinessTasksPanel contacts={data.contacts} />
+          <BusinessTasksPanel businessId={businessId} contacts={data.contacts} />
 
           <ConversationsPanel
             businessId={businessId}

@@ -4,7 +4,7 @@ import MeddicMappingSection from '../control/MeddicMappingSection'
 import SkillsSection from '../control/SkillsSection'
 import SectionCard, { PrimaryButton, GhostButton } from '../control/SectionCard'
 import SyncButton from '../shared/SyncButton'
-import { Bar, SkeletonStyles, formatDate } from '../shared/ListChrome'
+import { Bar, SkeletonStyles, formatDate, Panel } from '../shared/ListChrome'
 
 // Control panel — v5.
 //
@@ -115,34 +115,22 @@ function Shell({ children }) {
     // Full width, like every other tab. The 1100px cap left a third of a wide
     // screen empty for a page whose main content is a two-column table of
     // qualification headings — the width is exactly what it needed.
-    <div style={{ width: '100%', padding: 'var(--space-3) 20px var(--space-7)' }}>
-      <div
-        style={{
-          display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-          flexWrap: 'wrap', marginBottom: 18
-        }}
-      >
-        <span
-          className="ms"
-          style={{ fontSize: 20, color: 'var(--accent-sky-text)', flex: 'none' }}
-        >
-          tune
-        </span>
-        <h1 style={{
-          margin: 0, fontSize: 'var(--text-xl)', fontWeight: 600,
-          color: 'var(--accent-sky-text)', letterSpacing: '-0.01em'
+    //
+    // THE SHARED SOLID HEADER BAND (Oct 2026), like Deals, Businesses and
+    // Tasks, with the sections on one grey ground inside it. It was a plain
+    // title row, still subtitled "One markdown file of business context —
+    // this is the entire control panel in v1" long after the page grew to
+    // five sections.
+    <div style={{ width: '100%', padding: 'var(--space-3) 20px var(--space-7)', boxSizing: 'border-box' }}>
+      <Panel icon="tune" title="Control panel" accent="teal" solidHeader>
+        <div style={{
+          display: 'grid', gap: 18,
+          padding: 'var(--space-3)',
+          background: 'var(--gray-100)'
         }}>
-          Control panel
-        </h1>
-        <p style={{
-          margin: 0, marginLeft: 6,
-          fontSize: 'var(--text-md)', color: 'var(--text-muted)'
-        }}>
-          One markdown file of business context — this is the entire control
-          panel in v1
-        </p>
-      </div>
-      <div style={{ display: 'grid', gap: 18 }}>{children}</div>
+          {children}
+        </div>
+      </Panel>
     </div>
   )
 }

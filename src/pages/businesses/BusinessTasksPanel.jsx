@@ -10,13 +10,13 @@ import { useLinkTargets } from '../../hooks/useLinkTargets'
 //   ○ Confirm site visit date with Mark                  [👤 Jordan Blake]
 //     due 14 Oct · Yusuf Lala · Brighton Road
 //
-// LOADED THROUGH ITS CONTACTS. The task list cannot filter by business yet,
+// LOADED BY BUSINESS (fallback: through its contacts). The task list cannot filter by business yet,
 // but it can by contact, and a task in GHL always belongs to a contact — so
 // this asks for each contact's open tasks and merges them. One request per
 // contact on the business; a task linked to two of them is shown once.
 // When the server grows a businessId filter, `load` becomes one request.
 
-export default function BusinessTasksPanel({ contacts = [] }) {
+export default function BusinessTasksPanel({ businessId = null, contacts = [] }) {
   const [items, setItems] = useState(null)   // null = loading
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(() => new Set())
@@ -27,9 +27,21 @@ export default function BusinessTasksPanel({ contacts = [] }) {
   const contactKey = contacts.map((c) => c.id).join(',')
 
   const load = useCallback(async () => {
-    if (!contacts.length) { setItems([]); return }
     setError(null)
     try {
+      // ONE REQUEST, by business: the server matches a task's own company
+      // link (kept in our database — GHL refuses task relation writes over
+      // OAuth) as well as its contact's company. So a task linked to this
+      // business by hand shows here even when its contact works elsewhere.
+      //
+      // Trusted only when the server echoes the filter back: an older server
+      // ignores ?businessId= and would return the whole account's tasks.
+      if (businessId) {
+        const r = await tasksAPI.list({ businessId, status: 'open', limit: 50 })
+        if (r?.businessId === businessId) { setItems(r.tasks || []); return }
+      }
+      // Older server: through the contacts, as before.
+      if (!contacts.length) { setItems([]); return }
       const pages = await Promise.all(
         contacts.map((c) => tasksAPI.list({ contactId: c.id, status: 'open', limit: 50 }))
       )
@@ -43,7 +55,7 @@ export default function BusinessTasksPanel({ contacts = [] }) {
   // contactKey stands for `contacts`: the array is rebuilt on every render of
   // the detail, and refetching on identity alone would loop.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contactKey])
+  }, [businessId, contactKey])
 
   useEffect(() => { load() }, [load])
 
@@ -117,7 +129,7 @@ export default function BusinessTasksPanel({ contacts = [] }) {
       )}
       {items && !error && shown.length === 0 && (
         <p style={{ margin: 0, padding: '13px var(--space-4)', fontSize: 'var(--text-md)', color: 'var(--text-faint)' }}>
-          {contacts.length ? 'No open tasks for this business.' : 'No contacts linked, so no tasks yet.'}
+          No open tasks for this business.
         </p>
       )}
 
@@ -199,6 +211,9 @@ export default function BusinessTasksPanel({ contacts = [] }) {
           task={null}
           contacts={contacts}
           defaultContactId={contacts.length === 1 ? contacts[0].id : null}
+          // Made from this business's page, so it is linked to it — kept in
+          // our database, and shown back here by the businessId filter.
+          defaultBusinessId={businessId}
           deals={linkTargets.deals}
           businesses={linkTargets.businesses}
           onClose={() => setEditor(false)}

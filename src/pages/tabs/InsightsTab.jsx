@@ -90,14 +90,17 @@ export default function InsightsTab() {
         icon="insights"
         title="Insights"
         accent="plum"
+        // The shared solid band, like every other tab (Oct 2026), with the
+        // Section filter on the grey toolbar row below it, label stacked
+        // above — the Deals and Businesses toolbar shape. It was a pale band
+        // with the filter squeezed onto the title row.
+        solidHeader
         count={shownCount === CARDS.length ? CARDS.length : `${shownCount} of ${CARDS.length}`}
         countTitle={`${CARDS.length} questions about this sub-account, each answered from its own query`}
-        actionFill
-        action={
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
-              Section
-            </span>
+        toolbarBackground="var(--gray-100)"
+        toolbar={
+          <span className="pp-filter-field" style={{ display: 'inline-flex', flexDirection: 'column', gap: 5 }}>
+            <span className="pp-label" style={{ marginBottom: 0 }}>Section</span>
             <Select
               mode="multiple"
               value={selected}
