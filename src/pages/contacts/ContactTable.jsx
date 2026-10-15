@@ -3,6 +3,7 @@ import { Truncate, relativeTime, formatDate, RecordPill, DealPill } from '../sha
 import BusinessPickerModal from '../shared/BusinessPickerModal'
 import { contactsAPI } from '../../api/contacts'
 import { TagsChip } from '../shared/MenuChip'
+import { ExpandGroup, ExpandItem, MoreItem, SmallIcon } from '../shared/RowExpand'
 
 // The contacts list as a table — the October 2026 list design.
 //
@@ -382,7 +383,7 @@ function ContactRow({
                   )
                 })}
                 {tasks > c.tasks.length && (
-                  <MoreItem count={tasks - c.tasks.length} noun="task" onClick={onOpen ? () => onOpen(c.id) : undefined} />
+                  <MoreItem label={`+${tasks - c.tasks.length} more task${tasks - c.tasks.length === 1 ? '' : 's'} — open the contact`} onClick={onOpen ? () => onOpen(c.id) : undefined} />
                 )}
               </ExpandGroup>
             )}
@@ -401,7 +402,7 @@ function ContactRow({
                   )
                 })}
                 {notes > c.notes.length && (
-                  <MoreItem count={notes - c.notes.length} noun="note" onClick={onOpen ? () => onOpen(c.id) : undefined} />
+                  <MoreItem label={`+${notes - c.notes.length} more note${notes - c.notes.length === 1 ? '' : 's'} — open the contact`} onClick={onOpen ? () => onOpen(c.id) : undefined} />
                 )}
               </ExpandGroup>
             )}
@@ -622,82 +623,6 @@ function ExpandPill({ label, icon, tone, open, onToggle }) {
       <span className="ms" style={{ fontSize: 16, flex: 'none' }}>
         {open ? 'expand_less' : 'expand_more'}
       </span>
-    </button>
-  )
-}
-
-// One open group in a row's expansion, ruled off from the next.
-function ExpandGroup({ children }) {
-  return (
-    <div style={{
-      padding: '6px 16px 6px 56px',
-      borderTop: '1px solid var(--border-default)'
-    }}>
-      {children}
-    </div>
-  )
-}
-
-// name · a · b · View — the design's columns, the same x on every row so a
-// group reads as a small table.
-function ExpandItem({ icon, iconColour, name, a = null, b = null, view }) {
-  return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'minmax(0, 420px) 130px 150px auto',
-      alignItems: 'center', columnGap: 16,
-      padding: '7px 0',
-      fontSize: 'var(--text-md)', color: 'var(--text-body)'
-    }}>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-        <span className="ms" style={{ fontSize: 17, flex: 'none', color: iconColour }}>{icon}</span>
-        <Truncate style={{ fontWeight: 500, color: 'var(--text-heading)' }} title={typeof name === 'string' ? name : undefined}>
-          {name}
-        </Truncate>
-      </span>
-      <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{a}</span>
-      <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b}</span>
-      <span style={{ display: 'inline-flex', justifySelf: 'start' }}>{view}</span>
-    </div>
-  )
-}
-
-// The list carries five of each; the rest are on the contact's record.
-function MoreItem({ count, noun, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={!onClick}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 6,
-        margin: '4px 0 2px', padding: 0,
-        border: 'none', background: 'none',
-        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', fontWeight: 600,
-        color: 'var(--text-link)', cursor: onClick ? 'pointer' : 'default'
-      }}
-    >
-      <span className="ms" style={{ fontSize: 15 }}>open_in_new</span>
-      +{count} more {noun}{count === 1 ? '' : 's'} — open the contact
-    </button>
-  )
-}
-
-// The business row's Change / Unlink — small, after its View pill.
-function SmallIcon({ icon, title, onClick, danger }) {
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      aria-label={title}
-      style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: 24, height: 24, padding: 0,
-        border: '1px solid var(--border-default)', borderRadius: 6,
-        background: '#fff', color: danger ? 'var(--status-stuck)' : 'var(--text-muted)',
-        cursor: 'pointer'
-      }}
-    >
-      <span className="ms" style={{ fontSize: 15 }}>{icon}</span>
     </button>
   )
 }
