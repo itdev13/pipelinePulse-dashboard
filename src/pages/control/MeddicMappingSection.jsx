@@ -26,6 +26,7 @@ export default function MeddicMappingSection({ fields = [] }) {
       <SectionCard
         icon="checklist"
         title="Qualification headings"
+        collapsible
         accent="gold"
         help="Read from your opportunity custom fields."
       >
@@ -49,6 +50,7 @@ export default function MeddicMappingSection({ fields = [] }) {
     <SectionCard
       icon="checklist"
       title="Qualification headings"
+      collapsible
       accent="gold"
       meta={`${active.length} field${active.length === 1 ? '' : 's'}`}
       help="These are your own opportunity fields, read straight from your CRM — name and description both. Edit them there and this updates on the next daily sync."

@@ -371,8 +371,12 @@ export function DealTasksSection({ dealId = null, contactId = null, people = [],
                 body: saved.body ?? editor.task.body,
                 dueAt: saved.dueDate ?? editor.task.dueAt,
                 // Present only when the editor changed the assignee.
-                ...('owner' in saved ? { owner: saved.owner, assignedTo: saved.assignedTo } : {})
+                ...('owner' in saved ? { owner: saved.owner, assignedTo: saved.assignedTo } : {}),
+                // Present only when the editor changed the company link.
+                ...('businessId' in saved ? { businessId: saved.businessId, business: saved.business } : {})
               })
+              // Moved onto a different deal — this rail no longer holds it.
+              if ('opportunityId' in saved && (saved.opportunityId || null) !== (dealId || null)) reloadSoon()
             } else {
               // A new task arrives via the CRM's webhook, so refetch rather
               // than inventing a row whose id and attribution we don't know —
@@ -671,7 +675,10 @@ export function DealNotesSection({ dealId = null, contactId = null, people = [],
                 body: applied?.body ?? saved.body ?? editor.note.body,
                 title: applied?.title ?? saved.title ?? editor.note.title ?? null,
                 color: applied?.color ?? saved.color ?? editor.note.color ?? null,
-                pinned: applied?.pinned ?? (saved.pinned === true)
+                pinned: applied?.pinned ?? (saved.pinned === true),
+                // Changed links, whole — present only when they changed.
+                ...('business' in saved ? { businessId: saved.businessId, business: saved.business } : {}),
+                ...('deal' in saved ? { opportunityId: saved.opportunityId, deal: saved.deal } : {})
               }
               patchItem((x) => x.id === editor.note.id, patch)
               if (onNoteSaved) onNoteSaved(editor.note.id, patch)

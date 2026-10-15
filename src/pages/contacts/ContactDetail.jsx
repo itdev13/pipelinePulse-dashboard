@@ -175,7 +175,10 @@ function Shell({ children, onBack }) {
     <div
       style={{
         maxWidth: 1000, width: '100%', boxSizing: 'border-box',
-        margin: '0 auto', padding: 'var(--space-1) 20px var(--space-7)',
+        // space-4 on top, not space-1: the "All contacts" pill sat tight under
+        // the nav, where the design gives it room — and every other page's
+        // Shell already starts lower (ListChrome's Shell uses space-3).
+        margin: '0 auto', padding: 'var(--space-4) 20px var(--space-7)',
         display: 'grid', gap: 14
       }}
     >

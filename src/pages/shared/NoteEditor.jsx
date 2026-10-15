@@ -138,6 +138,11 @@ export default function NoteEditor({
     note?.opportunityId || defaultOpportunityId || null
   )
   const [businessId, setBusinessId] = useState(note?.businessId || null)
+  // The picked deal's and company's NAMES, so a save can hand the caller
+  // whole { id, name } links to paint — a searched-for record is not in the
+  // seeded lists.
+  const [dealName, setDealName] = useState(null)
+  const [businessName, setBusinessName] = useState(null)
 
   const [contactId, setContactId] = useState(
     note?.contact?.id || defaultContactId || (contacts.length === 1 ? contacts[0].id : null)
@@ -313,8 +318,34 @@ export default function NoteEditor({
       //
       // Everything in `changes` is included: those are exactly the fields we
       // sent, so they are exactly the ones we can speak for.
+      // The links as we set them, whole — the deal lives only in our
+      // database and GHL's echo may omit the company, so without these the
+      // row kept its old chips until a refresh.
+      let saved = res.note || null
+      if (saved && editing) {
+        if (oppChanged) {
+          const seeded = deals.find((d) => d.id === opportunityId)
+          saved = {
+            ...saved,
+            opportunityId: opportunityId || null,
+            deal: opportunityId
+              ? { id: opportunityId, name: dealName || (seeded ? dealOption(seeded).label : null) }
+              : null
+          }
+        }
+        if (changes && 'businessId' in changes) {
+          const seeded = businesses.find((b) => b.id === businessId)
+          saved = {
+            ...saved,
+            businessId: businessId || null,
+            business: businessId
+              ? { id: businessId, name: businessName || seeded?.name || null }
+              : null
+          }
+        }
+      }
       onSaved(
-        res.note || null,
+        saved,
         editing && changes && Object.keys(changes).length ? { ...changes } : null
       )
       onClose()
@@ -517,7 +548,7 @@ export default function NoteEditor({
               >
                 <RemotePicker
                   value={opportunityId}
-                  onChange={setOpportunityId}
+                  onChange={(v, opt) => { setOpportunityId(v); setDealName(opt?.label || null) }}
                   // Scoped to THIS contact's deals — primary or linked. A note
                   // lives on a contact, so a deal they are not on is never a
                   // valid answer. Re-created when the contact changes so the
@@ -537,7 +568,7 @@ export default function NoteEditor({
               <Field label="Company" error={errorField === 'businessId' ? error : null}>
                 <RemotePicker
                   value={businessId}
-                  onChange={setBusinessId}
+                  onChange={(v, opt) => { setBusinessId(v); setBusinessName(opt?.label || null) }}
                   search={searchBusinesses}
                   seed={businesses.map(businessOption)}
                   disabled={saving}

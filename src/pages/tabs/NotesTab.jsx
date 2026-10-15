@@ -374,7 +374,11 @@ export default function NotesTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
                 // to the row's existing value.
                 businessId: applied && 'businessId' in applied
                   ? applied.businessId
-                  : (saved.businessId ?? editor.note.businessId ?? null)
+                  : (saved.businessId ?? editor.note.businessId ?? null),
+                // The chips too, whole — NoteEditor adds them to `saved`
+                // only when that link changed.
+                ...('business' in saved ? { business: saved.business } : {}),
+                ...('deal' in saved ? { opportunityId: saved.opportunityId, deal: saved.deal } : {})
               })
               say('Note saved')
             } else {

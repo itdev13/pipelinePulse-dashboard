@@ -122,6 +122,11 @@ export default function TaskEditor({
     task?.opportunityId || defaultOpportunityId || null
   )
   const [businessId, setBusinessId] = useState(task?.businessId || defaultBusinessId || null)
+  // The picked company's NAME, kept so a save can hand the caller a whole
+  // { id, name } to paint — a searched-for company is not in `businesses`.
+  const [businessName, setBusinessName] = useState(null)
+  // Same for the deal picker.
+  const [dealName, setDealName] = useState(null)
 
   const [title, setTitle] = useState(task?.title || '')
   // HTML, not stripped text — see the note in NoteEditor. initialBody comes
@@ -150,9 +155,19 @@ export default function TaskEditor({
   const { session } = useAuth()
   const users = useUsers()
   const [assignee, setAssignee] = useState(() => (
-    editing ? (task.assignedTo ?? (task.owner ? undefined : null)) : (session?.user?.id || null)
+    editing ? (task.assignedTo ?? (task.owner ? undefined : null)) : undefined
   ))
   const [initialAssignee, setInitialAssignee] = useState(() => (editing ? (task.assignedTo ?? undefined) : null))
+  // A NEW task's default waits for the user list: the signed-in user only
+  // when they are IN it. An agency login is not a user of the sub-account
+  // (/api/deals/users leaves them out), so defaulting to its id put the raw
+  // id in the field — and would have assigned the task to someone no
+  // Assignee filter can pick. Then it starts Unassigned instead.
+  useEffect(() => {
+    if (editing || assignee !== undefined || !users.length) return
+    const me = session?.user?.id
+    setAssignee(me && users.some((u) => u.id === me) ? me : null)
+  }, [editing, assignee, users, session])
   useEffect(() => {
     if (!editing || assignee !== undefined || !users.length) return
     const match = users.find((u) => (u.name || '').toLowerCase() === String(task.owner || '').toLowerCase())
@@ -258,6 +273,16 @@ export default function TaskEditor({
     && title.trim().length > 0
     && (editing || (!!contactId && !!dueDate))
 
+  // The deal link as the row draws it: `deal` for the card, `deals` for the
+  // Tasks tab's list. Named from the picker, else from the seeded deals.
+  const dealPatch = () => {
+    const seeded = deals.find((x) => x.id === opportunityId)
+    const deal = opportunityId
+      ? { id: opportunityId, name: dealName || (seeded ? dealOption(seeded).label : null) }
+      : null
+    return { opportunityId: opportunityId || null, deal, deals: deal ? [deal] : [] }
+  }
+
   const save = async () => {
     if (!canSave) return
     setSaving(true)
@@ -328,7 +353,29 @@ export default function TaskEditor({
               : null
           }
         : null
-      onSaved(res.task ? { ...res.task, ...(assignedPatch || {}) } : null)
+      // The links as we SET them. They live only in our database, so neither
+      // GHL's echo nor the task we were opened with carries the new value —
+      // without this the row kept its old company and the editor reopened
+      // blank until a page refresh.
+      const linkPatch = editing && relationsChanged
+        ? {
+            ...(bizChanged
+              ? {
+                  businessId: businessId || null,
+                  business: businessId
+                    ? {
+                        id: businessId,
+                        name: businessName
+                          || (businesses.find((b) => b.id === businessId) || {}).name
+                          || null
+                      }
+                    : null
+                }
+              : {}),
+            ...(oppChanged ? dealPatch() : {})
+          }
+        : null
+      onSaved(res.task ? { ...res.task, ...(assignedPatch || {}), ...(linkPatch || {}) } : null)
       onClose()
     } catch (err) {
       setError(err.message || 'Could not save that — try again')
@@ -535,7 +582,7 @@ export default function TaskEditor({
               <Field label="Deal" error={errorField === 'opportunityId' ? error : null}>
                 <RemotePicker
                   value={opportunityId}
-                  onChange={setOpportunityId}
+                  onChange={(v, opt) => { setOpportunityId(v); setDealName(opt?.label || null) }}
                   // Scoped to this contact's deals — a task lives on a
                   // contact, so a deal they are not on is never a valid answer.
                   search={dealSearchForContact}
@@ -553,7 +600,7 @@ export default function TaskEditor({
               <Field label="Company" error={errorField === 'businessId' ? error : null}>
                 <RemotePicker
                   value={businessId}
-                  onChange={setBusinessId}
+                  onChange={(v, opt) => { setBusinessId(v); setBusinessName(opt?.label || null) }}
                   search={searchBusinesses}
                   seed={businesses.map(businessOption)}
                   disabled={saving}
@@ -580,7 +627,7 @@ export default function TaskEditor({
               value={assignee === undefined ? undefined : (assignee || '')}
               onChange={(v) => setAssignee(v || null)}
               disabled={saving}
-              loading={assignee === undefined}
+              loading={assignee === undefined && !users.length}
               showSearch
               optionFilterProp="label"
               placeholder="Select assignee"
@@ -589,7 +636,12 @@ export default function TaskEditor({
                 ...users.map((u) => ({
                   value: u.id,
                   label: (u.name || u.email || u.id) + (u.id === session?.user?.id ? ' (you)' : '')
-                }))
+                })),
+                // An EDIT whose assignee is not in the list (an agency user,
+                // or someone since removed): named, never the bare id.
+                ...(assignee && users.length && !users.some((u) => u.id === assignee)
+                  ? [{ value: assignee, label: task?.owner || 'Not a user of this account' }]
+                  : [])
               ]}
               status={errorField === 'assignedTo' ? 'error' : undefined}
               popupClassName="pp-menu"

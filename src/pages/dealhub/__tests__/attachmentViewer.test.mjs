@@ -146,8 +146,8 @@ t('an empty body does not render an empty block', () => {
   // `preview` is the body run through htmlToText, so it is the honest test of
   // "is there any text": RichBody's own `if (!html)` does not catch
   // "<div></div>", which is truthy.
-  assert.match(emailBody, /\{preview \? \(\s*<RichBody/,
-    'RichBody must be gated on preview, not on m.body');
+  assert.match(emailBody, /\{preview \? \(\s*<(RichBody|EmailFrame)/,
+    'The body (RichBody or EmailFrame) must be gated on preview, not on m.body');
 });
 
 t('no body and no files says so, rather than showing a blank card', () => {

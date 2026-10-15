@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
-import { RichBody } from '../shared/ListChrome'
 import { htmlToText } from '../../utils/sanitiseHtml'
+import EmailFrame from './EmailFrame'
 import AttachmentChip from './AttachmentChip'
 
 // The collapsed/expandable email card used by the deal timeline AND the
@@ -146,13 +146,7 @@ export default function EmailBody({ m, thread, onOpenThread, onOpenAttachment })
               through htmlToText, so it is the honest test of "is there any
               text here". */}
           {preview ? (
-            <RichBody
-              html={m.body}
-              color="var(--text-body)"
-              size="var(--text-md)"
-              leading="var(--leading-normal)"
-              maxWidth={680}
-            />
+            <EmailFrame html={m.body} />
           ) : atts.length === 0 ? (
             // No text AND no files: say so rather than showing a blank card,
             // which reads as a loading failure.

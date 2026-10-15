@@ -596,7 +596,13 @@ export default function TasksTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
                 body: saved.body ?? editor.task.body,
                 dueAt: saved.dueDate ?? editor.task.dueAt,
                 // Present only when the editor changed the assignee.
-                ...('owner' in saved ? { owner: saved.owner, assignedTo: saved.assignedTo } : {})
+                ...('owner' in saved ? { owner: saved.owner, assignedTo: saved.assignedTo } : {}),
+                // Present only when the editor changed the company link.
+                ...('businessId' in saved ? { businessId: saved.businessId, business: saved.business } : {}),
+                // And the deal link.
+                ...('opportunityId' in saved
+                  ? { opportunityId: saved.opportunityId, deal: saved.deal, deals: saved.deals }
+                  : {})
               })
               setToast('Task saved')
             } else {
