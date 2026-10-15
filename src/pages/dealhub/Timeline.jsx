@@ -891,7 +891,6 @@ export default function Timeline({
                   <div style={{ minWidth: 0 }}>
                     <EmailThreadCard
                       mails={thread}
-                      onOpenThread={setThreadOf}
                       onOpenAttachment={openAttachment}
                       onReplyEmail={onReplyEmail}
                       selectedIds={onToggleSelect ? ids : null}

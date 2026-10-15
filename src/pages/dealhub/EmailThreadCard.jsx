@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
+import { useModal } from '../../hooks/useModal'
 import { RichBody } from '../shared/ListChrome'
 import { htmlToText } from '../../utils/sanitiseHtml'
 import AttachmentChip from './AttachmentChip'
@@ -32,15 +33,30 @@ function initialsOf(name) {
   return (parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : parts[0].slice(0, 2)).toUpperCase()
 }
 
+// 12-hour, as GHL's thread rows read ("10:03 PM"). The rest of the timeline
+// keeps the house 24-hour clock; this card is a deliberate copy of GHL's.
 function clock(iso) {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 }
 
 export default function EmailThreadCard({
-  mails, onOpenThread, onOpenAttachment, onReplyEmail, selectedIds, onToggleSelect
+  mails, onOpenAttachment, onReplyEmail, selectedIds, onToggleSelect
 }) {
+  // FULL SCREEN, as GHL does it: the SAME card, lifted into a white
+  // 90vw × 90vh container over a dimmed page, with the thread opened to its
+  // headers view. ⤢ on the card enters it; ⤡, Escape or the backdrop leave
+  // it. Not the older thread dialog — that was a different design, and the
+  // point of this view is that nothing changes except the room it has.
+  const [fullScreen, setFullScreen] = useState(false)
+  const modalRef = useModal({ active: fullScreen })
+  useEffect(() => {
+    if (!fullScreen) return
+    const onKey = (e) => { if (e.key === 'Escape') setFullScreen(false) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [fullScreen])
   const ordered = useMemo(() => [...mails].reverse(), [mails])   // oldest → newest
   const newest = ordered[ordered.length - 1]
   const count = ordered.length
@@ -70,6 +86,10 @@ export default function EmailThreadCard({
     setOpen(new Set())
   }
   const onHeaderClick = () => (view === 'collapsed' ? openHeaders() : collapse())
+  const enterFullScreen = () => {
+    if (view === 'collapsed') openHeaders()
+    setFullScreen(true)
+  }
 
   // Which emails are on screen, and where the "+N earlier" pill sits.
   const rows = useMemo(() => {
@@ -82,24 +102,27 @@ export default function EmailThreadCard({
 
   const allExpanded = ordered.every((m) => open.has(m.id)) && view !== 'collapsed'
 
-  return (
-    <div className="pp-thread">
+  const card = (
+    <div className="pp-thread" style={fullScreen ? { boxShadow: 'none', margin: 0, borderColor: 'var(--gray-200)' } : undefined}>
       {/* Subject bar */}
       <div className="pp-thread-head" onClick={onHeaderClick} role="button" tabIndex={0}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onHeaderClick() } }}>
         <span className="pp-thread-subject" title={subject}>{subject}</span>
         <span className="pp-thread-tools" onClick={(e) => e.stopPropagation()}>
-          {count > 1 && onOpenThread && (
-            <button type="button" className="pp-thread-tool" title="Open the whole thread"
-              onClick={() => onOpenThread(newest)}>
-              <span className="ms" style={{ fontSize: 16 }}>open_in_full</span>
-            </button>
-          )}
+          <button type="button" className="pp-thread-tool"
+            title={fullScreen ? 'Exit full screen' : 'Open full screen'}
+            onClick={fullScreen ? () => setFullScreen(false) : enterFullScreen}>
+            <span className="ms" style={{ fontSize: fullScreen ? 14 : 16 }}>{fullScreen ? 'close_fullscreen' : 'open_in_full'}</span>
+          </button>
+          {/* GHL hides the expand/collapse chevron in full screen for a thread
+              of two or fewer — everything is already on screen. */}
+          {!(fullScreen && count <= 2) && (
           <button type="button" className="pp-thread-tool"
             title={allExpanded ? 'Collapse thread' : 'Expand every email'}
             onClick={allExpanded ? collapse : expandAll}>
             <span className="ms" style={{ fontSize: 18 }}>{allExpanded ? 'expand_less' : 'expand_more'}</span>
           </button>
+          )}
         </span>
       </div>
 
@@ -128,6 +151,38 @@ export default function EmailThreadCard({
         />
       ))}
     </div>
+  )
+
+  if (!fullScreen) return card
+  return (
+    <>
+      {/* The inline slot keeps its height while the card is lifted out, so
+          the timeline does not reflow underneath the overlay. */}
+      <div className="pp-thread" style={{ minHeight: 56, opacity: 0.35 }}>
+        <div className="pp-thread-head"><span className="pp-thread-subject">{subject}</span></div>
+      </div>
+      <div
+        className="pp-backdrop"
+        style={{ zIndex: 60 }}
+        onMouseDown={(e) => { if (e.target === e.currentTarget) setFullScreen(false) }}
+      >
+        <div
+          ref={modalRef}
+          className="pp-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Email thread: ${subject}`}
+          style={{
+            width: '90vw', height: '90vh', maxWidth: 'none', maxHeight: 'none',
+            padding: 8, display: 'flex', flexDirection: 'column', overflow: 'hidden'
+          }}
+        >
+          <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+            {card}
+          </div>
+        </div>
+      </div>
+    </>
   )
 }
 
