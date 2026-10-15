@@ -1615,7 +1615,9 @@ export default function DealHubTab({
                     // The box stays empty; the reply context is a row above it.
                     text: '',
                     // The exact message for the server, plus what the row shows.
-                    replyTo: { messageId: m.id, subject: m.subject || '', senderName: m.senderName || '', when },
+                    // m.messageId is the GHL message id the server's reply
+                    // lookup keys on; m.id is the timeline row's own id.
+                    replyTo: { messageId: m.messageId || m.id, subject: m.subject || '', senderName: m.senderName || '', when },
                     nonce: Date.now()
                   })
                 }}
