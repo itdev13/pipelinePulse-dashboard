@@ -85,6 +85,7 @@ export default function SkillsSection() {
     <SectionCard
       icon="database"
       title="AI skills"
+      collapsible
       accent="plum"
       // "0 of 0 active" is a count of nothing presented as a statistic. With no
       // skills the empty state below already says so; the meta slot stays empty.

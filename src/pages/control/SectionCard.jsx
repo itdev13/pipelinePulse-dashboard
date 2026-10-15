@@ -14,8 +14,23 @@ export default function SectionCard({
   meta,
   help,
   children,
-  footer
+  footer,
+  // COLLAPSE / EXPAND (client request, Oct 2026) — every Control panel
+  // section except the email signature, which is short and personal. Starts
+  // open; the choice is remembered per section in this browser, so a rep who
+  // folds away the long ones does not have to again.
+  collapsible = false
 }) {
+  const storeKey = `pp.control.collapsed.${title}`
+  const [collapsed, setCollapsed] = React.useState(() => {
+    if (!collapsible) return false
+    try { return localStorage.getItem(storeKey) === '1' } catch { return false }
+  })
+  const toggle = () => setCollapsed((v) => {
+    const next = !v
+    try { localStorage.setItem(storeKey, next ? '1' : '0') } catch { /* private mode */ }
+    return next
+  })
   // SOLID HEADER BAND, the Deal hub panels' look (Oct 2026): the accent at
   // full strength, white title. It was a pale tint with accent-coloured text,
   // which read as the old style beside every redesigned tab.
@@ -40,11 +55,19 @@ export default function SectionCard({
           display: 'flex', alignItems: 'center', gap: 9,
           padding: 'var(--space-3) var(--space-4)',
           background: band,
-          borderBottom: `1px solid var(--panel-head-${accent}-border, var(--border-default))`
+          borderBottom: collapsed ? 'none' : `1px solid var(--panel-head-${accent}-border, var(--border-default))`
         }}
       >
         <span className="ms" style={{ fontSize: 20, color }}>{icon}</span>
-        <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 600, color, margin: 0, flex: 1 }}>
+        {/* The title toggles too when the section folds — the whole name is
+            a bigger target than the chevron alone. */}
+        <h2
+          onClick={collapsible ? toggle : undefined}
+          style={{
+            fontSize: 'var(--text-xl)', fontWeight: 600, color, margin: 0, flex: 1,
+            cursor: collapsible ? 'pointer' : 'default'
+          }}
+        >
           {title}
         </h2>
         {meta && (
@@ -68,11 +91,28 @@ export default function SectionCard({
             <span className="ms" style={{ fontSize: 18 }}>info</span>
           </span>
         )}
+        {collapsible && (
+          <button
+            type="button"
+            onClick={toggle}
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? `Expand ${title}` : `Collapse ${title}`}
+            title={collapsed ? 'Expand' : 'Collapse'}
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 28, height: 28, padding: 0, flex: 'none',
+              border: 'none', borderRadius: 'var(--radius-sm)',
+              background: 'rgba(255,255,255,0.14)', color: '#fff', cursor: 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 20 }}>{collapsed ? 'expand_more' : 'expand_less'}</span>
+          </button>
+        )}
       </header>
 
-      {children}
+      {!collapsed && children}
 
-      {footer && (
+      {!collapsed && footer && (
         <div
           style={{
             display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',

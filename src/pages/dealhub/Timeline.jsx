@@ -810,6 +810,7 @@ function EmailThreadCard({
                   m={latest}
                   showBox={showEarlier}
                   last
+                  defaultOpen
                   // Room for the pill's lower half, so it never sits on the name.
                   roomForPill={earlier.length > 0 && !showEarlier}
                   highlighted={latest.id === highlightedId}
@@ -825,6 +826,27 @@ function EmailThreadCard({
   )
 }
 
+// "12:06 PM" — GHL's thread rows use the 12-hour clock. The rest of the
+// timeline keeps formatClock's 24-hour form.
+function formatClock12(iso) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+}
+
+// Who sent a reply. When the server could only say "Team member" (GHL left
+// the sending user off the event), the email's own From display name —
+// "EverGreen Junction <hello@…>" — is what GHL itself shows, so use it. A
+// bare address carries no name, and the server's label stands.
+function senderLabel(m) {
+  const fallback = !m.senderName || m.senderName === 'Team member'
+  if (fallback && typeof m.emailFrom === 'string') {
+    const match = m.emailFrom.match(/^\s*"?([^"<]+?)"?\s*</)
+    if (match && match[1].trim()) return match[1].trim()
+  }
+  return m.senderName || 'Team member'
+}
+
 // One reply inside a thread card — GHL's conversation row:
 //
 //   (JS) J srini                                    11:26 PM
@@ -833,14 +855,17 @@ function EmailThreadCard({
 // Click the row to open it IN PLACE: "To: …", then the full message and its
 // attachments, in the row itself rather than a bordered card inside the
 // card. Click the header line again to fold it.
-function ThreadReply({ m, showBox, last, roomForPill, highlighted, onToggleSelect, onOpenAttachment }) {
-  const [open, setOpen] = useState(false)
+function ThreadReply({ m, showBox, last, roomForPill, highlighted, defaultOpen = false, onToggleSelect, onOpenAttachment }) {
+  // The LATEST reply opens by default, as GHL shows a thread: the message you
+  // are most likely to need is readable without a click; earlier ones fold.
+  const [open, setOpen] = useState(defaultOpen)
   // A cited reply opens, so the quote is on screen.
   useEffect(() => { if (highlighted) setOpen(true) }, [highlighted])
   const inbound = m.direction === 'inbound'
   const preview = useMemo(() => htmlToText(m.body || ''), [m.body])
   const atts = Array.isArray(m.attachments) ? m.attachments : []
-  const words = String(m.senderName || '').trim().split(/\s+/).filter(Boolean)
+  const name = senderLabel(m)
+  const words = String(name || '').trim().split(/\s+/).filter(Boolean)
   const initials = words.length > 1
     ? (words[0][0] + words[1][0]).toUpperCase()
     : (words[0] || '?').slice(0, 2).toUpperCase()
@@ -898,7 +923,7 @@ function ThreadReply({ m, showBox, last, roomForPill, highlighted, onToggleSelec
         </span>
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: 'block', fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)' }}>
-            {m.senderName}
+            {name}
           </span>
           {open ? (
             m.emailTo ? (
@@ -922,7 +947,7 @@ function ThreadReply({ m, showBox, last, roomForPill, highlighted, onToggleSelec
           </span>
         )}
         <span style={{ flex: 'none', marginTop: 2, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-          {formatClock(m.ts)}
+          {formatClock12(m.ts)}
         </span>
       </div>
 

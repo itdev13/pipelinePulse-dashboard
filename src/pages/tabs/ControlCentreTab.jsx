@@ -185,6 +185,7 @@ function BusinessContextSection({ file, onSaved }) {
     <SectionCard
       icon="description"
       title="Business context"
+      collapsible
       accent="sky"
       meta="One file per sub-account"
       help="Whatever the business wants the agent to know — products, lead times, how it operates, tone, objection answers — written however you like. No schema. The agent reads this file at the start of every conversation."
@@ -470,6 +471,7 @@ function CatalogueSyncSection() {
     <SectionCard
       icon="sync"
       title="Sync from your CRM"
+      collapsible
       accent="teal"
       meta="Runs for this sub-account"
       help="These three arrive by no webhook — your CRM does not tell us when one changes — so they refresh overnight. Press a button here to fetch them now, if you have just added something and want to use it straight away."
