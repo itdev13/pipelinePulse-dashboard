@@ -720,6 +720,30 @@ function EmailThreadCard({
     color: 'var(--text-muted)', cursor: 'pointer'
   }
 
+  // "+ N messages earlier", straddling a rule as GHL draws it. Shown on an
+  // OPEN card above the latest reply, and on a COLLAPSED one under the
+  // header — so a folded five-message thread still says it is five, not one.
+  const earlierPill = (onClick) => (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        position: 'absolute', top: 0, left: '50%', zIndex: 1,
+        transform: 'translate(-50%, -50%)',
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        height: 26, padding: '0 12px',
+        border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-pill)',
+        background: '#fff', fontFamily: 'var(--font-sans)',
+        fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-body)',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+        whiteSpace: 'nowrap', cursor: 'pointer'
+      }}
+    >
+      <span className="ms" style={{ fontSize: 15 }}>add</span>
+      {earlier.length} {earlier.length === 1 ? 'message' : 'messages'} earlier
+    </button>
+  )
+
   return (
     <Row id={`tl-${latest.id}`} highlighted={thread.some((m) => m.id === highlightedId)}>
       <SelectBox
@@ -743,7 +767,7 @@ function EmailThreadCard({
             display: 'flex', alignItems: 'center', gap: 8,
             padding: '8px 10px 8px 14px',
             background: 'var(--gray-50)',
-            borderBottom: collapsed ? 'none' : '1px solid var(--border-default)'
+            borderBottom: collapsed && !earlier.length ? 'none' : '1px solid var(--border-default)'
           }}>
             <span title={subject} style={{
               flex: 1, minWidth: 0,
@@ -769,6 +793,13 @@ function EmailThreadCard({
             </button>
           </header>
 
+          {collapsed && earlier.length > 0 && (
+            // Room for the pill's lower half under the header's rule.
+            <div style={{ position: 'relative', height: 16 }}>
+              {earlierPill(() => { setCollapsed(false); setShowEarlier(true) })}
+            </div>
+          )}
+
           {!collapsed && (
             <>
               {showEarlier && earlier.map((m) => (
@@ -786,26 +817,7 @@ function EmailThreadCard({
                   the reply, as GHL draws it — rather than in a row of its own,
                   which spent a whole line on one button. */}
               <div style={{ position: 'relative' }}>
-                {earlier.length > 0 && !showEarlier && (
-                  <button
-                    type="button"
-                    onClick={() => setShowEarlier(true)}
-                    style={{
-                      position: 'absolute', top: 0, left: '50%', zIndex: 1,
-                      transform: 'translate(-50%, -50%)',
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      height: 26, padding: '0 12px',
-                      border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-pill)',
-                      background: '#fff', fontFamily: 'var(--font-sans)',
-                      fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-body)',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
-                      whiteSpace: 'nowrap', cursor: 'pointer'
-                    }}
-                  >
-                    <span className="ms" style={{ fontSize: 15 }}>add</span>
-                    {earlier.length} {earlier.length === 1 ? 'message' : 'messages'} earlier
-                  </button>
-                )}
+                {earlier.length > 0 && !showEarlier && earlierPill(() => setShowEarlier(true))}
                 <ThreadReply
                   m={latest}
                   showBox={showEarlier}

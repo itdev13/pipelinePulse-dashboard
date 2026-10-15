@@ -1203,11 +1203,13 @@
 [data-dealhub] .pp-filter-field .ant-select-multiple .ant-select-selection-item-remove:hover {
   color: var(--status-stuck);
 }
-/* "All" (every section) and "+N" are a word, not a chip. */
+/* "All" (every section) and "+N" are a plain value, not a chip — "All" reads
+ * like the chosen value in any other toolbar dropdown, with no grey box. */
 [data-dealhub] .pp-filter-field .ant-select-multiple .ant-select-selection-overflow-item-rest .ant-select-selection-item {
-  padding-inline: 8px;
-  background: var(--gray-100);
+  padding-inline: 4px;
+  background: transparent;
   border-color: transparent;
+  font-size: var(--text-md);
 }
 
 /* ── Skeleton shimmer ─────────────────────────────────────────────────────
