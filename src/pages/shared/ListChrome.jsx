@@ -416,10 +416,13 @@ export function DealPill({
 // family that differs only by colour. Inert without an onClick.
 const RECORD_FILL = {
   CONTACT: 'var(--accent-sky)',
-  BUSINESS: 'var(--panel-head-plum, var(--accent-plum))'
+  BUSINESS: 'var(--panel-head-plum, var(--accent-plum))',
+  // The Contacts list's expanded rows — the Tasks and Notes pills' colours.
+  TASK: 'var(--panel-head-clay, var(--accent-clay))',
+  NOTE: 'var(--panel-head-brown, var(--accent-brown))'
 }
 // The capsule's icon — the same glyphs LinkedRecords' LINK_TONES use.
-const RECORD_GLYPH = { CONTACT: 'person', BUSINESS: 'domain' }
+const RECORD_GLYPH = { CONTACT: 'person', BUSINESS: 'domain', TASK: 'task_alt', NOTE: 'sticky_note_2' }
 export function RecordPill({ kind, name, onClick, draggable, onDragStart }) {
   const live = typeof onClick === 'function'
   const Tag = live ? 'button' : 'span'

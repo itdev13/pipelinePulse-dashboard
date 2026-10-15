@@ -4,7 +4,7 @@ import dayjs from 'dayjs'
 import { dealsAPI } from '../../api/deals'
 import { contactsAPI } from '../../api/contacts'
 import ConfirmDialog from '../shared/ConfirmDialog'
-import { nameFor, Truncate } from '../shared/ListChrome'
+import { nameFor, Truncate, Panel } from '../shared/ListChrome'
 import ContactPicker from '../shared/ContactPicker'
 import {
   CLOSING_STATUSES, REASON_LABEL, REASON_PLACEHOLDER
@@ -93,7 +93,9 @@ export default function DealEditPanel({
   // deal. Separate from onSaved: those writes go straight to GHL rather than
   // through this form's Update, so the panel stays open and only the people
   // list changes.
-  onPeopleChanged
+  onPeopleChanged,
+  // Opens the deal in the Deal hub — the action on the first card's band.
+  onOpenInHub
 }) {
   const [lostReasons, setLostReasons] = useState(null)
 
@@ -332,17 +334,12 @@ export default function DealEditPanel({
   const loadingRef = pipelines === null || users === null
 
   return (
-    <div
-      style={{
-        borderTop: '1px solid var(--border-default)',
-        background: 'var(--gray-25)',
-        padding: 'var(--space-4)'
-      }}
-    >
+    // A stack of cards, the business page's spacing between them.
+    <div style={{ display: 'grid', gap: 18 }}>
       {refError && (
         <p
           style={{
-            margin: '0 0 var(--space-3)',
+            margin: 0,
             fontSize: 'var(--text-base)', color: 'var(--status-stuck-text)'
           }}
         >
@@ -350,7 +347,32 @@ export default function DealEditPanel({
         </p>
       )}
 
-      <Group title="Opportunity details">
+      {/* The FIRST card carries the deal's name, the business page's
+          "Acme — Company info" shape, with the way to the hub on its band. */}
+      <Group
+        icon="sell"
+        accent="pine"
+        title={deal.dealTag || deal.opportunityName || 'Untitled deal'}
+        meta="Opportunity details"
+        action={onOpenInHub ? (
+          <button
+            type="button"
+            onClick={() => onOpenInHub(deal.id)}
+            title="See this deal's timeline, tasks and notes"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none',
+              height: 30, padding: '0 12px',
+              border: '1px solid rgba(255,255,255,0.7)', borderRadius: 'var(--radius-pill)',
+              background: '#fff', color: 'var(--brand-primary)',
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            <span className="ms" style={{ fontSize: 17 }}>space_dashboard</span>
+            Open in deal hub
+          </button>
+        ) : null}
+      >
         <Row>
           <Field label="Deal name" required span={2}>
             <Input
@@ -591,7 +613,7 @@ export default function DealEditPanel({
           Values come off the deal itself (customFields, keyed by field id),
           definitions and folders from /custom-field-options. */}
       {fieldGroups.length > 0 && (
-        <Group title="Custom fields">
+        <Group icon="tune" accent="sky" title="Custom fields">
           <div style={{ gridColumn: '1 / -1' }}>
             <CustomFieldSections
               // Every folder closed on a deal. One folder here holds 22
@@ -654,7 +676,7 @@ export default function DealEditPanel({
           no combined `name`, and a contact created from an inbound SMS has
           neither, so nameFor falls back to business or email. */}
       {primary && (
-        <Group title={`Contact details — ${nameFor(primary)}`}>
+        <Group icon="contact_page" accent="gold" title="Contact details" meta={nameFor(primary)}>
           <Row>
             <Field label="Email">
               <Input
@@ -702,7 +724,7 @@ export default function DealEditPanel({
         <div
           style={{
             display: 'flex', alignItems: 'flex-start', gap: 7,
-            margin: '0 0 var(--space-3)',
+            margin: 0,
             padding: '9px 11px',
             border: '1px solid var(--status-stuck)',
             borderRadius: 'var(--radius-sm)',
@@ -715,37 +737,24 @@ export default function DealEditPanel({
         </div>
       )}
 
-      {/* Actions. Delete sits apart from Cancel/Update so the destructive one
-          is not adjacent to the one people click by reflex. */}
+      {/* Actions, the business page's footer: what is unsaved on the left,
+          then Cancel and Save, a rule, and Delete as a round red icon at the
+          far end — apart from Save so the destructive one is not the one
+          people click by reflex. */}
       <div
         style={{
           display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-          paddingTop: 'var(--space-3)',
-          borderTop: '1px solid var(--border-default)'
+          padding: '11px var(--space-4)',
+          border: '1px solid var(--border-default)',
+          borderRadius: 'var(--radius-md)',
+          boxShadow: 'var(--shadow-card)',
+          background: 'var(--gray-25)'
         }}
       >
-        <button
-          onClick={() => setConfirmDelete(true)}
-          disabled={saving}
-          title="Delete this deal in your CRM"
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            height: 34, padding: '0 13px',
-            border: '1px solid var(--status-stuck)',
-            borderRadius: 'var(--radius-md)',
-            background: '#fff', color: 'var(--status-stuck-text)',
-            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
-            cursor: saving ? 'default' : 'pointer'
-          }}
-        >
-          <span className="ms" style={{ fontSize: 16 }}>delete</span>
-          Delete
-        </button>
 
         <span
           style={{
-            flex: 1, fontSize: 'var(--text-sm)', color: 'var(--text-faint)',
-            textAlign: 'right'
+            flex: 1, minWidth: 0, fontSize: 'var(--text-sm)', color: 'var(--text-faint)'
           }}
         >
           {/* Nothing shown on a pristine panel. "No changes" sat beside a
@@ -803,7 +812,30 @@ export default function DealEditPanel({
           {saving && (
             <span className="ms pp-spin" style={{ fontSize: 15 }}>progress_activity</span>
           )}
-          {saving ? 'Saving' : 'Update'}
+          {saving ? 'Saving' : 'Save'}
+        </button>
+        <span
+          aria-hidden
+          style={{
+            width: 1, height: 22, flex: 'none',
+            background: 'var(--border-default)', margin: '0 2px'
+          }}
+        />
+        <button
+          onClick={() => setConfirmDelete(true)}
+          disabled={saving}
+          title="Delete this deal in your CRM"
+          aria-label="Delete this deal"
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 34, height: 34, flex: 'none',
+            border: '1px solid var(--status-stuck)',
+            borderRadius: '50%',
+            background: '#fff', color: 'var(--status-stuck)',
+            cursor: saving ? 'default' : 'pointer'
+          }}
+        >
+          <span className="ms" style={{ fontSize: 17 }}>delete</span>
         </button>
       </div>
 
@@ -921,7 +953,7 @@ function PeopleEditor({ dealId, people = [], onChanged, onOpenContact, disabled 
   }
 
   return (
-    <Group title={`People — ${people.length} of ${MAX_PEOPLE}`}>
+    <Group icon="group" accent="plum" title="People" meta={`${people.length} of ${MAX_PEOPLE}`}>
       <div style={{ display: 'grid', gap: 6 }}>
         {people.map((p) => (
           <div
@@ -1150,21 +1182,16 @@ function PeopleEditor({ dealId, people = [], onChanged, onOpenContact, disabled 
   )
 }
 
-function Group({ title, children }) {
+// One section of the editor as the app's card: a solid header band in the
+// section's accent, the fields below. It was a bold heading with a rule, all
+// sections inside one grey box.
+function Group({ title, icon, accent = 'pine', meta, action, children }) {
   return (
-    <section style={{ marginBottom: 'var(--space-4)' }}>
-      <h4
-        style={{
-          margin: '0 0 var(--space-2)',
-          paddingBottom: 6,
-          borderBottom: '1px solid var(--border-default)',
-          fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-heading)'
-        }}
-      >
-        {title}
-      </h4>
-      <div style={{ display: 'grid', gap: 'var(--space-3)' }}>{children}</div>
-    </section>
+    <Panel icon={icon} title={title} accent={accent} meta={meta} action={action} solidHeader>
+      <div style={{ padding: 'var(--space-4)', display: 'grid', gap: 'var(--space-3)' }}>
+        {children}
+      </div>
+    </Panel>
   )
 }
 

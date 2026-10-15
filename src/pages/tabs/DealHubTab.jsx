@@ -922,6 +922,70 @@ export default function DealHubTab({
   // in for the whole tab.
   if (!deals) return <DealHubSkeleton />
 
+
+  // A contact field edited IN PLACE on the Customer band or a People card
+  // (see ContactFieldEdit). Both read deal.people, so patching the person
+  // there repaints every copy at once — no refetch, which would race GHL's
+  // ContactUpdate webhook and could paint the old value back.
+  const patchContact = (contactId, patch) => {
+    setDeal((d) => d && {
+      ...d,
+      people: (d.people || []).map((p) => (p.id === contactId ? { ...p, ...patch } : p))
+    })
+  }
+
+  // A business linked to one of the deal's contacts — from the deal card's
+  // "+ Add business" or a People card's Business pencil.
+  const linkBusiness = (business) => {
+    setDeal((d) => {
+      if (!d) return d
+      const have = new Set((d.businesses || []).map((b) => b.id))
+      if (have.has(business.id)) return d
+      return {
+        ...d,
+        businesses: [...(d.businesses || []), {
+          id: business.id,
+          name: business.name || 'Unnamed business',
+          city: business.city || null
+        }]
+      }
+    })
+    // MERGED, NOT REPLACED — the same protection the
+    // custom-field reconcile carries, which this handler was
+    // written without.
+    //
+    // 2.5s is a guess at a round trip we do not control: our
+    // PATCH to GHL, GHL's RelationCreate webhook back to us,
+    // then our own write of contacts.business_id. When the guess
+    // loses, the refetch returns a deal with NO business on it
+    // and `setDeal(fresh)` wholesale threw the painted one away
+    // — the business appeared and then removed itself, which is
+    // exactly what was reported after the relation writer had
+    // already fixed the server side.
+    //
+    // So the business just linked is pinned over the refetch.
+    // Everything else still comes from the server, which is the
+    // point of reconciling. A later refetch — a reload, a tab
+    // switch — carries no pin and shows the settled truth.
+    const pinnedBusiness = {
+      id: business.id,
+      name: business.name || 'Unnamed business',
+      city: business.city || null
+    }
+    window.setTimeout(() => {
+      dealsAPI.get(dealId).then((fresh) => {
+        if (!fresh) return
+        setDeal((cur) => {
+          if (!cur) return fresh
+          const list = fresh.businesses || []
+          if (list.some((b) => b.id === pinnedBusiness.id)) return fresh
+          return { ...fresh, businesses: [...list, pinnedBusiness] }
+        })
+      }).catch(() => {})
+    }, 2500)
+
+  }
+
   return (
     <div>
       {/* The OPPORTUNITY row that sat here is gone. Its switcher IS the
@@ -1257,6 +1321,8 @@ export default function DealHubTab({
               onPeopleFilterChange={setPeopleFilter}
               onOpenContact={onOpenContact}
               dealId={dealId}
+              onContactSaved={patchContact}
+              onBusinessLinked={linkBusiness}
               // Delayed refetch, not an optimistic insert. The link is made in
               // GHL and our opportunity_contacts row is written by the
               // RelationCreate webhook, so an immediate GET returns the old
@@ -1315,54 +1381,8 @@ export default function DealHubTab({
               //
               // De-duped by id: two contacts at the same company would
               // otherwise list it twice until the refetch.
-              onBusinessLinked={(business) => {
-                setDeal((d) => {
-                  if (!d) return d
-                  const have = new Set((d.businesses || []).map((b) => b.id))
-                  if (have.has(business.id)) return d
-                  return {
-                    ...d,
-                    businesses: [...(d.businesses || []), {
-                      id: business.id,
-                      name: business.name || 'Unnamed business',
-                      city: business.city || null
-                    }]
-                  }
-                })
-                // MERGED, NOT REPLACED — the same protection the
-                // custom-field reconcile carries, which this handler was
-                // written without.
-                //
-                // 2.5s is a guess at a round trip we do not control: our
-                // PATCH to GHL, GHL's RelationCreate webhook back to us,
-                // then our own write of contacts.business_id. When the guess
-                // loses, the refetch returns a deal with NO business on it
-                // and `setDeal(fresh)` wholesale threw the painted one away
-                // — the business appeared and then removed itself, which is
-                // exactly what was reported after the relation writer had
-                // already fixed the server side.
-                //
-                // So the business just linked is pinned over the refetch.
-                // Everything else still comes from the server, which is the
-                // point of reconciling. A later refetch — a reload, a tab
-                // switch — carries no pin and shows the settled truth.
-                const pinnedBusiness = {
-                  id: business.id,
-                  name: business.name || 'Unnamed business',
-                  city: business.city || null
-                }
-                window.setTimeout(() => {
-                  dealsAPI.get(dealId).then((fresh) => {
-                    if (!fresh) return
-                    setDeal((cur) => {
-                      if (!cur) return fresh
-                      const list = fresh.businesses || []
-                      if (list.some((b) => b.id === pinnedBusiness.id)) return fresh
-                      return { ...fresh, businesses: [...list, pinnedBusiness] }
-                    })
-                  }).catch(() => {})
-                }, 2500)
-              }}
+              onBusinessLinked={linkBusiness}
+              onContactSaved={patchContact}
               // These existed on DealSection but were never passed, so every
               // edit to value, stage or close date was discarded on reload —
               // the card accepted input and silently threw it away.

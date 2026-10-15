@@ -8,6 +8,7 @@ import dayjs from 'dayjs'
 import TagSelect from '../shared/TagSelect'
 import { currencySymbol } from '../../utils/money'
 import BusinessPickerModal from '../shared/BusinessPickerModal'
+import EditableContactRow from './ContactFieldEdit'
 import { Truncate } from '../shared/ListChrome'
 import { dealsAPI } from '../../api/deals'
 
@@ -54,6 +55,9 @@ export default function DealSection({
   // Opens a contact's own record — the destination for the customer card's
   // edit pencils.
   onOpenContact,
+  // (contactId, patch) after a contact field is edited in place — the Deal
+  // hub repaints deal.people from it. See ContactFieldEdit.
+  onContactSaved,
   // Moves the deal when a chevron is clicked. Undefined leaves the row
   // read-only, which is what it was before.
   onMoveStage,
@@ -229,7 +233,7 @@ export default function DealSection({
         <ContactLines
           person={primaryPerson(deal.people)}
           fallbackName={contactIsNameless ? 'No name on this contact' : contactName}
-          onOpenContact={onOpenContact}
+          onContactSaved={onContactSaved}
           wide
         />
       </div>
@@ -1902,7 +1906,7 @@ function ProductFooter({ deal, siblingDeals, onOpenDeal }) {
 // band across the card's foot the design now gives them. In the old 300px
 // column a stacked label-over-value pair was right; at full width it would
 // leave two thirds of every row empty.
-function ContactLines({ person, fallbackName, onOpenContact, wide = false }) {
+function ContactLines({ person, fallbackName, onContactSaved, wide = false }) {
   if (!person) return null
 
   // The primary contact's own record, as labelled fields rather than four
@@ -1924,16 +1928,17 @@ function ContactLines({ person, fallbackName, onOpenContact, wide = false }) {
   // Sentence case, uppercased by `.pp-label`. Written "First name", not
   // "First Name" — the capital N survived into tooltips and aria-labels,
   // where it reads as a proper noun.
+  // [label, value, icon, field key (ours and the patch's), input type]
   const fields = [
-    ['First name', person.firstName, 'badge'],
-    ['Second name', person.lastName, 'badge'],
-    ['Email address', person.email, 'mail'],
-    ['Telephone', person.phone, 'call'],
-    ['Street address', person.address1, 'home'],
-    ['Town', person.city, 'location_city'],
-    ['Postcode', person.postalCode, 'markunread_mailbox'],
-    ['County', person.state, 'map'],
-    ['Country', person.country, 'public'],
+    ['First name', person.firstName, 'badge', 'firstName'],
+    ['Second name', person.lastName, 'badge', 'lastName'],
+    ['Email address', person.email, 'mail', 'email', 'email'],
+    ['Telephone', person.phone, 'call', 'phone', 'tel'],
+    ['Street address', person.address1, 'home', 'address1'],
+    ['Town', person.city, 'location_city', 'city'],
+    ['Postcode', person.postalCode, 'markunread_mailbox', 'postalCode'],
+    ['County', person.state, 'map', 'state'],
+    ['Country', person.country, 'public', 'country'],
   ]
 
   // Every field shown, filled or not. A blank one is a real gap in the
@@ -1976,19 +1981,19 @@ function ContactLines({ person, fallbackName, onOpenContact, wide = false }) {
         gap: 1,
         background: 'var(--gray-200)'
       }}>
-        {fields.map(([label, value, icon], i) => (
+        {fields.map(([label, value, icon, field, type], i) => (
           <div key={label} style={{ background: '#fff', minWidth: 0 }}>
-            <FieldRow
+            {/* EDITED IN PLACE (client request, Oct 2026). The pencil used to
+                open the contact's own record — a page away from the deal.
+                See ContactFieldEdit. */}
+            <EditableContactRow
+              contactId={person.id}
+              field={field}
+              type={type}
               icon={icon}
               label={label}
               value={value}
-              // The pencil opens the CONTACT'S OWN RECORD, the same
-              // destination the People view's rows use. Nine inline editors
-              // here would be a second copy of the form that record already
-              // is — and these are the customer's fields, not the deal's, so
-              // the deal card is not where they belong.
-              onEdit={onOpenContact ? () => onOpenContact(person.id) : undefined}
-              editTitle={onOpenContact ? 'Edit on the contact record' : undefined}
+              onSaved={onContactSaved}
               last={i >= fields.length - (wide ? 3 : 2)}
             />
           </div>

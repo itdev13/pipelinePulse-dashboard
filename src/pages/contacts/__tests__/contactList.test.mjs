@@ -30,8 +30,14 @@ test('cells write through the existing APIs only', () => {
   assert.doesNotMatch(table, /contactsAPI\.update\([^)]*tags/);
 });
 
-test('deals open from a menu; tasks and notes open the record', () => {
-  assert.match(table, /onSelect: onOpenDeal \? \(\) => onOpenDeal\(d\.id\)/);
+test('pills expand a section under the row; each item has a View pill', () => {
+  // The October design: no floating menu — the pill toggles its group below.
+  assert.match(table, /const toggle = \(kind\) =>/);
+  assert.match(table, /open\.size > 0 &&/);
+  assert.match(table, /onClick=\{onOpenDeal \? \(\) => onOpenDeal\(d\.id\)/);
+  assert.match(table, /kind="TASK"/);
+  assert.match(table, /kind="NOTE"/);
+  // A contact with none still opens the record.
   const tasks = table.slice(table.indexOf("show('tasks')"), table.indexOf("show('notes')"));
   assert.match(tasks, /onClick=\{\(\) => onOpen && onOpen\(c\.id\)\}/);
 });
@@ -42,10 +48,9 @@ test('rows can be selected, with select-all over the loaded rows', () => {
   assert.match(tab, /onToggleAll=\{\(on\) => setSelected\(on \? new Set\(contacts\.map\(\(c\) => c\.id\)\) : new Set\(\)\)\}/);
 });
 
-test('the menu escapes the scrolling table', () => {
-  // Inside the overflow box it would be clipped.
-  assert.match(table, /createPortal\(/);
-  assert.match(table, /className="pp-portal"/);
+test('the expansion spans the whole row, inside the table', () => {
+  // In the table, not a portal: the design draws it under the row.
+  assert.match(table, /<td colSpan=\{99\} style=\{\{ \.\.\.TD, borderRight: 'none', padding: 0/);
 });
 
 test('every unwired control is on the pending list', () => {

@@ -464,8 +464,9 @@ test('a NEW note or task waits for its webhook before refetching', () => {
   const rail = read('DealTasksSection.jsx');
   assert.match(rail, /const reloadSoon = useCallback/);
   assert.match(rail, /setNonce\(\(n\) => n \+ 1\), 2500\)/);
-  // Both rails, not just notes.
-  assert.equal((rail.match(/reloadSoon\(\)/g) || []).length, 2);
+  // Both rails, not just notes — at least two; the task rail also reloads
+  // when a task moves to another deal.
+  assert.ok((rail.match(/reloadSoon\(\)/g) || []).length >= 2);
 });
 
 test('an EDIT still updates instantly', () => {

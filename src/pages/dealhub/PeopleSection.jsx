@@ -5,6 +5,8 @@ import { dealsAPI } from '../../api/deals'
 import ContactPicker from '../shared/ContactPicker'
 import { nameFor } from '../shared/ListChrome'
 import ConfirmDialog from '../shared/ConfirmDialog'
+import BusinessPickerModal from '../shared/BusinessPickerModal'
+import EditableContactRow from './ContactFieldEdit'
 
 // Deal Hub — People section (opp-associated contacts).
 //
@@ -40,6 +42,10 @@ export default function PeopleSection({
   // hardcoded disabled with a "coming next" title only because nothing passed
   // this down — the shell has had openContact all along.
   onOpenContact,
+  // (contactId, patch) after a field is edited in place on a card.
+  onContactSaved,
+  // (business, person) after the Business pencil links a company.
+  onBusinessLinked,
   // Needed to add someone — the link is made against the opportunity.
   dealId,
   // Called after a successful add or remove so the parent refetches; the
@@ -55,6 +61,8 @@ export default function PeopleSection({
   // from here — re-adding is a fresh GHL relation — and the button sits
   // beside "Make primary", so a misfire is easy.
   const [confirming, setConfirming] = useState(null)
+  // The person whose Business pencil opened the company picker.
+  const [linking, setLinking] = useState(null)
 
   const makePrimary = async (p) => {
     if (!p?.id || p.primary || primaryId) return
@@ -142,6 +150,8 @@ export default function PeopleSection({
             onMakePrimary={() => makePrimary(p)}
             settingPrimary={primaryId === p.id}
             onViewContact={onOpenContact ? () => onOpenContact(p.id) : undefined}
+            onContactSaved={onContactSaved}
+            onLinkBusiness={() => setLinking(p)}
           />
         ))}
       </div>
@@ -168,6 +178,21 @@ export default function PeopleSection({
       )}
 
       <AddContactFooter dealId={dealId} people={people} onAdded={onPeopleChanged} />
+
+      {linking && (
+        <BusinessPickerModal
+          contact={linking}
+          blurb={`Links ${nameFor(linking)} to the business, so it shows on every deal they are on.`}
+          onClose={() => setLinking(null)}
+          onLinked={(business) => {
+            const person = linking
+            setLinking(null)
+            // The card's Business row reads the contact's company name.
+            onContactSaved && onContactSaved(person.id, { business: business.name || null })
+            onBusinessLinked && onBusinessLinked(business, person)
+          }}
+        />
+      )}
 
       {confirming && (
         <ConfirmDialog
@@ -248,7 +273,7 @@ function initialsFromWords(value) {
   return (words[0] || '').slice(0, 2).toUpperCase() || null
 }
 
-function PersonCard({ p, filterActive, onShowInThread, allowRemove, onRemove, removing, onMakePrimary, settingPrimary, onViewContact }) {
+function PersonCard({ p, filterActive, onShowInThread, allowRemove, onRemove, removing, onMakePrimary, settingPrimary, onViewContact, onContactSaved, onLinkBusiness }) {
   // `usedField` is no longer read: the detail cells render every field
   // unconditionally now, so there is nothing to suppress as "already shown in
   // the heading".
@@ -348,26 +373,43 @@ function PersonCard({ p, filterActive, onShowInThread, allowRemove, onRemove, re
         borderRadius: 'var(--radius-sm)',
         overflow: 'hidden'
       }}>
-        {[
-          ['mail', 'Email', p.email],
-          ['call', 'Telephone', p.phone],
-          ['business', 'Business', p.business],
-          // The CUSTOM field, not p.contactType. That one is GHL's built-in
-          // lead/customer type and is already the badge beside the name;
-          // showing it again here as "Role" repeated one fact and hid the
-          // other. This is {{contact.contact_type}} — "Homeowner", "Partner".
-          ['work', 'Contact type', p.contactTypeField]
-        ].map(([icon, label, value], i, all) => (
-          <FieldRow
-            key={label}
-            icon={icon}
-            label={label}
-            value={value}
-            last={i === all.length - 1}
-            onEdit={onViewContact}
-            editTitle={onViewContact ? `Edit on ${nameFor(p)}'s record` : undefined}
-          />
-        ))}
+        {/* EMAIL AND TELEPHONE EDIT IN PLACE (client request, Oct 2026) —
+            the pencils used to open the contact's record. See
+            ContactFieldEdit. */}
+        <EditableContactRow
+          contactId={p.id} field="email" type="email"
+          icon="mail" label="Email" value={p.email}
+          onSaved={onContactSaved}
+        />
+        <EditableContactRow
+          contactId={p.id} field="phone" type="tel"
+          icon="call" label="Telephone" value={p.phone}
+          onSaved={onContactSaved}
+        />
+        {/* BUSINESS: the pencil opens the company picker right here — the
+            same one the deal card's "+ Add business" uses — and links the
+            contact to the business it picks. */}
+        <FieldRow
+          icon="business"
+          label="Business"
+          value={p.business}
+          onEdit={onLinkBusiness}
+          editTitle={`Link ${nameFor(p)} to a business`}
+        />
+        {/* The CUSTOM field, not p.contactType. That one is GHL's built-in
+            lead/customer type and is already the badge beside the name;
+            showing it again here as "Role" repeated one fact and hid the
+            other. This is {{contact.contact_type}} — "Homeowner", "Partner".
+            Its options live on the field's definition, so it still edits on
+            the contact's record. */}
+        <FieldRow
+          icon="work"
+          label="Contact type"
+          value={p.contactTypeField}
+          last
+          onEdit={onViewContact}
+          editTitle={onViewContact ? `Edit on ${nameFor(p)}'s record` : undefined}
+        />
       </div>
 
       {/* Actions row */}

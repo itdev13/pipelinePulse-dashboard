@@ -76,7 +76,10 @@ t('the paint is followed by a DELAYED reconcile, not an immediate one', () => {
   // The write goes to GHL; our contacts.business_id only updates when the
   // ContactUpdate webhook lands. An immediate GET returns the old deal and
   // would wipe the paint — the same race that hit custom fields and people.
-  const handler = tab.slice(tab.indexOf('onBusinessLinked={(business) => {'), tab.indexOf('// These existed on DealSection'));
+  // Moved out of the JSX into a named handler so the People cards' Business
+  // pencil can share it.
+  const at = tab.indexOf('const linkBusiness = (business) => {');
+  const handler = tab.slice(at, tab.indexOf('  return (', at));
   assert.match(handler, /window\.setTimeout\(/);
   assert.match(handler, /2500\)/);
 });
@@ -125,7 +128,10 @@ t('a business already on the deal is preserved alongside the new one', () => {
 });
 
 t('the handler merges rather than replacing wholesale', () => {
-  const handler = tab.slice(tab.indexOf('onBusinessLinked={(business) => {'), tab.indexOf('// These existed on DealSection'));
+  // Moved out of the JSX into a named handler so the People cards' Business
+  // pencil can share it.
+  const at = tab.indexOf('const linkBusiness = (business) => {');
+  const handler = tab.slice(at, tab.indexOf('  return (', at));
   assert.ok(
     !/dealsAPI\.get\(dealId\)\.then\(setDeal\)/.test(handler),
     'a wholesale setDeal discards the painted business — the reported bug'
