@@ -548,20 +548,23 @@ export function RowAction({ icon, onClick, title, danger }) {
       title={title}
       style={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: 30, height: 30, flex: 'none',
-        border: `1px solid ${live ? 'var(--border-strong)' : 'var(--border-default)'}`,
-        borderRadius: 'var(--radius-md)',
+        // A ROUNDED SQUARE, per the design — 26px with a 6px corner. It was
+        // 30px on --radius-md, which the Deal hub theme sets to 12px, so the
+        // buttons read as circles beside the design's squares.
+        width: 26, height: 26, flex: 'none', padding: 0,
+        border: '1px solid var(--border-default)',
+        borderRadius: 6,
         background: '#fff',
         // Danger keeps its colour either way — the opacity below carries the
         // disabled state, and a greyed-out red would stop reading as danger.
         color: danger
           ? 'var(--status-stuck)'
-          : live ? 'var(--text-muted)' : 'var(--text-faint)',
+          : live ? 'var(--text-body)' : 'var(--text-faint)',
         cursor: live ? 'pointer' : 'not-allowed',
         opacity: live ? 1 : 0.6
       }}
     >
-      <span className="ms" style={{ fontSize: 16 }}>{icon}</span>
+      <span className="ms" style={{ fontSize: 15 }}>{icon}</span>
     </button>
   )
 }
