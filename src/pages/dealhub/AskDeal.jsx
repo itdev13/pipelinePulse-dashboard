@@ -816,42 +816,6 @@ export default function AskDeal({
           >
           <ChannelScope value={channels} onChange={setChannels} scope={scope} />
 
-          {/* REPLY CONTEXT, as a row above the box rather than words inside
-              it. The box stays empty for what the reply should say; this
-              names the email it answers and can be dismissed. */}
-          {replyTo && (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              // No margin of its own: the composer column already spaces its
-              // children, and 8px on top of that read as a gap. Pulled 6px
-              // toward the box so the row and the box sit as one unit.
-              padding: '7px 12px', marginBottom: -6,
-              border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)',
-              background: 'var(--gray-25)', fontSize: 'var(--text-base)', color: 'var(--text-muted)'
-            }}>
-              <span className="ms" style={{ fontSize: 16, color: 'var(--text-body)' }}>reply</span>
-              <span style={{ minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                Replying to <strong style={{ color: 'var(--text-heading)' }}>{replyTo.subject || '(no subject)'}</strong>
-                {replyTo.senderName && <> · {replyTo.senderName}</>}
-                {replyTo.when && <> · {replyTo.when}</>}
-              </span>
-              <button
-                type="button"
-                onClick={() => setReplyTo(null)}
-                title="Not a reply after all"
-                aria-label="Cancel reply"
-                style={{
-                  marginLeft: 'auto', flex: 'none', width: 24, height: 24,
-                  border: 'none', borderRadius: 'var(--radius-sm)', background: 'transparent',
-                  color: 'var(--text-muted)', cursor: 'pointer',
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
-                }}
-              >
-                <span className="ms" style={{ fontSize: 16 }}>close</span>
-              </button>
-            </div>
-          )}
-
           {/* While dictating, the composer IS the recorder — the same box, a
               different state. A separate floating panel would leave a dead
               text field underneath it. */}
@@ -911,6 +875,55 @@ export default function AskDeal({
               cursor: 'text'
             }}
           >
+            {/* REPLY CONTEXT, inside the composer — a quoted strip above the
+                text, the way a chat app shows what you are replying to. It was
+                a separate bar above the box and read as a second input. The
+                box stays empty for what the reply should say; this names the
+                email and can be dismissed. */}
+            {replyTo && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 10px 8px 12px',
+                  borderLeft: '3px solid var(--accent-sky)',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--tint-sky)'
+                }}
+              >
+                <span className="ms" style={{ fontSize: 16, color: 'var(--accent-sky-text)', flex: 'none' }}>reply</span>
+                <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <span style={{
+                    fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
+                    textTransform: 'uppercase', color: 'var(--accent-sky-text)'
+                  }}>
+                    Replying to
+                  </span>
+                  <span style={{
+                    fontSize: 'var(--text-base)', color: 'var(--text-body)',
+                    overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis'
+                  }}>
+                    <strong style={{ color: 'var(--text-heading)' }}>{replyTo.subject || '(no subject)'}</strong>
+                    {replyTo.senderName && <span style={{ color: 'var(--text-muted)' }}> · {replyTo.senderName}</span>}
+                    {replyTo.when && <span style={{ color: 'var(--text-muted)' }}> · {replyTo.when}</span>}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setReplyTo(null)}
+                  title="Not a reply after all"
+                  aria-label="Cancel reply"
+                  style={{
+                    marginLeft: 'auto', flex: 'none', width: 24, height: 24,
+                    border: 'none', borderRadius: 'var(--radius-pill)', background: 'transparent',
+                    color: 'var(--text-muted)', cursor: 'pointer',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+                  }}
+                >
+                  <span className="ms" style={{ fontSize: 16 }}>close</span>
+                </button>
+              </div>
+            )}
             <AttachmentThumbnails
               attachments={attachments}
               onView={setPreview}
