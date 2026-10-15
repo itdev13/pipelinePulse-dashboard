@@ -100,9 +100,18 @@ export default function AskDeal({
   dealId, onAsk, onJumpToMessage, beforeAsk, messages = [],
   // The deal's contacts. Notes and tasks are stored against a CONTACT, so
   // "Save as note" needs one — without any, those actions stay disabled.
-  people = []
+  people = [],
+  // { text, nonce } — text to drop into the composer, from a Reply button on
+  // the timeline. The nonce makes the same text seed twice in a row.
+  seedQuestion = null
 }) {
   const [q, setQ] = useState('')
+  useEffect(() => {
+    if (!seedQuestion?.text) return
+    setQ(seedQuestion.text)
+    requestAnimationFrame(() => inputRef.current?.focus())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedQuestion?.nonce])
   // Transcript of this deal's Q&A. Client-held: it's scratch context for
   // follow-ups, and every question is already persisted server-side in
   // ai_runs for the audit trail.

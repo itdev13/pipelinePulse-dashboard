@@ -5,6 +5,7 @@ import AttachmentChip, { accentVar } from './AttachmentChip'
 import AttachmentViewer from './AttachmentViewer'
 import EmailThreadModal from './EmailThreadModal'
 import EmailBody from './EmailBody'
+import EmailThreadCard from './EmailThreadCard'
 import MessageDealPill from './MessageDealPill'
 import { noteColourStyle } from '../../utils/noteColour'
 
@@ -694,6 +695,10 @@ export default function Timeline({
   dealId = null,
   dealTargets = [],
   onMessageMoved = null,
+  // Reply on an email thread card. Seeds the Co-Pilot composer with a reply
+  // request for that email — the draft itself goes through the AI's reply
+  // path (replyToMessageId), so it threads correctly.
+  onReplyEmail = null,
 }) {
   // The header counts each kind separately — tasks and notes now share the
   // stream, and folding them into "23 messages" would overstate the thread.
@@ -860,6 +865,42 @@ export default function Timeline({
         {messages.map((m, i) => {
           const prev = i > 0 ? messages[i - 1] : null
           const newDay = !prev || !sameDay(prev.ts, m.ts)
+          // A THREADED EMAIL RENDERS ONCE, as a thread card, at the slot of
+          // its newest message; the older ones fold into that card and are
+          // skipped here. The list is newest-first, so the first email seen
+          // for a thread is its newest. A single-email "thread" keeps the
+          // ordinary row — a card wrapping one email adds chrome, not
+          // information.
+          const thread = m.channel === 'EMAIL' && m.threadId ? threads.get(m.threadId) : null
+          if (thread && thread.length > 1) {
+            if (thread[0] !== m) return null
+            const ids = new Set(thread.filter((t) => t.included !== false).map((t) => t.id))
+            return (
+              <React.Fragment key={`thread-${m.threadId}`}>
+                {newDay && m.ts && <DayHeader iso={m.ts} />}
+                <Row id={`tl-${m.id}`} highlighted={thread.some((t) => t.id === highlightedId)}>
+                  <span />
+                  <RowIcon icon="mail" colour={accentTextVar('sky')} soft={tintVar('sky')} title="Email thread" />
+                  <div style={{ minWidth: 0 }}>
+                    <EmailThreadCard
+                      mails={thread}
+                      onOpenThread={setThreadOf}
+                      onOpenAttachment={openAttachment}
+                      onReplyEmail={onReplyEmail}
+                      selectedIds={onToggleSelect ? ids : null}
+                      onToggleSelect={onToggleSelect}
+                    />
+                  </div>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'start', whiteSpace: 'nowrap' }}>
+                    {dealId && m.messageId && (
+                      <MessageDealPill message={m} dealId={dealId} targets={dealTargets} onMoved={onMessageMoved} />
+                    )}
+                    <RowTime ts={m.ts} inline />
+                  </span>
+                </Row>
+              </React.Fragment>
+            )
+          }
           return (
             <React.Fragment key={m.id}>
               {newDay && m.ts && <DayHeader iso={m.ts} />}

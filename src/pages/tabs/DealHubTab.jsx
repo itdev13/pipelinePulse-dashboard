@@ -94,6 +94,8 @@ export default function DealHubTab({
   // The one active deal
   const [deal, setDeal] = useState(null)
   const [stages, setStages] = useState(null)
+  // A reply request from the timeline, dropped into the Co-Pilot composer.
+  const [askSeed, setAskSeed] = useState(null)
   const [messages, setMessages] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -1604,6 +1606,13 @@ export default function DealHubTab({
               <Timeline
                 messages={filtered}
                 dealId={dealId}
+                // Reply on an email thread: hand the Co-Pilot a reply request
+                // for that message. The AI drafts it through the reply path,
+                // so it threads onto the original rather than starting fresh.
+                onReplyEmail={(m) => setAskSeed({
+                  text: `Reply to the email "${m.subject || '(no subject)'}" (message id ${m.id}): `,
+                  nonce: Date.now()
+                })}
                 // Every deal on this contact, including won/lost — a manager
                 // may deliberately file a message against a closed deal.
                 dealTargets={siblingDeals}
@@ -1684,6 +1693,7 @@ export default function DealHubTab({
             />
             <AskDeal
               dealId={dealId}
+              seedQuestion={askSeed}
               onJumpToMessage={jumpToMessage}
               // Pending ticks must land before the question does, or the server
               // builds context from the old selection.
