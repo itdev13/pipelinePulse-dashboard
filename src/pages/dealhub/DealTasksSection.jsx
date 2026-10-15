@@ -371,8 +371,12 @@ export function DealTasksSection({ dealId = null, contactId = null, people = [],
                 body: saved.body ?? editor.task.body,
                 dueAt: saved.dueDate ?? editor.task.dueAt,
                 // Present only when the editor changed the assignee.
-                ...('owner' in saved ? { owner: saved.owner, assignedTo: saved.assignedTo } : {})
+                ...('owner' in saved ? { owner: saved.owner, assignedTo: saved.assignedTo } : {}),
+                // Present only when the editor changed the company link.
+                ...('businessId' in saved ? { businessId: saved.businessId, business: saved.business } : {})
               })
+              // Moved onto a different deal — this rail no longer holds it.
+              if ('opportunityId' in saved && (saved.opportunityId || null) !== (dealId || null)) reloadSoon()
             } else {
               // A new task arrives via the CRM's webhook, so refetch rather
               // than inventing a row whose id and attribution we don't know —
