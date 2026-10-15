@@ -11,9 +11,9 @@ import { LinkedRow, LINK_TONES } from '../shared/LinkedRecords'
 import { contactsAPI } from '../../api/contacts'
 import BusinessPickerModal from '../shared/BusinessPickerModal'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
-import { useTabState } from '../../hooks/useTabState'
+import { useTabState, setTabState } from '../../hooks/useTabState'
 import { useAuth } from '../../context/AuthContext'
-import { OwnerFilter, TagFilter } from '../shared/ListFilters'
+import { OwnerFilter, TagFilter, ALL } from '../shared/ListFilters'
 import ContactDetail from '../contacts/ContactDetail'
 import ContactCreatePanel from '../contacts/ContactCreatePanel'
 
@@ -510,6 +510,15 @@ export default function ContactsTab({
               onOpen={openRecord}
               onOpenDeal={onOpenDeal}
               onOpenBusiness={onOpenBusiness}
+              onViewNote={onOpenTab ? (contactId, note) => {
+                // Notes, narrowed to this contact (any author — the note may
+                // not be the rep's own), with the note open in the reader.
+                setTabState('notes', 'filters', { contactId })
+                setTabState('notes', 'author', ALL)
+                setTabState('notes', 'q', '')
+                setTabState('notes', 'focus', note.id)
+                onOpenTab('notes')
+              } : undefined}
               // Cells write straight to the CRM; the row is patched with the
               // result rather than refetched.
               onPatch={(id, p) => patchItem((x) => x.id === id, p)}

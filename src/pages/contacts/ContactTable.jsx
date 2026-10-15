@@ -70,6 +70,8 @@ const PILL_TONES = {
 export default function ContactTable({
   contacts = [], columns, tagList = [],
   onOpen, onOpenDeal, onOpenBusiness, onPatch,
+  // (contactId, note) — View on a note opens it in the Notes tab.
+  onViewNote,
   // Selection, for bulk actions — owned by the tab so the cards and the list
   // share one selection.
   selected = new Set(), onToggleSelected, onToggleAll
@@ -124,6 +126,7 @@ export default function ContactTable({
               onOpen={onOpen}
               onOpenDeal={onOpenDeal}
               onOpenBusiness={onOpenBusiness}
+              onViewNote={onViewNote}
               onPatch={onPatch}
               selected={selected.has(c.id)}
               onToggleSelected={() => onToggleSelected && onToggleSelected(c.id)}
@@ -136,7 +139,7 @@ export default function ContactTable({
 }
 
 function ContactRow({
-  c, show, tagList, onOpen, onOpenDeal, onOpenBusiness, onPatch, selected, onToggleSelected
+  c, show, tagList, onOpen, onOpenDeal, onOpenBusiness, onViewNote, onPatch, selected, onToggleSelected
 }) {
   const [picking, setPicking] = useState(false)
   const [error, setError] = useState(null)
@@ -397,7 +400,14 @@ function ContactRow({
                       icon="sticky_note_2" iconColour="var(--accent-brown)"
                       name={text}
                       a={n.createdAt ? relativeTime(n.createdAt) : null}
-                      view={<RecordPill kind="NOTE" name={text} onClick={onOpen ? () => onOpen(c.id) : undefined} />}
+                      view={(
+                        <RecordPill
+                          kind="NOTE" name={text}
+                          // The Notes tab, filtered to this contact, with the
+                          // note open — not the contact record.
+                          onClick={onViewNote ? () => onViewNote(c.id, n) : (onOpen ? () => onOpen(c.id) : undefined)}
+                        />
+                      )}
                     />
                   )
                 })}

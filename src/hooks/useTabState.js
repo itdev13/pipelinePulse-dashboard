@@ -157,6 +157,17 @@ export function useTabState(page, key, initial) {
 }
 
 /**
+ * Set a page's remembered value from OUTSIDE it — before switching to that
+ * tab, so it mounts already showing it. The Contacts list's "View note" uses
+ * this to open Notes filtered to the contact with the note in the reader.
+ */
+export function setTabState(page, key, value) {
+  ensureCurrentLocation()
+  store.set(`${page}:${key}`, value)
+  persist()
+}
+
+/**
  * Forget a page's remembered state.
  *
  * Used when a deliberate reset should stick — clearing a search, say — so the
