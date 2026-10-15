@@ -53,36 +53,29 @@ export default function InsightsTab() {
   }, [])
 
   // Persisted per tab, like every other filter in the app — stepping out to
-  // a deal and back keeps the same groups narrowed, rather than resetting to
-  // "show everything" on return.
+  // a deal and back keeps the same sections picked.
   //
-  // undefined (not set yet) and [] (deliberately narrowed to nothing) are
-  // different states — see `selected` below. Defaulting the STORED value to
-  // "all" would make "clear every group" indistinguishable from "never
-  // touched the filter", and the second visit would silently re-expand a
-  // selection someone had just narrowed down.
-  const [selectedGroups, setSelectedGroups] = useTabState('insights', 'groups', undefined)
-  const selected = selectedGroups === undefined
-    ? groupDefs.map((g) => g.number)
-    : selectedGroups
+  // NOTHING TICKED BY DEFAULT (client request, Oct 2026). It opened with
+  // every section ticked, so a rep had to untick seven to see one. Now the
+  // list starts empty and an empty pick means "every section"; ticking one
+  // narrows the page to it.
+  const [selectedGroups, setSelectedGroups] = useTabState('insights', 'groups', [])
+  const picked = useMemo(() => (Array.isArray(selectedGroups) ? selectedGroups : []), [selectedGroups])
+  const showAll = picked.length === 0
 
   const groups = useMemo(() => {
     const by = new Map()
     for (const c of CARDS) {
-      if (!selected.includes(c.group_number)) continue
+      if (!showAll && !picked.includes(c.group_number)) continue
       if (!by.has(c.group_number)) {
         by.set(c.group_number, { number: c.group_number, name: c.group_name, cards: [] })
       }
       by.get(c.group_number).cards.push(c)
     }
     return [...by.values()].sort((a, b) => a.number - b.number)
-  }, [selected])
+  }, [picked, showAll])
 
   const shownCount = groups.reduce((n, g) => n + g.cards.length, 0)
-  // Every section picked — the default, and the state the "+8" chip used to
-  // describe uselessly. Compared on COUNT rather than set equality because
-  // `selected` can only ever hold ids that came from groupDefs.
-  const allSelected = groupDefs.length > 0 && selected.length === groupDefs.length
 
   return (
     <Shell>
@@ -103,32 +96,26 @@ export default function InsightsTab() {
             <span className="pp-label" style={{ marginBottom: 0 }}>Section</span>
             <Select
               mode="multiple"
-              value={selected}
+              value={picked}
               onChange={(v) => setSelectedGroups(v)}
               popupClassName="pp-menu"
-              // EVERY SECTION SELECTED READS AS "All", NOT AS CHIPS.
-              //
-              // The default behaviour collapsed eight picked sections into a
-              // bare "+8" chip — a number that names none of them and that
-              // nobody has to act on, since "all of them" is the state the
-              // page starts in. maxTagCount 0 in that case hides the chips
-              // entirely so the placeholder below is all that shows.
-              //
-              // Just "All", not "All sections": the field's own label sits
-              // immediately to its left, so the noun is already said.
-              //
-              // Narrowed to a few, the chips ARE the useful thing — they say
-              // which sections you are looking at — so 'responsive' comes
-              // back and only overflow collapses.
-              maxTagCount={allSelected ? 0 : 'responsive'}
+              // A TEXT SUMMARY, not chips. Chips in a one-line box fell back
+              // to a bare "+6" that named none of the picked sections.
+              // maxTagCount 0 hides every chip and the placeholder function
+              // says what is picked: its name for one, "N sections" for more.
+              maxTagCount={0}
               maxTagPlaceholder={(omitted) => (
-                allSelected ? 'All' : `+${omitted.length}`
+                omitted.length === 1
+                  ? (groupDefs.find((g) => g.number === omitted[0].value)?.name || '1 section')
+                  : `${omitted.length} sections`
               )}
               style={{ minWidth: 220, maxWidth: 480 }}
               styles={{ root: { height: 34 } }}
               popupMatchSelectWidth={320}
               options={groupDefs.map((g) => ({ value: g.number, label: g.name }))}
-              placeholder="No sections selected"
+              // Nothing picked = every section shown.
+              placeholder="All sections"
+              allowClear
             />
           </span>
         }
@@ -136,7 +123,7 @@ export default function InsightsTab() {
         <div style={{ padding: 'var(--space-4)', display: 'grid', gap: 'var(--space-5)' }}>
           {groups.length === 0 ? (
             <p style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
-              No section selected — pick one above to see its insights.
+              No insights to show yet.
             </p>
           ) : (
             groups.map((g) => (

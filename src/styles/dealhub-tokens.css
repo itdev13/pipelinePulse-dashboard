@@ -1167,11 +1167,10 @@
   stroke-width: 60;
 }
 
-/* Multi-select toolbar fields (the Insights Section filter). Once a section
- * is unticked the value turns into chips, which got antd's grey defaults and
- * a box pinned at 34px that clipped a wrapped second row. One line only —
- * maxTagCount 'responsive' folds the overflow into "+N" — and the chips as
- * small white pills in the heading colour, like the toolbar values above. */
+/* Multi-select toolbar fields (the Insights Section filter). The value is a
+ * TEXT SUMMARY — maxTagCount 0, so antd draws only its "rest" item ("Pipeline
+ * leakage", "3 sections") — styled as a plain value like the single selects
+ * above, not as antd's grey chip. One line, pinned at the toolbar's 34px. */
 [data-dealhub] .pp-filter-field .ant-select-multiple .ant-select-selector {
   height: 34px;
   min-height: 34px;
@@ -1183,33 +1182,21 @@
   flex-wrap: nowrap;
   overflow: hidden;
 }
-[data-dealhub] .pp-filter-field .ant-select-multiple .ant-select-selection-item {
-  height: 24px;
-  line-height: 22px;
-  margin-top: 0;
-  margin-bottom: 0;
-  padding-inline: 9px 5px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-pill);
-  background: #fff;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-heading);
-}
-[data-dealhub] .pp-filter-field .ant-select-multiple .ant-select-selection-item-remove {
-  color: var(--text-muted);
-  font-size: 10px;
-}
-[data-dealhub] .pp-filter-field .ant-select-multiple .ant-select-selection-item-remove:hover {
-  color: var(--status-stuck);
-}
-/* "All" (every section) and "+N" are a plain value, not a chip — "All" reads
- * like the chosen value in any other toolbar dropdown, with no grey box. */
 [data-dealhub] .pp-filter-field .ant-select-multiple .ant-select-selection-overflow-item-rest .ant-select-selection-item {
+  margin: 0;
   padding-inline: 4px;
   background: transparent;
   border-color: transparent;
   font-size: var(--text-md);
+  font-weight: 500;
+  color: var(--text-heading);
+}
+/* "All sections" (nothing picked) is the field's real state, not a prompt —
+ * it reads as a value, the way "All" does in the Deals toolbar. */
+[data-dealhub] .pp-filter-field .ant-select-multiple .ant-select-selection-placeholder {
+  font-size: var(--text-md);
+  font-weight: 500;
+  color: var(--text-heading);
 }
 
 /* ── Skeleton shimmer ─────────────────────────────────────────────────────

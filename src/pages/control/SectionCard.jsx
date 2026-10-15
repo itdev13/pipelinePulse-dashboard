@@ -17,14 +17,14 @@ export default function SectionCard({
   footer,
   // COLLAPSE / EXPAND (client request, Oct 2026) — every Control panel
   // section except the email signature, which is short and personal. Starts
-  // open; the choice is remembered per section in this browser, so a rep who
-  // folds away the long ones does not have to again.
+  // CLOSED (client request) so the tab opens as a list of section headers;
+  // a section someone opens is remembered as open in this browser.
   collapsible = false
 }) {
   const storeKey = `pp.control.collapsed.${title}`
   const [collapsed, setCollapsed] = React.useState(() => {
     if (!collapsible) return false
-    try { return localStorage.getItem(storeKey) === '1' } catch { return false }
+    try { return localStorage.getItem(storeKey) !== '0' } catch { return true }
   })
   const toggle = () => setCollapsed((v) => {
     const next = !v
