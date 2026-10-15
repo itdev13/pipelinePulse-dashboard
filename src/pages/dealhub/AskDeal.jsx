@@ -813,7 +813,10 @@ export default function AskDeal({
           {replyTo && (
             <div style={{
               display: 'flex', alignItems: 'center', gap: 8,
-              padding: '8px 12px', marginBottom: 8,
+              // No margin of its own: the composer column already spaces its
+              // children, and 8px on top of that read as a gap. Pulled 6px
+              // toward the box so the row and the box sit as one unit.
+              padding: '7px 12px', marginBottom: -6,
               border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)',
               background: 'var(--gray-25)', fontSize: 'var(--text-base)', color: 'var(--text-muted)'
             }}>
