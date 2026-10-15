@@ -47,8 +47,12 @@ export default function EmailThreadCard({
   const subject = newest?.subject || ordered.find((m) => m.subject)?.subject || '(no subject)'
 
   // 'collapsed' | 'headers' | 'partial'
+  //
+  // Collapsed shows the newest email as a ONE-LINER — snippet, not body —
+  // under the pill. Opening it is what the headers view (a click on the
+  // subject bar) does; GHL draws it the same way.
   const [view, setView] = useState('collapsed')
-  const [open, setOpen] = useState(() => new Set(newest ? [newest.id] : []))
+  const [open, setOpen] = useState(() => new Set())
 
   const toggleOpen = (id) => setOpen((s) => {
     const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n
@@ -63,7 +67,7 @@ export default function EmailThreadCard({
   }
   const collapse = () => {
     setView('collapsed')
-    setOpen(new Set(newest ? [newest.id] : []))
+    setOpen(new Set())
   }
   const onHeaderClick = () => (view === 'collapsed' ? openHeaders() : collapse())
 
@@ -100,7 +104,9 @@ export default function EmailThreadCard({
       </div>
 
       {rows.map((r, i) => r.pill != null ? (
-        <div key={`pill-${i}`} className="pp-thread-pillrow">
+        // Directly under the subject bar the pill sits ON the bar's bottom
+        // edge (no rule of its own); between rows it gets a rule.
+        <div key={`pill-${i}`} className={`pp-thread-pillrow${i === 0 ? ' pp-thread-pillrow-top' : ''}`}>
           <button type="button" className="pp-thread-pill"
             onClick={view === 'collapsed' ? openHeaders : expandAll}
             title={view === 'collapsed' ? 'Show the earlier emails' : 'Show every email'}>

@@ -3190,6 +3190,9 @@
   position: relative; height: 0; margin: 14px 0 12px;
   border-top: 1px solid var(--border-strong);
 }
+/* First position: the pill straddles the subject bar's bottom border. */
+[data-dealhub] .pp-thread-pillrow-top { margin-top: 0; border-top: none; }
+[data-dealhub] .pp-thread-pillrow-top .pp-thread-pill { transform: translate(-50%, -50%); }
 [data-dealhub] .pp-thread-pill {
   position: absolute; left: 50%; top: 0; transform: translate(-50%, -50%);
   display: inline-flex; align-items: center; gap: 8px;
@@ -3198,6 +3201,9 @@
   background: var(--surface-card); color: var(--text-body);
   font-family: var(--font-sans); font-size: var(--text-md); font-weight: 500;
   box-shadow: var(--shadow-card); cursor: pointer; white-space: nowrap;
+  /* NO z-index. It only needs to sit above its own card's rule, which
+     source order already gives it; a z-index put it above the timeline's
+     sticky day header when the card scrolled underneath. */
 }
 [data-dealhub] .pp-thread-pill:hover { background: var(--gray-50); }
 [data-dealhub] .pp-thread-plus { font-size: 18px; line-height: 1; color: var(--text-muted); }
