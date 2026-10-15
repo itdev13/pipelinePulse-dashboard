@@ -859,6 +859,17 @@
   to   { opacity: 1; }
 }
 
+/* Blurred variant, for the full-screen email thread. The page behind it
+   is the timeline the thread came from, and a blur says "you are still
+   here, this is just enlarged" better than a flat dim. Opt-in by class,
+   so confirm dialogs and the like keep the plain dim: a blur under a
+   small "Delete this task?" box is drama the box does not need.
+   Only what is INSIDE this iframe can be blurred — GHL's own sidebar
+   around it is out of reach. */
+.pp-backdrop.pp-backdrop-blur {
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
 .pp-backdrop {
   position: fixed;
   inset: 0;
@@ -3155,4 +3166,102 @@
   .pp-portal     .pp-qual-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* ── Email thread card (EmailThreadCard.jsx) — GHL's conversation shape ── */
+[data-dealhub] .pp-thread {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  margin-top: 4px;
+}
+[data-dealhub] .pp-thread-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px;
+  background: var(--gray-100);
+  border-bottom: 1px solid var(--border-default);
+  cursor: pointer;
+}
+[data-dealhub] .pp-thread-subject {
+  flex: 1; min-width: 0;
+  font-size: var(--text-lg); font-weight: 500; color: var(--text-heading);
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+[data-dealhub] .pp-thread-tools { display: inline-flex; gap: 4px; flex: none; }
+[data-dealhub] .pp-thread-tool {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border: none; border-radius: var(--radius-sm);
+  background: transparent; color: var(--text-muted); cursor: pointer;
+}
+[data-dealhub] .pp-thread-tool:hover { background: var(--gray-200); }
+/* The "+ N messages earlier" pill, centred on a rule. */
+[data-dealhub] .pp-thread-pillrow {
+  position: relative; height: 0; margin: 14px 0 12px;
+  border-top: 1px solid var(--border-strong);
+}
+/* First position: the pill straddles the subject bar's bottom border. */
+[data-dealhub] .pp-thread-pillrow-top { margin-top: 0; border-top: none; }
+[data-dealhub] .pp-thread-pillrow-top .pp-thread-pill { transform: translate(-50%, -50%); }
+[data-dealhub] .pp-thread-pill {
+  position: absolute; left: 50%; top: 0; transform: translate(-50%, -50%);
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 30px; padding: 0 14px;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-pill);
+  background: var(--surface-card); color: var(--text-body);
+  font-family: var(--font-sans); font-size: var(--text-md); font-weight: 500;
+  box-shadow: var(--shadow-card); cursor: pointer; white-space: nowrap;
+  /* NO z-index. It only needs to sit above its own card's rule, which
+     source order already gives it; a z-index put it above the timeline's
+     sticky day header when the card scrolled underneath. */
+}
+[data-dealhub] .pp-thread-pill:hover { background: var(--gray-50); }
+[data-dealhub] .pp-thread-plus { font-size: 18px; line-height: 1; color: var(--text-muted); }
+/* One email */
+[data-dealhub] .pp-mail { border-bottom: 1px solid var(--border-default); }
+[data-dealhub] .pp-mail-last { border-bottom: none; }
+[data-dealhub] .pp-mail-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; cursor: pointer;
+}
+[data-dealhub] .pp-mail-head:hover { background: var(--gray-25); }
+[data-dealhub] .pp-mail-tick { width: 16px; height: 16px; flex: none; accent-color: var(--brand-primary); }
+[data-dealhub] .pp-mail-avatar {
+  position: relative; flex: none;
+  width: 34px; height: 34px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--tint-plum); color: var(--accent-plum-text);
+  font-size: var(--text-sm); font-weight: 600;
+}
+[data-dealhub] .pp-mail-avatar[data-inbound="1"] { background: var(--tint-sky); color: var(--accent-sky-text); }
+[data-dealhub] .pp-mail-avatar-badge {
+  position: absolute; right: -3px; bottom: -3px;
+  width: 16px; height: 16px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface-card); color: var(--accent-sky-text);
+  font-size: 12px; box-shadow: 0 0 0 1.5px var(--surface-card);
+}
+[data-dealhub] .pp-mail-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+[data-dealhub] .pp-mail-name { font-size: var(--text-md); font-weight: 600; color: var(--text-heading); line-height: 1.2; }
+[data-dealhub] .pp-mail-snippet,
+[data-dealhub] .pp-mail-to {
+  font-size: var(--text-md); color: var(--text-muted); line-height: 1.3;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+[data-dealhub] .pp-mail-time { flex: none; font-size: var(--text-md); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+[data-dealhub] .pp-mail-replyicon {
+  flex: none; width: 28px; height: 28px; border: none; border-radius: var(--radius-sm);
+  background: transparent; color: var(--text-body); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+[data-dealhub] .pp-mail-replyicon:hover { background: var(--gray-100); }
+[data-dealhub] .pp-mail-body { padding: 4px 14px 14px 58px; }
+[data-dealhub] .pp-mail-actions { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-default); }
+[data-dealhub] .pp-mail-reply {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 38px; padding: 0 16px;
+  border: none; border-radius: var(--radius-md);
+  background: var(--brand-primary); color: #fff;
+  font-family: var(--font-sans); font-size: var(--text-md); font-weight: 600; cursor: pointer;
 }

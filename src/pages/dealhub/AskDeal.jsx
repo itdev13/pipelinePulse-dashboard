@@ -100,9 +100,28 @@ export default function AskDeal({
   dealId, onAsk, onJumpToMessage, beforeAsk, messages = [],
   // The deal's contacts. Notes and tasks are stored against a CONTACT, so
   // "Save as note" needs one — without any, those actions stay disabled.
-  people = []
+  people = [],
+  // { text, nonce } — text to drop into the composer, from a Reply button on
+  // the timeline. The nonce makes the same text seed twice in a row.
+  seedQuestion = null,
+  // Called with the action type when a card is CONFIRMED — the owner uses it
+  // to refresh the timeline once the webhook for a sent message has landed.
+  onActionConfirmed = null
 }) {
   const [q, setQ] = useState('')
+  // The email a seeded question is replying to — sent with the ask, not
+  // shown in the composer. Cleared when the question goes, so a later,
+  // unrelated question does not carry it.
+  const [replyTo, setReplyTo] = useState(null)
+  useEffect(() => {
+    if (!seedQuestion) return
+    // A reply seed leaves the box EMPTY: the context sits in a row above it
+    // (see the composer), and the rep types only what the reply should say.
+    setQ(seedQuestion.text || '')
+    setReplyTo(seedQuestion.replyTo || null)
+    requestAnimationFrame(() => inputRef.current?.focus())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedQuestion?.nonce])
   // Transcript of this deal's Q&A. Client-held: it's scratch context for
   // follow-ups, and every question is already persisted server-side in
   // ai_runs for the audit trail.
@@ -117,6 +136,11 @@ export default function AskDeal({
   // was rebuilt from that snapshot: a sent message offered again with a live
   // Confirm button. The server row was 'confirmed' the whole time.
   const onActionResolved = useCallback((actionId, outcome) => {
+    if (outcome === 'confirmed' && onActionConfirmed) {
+      // The type lives on the turn, not the callback — look it up.
+      const hit = turns.flatMap((t) => t.proposedActions || []).find((a) => a.actionId === actionId)
+      if (hit) onActionConfirmed(hit.actionType)
+    }
     const patch = (list) => (list || []).map((t) => (
       t.proposedActions?.some((a) => a.actionId === actionId)
         ? {
@@ -131,7 +155,8 @@ export default function AskDeal({
     setHistory((cur) => (cur || []).map((c) => (
       c.turns?.length ? { ...c, turns: patch(c.turns) } : patch([c])[0]
     )))
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turns, onActionConfirmed])
   const [pending, setPending] = useState(false)
   const [error, setError] = useState(null)
   const [available, setAvailable] = useState(null)
@@ -382,7 +407,13 @@ export default function AskDeal({
   }, [turns, pending])
 
   const submit = async (override) => {
-    const value = String(override ?? q).trim()
+    const typed = String(override ?? q).trim()
+    // With a reply row up, the question is assembled from it: the rep's words
+    // are what the reply should say, the row says which email. Sent with the
+    // hidden id too (replyTo), so the server threads it onto that email.
+    const value = replyTo
+      ? `Reply to the email "${replyTo.subject || '(no subject)'}"${typed ? `: ${typed}` : ''}`
+      : typed
     if (!value || pending) return
     if (onAsk) onAsk(value)
 
@@ -427,8 +458,11 @@ export default function AskDeal({
     const seq = ++askSeq.current
 
     try {
+      const sentReplyTo = replyTo
+      setReplyTo(null)
       const res = await aiAPI.ask(dealId, {
         question: value,
+        replyTo: sentReplyTo,
         conversationId,
         history,
         channels: channels.length ? channels : null,
@@ -841,6 +875,55 @@ export default function AskDeal({
               cursor: 'text'
             }}
           >
+            {/* REPLY CONTEXT, inside the composer — a quoted strip above the
+                text, the way a chat app shows what you are replying to. It was
+                a separate bar above the box and read as a second input. The
+                box stays empty for what the reply should say; this names the
+                email and can be dismissed. */}
+            {replyTo && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 10px 8px 12px',
+                  borderLeft: '3px solid var(--accent-sky)',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--tint-sky)'
+                }}
+              >
+                <span className="ms" style={{ fontSize: 16, color: 'var(--accent-sky-text)', flex: 'none' }}>reply</span>
+                <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <span style={{
+                    fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: 'var(--tracking-label)',
+                    textTransform: 'uppercase', color: 'var(--accent-sky-text)'
+                  }}>
+                    Replying to
+                  </span>
+                  <span style={{
+                    fontSize: 'var(--text-base)', color: 'var(--text-body)',
+                    overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis'
+                  }}>
+                    <strong style={{ color: 'var(--text-heading)' }}>{replyTo.subject || '(no subject)'}</strong>
+                    {replyTo.senderName && <span style={{ color: 'var(--text-muted)' }}> · {replyTo.senderName}</span>}
+                    {replyTo.when && <span style={{ color: 'var(--text-muted)' }}> · {replyTo.when}</span>}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setReplyTo(null)}
+                  title="Not a reply after all"
+                  aria-label="Cancel reply"
+                  style={{
+                    marginLeft: 'auto', flex: 'none', width: 24, height: 24,
+                    border: 'none', borderRadius: 'var(--radius-pill)', background: 'transparent',
+                    color: 'var(--text-muted)', cursor: 'pointer',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+                  }}
+                >
+                  <span className="ms" style={{ fontSize: 16 }}>close</span>
+                </button>
+              </div>
+            )}
             <AttachmentThumbnails
               attachments={attachments}
               onView={setPreview}
@@ -881,7 +964,7 @@ export default function AskDeal({
                   }
                 }}
                 disabled={pending || available === false}
-                placeholder={pending ? 'Reading the thread…' : 'Ask anything about this deal…'}
+                placeholder={pending ? 'Reading the thread…' : replyTo ? 'What should the reply say?' : 'Ask anything about this deal…'}
                 style={{
                   flex: 1, minWidth: 0, boxSizing: 'border-box',
                   minHeight: 28, maxHeight: 140, resize: 'none',

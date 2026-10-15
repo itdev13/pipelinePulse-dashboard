@@ -94,6 +94,35 @@ export default function DealHubTab({
   // The one active deal
   const [deal, setDeal] = useState(null)
   const [stages, setStages] = useState(null)
+  // A reply request from the timeline, dropped into the Co-Pilot composer.
+  const [askSeed, setAskSeed] = useState(null)
+
+  // Refetch the TIMELINE ONLY — not the deal, stages or siblings — and
+  // re-apply the same toNames decoration the first load does. Used after a
+  // confirmed send: GHL delivers the sent message back to us by webhook a
+  // second or two later, and until this ran the rep had to reload the page
+  // to see their own message in the thread.
+  const refreshTimeline = useCallback(async () => {
+    if (!dealId) return
+    try {
+      const t = await dealsAPI.timeline(dealId)
+      const nameById = Object.fromEntries(
+        (deal?.people || []).map((p) => [p.id, p.firstName || p.lastName || 'Contact'])
+      )
+      setMessages((t.messages || []).map((m) => ({
+        ...m,
+        toNames: (m.toIds || []).map((cid) => nameById[cid]).filter(Boolean)
+      })))
+    } catch { /* the next interaction reloads; a missed refresh is not an error */ }
+  }, [dealId, deal?.people])
+
+  // After a confirmed send, look for the webhook twice: most land inside
+  // 2.5s; a slower provider lands by 6s. Two cheap GETs, no polling loop.
+  const onActionConfirmed = useCallback((actionType) => {
+    if (actionType !== 'send_message') return
+    window.setTimeout(refreshTimeline, 2500)
+    window.setTimeout(refreshTimeline, 6000)
+  }, [refreshTimeline])
   const [messages, setMessages] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -1624,6 +1653,21 @@ export default function DealHubTab({
               <Timeline
                 messages={filtered}
                 dealId={dealId}
+                // Reply on an email thread: hand the Co-Pilot a reply request
+                // for that message. The AI drafts it through the reply path,
+                // so it threads onto the original rather than starting fresh.
+                onReplyEmail={(m) => {
+                  const when = m.ts ? new Date(m.ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''
+                  setAskSeed({
+                    // The box stays empty; the reply context is a row above it.
+                    text: '',
+                    // The exact message for the server, plus what the row shows.
+                    // m.messageId is the GHL message id the server's reply
+                    // lookup keys on; m.id is the timeline row's own id.
+                    replyTo: { messageId: m.messageId || m.id, subject: m.subject || '', senderName: m.senderName || '', when },
+                    nonce: Date.now()
+                  })
+                }}
                 // Every deal on this contact, including won/lost — a manager
                 // may deliberately file a message against a closed deal.
                 dealTargets={siblingDeals}
@@ -1704,6 +1748,8 @@ export default function DealHubTab({
             />
             <AskDeal
               dealId={dealId}
+              seedQuestion={askSeed}
+              onActionConfirmed={onActionConfirmed}
               onJumpToMessage={jumpToMessage}
               // Pending ticks must land before the question does, or the server
               // builds context from the old selection.
