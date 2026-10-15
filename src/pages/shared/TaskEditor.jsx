@@ -125,6 +125,8 @@ export default function TaskEditor({
   // The picked company's NAME, kept so a save can hand the caller a whole
   // { id, name } to paint — a searched-for company is not in `businesses`.
   const [businessName, setBusinessName] = useState(null)
+  // Same for the deal picker.
+  const [dealName, setDealName] = useState(null)
 
   const [title, setTitle] = useState(task?.title || '')
   // HTML, not stripped text — see the note in NoteEditor. initialBody comes
@@ -271,6 +273,16 @@ export default function TaskEditor({
     && title.trim().length > 0
     && (editing || (!!contactId && !!dueDate))
 
+  // The deal link as the row draws it: `deal` for the card, `deals` for the
+  // Tasks tab's list. Named from the picker, else from the seeded deals.
+  const dealPatch = () => {
+    const seeded = deals.find((x) => x.id === opportunityId)
+    const deal = opportunityId
+      ? { id: opportunityId, name: dealName || (seeded ? dealOption(seeded).label : null) }
+      : null
+    return { opportunityId: opportunityId || null, deal, deals: deal ? [deal] : [] }
+  }
+
   const save = async () => {
     if (!canSave) return
     setSaving(true)
@@ -360,7 +372,7 @@ export default function TaskEditor({
                     : null
                 }
               : {}),
-            ...(oppChanged ? { opportunityId: opportunityId || null } : {})
+            ...(oppChanged ? dealPatch() : {})
           }
         : null
       onSaved(res.task ? { ...res.task, ...(assignedPatch || {}), ...(linkPatch || {}) } : null)
@@ -570,7 +582,7 @@ export default function TaskEditor({
               <Field label="Deal" error={errorField === 'opportunityId' ? error : null}>
                 <RemotePicker
                   value={opportunityId}
-                  onChange={setOpportunityId}
+                  onChange={(v, opt) => { setOpportunityId(v); setDealName(opt?.label || null) }}
                   // Scoped to this contact's deals — a task lives on a
                   // contact, so a deal they are not on is never a valid answer.
                   search={dealSearchForContact}

@@ -675,7 +675,10 @@ export function DealNotesSection({ dealId = null, contactId = null, people = [],
                 body: applied?.body ?? saved.body ?? editor.note.body,
                 title: applied?.title ?? saved.title ?? editor.note.title ?? null,
                 color: applied?.color ?? saved.color ?? editor.note.color ?? null,
-                pinned: applied?.pinned ?? (saved.pinned === true)
+                pinned: applied?.pinned ?? (saved.pinned === true),
+                // Changed links, whole — present only when they changed.
+                ...('business' in saved ? { businessId: saved.businessId, business: saved.business } : {}),
+                ...('deal' in saved ? { opportunityId: saved.opportunityId, deal: saved.deal } : {})
               }
               patchItem((x) => x.id === editor.note.id, patch)
               if (onNoteSaved) onNoteSaved(editor.note.id, patch)
