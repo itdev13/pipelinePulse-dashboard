@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useModal } from '../../hooks/useModal'
-import { RichBody, Truncate } from '../shared/ListChrome'
+import { Truncate } from '../shared/ListChrome'
 import { htmlToText } from '../../utils/sanitiseHtml'
 import AttachmentChip from './AttachmentChip'
+import EmailFrame from './EmailFrame'
 import AttachmentViewer from './AttachmentViewer'
 
 // The full email thread, as a dialog.
@@ -260,13 +261,7 @@ function ThreadMessage({ m, index, total, open, onToggle, onOpenAttachment }) {
             // RichBody sanitises: the body is HTML (the server's cleanEmail
             // strips the head and inline styles but keeps the tags), and this
             // is the single audited innerHTML site in the app.
-            <RichBody
-              html={m.body}
-              color="var(--text-body)"
-              size="var(--text-md)"
-              leading="var(--leading-normal)"
-              maxWidth={680}
-            />
+            <EmailFrame html={m.body} />
           ) : (
             <p className="pp-thread-nobody">This email has no body text.</p>
           )}

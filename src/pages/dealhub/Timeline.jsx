@@ -5,6 +5,7 @@ import AttachmentChip, { accentVar } from './AttachmentChip'
 import AttachmentViewer from './AttachmentViewer'
 import EmailThreadModal from './EmailThreadModal'
 import EmailBody from './EmailBody'
+import EmailFrame from './EmailFrame'
 import MessageDealPill from './MessageDealPill'
 import { noteColourStyle } from '../../utils/noteColour'
 import { htmlToText } from '../../utils/sanitiseHtml'
@@ -713,6 +714,23 @@ function EmailThreadCard({
   }
   const subject = latest.subject || thread.find((m) => m.subject)?.subject || '(no subject)'
 
+  // WHAT THE OPEN CARD SHOWS, as GHL lays a thread out: the FIRST message
+  // and the one BEFORE the latest as one-line previews, the run between them
+  // folded behind "+ N messages earlier", then the latest, open.
+  //   5 messages → first · (+2) · fourth · latest
+  //   3 messages → first · second · latest (nothing to fold)
+  //   2 messages → (+1) · latest — GHL folds the lone earlier one too
+  // "+ N" shows them all.
+  const folded = !showEarlier && thread.length >= 3
+  const visible = showEarlier || thread.length === 1
+    ? thread
+    : folded
+      ? [thread[0], thread[thread.length - 2], latest]
+      : [latest]
+  const hiddenCount = showEarlier ? 0 : thread.length - visible.length
+  // The row the pill straddles: the one after the hidden run.
+  const pillAt = hiddenCount > 0 ? (folded ? 1 : 0) : -1
+
   const iconBtn = {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
     width: 26, height: 26, padding: 0, flex: 'none',
@@ -723,7 +741,7 @@ function EmailThreadCard({
   // "+ N messages earlier", straddling a rule as GHL draws it. Shown on an
   // OPEN card above the latest reply, and on a COLLAPSED one under the
   // header — so a folded five-message thread still says it is five, not one.
-  const earlierPill = (onClick) => (
+  const earlierPill = (onClick, count = hiddenCount) => (
     <button
       type="button"
       onClick={onClick}
@@ -740,7 +758,7 @@ function EmailThreadCard({
       }}
     >
       <span className="ms" style={{ fontSize: 15 }}>add</span>
-      {earlier.length} {earlier.length === 1 ? 'message' : 'messages'} earlier
+      {count} {count === 1 ? 'message' : 'messages'} earlier
     </button>
   )
 
@@ -776,9 +794,8 @@ function EmailThreadCard({
             }}>
               {subject}
             </span>
-            <span style={{ flex: 'none', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-              {thread.length} messages
-            </span>
+            {/* No "N messages" here: GHL's header is the subject alone, and
+                the "+N earlier" pill already says how long the thread is. */}
             <button type="button" onClick={() => onOpenThread(latest)} title="Open the whole thread" style={iconBtn}>
               <span className="ms" style={{ fontSize: 17 }}>open_in_full</span>
             </button>
@@ -796,42 +813,29 @@ function EmailThreadCard({
           {collapsed && earlier.length > 0 && (
             // Room for the pill's lower half under the header's rule.
             <div style={{ position: 'relative', height: 16 }}>
-              {earlierPill(() => { setCollapsed(false); setShowEarlier(true) })}
+              {earlierPill(() => { setCollapsed(false); setShowEarlier(true) }, earlier.length)}
             </div>
           )}
 
-          {!collapsed && (
-            <>
-              {showEarlier && earlier.map((m) => (
-                <ThreadReply
-                  key={m.id}
-                  m={m}
-                  showBox
-                  highlighted={m.id === highlightedId}
-                  onToggleSelect={onToggleSelect}
-                  onOpenAttachment={onOpenAttachment}
-                />
-              ))}
-              {/* The latest reply carries the "+ N messages earlier" pill ON
-                  ITS TOP EDGE — straddling the line between the header and
-                  the reply, as GHL draws it — rather than in a row of its own,
-                  which spent a whole line on one button. */}
-              <div style={{ position: 'relative' }}>
-                {earlier.length > 0 && !showEarlier && earlierPill(() => setShowEarlier(true))}
-                <ThreadReply
-                  m={latest}
-                  showBox={showEarlier}
-                  last
-                  defaultOpen
-                  // Room for the pill's lower half, so it never sits on the name.
-                  roomForPill={earlier.length > 0 && !showEarlier}
-                  highlighted={latest.id === highlightedId}
-                  onToggleSelect={onToggleSelect}
-                  onOpenAttachment={onOpenAttachment}
-                />
-              </div>
-            </>
-          )}
+          {!collapsed && visible.map((m, i) => (
+            // The pill sits ON THE TOP EDGE of the row after the hidden run —
+            // straddling the rule, as GHL draws it — rather than in a row of
+            // its own, which spent a whole line on one button.
+            <div key={m.id} style={{ position: 'relative' }}>
+              {i === pillAt && earlierPill(() => setShowEarlier(true))}
+              <ThreadReply
+                m={m}
+                showBox={visible.length > 1}
+                last={m === latest}
+                defaultOpen={m === latest}
+                // Room for the pill's lower half, so it never sits on the name.
+                roomForPill={i === pillAt}
+                highlighted={m.id === highlightedId}
+                onToggleSelect={onToggleSelect}
+                onOpenAttachment={onOpenAttachment}
+              />
+            </div>
+          ))}
         </div>
       </div>
     </Row>
@@ -964,15 +968,11 @@ function ThreadReply({ m, showBox, last, roomForPill, highlighted, defaultOpen =
       </div>
 
       {open && (
-        <div style={{ margin: '10px 0 2px', paddingLeft: showBox && onToggleSelect ? 67 : 42 }}>
+        // FULL WIDTH from the card's own left edge, as GHL draws it — it was
+        // indented under the sender's name and capped at 680px.
+        <div style={{ margin: '10px 0 2px' }}>
           {preview ? (
-            <RichBody
-              html={m.body}
-              color="var(--text-body)"
-              size="var(--text-md)"
-              leading="var(--leading-normal)"
-              maxWidth={680}
-            />
+            <EmailFrame html={m.body} title={`Email from ${name}`} />
           ) : atts.length === 0 ? (
             <p style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--text-faint)' }}>
               This email has no message text.
