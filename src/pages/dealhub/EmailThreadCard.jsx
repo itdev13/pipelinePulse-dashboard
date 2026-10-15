@@ -213,7 +213,7 @@ function MailRow({ m, expanded, onToggle, onOpenAttachment, onReply, selected, o
         <span className="pp-mail-who">
           <span className="pp-mail-name">{name}</span>
           {expanded
-            ? <span className="pp-mail-to">To: {m.emailTo || '—'}</span>
+            ? <span className="pp-mail-to">From: {m.emailFrom || '—'} · To: {m.emailTo || '—'}</span>
             : <span className="pp-mail-snippet">{preview || (atts.length ? `${atts.length} attachment${atts.length === 1 ? '' : 's'}` : '')}</span>}
         </span>
         <span className="pp-mail-time">{clock(m.ts)}</span>

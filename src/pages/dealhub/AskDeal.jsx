@@ -103,7 +103,10 @@ export default function AskDeal({
   people = [],
   // { text, nonce } — text to drop into the composer, from a Reply button on
   // the timeline. The nonce makes the same text seed twice in a row.
-  seedQuestion = null
+  seedQuestion = null,
+  // Called with the action type when a card is CONFIRMED — the owner uses it
+  // to refresh the timeline once the webhook for a sent message has landed.
+  onActionConfirmed = null
 }) {
   const [q, setQ] = useState('')
   // The email a seeded question is replying to — sent with the ask, not
@@ -133,6 +136,11 @@ export default function AskDeal({
   // was rebuilt from that snapshot: a sent message offered again with a live
   // Confirm button. The server row was 'confirmed' the whole time.
   const onActionResolved = useCallback((actionId, outcome) => {
+    if (outcome === 'confirmed' && onActionConfirmed) {
+      // The type lives on the turn, not the callback — look it up.
+      const hit = turns.flatMap((t) => t.proposedActions || []).find((a) => a.actionId === actionId)
+      if (hit) onActionConfirmed(hit.actionType)
+    }
     const patch = (list) => (list || []).map((t) => (
       t.proposedActions?.some((a) => a.actionId === actionId)
         ? {
@@ -147,7 +155,8 @@ export default function AskDeal({
     setHistory((cur) => (cur || []).map((c) => (
       c.turns?.length ? { ...c, turns: patch(c.turns) } : patch([c])[0]
     )))
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turns, onActionConfirmed])
   const [pending, setPending] = useState(false)
   const [error, setError] = useState(null)
   const [available, setAvailable] = useState(null)

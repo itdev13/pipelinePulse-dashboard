@@ -96,6 +96,33 @@ export default function DealHubTab({
   const [stages, setStages] = useState(null)
   // A reply request from the timeline, dropped into the Co-Pilot composer.
   const [askSeed, setAskSeed] = useState(null)
+
+  // Refetch the TIMELINE ONLY — not the deal, stages or siblings — and
+  // re-apply the same toNames decoration the first load does. Used after a
+  // confirmed send: GHL delivers the sent message back to us by webhook a
+  // second or two later, and until this ran the rep had to reload the page
+  // to see their own message in the thread.
+  const refreshTimeline = useCallback(async () => {
+    if (!dealId) return
+    try {
+      const t = await dealsAPI.timeline(dealId)
+      const nameById = Object.fromEntries(
+        (deal?.people || []).map((p) => [p.id, p.firstName || p.lastName || 'Contact'])
+      )
+      setMessages((t.messages || []).map((m) => ({
+        ...m,
+        toNames: (m.toIds || []).map((cid) => nameById[cid]).filter(Boolean)
+      })))
+    } catch { /* the next interaction reloads; a missed refresh is not an error */ }
+  }, [dealId, deal?.people])
+
+  // After a confirmed send, look for the webhook twice: most land inside
+  // 2.5s; a slower provider lands by 6s. Two cheap GETs, no polling loop.
+  const onActionConfirmed = useCallback((actionType) => {
+    if (actionType !== 'send_message') return
+    window.setTimeout(refreshTimeline, 2500)
+    window.setTimeout(refreshTimeline, 6000)
+  }, [refreshTimeline])
   const [messages, setMessages] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -1702,6 +1729,7 @@ export default function DealHubTab({
             <AskDeal
               dealId={dealId}
               seedQuestion={askSeed}
+              onActionConfirmed={onActionConfirmed}
               onJumpToMessage={jumpToMessage}
               // Pending ticks must land before the question does, or the server
               // builds context from the old selection.
