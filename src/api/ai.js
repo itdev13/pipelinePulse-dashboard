@@ -38,14 +38,16 @@ export const aiAPI = {
   // now available on both Co-Pilot surfaces rather than just the portfolio
   // one.
   ask: (dealId, {
-    question, history = [], channels = null, images = [], conversationId = null, signal
+    question, history = [], channels = null, images = [], conversationId = null, replyTo = null, signal
   }) =>
     apiClient.post(`/api/ai/deals/${encodeURIComponent(dealId)}/ask`, {
       question,
       history,
       channels,
       images,
-      conversationId
+      conversationId,
+      // { messageId, subject } when the question came from Reply on an email.
+      replyTo
     }, { signal, timeout: ASK_TIMEOUT_MS }),
   // Portfolio — one question across every deal in the sub-account. Same
   // `images` contract as `ask` above.

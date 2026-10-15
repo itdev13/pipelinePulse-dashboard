@@ -106,9 +106,16 @@ export default function AskDeal({
   seedQuestion = null
 }) {
   const [q, setQ] = useState('')
+  // The email a seeded question is replying to — sent with the ask, not
+  // shown in the composer. Cleared when the question goes, so a later,
+  // unrelated question does not carry it.
+  const [replyTo, setReplyTo] = useState(null)
   useEffect(() => {
-    if (!seedQuestion?.text) return
-    setQ(seedQuestion.text)
+    if (!seedQuestion) return
+    // A reply seed leaves the box EMPTY: the context sits in a row above it
+    // (see the composer), and the rep types only what the reply should say.
+    setQ(seedQuestion.text || '')
+    setReplyTo(seedQuestion.replyTo || null)
     requestAnimationFrame(() => inputRef.current?.focus())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seedQuestion?.nonce])
@@ -391,7 +398,13 @@ export default function AskDeal({
   }, [turns, pending])
 
   const submit = async (override) => {
-    const value = String(override ?? q).trim()
+    const typed = String(override ?? q).trim()
+    // With a reply row up, the question is assembled from it: the rep's words
+    // are what the reply should say, the row says which email. Sent with the
+    // hidden id too (replyTo), so the server threads it onto that email.
+    const value = replyTo
+      ? `Reply to the email "${replyTo.subject || '(no subject)'}"${typed ? `: ${typed}` : ''}`
+      : typed
     if (!value || pending) return
     if (onAsk) onAsk(value)
 
@@ -436,8 +449,11 @@ export default function AskDeal({
     const seq = ++askSeq.current
 
     try {
+      const sentReplyTo = replyTo
+      setReplyTo(null)
       const res = await aiAPI.ask(dealId, {
         question: value,
+        replyTo: sentReplyTo,
         conversationId,
         history,
         channels: channels.length ? channels : null,
@@ -791,6 +807,39 @@ export default function AskDeal({
           >
           <ChannelScope value={channels} onChange={setChannels} scope={scope} />
 
+          {/* REPLY CONTEXT, as a row above the box rather than words inside
+              it. The box stays empty for what the reply should say; this
+              names the email it answers and can be dismissed. */}
+          {replyTo && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '8px 12px', marginBottom: 8,
+              border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)',
+              background: 'var(--gray-25)', fontSize: 'var(--text-base)', color: 'var(--text-muted)'
+            }}>
+              <span className="ms" style={{ fontSize: 16, color: 'var(--text-body)' }}>reply</span>
+              <span style={{ minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                Replying to <strong style={{ color: 'var(--text-heading)' }}>{replyTo.subject || '(no subject)'}</strong>
+                {replyTo.senderName && <> · {replyTo.senderName}</>}
+                {replyTo.when && <> · {replyTo.when}</>}
+              </span>
+              <button
+                type="button"
+                onClick={() => setReplyTo(null)}
+                title="Not a reply after all"
+                aria-label="Cancel reply"
+                style={{
+                  marginLeft: 'auto', flex: 'none', width: 24, height: 24,
+                  border: 'none', borderRadius: 'var(--radius-sm)', background: 'transparent',
+                  color: 'var(--text-muted)', cursor: 'pointer',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+                }}
+              >
+                <span className="ms" style={{ fontSize: 16 }}>close</span>
+              </button>
+            </div>
+          )}
+
           {/* While dictating, the composer IS the recorder — the same box, a
               different state. A separate floating panel would leave a dead
               text field underneath it. */}
@@ -890,7 +939,7 @@ export default function AskDeal({
                   }
                 }}
                 disabled={pending || available === false}
-                placeholder={pending ? 'Reading the thread…' : 'Ask anything about this deal…'}
+                placeholder={pending ? 'Reading the thread…' : replyTo ? 'What should the reply say?' : 'Ask anything about this deal…'}
                 style={{
                   flex: 1, minWidth: 0, boxSizing: 'border-box',
                   minHeight: 28, maxHeight: 140, resize: 'none',

@@ -859,6 +859,17 @@
   to   { opacity: 1; }
 }
 
+/* Blurred variant, for the full-screen email thread. The page behind it
+   is the timeline the thread came from, and a blur says "you are still
+   here, this is just enlarged" better than a flat dim. Opt-in by class,
+   so confirm dialogs and the like keep the plain dim: a blur under a
+   small "Delete this task?" box is drama the box does not need.
+   Only what is INSIDE this iframe can be blurred — GHL's own sidebar
+   around it is out of reach. */
+.pp-backdrop.pp-backdrop-blur {
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
 .pp-backdrop {
   position: fixed;
   inset: 0;

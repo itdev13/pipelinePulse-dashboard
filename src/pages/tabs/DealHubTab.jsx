@@ -1609,10 +1609,16 @@ export default function DealHubTab({
                 // Reply on an email thread: hand the Co-Pilot a reply request
                 // for that message. The AI drafts it through the reply path,
                 // so it threads onto the original rather than starting fresh.
-                onReplyEmail={(m) => setAskSeed({
-                  text: `Reply to the email "${m.subject || '(no subject)'}" (message id ${m.id}): `,
-                  nonce: Date.now()
-                })}
+                onReplyEmail={(m) => {
+                  const when = m.ts ? new Date(m.ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''
+                  setAskSeed({
+                    // The box stays empty; the reply context is a row above it.
+                    text: '',
+                    // The exact message for the server, plus what the row shows.
+                    replyTo: { messageId: m.id, subject: m.subject || '', senderName: m.senderName || '', when },
+                    nonce: Date.now()
+                  })
+                }}
                 // Every deal on this contact, including won/lost — a manager
                 // may deliberately file a message against a closed deal.
                 dealTargets={siblingDeals}

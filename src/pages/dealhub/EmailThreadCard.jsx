@@ -144,7 +144,10 @@ export default function EmailThreadCard({
           expanded={open.has(r.id)}
           onToggle={() => toggleOpen(r.id)}
           onOpenAttachment={onOpenAttachment}
-          onReply={onReplyEmail ? () => onReplyEmail(r) : null}
+          // Reply drops out of full screen first: the composer it seeds is on
+          // the page underneath, and leaving an overlay up over it would hide
+          // the very thing the click opened.
+          onReply={onReplyEmail ? () => { setFullScreen(false); onReplyEmail(r) } : null}
           selected={selectedIds ? selectedIds.has(r.id) : null}
           onToggleSelect={onToggleSelect ? () => onToggleSelect(r) : null}
           last={i === rows.length - 1}
@@ -162,7 +165,7 @@ export default function EmailThreadCard({
         <div className="pp-thread-head"><span className="pp-thread-subject">{subject}</span></div>
       </div>
       <div
-        className="pp-backdrop"
+        className="pp-backdrop pp-backdrop-blur"
         style={{ zIndex: 60 }}
         onMouseDown={(e) => { if (e.target === e.currentTarget) setFullScreen(false) }}
       >
