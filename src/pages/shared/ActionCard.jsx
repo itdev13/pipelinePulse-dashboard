@@ -416,27 +416,107 @@ function ActionFields({ actionType, fields, setField }) {
   }
 
   if (actionType === 'update_deal') {
+    // Which built-in fields the model actually proposed. Name and value used
+    // to render as inputs on every edit — a card for "set the product type"
+    // showed two empty boxes above the one change it was about. Now a
+    // built-in field is drawn only when it is part of the proposal, and the
+    // custom fields follow, each with what it WAS so the rep can see the
+    // change rather than just the new value.
+    const custom = Array.isArray(fields.customFields) ? fields.customFields : []
+    const setCustom = (i, value) =>
+      setField('customFields', custom.map((f, j) => (j === i ? { ...f, value } : f)))
+    const muted = { margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }
+    const was = (prev) => (
+      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-faint)', marginLeft: 8 }}>
+        was {prev || 'not set'}
+      </span>
+    )
+    const asText = (v) => (Array.isArray(v) ? v.join(', ') : (v ?? ''))
     return (
       <>
-        <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+        <p style={muted}>
           Editing <strong>{fields.dealName || 'this deal'}</strong>
         </p>
-        <label>
-          <span style={labelStyle}>New name</span>
-          <input style={inputStyle} placeholder="Leave blank to keep the current name"
-            value={fields.name || ''} onChange={(e) => setField('name', e.target.value)} />
-        </label>
-        <label>
-          <span style={labelStyle}>New value</span>
-          <input style={inputStyle} type="number" placeholder="Leave blank to keep the current value"
-            value={fields.value ?? ''}
-            onChange={(e) => setField('value', e.target.value === '' ? null : Number(e.target.value))} />
-        </label>
-        {fields.stageName && (
-          <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-            New stage: <strong>{fields.stageName}</strong>
-          </p>
+        {fields.name != null && (
+          <label>
+            <span style={labelStyle}>New name</span>
+            <input style={inputStyle} placeholder="Leave blank to keep the current name"
+              value={fields.name || ''} onChange={(e) => setField('name', e.target.value)} />
+          </label>
         )}
+        {fields.value != null && (
+          <label>
+            <span style={labelStyle}>New value</span>
+            <input style={inputStyle} type="number" placeholder="Leave blank to keep the current value"
+              value={fields.value ?? ''}
+              onChange={(e) => setField('value', e.target.value === '' ? null : Number(e.target.value))} />
+          </label>
+        )}
+        {fields.pipelineName && (
+          <p style={muted}>New pipeline: <strong>{fields.pipelineName}</strong></p>
+        )}
+        {fields.stageName && (
+          <p style={muted}>New stage: <strong>{fields.stageName}</strong></p>
+        )}
+        {fields.closeDate && (
+          <label>
+            <span style={labelStyle}>Expected close</span>
+            <DatePicker
+              popupClassName="pp-cal"
+              value={fields.closeDate ? dayjs(fields.closeDate) : null}
+              onChange={(d) => setField('closeDate', d ? d.format('YYYY-MM-DD') : null)}
+              format="D MMM YYYY"
+              placeholder="Pick a date"
+              style={{ width: '100%' }}
+            />
+          </label>
+        )}
+        {custom.map((f, i) => {
+          const options = Array.isArray(f.options) ? f.options : null
+          const long = /LARGE_TEXT|TEXTAREA|MULTI_LINE/i.test(f.type || '')
+            || (typeof f.value === 'string' && f.value.length > 80)
+          return (
+            <label key={f.id || i}>
+              <span style={labelStyle}>{f.label}{was(f.previous)}</span>
+              {options && !f.multiple ? (
+                <select style={inputStyle} value={f.value ?? ''}
+                  onChange={(e) => setCustom(i, e.target.value)}>
+                  <option value="">Not set</option>
+                  {options.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              ) : options && f.multiple ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {options.map((o) => {
+                    const on = Array.isArray(f.value) && f.value.includes(o)
+                    return (
+                      <button key={o} type="button"
+                        onClick={() => setCustom(i, on
+                          ? f.value.filter((v) => v !== o)
+                          : [...(Array.isArray(f.value) ? f.value : []), o])}
+                        style={{
+                          height: 28, padding: '0 10px', borderRadius: 'var(--radius-pill)',
+                          border: `1px solid ${on ? 'var(--accent-sky)' : 'var(--border-default)'}`,
+                          background: on ? 'var(--tint-sky)' : 'var(--surface-card)',
+                          color: on ? 'var(--accent-sky-text)' : 'var(--text-body)',
+                          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)',
+                          fontWeight: on ? 600 : 500, cursor: 'pointer'
+                        }}>
+                        {o}
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : long ? (
+                <textarea rows={4}
+                  style={{ ...inputStyle, height: 'auto', padding: '8px 10px', resize: 'vertical' }}
+                  value={asText(f.value)} onChange={(e) => setCustom(i, e.target.value)} />
+              ) : (
+                <input style={inputStyle} value={asText(f.value)}
+                  onChange={(e) => setCustom(i, e.target.value)} />
+              )}
+            </label>
+          )
+        })}
       </>
     )
   }

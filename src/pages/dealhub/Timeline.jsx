@@ -108,16 +108,30 @@ function DayHeader({ iso }) {
     <div
       style={{
         position: 'sticky', top: 0, zIndex: 1,
-        // A heading, not a caption: the design sets the day in the heading
-        // colour at body size, on a grey band with room around it.
-        padding: '12px 16px',
-        borderBottom: '1px solid var(--border-default)',
-        background: 'var(--gray-50)',
-        fontSize: 'var(--text-md)', fontWeight: 600,
-        color: 'var(--text-heading)'
+        // A date marker, not a section heading. The full-height grey band
+        // took 44px per day and read as a panel header; this is a small
+        // pill sitting on a hairline, 28px tall, so the days punctuate the
+        // thread instead of dividing it. White behind it so it still reads
+        // when stuck over scrolling rows.
+        display: 'flex', alignItems: 'center', gap: 10,
+        height: 28, padding: '0 16px',
+        background: 'var(--surface-card)'
       }}
     >
-      {label}
+      <span style={{ flex: 1, height: 1, background: 'var(--border-default)' }} />
+      <span
+        style={{
+          padding: '0 10px', height: 20, lineHeight: '20px',
+          borderRadius: 'var(--radius-pill)',
+          background: 'var(--gray-100)', border: '1px solid var(--border-default)',
+          fontSize: 'var(--text-xs)', fontWeight: 600,
+          letterSpacing: 'var(--tracking-label)', textTransform: 'uppercase',
+          color: 'var(--gray-600)', whiteSpace: 'nowrap'
+        }}
+      >
+        {label}
+      </span>
+      <span style={{ flex: 1, height: 1, background: 'var(--border-default)' }} />
     </div>
   )
 }
@@ -871,9 +885,10 @@ export default function Timeline({
         style={{
           position: 'relative',
           // Sticky day headers need a scroll container to stick within.
-          // Most of the viewport, not a fixed 620px: the timeline is the
-          // page's main read and a short box meant scrolling inside a scroll.
-          maxHeight: 'max(620px, calc(100vh - 260px))', overflowY: 'auto'
+          // Nearly the whole viewport: the timeline is the page's main read,
+          // and anything less meant scrolling inside a scroll. 160px is the
+          // shell nav plus the card header above this box.
+          maxHeight: 'max(760px, calc(100vh - 160px))', overflowY: 'auto'
         }}
       >
         {/* `rows`, not `messages`: a multi-message email thread is one row
