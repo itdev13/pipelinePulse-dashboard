@@ -468,7 +468,10 @@ function CatalogueSyncSection() {
       help: 'Field definitions for contacts and opportunities — names, types and picklist options. The values on each record arrive with the record.' },
     { kind: 'users', title: 'Users',
       noun: 'users',
-      help: 'Everyone on this sub-account — role, agency or account type, which sub-accounts they belong to, and any two-way email sync. Runs nightly; run it now after changing a rep\'s role or connecting their mailbox in your CRM.' }
+      help: 'Everyone on this sub-account — role, agency or account type, which sub-accounts they belong to, and any two-way email sync. Runs nightly; run it now after changing a rep\'s role or connecting their mailbox in your CRM.' },
+    { kind: 'deals', title: 'Deals',
+      noun: 'deals',
+      help: 'Every opportunity in your CRM, refreshed from the source, and any deal your CRM no longer has is marked deleted here. Deals normally arrive by webhook; run this when one was deleted or changed in your CRM and still shows the old state here.' }
   ]
 
   return (
@@ -478,7 +481,7 @@ function CatalogueSyncSection() {
       collapsible
       accent="teal"
       meta="Runs for this sub-account"
-      help="These three arrive by no webhook — your CRM does not tell us when one changes — so they refresh overnight. Press a button here to fetch them now, if you have just added something and want to use it straight away."
+      help="Most of these arrive by no webhook — your CRM does not tell us when one changes — so they refresh overnight. Press a button here to fetch them now, if you have just added something and want to use it straight away."
     >
       <div style={{ display: 'grid' }}>
         {ROWS.map((r, i) => (
