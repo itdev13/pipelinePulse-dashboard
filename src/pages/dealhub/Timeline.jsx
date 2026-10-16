@@ -886,9 +886,10 @@ export default function Timeline({
           position: 'relative',
           // Sticky day headers need a scroll container to stick within.
           // Nearly the whole viewport: the timeline is the page's main read,
-          // and anything less meant scrolling inside a scroll. 160px is the
-          // shell nav plus the card header above this box.
-          maxHeight: 'max(760px, calc(100vh - 160px))', overflowY: 'auto'
+          // and anything less meant scrolling inside a scroll. 60px is the
+          // shell nav above this box; the card header is allowed to scroll
+          // away with the page so the thread gets the room.
+          maxHeight: 'max(860px, calc(100vh - 60px))', overflowY: 'auto'
         }}
       >
         {/* `rows`, not `messages`: a multi-message email thread is one row
