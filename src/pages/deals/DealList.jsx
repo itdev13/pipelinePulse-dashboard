@@ -7,6 +7,7 @@ import { RecordPill, relativeTime, formatDate } from '../shared/ListChrome'
 import { MenuChip, MenuHeading, MenuNote, TOOL_BUTTON, ColumnsMenu, TagsChip } from '../shared/MenuChip'
 import { contactsAPI } from '../../api/contacts'
 import { useTags } from '../shared/ListFilters'
+import { viewNoteInTab, viewTaskInTab } from '../shared/viewInTab'
 import { useOpenSet, useLazy, ExpandChip, ExpandRow, ExpandGroup, ExpandItem, ExpandNote, MoreItem, noteLabel } from '../shared/RowExpand'
 
 // The deals as a LIST, grouped by stage — the Figma List view (Oct 2026):
@@ -74,7 +75,7 @@ function readHidden() {
 
 const capitalise = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
 
-function Row({ deal, hidden, selected, onToggleSelect, onOpenDeal, onOpenInHub, onOpenContact, onOpenBusiness, catalogue, onPatch }) {
+function Row({ deal, hidden, selected, onToggleSelect, onOpenDeal, onOpenInHub, onOpenContact, onOpenBusiness, onOpenTab, catalogue, onPatch }) {
   // Tag writes go to the CONTACT (GHL's tags are contact-scoped): painted
   // first, rolled back if the CRM refuses.
   const contactTags = Array.isArray(deal.contactTags) ? deal.contactTags : []
@@ -308,7 +309,7 @@ function Row({ deal, hidden, selected, onToggleSelect, onOpenDeal, onOpenInHub, 
                   a={t.dueAt
                     ? <span style={{ color: overdue ? 'var(--status-stuck-text)' : undefined }}>{formatDate(t.dueAt, false)}{overdue ? ' (overdue)' : ''}</span>
                     : faint}
-                  view={<RecordPill kind="TASK" name={t.title} onClick={toHub} />}
+                  view={<RecordPill kind="TASK" name={t.title} onClick={onOpenTab ? () => viewTaskInTab(onOpenTab, { dealId: deal.id }, t.id) : toHub} />}
                 />
               )
             })}
@@ -328,7 +329,7 @@ function Row({ deal, hidden, selected, onToggleSelect, onOpenDeal, onOpenInHub, 
                 icon="sticky_note_2" iconColour="var(--accent-brown)"
                 name={noteLabel(n)}
                 a={n.createdAt ? relativeTime(n.createdAt) : null}
-                view={<RecordPill kind="NOTE" name={noteLabel(n)} onClick={toHub} />}
+                view={<RecordPill kind="NOTE" name={noteLabel(n)} onClick={onOpenTab ? () => viewNoteInTab(onOpenTab, { dealId: deal.id }, n.id) : toHub} />}
               />
             ))}
             {noteState.items && noteCount > noteState.items.length && (
@@ -496,7 +497,7 @@ export default function DealList({
   search, status = 'open', tag, assignedTo, sort, dir,
   // A stage id from the toolbar's Stage field — only its group is shown.
   focusStage,
-  onOpenDeal, onOpenInHub, onOpenContact, onOpenBusiness
+  onOpenDeal, onOpenInHub, onOpenContact, onOpenBusiness, onOpenTab
 }) {
   const [hidden, setHidden] = useState(readHidden)
   useEffect(() => {
@@ -562,7 +563,7 @@ export default function DealList({
   // The account's tag catalogue, for the Tags chip's add box. Cached and
   // shared with the Tag filter.
   const catalogue = useTags()
-  const rowHandlers = { onOpenDeal, onOpenInHub, onOpenContact, onOpenBusiness, catalogue }
+  const rowHandlers = { onOpenDeal, onOpenInHub, onOpenContact, onOpenBusiness, onOpenTab, catalogue }
 
   return (
     <section style={{

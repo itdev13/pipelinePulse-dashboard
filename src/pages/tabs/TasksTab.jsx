@@ -197,6 +197,18 @@ export default function TasksTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
   const [saving, setSaving] = useState(() => new Set())
   // null = closed. { task } = editing that one; { task: null } = creating.
   const [editor, setEditor] = useState(null)
+
+  // A task to open on arrival — set by another tab's "View" before switching
+  // here (see shared/viewInTab), with a filter that brings it into the first
+  // page. It opens in the editor, which shows all of it; once only. If the
+  // page loads without it, it is let go — the list is still narrowed.
+  const [focusTaskId, setFocusTaskId] = useTabState('tasks', 'focus', null)
+  useEffect(() => {
+    if (!focusTaskId || loading || !items) return
+    const hit = items.find((t) => t.id === focusTaskId)
+    if (hit) setEditor({ task: hit })
+    setFocusTaskId(null)
+  }, [focusTaskId, loading, items, setFocusTaskId])
   // Which task's deal popover is open, by id. One at a time — two open
   // popovers in a scrolling list would overlap each other.
   //

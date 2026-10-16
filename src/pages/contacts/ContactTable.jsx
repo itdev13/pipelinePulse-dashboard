@@ -3,7 +3,7 @@ import { Truncate, relativeTime, formatDate, RecordPill, DealPill } from '../sha
 import BusinessPickerModal from '../shared/BusinessPickerModal'
 import { contactsAPI } from '../../api/contacts'
 import { TagsChip } from '../shared/MenuChip'
-import { ExpandGroup, ExpandItem, MoreItem, SmallIcon } from '../shared/RowExpand'
+import { ExpandGroup, ExpandItem, ExpandNote, MoreItem, SmallIcon } from '../shared/RowExpand'
 
 // The contacts list as a table — the October 2026 list design.
 //
@@ -72,6 +72,8 @@ export default function ContactTable({
   onOpen, onOpenDeal, onOpenBusiness, onPatch,
   // (contactId, note) — View on a note opens it in the Notes tab.
   onViewNote,
+  // (contactId, task) — View on a task opens it in the Tasks tab.
+  onViewTask,
   // Selection, for bulk actions — owned by the tab so the cards and the list
   // share one selection.
   selected = new Set(), onToggleSelected, onToggleAll
@@ -127,6 +129,7 @@ export default function ContactTable({
               onOpenDeal={onOpenDeal}
               onOpenBusiness={onOpenBusiness}
               onViewNote={onViewNote}
+              onViewTask={onViewTask}
               onPatch={onPatch}
               selected={selected.has(c.id)}
               onToggleSelected={() => onToggleSelected && onToggleSelected(c.id)}
@@ -139,7 +142,7 @@ export default function ContactTable({
 }
 
 function ContactRow({
-  c, show, tagList, onOpen, onOpenDeal, onOpenBusiness, onViewNote, onPatch, selected, onToggleSelected
+  c, show, tagList, onOpen, onOpenDeal, onOpenBusiness, onViewNote, onViewTask, onPatch, selected, onToggleSelected
 }) {
   const [picking, setPicking] = useState(false)
   const [error, setError] = useState(null)
@@ -150,6 +153,11 @@ function ContactRow({
   const notes = c.noteCount || 0
   const hasTasks = tasks > 0 && Array.isArray(c.tasks) && c.tasks.length > 0
   const hasNotes = notes > 0 && Array.isArray(c.notes) && c.notes.length > 0
+  // EMPTY PILLS EXPAND TOO (the design): "0 tasks ▾" opens a group saying
+  // "No open tasks" rather than jumping to the record. Only a count the list
+  // has no items for (an older server) still opens the record.
+  const expandTasks = tasks === 0 || hasTasks
+  const expandNotes = notes === 0 || hasNotes
   // Which pills have their group open under the row. Several at once.
   const [open, setOpen] = useState(() => new Set())
   const toggle = (kind) => setOpen((cur) => {
@@ -277,11 +285,11 @@ function ContactRow({
             none. */}
         {show('tasks') && (
           <td style={{ ...TD, whiteSpace: 'nowrap' }}>
-            {hasTasks ? (
+            {expandTasks ? (
               <ExpandPill
                 label={`${tasks} task${tasks === 1 ? '' : 's'}`}
                 icon="task_alt"
-                tone={{ ...PILL_TONES.tasks, fill: 'var(--tint-clay)' }}
+                tone={tasks ? { ...PILL_TONES.tasks, fill: 'var(--tint-clay)' } : PILL_TONES.tasksNone}
                 open={open.has('tasks')}
                 onToggle={() => toggle('tasks')}
               />
@@ -298,11 +306,11 @@ function ContactRow({
 
         {show('notes') && (
           <td style={{ ...TD, whiteSpace: 'nowrap' }}>
-            {hasNotes ? (
+            {expandNotes ? (
               <ExpandPill
-                label={`${notes} note${notes === 1 ? '' : 's'}`}
+                label={notes ? `${notes} note${notes === 1 ? '' : 's'}` : 'No notes'}
                 icon="sticky_note_2"
-                tone={{ ...PILL_TONES.notes, fill: 'var(--tint-brown)' }}
+                tone={notes ? { ...PILL_TONES.notes, fill: 'var(--tint-brown)' } : PILL_TONES.none}
                 open={open.has('notes')}
                 onToggle={() => toggle('notes')}
               />
@@ -320,17 +328,13 @@ function ContactRow({
         {/* DEALS — "2 · £15,550". */}
         {show('deals') && (
           <td style={{ ...TD, whiteSpace: 'nowrap', borderRight: 'none' }}>
-            {deals.length ? (
-              <ExpandPill
-                label={dealsLabel(deals)}
-                icon="sell"
-                tone={{ ...PILL_TONES.deals, fill: 'var(--tint-pine)' }}
-                open={open.has('deals')}
-                onToggle={() => toggle('deals')}
-              />
-            ) : (
-              <CountPill tone={{ ...PILL_TONES.none, icon: 'sell' }} label="No deals" />
-            )}
+            <ExpandPill
+              label={deals.length ? dealsLabel(deals) : 'No deals'}
+              icon="sell"
+              tone={deals.length ? { ...PILL_TONES.deals, fill: 'var(--tint-pine)' } : PILL_TONES.none}
+              open={open.has('deals')}
+              onToggle={() => toggle('deals')}
+            />
           </td>
         )}
       </tr>
@@ -369,9 +373,10 @@ function ContactRow({
                 />
               </ExpandGroup>
             )}
-            {open.has('tasks') && hasTasks && (
+            {open.has('tasks') && expandTasks && (
               <ExpandGroup>
-                {c.tasks.map((t, i) => {
+                {!hasTasks && <ExpandNote>No open tasks</ExpandNote>}
+                {hasTasks && c.tasks.map((t, i) => {
                   const overdue = t.dueAt && new Date(t.dueAt) < new Date()
                   return (
                     <ExpandItem
@@ -381,18 +386,19 @@ function ContactRow({
                       a={t.dueAt
                         ? <span style={{ color: overdue ? 'var(--status-stuck-text)' : undefined }}>{formatDate(t.dueAt, false)}</span>
                         : <Faint>No due date</Faint>}
-                      view={<RecordPill kind="TASK" name={t.title} onClick={onOpen ? () => onOpen(c.id) : undefined} />}
+                      view={<RecordPill kind="TASK" name={t.title} onClick={onViewTask ? () => onViewTask(c.id, t) : (onOpen ? () => onOpen(c.id) : undefined)} />}
                     />
                   )
                 })}
-                {tasks > c.tasks.length && (
+                {hasTasks && tasks > c.tasks.length && (
                   <MoreItem label={`+${tasks - c.tasks.length} more task${tasks - c.tasks.length === 1 ? '' : 's'} — open the contact`} onClick={onOpen ? () => onOpen(c.id) : undefined} />
                 )}
               </ExpandGroup>
             )}
-            {open.has('notes') && hasNotes && (
+            {open.has('notes') && expandNotes && (
               <ExpandGroup>
-                {c.notes.map((n, i) => {
+                {!hasNotes && <ExpandNote>No notes yet</ExpandNote>}
+                {hasNotes && c.notes.map((n, i) => {
                   const text = n.title || String(n.body || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || '(empty note)'
                   return (
                     <ExpandItem
@@ -411,13 +417,14 @@ function ContactRow({
                     />
                   )
                 })}
-                {notes > c.notes.length && (
+                {hasNotes && notes > c.notes.length && (
                   <MoreItem label={`+${notes - c.notes.length} more note${notes - c.notes.length === 1 ? '' : 's'} — open the contact`} onClick={onOpen ? () => onOpen(c.id) : undefined} />
                 )}
               </ExpandGroup>
             )}
-            {open.has('deals') && deals.length > 0 && (
+            {open.has('deals') && (
               <ExpandGroup>
+                {deals.length === 0 && <ExpandNote>No deals yet</ExpandNote>}
                 {deals.map((d) => (
                   <ExpandItem
                     key={d.id}
