@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { businessesAPI } from '../../api/businesses'
 import { formatMoney } from '../../utils/money'
-import { DealPill, RecordPill, relativeTime } from '../shared/ListChrome'
-import { MenuChip, MenuHeading, MenuNote, MenuFooter, ColumnsMenu } from '../shared/MenuChip'
+import { DealPill, RecordPill, relativeTime, formatDate } from '../shared/ListChrome'
+import { ColumnsMenu } from '../shared/MenuChip'
+import { useOpenSet, useLazy, ExpandChip, ExpandRow, ExpandGroup, ExpandItem, ExpandNote, MoreItem } from '../shared/RowExpand'
+import { tasksAPI } from '../../api/tasks'
 
 // The businesses as a LIST — the Figma Businesses List view (Oct 2026):
 //
@@ -170,19 +172,29 @@ function Row({ business: b, hidden, onOpen, onOpenContact, onOpenDeal, onSaved }
   // OPEN pipeline when the API sends it; until then every deal's value.
   const pipeline = b.openPipelineValue ?? b.totalValue
 
-  // A chip menu that says one thing and offers the business page.
-  const openMenu = (heading, text) => (
-    <>
-      <MenuHeading>{heading}</MenuHeading>
-      <MenuNote>{text}</MenuNote>
-      <MenuFooter label="Open business" onClick={onOpen} />
-    </>
+  // THE ROW EXPANDS IN PLACE (the October list design — see RowExpand).
+  // Contacts, tasks, notes and deals each toggle a group in a full-width row
+  // under the business. Contacts and deals come from one detail read, made
+  // the first time either opens; tasks from the task list's business filter.
+  const [open, toggle] = useOpenSet()
+  const fetchTasks = useCallback(
+    () => tasksAPI.list({ businessId: b.id, status: 'open', limit: 5 })
+      // A server without the filter ignores it and returns the whole
+      // account's tasks — it echoes businessId only when it applied it.
+      .then((r) => (r?.businessId === b.id ? (r.tasks || []) : 'unsupported')),
+    [b.id]
   )
-
-  const loading = <MenuNote>Loading…</MenuNote>
-  const failed = error ? <MenuNote danger>{error}</MenuNote> : null
+  const [taskState, loadTasks] = useLazy(fetchTasks)
+  const openGroup = (kind) => {
+    if (kind === 'contacts' || kind === 'deals') load()
+    if (kind === 'tasks') loadTasks()
+    toggle(kind)
+  }
+  const pending = !data && !error ? <ExpandNote>Loading…</ExpandNote> : null
+  const failed = error ? <ExpandNote danger>{error}</ExpandNote> : null
 
   return (
+    <>
     <tr
       onClick={onOpen}
       style={{ cursor: 'pointer', background: 'var(--surface-card)' }}
@@ -213,30 +225,13 @@ function Row({ business: b, hidden, onOpen, onOpenContact, onOpenDeal, onSaved }
       {show('location') && <td style={TD}>{location || DASH}</td>}
       {show('contacts') && (
         <td style={TD}>
-          {contacts ? (
-            <MenuChip
-              icon="group"
-              tone="contact"
-              label={plural(contacts, 'contact', 'contacts')}
-              onOpenChange={(o) => { if (o) load() }}
-              menu={
-                <>
-                  <MenuHeading>Contacts</MenuHeading>
-                  {!data && !error && loading}
-                  {failed}
-                  {data && data.contacts.map((c) => (
-                    <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
-                      <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-md)', color: 'var(--text-heading)' }}>{c.name}</span>
-                      <RecordPill kind="CONTACT" name={c.name} onClick={onOpenContact ? () => onOpenContact(c.id) : undefined} />
-                    </div>
-                  ))}
-                </>
-              }
-            />
-          ) : (
-            <MenuChip icon="group" tone="muted" label="No contacts"
-              menu={openMenu('Contacts', 'No contacts are linked to this business yet.')} />
-          )}
+          <ExpandChip
+            icon="group"
+            tone={contacts ? 'contact' : 'muted'}
+            label={contacts ? plural(contacts, 'contact', 'contacts') : 'No contacts'}
+            open={open.has('contacts')}
+            onToggle={() => openGroup('contacts')}
+          />
         </td>
       )}
       {show('website') && <td style={TD}><WebsiteCell business={b} onSaved={onSaved} /></td>}
@@ -247,60 +242,36 @@ function Row({ business: b, hidden, onOpen, onOpenContact, onOpenDeal, onSaved }
           the Tasks panel lists them. */}
       {show('tasks') && (
         <td style={TD}>
-          <MenuChip
+          <ExpandChip
             icon="task_alt"
             tone={b.openTaskCount ? 'tasks' : 'muted'}
             label={b.openTaskCount ? plural(b.openTaskCount, 'task', 'tasks') : 'No tasks'}
-            menu={openMenu('Tasks', b.openTaskCount
-              ? `${plural(b.openTaskCount, 'open task', 'open tasks')} for this business.`
-              : 'Open tasks are listed on the business page.')}
+            open={open.has('tasks')}
+            onToggle={() => openGroup('tasks')}
           />
         </td>
       )}
       {show('notes') && (
         <td style={TD}>
-          <MenuChip
+          <ExpandChip
             icon="sticky_note_2"
             tone={b.noteCount ? 'notes' : 'muted'}
             label={b.noteCount ? plural(b.noteCount, 'note', 'notes') : 'No notes'}
-            menu={openMenu('Notes', b.noteCount
-              ? `${plural(b.noteCount, 'note', 'notes')} for this business.`
-              : 'Notes are kept on each contact and deal.')}
+            open={open.has('notes')}
+            onToggle={() => openGroup('notes')}
           />
         </td>
       )}
       {show('deals') && (
         <td style={TD}>
-          {dealCount ? (
-            <MenuChip
-              icon="sell"
-              tone="deals"
-              label={`${dealCount} · ${formatMoney(pipeline || 0)}`}
-              title={b.openPipelineValue == null ? 'Value of every deal on this business, including closed ones' : undefined}
-              onOpenChange={(o) => { if (o) load() }}
-              menu={
-                <>
-                  <MenuHeading>Deals</MenuHeading>
-                  {!data && !error && loading}
-                  {failed}
-                  {data && data.deals.map((d) => (
-                    <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
-                      <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-md)', color: 'var(--text-heading)' }}>{d.name}</span>
-                      {d.value ? (
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-base)', fontWeight: 600 }}>
-                          {formatMoney(d.value)}
-                        </span>
-                      ) : null}
-                      <DealPill compact name={d.name} onClick={onOpenDeal ? () => onOpenDeal(d.id) : undefined} />
-                    </div>
-                  ))}
-                </>
-              }
-            />
-          ) : (
-            <MenuChip icon="sell" tone="muted" label="No deals"
-              menu={openMenu('Deals', 'No deals at this business yet.')} />
-          )}
+          <ExpandChip
+            icon="sell"
+            tone={dealCount ? 'deals' : 'muted'}
+            label={dealCount ? `${dealCount} · ${formatMoney(pipeline || 0)}` : 'No deals'}
+            title={dealCount && b.openPipelineValue == null ? 'Value of every deal on this business, including closed ones' : undefined}
+            open={open.has('deals')}
+            onToggle={() => openGroup('deals')}
+          />
         </td>
       )}
       {show('activity') && (
@@ -312,6 +283,82 @@ function Row({ business: b, hidden, onOpen, onOpenContact, onOpenDeal, onSaved }
         </td>
       )}
     </tr>
+
+    {open.size > 0 && (
+      <ExpandRow>
+        {/* Fixed order, the design's: who, what is owed, what was written,
+            the money. */}
+        {open.has('contacts') && (
+          <ExpandGroup>
+            {pending}{failed}
+            {data && data.contacts.length === 0 && <ExpandNote>No contacts are linked to this business yet.</ExpandNote>}
+            {data && data.contacts.map((c) => (
+              <ExpandItem
+                key={c.id}
+                icon="person" iconColour="var(--accent-sky)"
+                name={c.name}
+                a={c.email || DASH}
+                b={c.phone || DASH}
+                view={<RecordPill kind="CONTACT" name={c.name} onClick={onOpenContact ? () => onOpenContact(c.id) : undefined} />}
+              />
+            ))}
+          </ExpandGroup>
+        )}
+        {open.has('tasks') && (
+          <ExpandGroup>
+            {taskState.items === null && !taskState.error && <ExpandNote>Loading…</ExpandNote>}
+            {taskState.error && <ExpandNote danger>{taskState.error}</ExpandNote>}
+            {taskState.items === 'unsupported' && (
+              <MoreItem label="Open the business to see its tasks" onClick={onOpen} />
+            )}
+            {Array.isArray(taskState.items) && taskState.items.length === 0 && <ExpandNote>No open tasks.</ExpandNote>}
+            {Array.isArray(taskState.items) && taskState.items.map((t) => {
+              const overdue = t.dueAt && new Date(t.dueAt) < new Date()
+              return (
+                <ExpandItem
+                  key={t.id}
+                  icon="task_alt" iconColour="var(--accent-clay)"
+                  name={t.title || 'Untitled task'}
+                  a={t.dueAt
+                    ? <span style={{ color: overdue ? 'var(--status-stuck-text)' : undefined }}>{formatDate(t.dueAt, false)}{overdue ? ' (overdue)' : ''}</span>
+                    : DASH}
+                  // The business page's Tasks panel is where they are worked.
+                  view={<RecordPill kind="TASK" name={t.title} onClick={onOpen} />}
+                />
+              )
+            })}
+            {Array.isArray(taskState.items) && (b.openTaskCount || 0) > taskState.items.length && (
+              <MoreItem label={`+${b.openTaskCount - taskState.items.length} more — open the business`} onClick={onOpen} />
+            )}
+          </ExpandGroup>
+        )}
+        {open.has('notes') && (
+          <ExpandGroup>
+            {/* No business-wide note list exists yet — notes hang off each
+                contact and deal. */}
+            <ExpandNote>Notes are kept on each contact and deal.</ExpandNote>
+            <MoreItem label="Open the business" onClick={onOpen} />
+          </ExpandGroup>
+        )}
+        {open.has('deals') && (
+          <ExpandGroup>
+            {pending}{failed}
+            {data && data.deals.length === 0 && <ExpandNote>No deals at this business yet.</ExpandNote>}
+            {data && data.deals.map((d) => (
+              <ExpandItem
+                key={d.id}
+                icon="sell" iconColour="var(--green-600)"
+                name={d.name}
+                a={d.value ? <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-heading)' }}>{formatMoney(d.value)}</span> : DASH}
+                b={d.stage || DASH}
+                view={<DealPill compact name={d.name} onClick={onOpenDeal ? () => onOpenDeal(d.id) : undefined} />}
+              />
+            ))}
+          </ExpandGroup>
+        )}
+      </ExpandRow>
+    )}
+    </>
   )
 }
 

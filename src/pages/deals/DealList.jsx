@@ -1,12 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { dealsAPI } from '../../api/deals'
 import { tasksAPI } from '../../api/tasks'
 import { notesAPI } from '../../api/notes'
 import { formatMoney } from '../../utils/money'
-import { RecordPill, relativeTime, formatDate, formatDue } from '../shared/ListChrome'
-import { MenuChip, MenuHeading, MenuNote, MenuFooter, TOOL_BUTTON, ColumnsMenu, TagsChip } from '../shared/MenuChip'
+import { RecordPill, relativeTime, formatDate } from '../shared/ListChrome'
+import { MenuChip, MenuHeading, MenuNote, TOOL_BUTTON, ColumnsMenu, TagsChip } from '../shared/MenuChip'
 import { contactsAPI } from '../../api/contacts'
 import { useTags } from '../shared/ListFilters'
+import { viewNoteInTab, viewTaskInTab } from '../shared/viewInTab'
+import { useOpenSet, useLazy, ExpandChip, ExpandRow, ExpandGroup, ExpandItem, ExpandNote, MoreItem, noteLabel } from '../shared/RowExpand'
 
 // The deals as a LIST, grouped by stage — the Figma List view (Oct 2026):
 //
@@ -73,103 +75,7 @@ function readHidden() {
 
 const capitalise = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
 
-// The deal's open tasks or its notes, fetched the first time the menu opens —
-// a list of 25 rows should not cost 50 requests on load for menus nobody
-// opened.
-function useLazyList(fetcher) {
-  const [state, setState] = useState({ items: null, error: null })
-  const started = useRef(false)
-  const load = useCallback(() => {
-    if (started.current) return
-    started.current = true
-    fetcher()
-      .then((items) => setState({ items, error: null }))
-      .catch((e) => setState({ items: [], error: e.message || 'Could not load' }))
-  }, [fetcher])
-  return [state, load]
-}
-
-function TasksChip({ deal, onOpenInHub }) {
-  const n = deal.openTaskCount ?? 0
-  const fetcher = useCallback(
-    () => tasksAPI.list({ dealId: deal.id, status: 'open', limit: 5 }).then((r) => r?.tasks || []),
-    [deal.id]
-  )
-  const [{ items, error }, load] = useLazyList(fetcher)
-  return (
-    <MenuChip
-      icon={n ? 'task_alt' : 'error'}
-      tone={n ? 'tasks' : 'noTasks'}
-      label={`${n} ${n === 1 ? 'task' : 'tasks'}`}
-      title={n ? `${n} open ${n === 1 ? 'task' : 'tasks'}` : 'No open tasks on this deal'}
-      onOpenChange={(o) => { if (o) load() }}
-      menu={
-        <>
-          <MenuHeading>Open tasks</MenuHeading>
-          {items === null && !error && <MenuNote>Loading…</MenuNote>}
-          {error && <MenuNote danger>{error}</MenuNote>}
-          {items && !error && items.length === 0 && <MenuNote>No open tasks.</MenuNote>}
-          {items && items.map((t) => (
-            <div key={t.id} style={{ display: 'grid', gap: 1, padding: '4px 0' }}>
-              <span style={{ fontSize: 'var(--text-md)', fontWeight: 500, color: 'var(--text-heading)' }}>
-                {t.title || 'Untitled task'}
-              </span>
-              {t.dueAt && (
-                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>{formatDue(t.dueAt)}</span>
-              )}
-            </div>
-          ))}
-          <MenuFooter label="Open in Deal hub" onClick={onOpenInHub ? () => onOpenInHub(deal.id) : null} />
-        </>
-      }
-    />
-  )
-}
-
-function NotesChip({ deal, onOpenInHub }) {
-  const n = deal.noteCount ?? 0
-  const fetcher = useCallback(
-    () => notesAPI.list({ dealId: deal.id, limit: 5 }).then((r) => r?.notes || []),
-    [deal.id]
-  )
-  const [{ items, error }, load] = useLazyList(fetcher)
-  return (
-    <MenuChip
-      icon="sticky_note_2"
-      tone={n ? 'notes' : 'muted'}
-      label={`${n} ${n === 1 ? 'note' : 'notes'}`}
-      onOpenChange={(o) => { if (o) load() }}
-      menu={
-        <>
-          <MenuHeading>Notes</MenuHeading>
-          {items === null && !error && <MenuNote>Loading…</MenuNote>}
-          {error && <MenuNote danger>{error}</MenuNote>}
-          {items && !error && items.length === 0 && <MenuNote>No notes yet.</MenuNote>}
-          {items && items.map((note) => (
-            <div key={note.id} style={{ display: 'grid', gap: 1, padding: '4px 0' }}>
-              <span style={{
-                fontSize: 'var(--text-md)', fontWeight: 500, color: 'var(--text-heading)',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-              }}>
-                {note.title || stripHtml(note.body) || '(empty note)'}
-              </span>
-              {note.createdAt && (
-                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>{formatDate(note.createdAt)}</span>
-              )}
-            </div>
-          ))}
-          <MenuFooter label="Open in Deal hub" onClick={onOpenInHub ? () => onOpenInHub(deal.id) : null} />
-        </>
-      }
-    />
-  )
-}
-
-function stripHtml(html) {
-  return String(html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80)
-}
-
-function Row({ deal, hidden, selected, onToggleSelect, onOpenDeal, onOpenInHub, onOpenContact, onOpenBusiness, catalogue, onPatch }) {
+function Row({ deal, hidden, selected, onToggleSelect, onOpenDeal, onOpenInHub, onOpenContact, onOpenBusiness, onOpenTab, catalogue, onPatch }) {
   // Tag writes go to the CONTACT (GHL's tags are contact-scoped): painted
   // first, rolled back if the CRM refuses.
   const contactTags = Array.isArray(deal.contactTags) ? deal.contactTags : []
@@ -187,7 +93,31 @@ function Row({ deal, hidden, selected, onToggleSelect, onOpenDeal, onOpenInHub, 
   const show = (k) => !hidden.has(k)
   const faint = <span style={{ color: 'var(--text-faint)' }}>—</span>
 
+  // THE ROW EXPANDS IN PLACE (the October list design — see RowExpand).
+  // Contact, business, tasks and notes each toggle a group in a full-width
+  // row under the deal; tasks and notes load the first time they open.
+  const [open, toggle] = useOpenSet()
+  const taskCount = deal.openTaskCount ?? 0
+  const noteCount = deal.noteCount ?? 0
+  const fetchTasks = useCallback(
+    () => tasksAPI.list({ dealId: deal.id, status: 'open', limit: 5 }).then((r) => r?.tasks || []),
+    [deal.id]
+  )
+  const fetchNotes = useCallback(
+    () => notesAPI.list({ dealId: deal.id, limit: 5 }).then((r) => r?.notes || []),
+    [deal.id]
+  )
+  const [taskState, loadTasks] = useLazy(fetchTasks)
+  const [noteState, loadNotes] = useLazy(fetchNotes)
+  const openGroup = (kind) => {
+    if (kind === 'tasks') loadTasks()
+    if (kind === 'notes') loadNotes()
+    toggle(kind)
+  }
+  const toHub = onOpenInHub ? () => onOpenInHub(deal.id) : undefined
+
   return (
+    <>
     <tr
       onClick={() => onOpenDeal && onOpenDeal(deal.id)}
       style={{ cursor: 'pointer', background: selected ? 'var(--tint-pine)' : 'var(--surface-card)' }}
@@ -240,29 +170,12 @@ function Row({ deal, hidden, selected, onToggleSelect, onOpenDeal, onOpenInHub, 
       {show('contact') && (
         <td style={TD}>
           {contactName ? (
-            <MenuChip
+            <ExpandChip
               icon="person"
               tone="contact"
               label={contactName}
-              menu={
-                <>
-                  <MenuHeading>{people.length === 1 ? 'Contact on this deal' : 'Contacts on this deal'}</MenuHeading>
-                  {people.map((p) => {
-                    const pn = `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.email || 'Unnamed contact'
-                    return (
-                      <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
-                        <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-md)', color: 'var(--text-heading)' }}>
-                          {pn}
-                          {p.primary && (
-                            <span style={{ marginLeft: 6, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Primary</span>
-                          )}
-                        </span>
-                        <RecordPill kind="CONTACT" name={pn} onClick={onOpenContact ? () => onOpenContact(p.id) : undefined} />
-                      </div>
-                    )
-                  })}
-                </>
-              }
+              open={open.has('contact')}
+              onToggle={() => openGroup('contact')}
             />
           ) : faint}
         </td>
@@ -270,27 +183,12 @@ function Row({ deal, hidden, selected, onToggleSelect, onOpenDeal, onOpenInHub, 
       {show('business') && (
         <td style={TD}>
           {businessName ? (
-            <MenuChip
+            <ExpandChip
               icon="domain"
               tone="business"
               label={businessName}
-              menu={
-                <>
-                  <MenuHeading>Business</MenuHeading>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
-                    <span style={{ flex: 1, minWidth: 0, fontSize: 'var(--text-md)', color: 'var(--text-heading)' }}>
-                      {businessName}
-                    </span>
-                    {/* Only a real business RECORD opens; the free-text company
-                        on the contact has nowhere to go. */}
-                    <RecordPill
-                      kind="BUSINESS"
-                      name={businessName}
-                      onClick={onOpenBusiness && deal.businessId ? () => onOpenBusiness(deal.businessId) : undefined}
-                    />
-                  </div>
-                </>
-              }
+              open={open.has('business')}
+              onToggle={() => openGroup('business')}
             />
           ) : faint}
         </td>
@@ -319,10 +217,27 @@ function Row({ deal, hidden, selected, onToggleSelect, onOpenDeal, onOpenInHub, 
         </td>
       )}
       {show('tasks') && (
-        <td style={TD}><TasksChip deal={deal} onOpenInHub={onOpenInHub} /></td>
+        <td style={TD}>
+          <ExpandChip
+            icon={taskCount ? 'task_alt' : 'error'}
+            tone={taskCount ? 'tasks' : 'noTasks'}
+            label={`${taskCount} ${taskCount === 1 ? 'task' : 'tasks'}`}
+            title={taskCount ? `${taskCount} open ${taskCount === 1 ? 'task' : 'tasks'}` : 'No open tasks on this deal'}
+            open={open.has('tasks')}
+            onToggle={() => openGroup('tasks')}
+          />
+        </td>
       )}
       {show('notes') && (
-        <td style={TD}><NotesChip deal={deal} onOpenInHub={onOpenInHub} /></td>
+        <td style={TD}>
+          <ExpandChip
+            icon="sticky_note_2"
+            tone={noteCount ? 'notes' : 'muted'}
+            label={`${noteCount} ${noteCount === 1 ? 'note' : 'notes'}`}
+            open={open.has('notes')}
+            onToggle={() => openGroup('notes')}
+          />
+        </td>
       )}
       {show('tags') && (
         <td style={TD}>
@@ -342,6 +257,89 @@ function Row({ deal, hidden, selected, onToggleSelect, onOpenDeal, onOpenInHub, 
         </td>
       )}
     </tr>
+
+    {open.size > 0 && (
+      <ExpandRow>
+        {/* Fixed order, the design's: who, where, what is owed, what was
+            written — whatever was clicked first. */}
+        {open.has('contact') && (
+          <ExpandGroup>
+            {people.map((p) => {
+              const pn = `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.email || p.phone || 'Unnamed contact'
+              return (
+                <ExpandItem
+                  key={p.id}
+                  icon="person" iconColour="var(--accent-sky)"
+                  name={p.primary && people.length > 1 ? `${pn} · Primary` : pn}
+                  a={p.email || faint}
+                  b={p.phone || faint}
+                  view={<RecordPill kind="CONTACT" name={pn} onClick={onOpenContact ? () => onOpenContact(p.id) : undefined} />}
+                />
+              )
+            })}
+          </ExpandGroup>
+        )}
+        {open.has('business') && businessName && (
+          <ExpandGroup>
+            <ExpandItem
+              icon="business" iconColour="var(--accent-plum)"
+              name={businessName}
+              // City and the business's deal count are not on the list's
+              // payload yet.
+              a={faint}
+              b={faint}
+              // Only a real business RECORD opens; the free-text company on
+              // the contact has nowhere to go.
+              view={<RecordPill kind="BUSINESS" name={businessName} onClick={onOpenBusiness && deal.businessId ? () => onOpenBusiness(deal.businessId) : undefined} />}
+            />
+          </ExpandGroup>
+        )}
+        {open.has('tasks') && (
+          <ExpandGroup>
+            {taskState.items === null && !taskState.error && <ExpandNote>Loading…</ExpandNote>}
+            {taskState.error && <ExpandNote danger>{taskState.error}</ExpandNote>}
+            {taskState.items && !taskState.error && taskState.items.length === 0 && <ExpandNote>No open tasks.</ExpandNote>}
+            {(taskState.items || []).map((t) => {
+              const overdue = t.dueAt && new Date(t.dueAt) < new Date()
+              return (
+                <ExpandItem
+                  key={t.id}
+                  icon="task_alt" iconColour="var(--accent-clay)"
+                  name={t.title || 'Untitled task'}
+                  a={t.dueAt
+                    ? <span style={{ color: overdue ? 'var(--status-stuck-text)' : undefined }}>{formatDate(t.dueAt, false)}{overdue ? ' (overdue)' : ''}</span>
+                    : faint}
+                  view={<RecordPill kind="TASK" name={t.title} onClick={onOpenTab ? () => viewTaskInTab(onOpenTab, { dealId: deal.id }, t.id) : toHub} />}
+                />
+              )
+            })}
+            {taskState.items && taskCount > taskState.items.length && (
+              <MoreItem label={`+${taskCount - taskState.items.length} more — open in Deal hub`} onClick={toHub} />
+            )}
+          </ExpandGroup>
+        )}
+        {open.has('notes') && (
+          <ExpandGroup>
+            {noteState.items === null && !noteState.error && <ExpandNote>Loading…</ExpandNote>}
+            {noteState.error && <ExpandNote danger>{noteState.error}</ExpandNote>}
+            {noteState.items && !noteState.error && noteState.items.length === 0 && <ExpandNote>No notes yet.</ExpandNote>}
+            {(noteState.items || []).map((n) => (
+              <ExpandItem
+                key={n.id}
+                icon="sticky_note_2" iconColour="var(--accent-brown)"
+                name={noteLabel(n)}
+                a={n.createdAt ? relativeTime(n.createdAt) : null}
+                view={<RecordPill kind="NOTE" name={noteLabel(n)} onClick={onOpenTab ? () => viewNoteInTab(onOpenTab, { dealId: deal.id }, n.id) : toHub} />}
+              />
+            ))}
+            {noteState.items && noteCount > noteState.items.length && (
+              <MoreItem label={`+${noteCount - noteState.items.length} more — open in Deal hub`} onClick={toHub} />
+            )}
+          </ExpandGroup>
+        )}
+      </ExpandRow>
+    )}
+    </>
   )
 }
 
@@ -499,7 +497,7 @@ export default function DealList({
   search, status = 'open', tag, assignedTo, sort, dir,
   // A stage id from the toolbar's Stage field — only its group is shown.
   focusStage,
-  onOpenDeal, onOpenInHub, onOpenContact, onOpenBusiness
+  onOpenDeal, onOpenInHub, onOpenContact, onOpenBusiness, onOpenTab
 }) {
   const [hidden, setHidden] = useState(readHidden)
   useEffect(() => {
@@ -565,7 +563,7 @@ export default function DealList({
   // The account's tag catalogue, for the Tags chip's add box. Cached and
   // shared with the Tag filter.
   const catalogue = useTags()
-  const rowHandlers = { onOpenDeal, onOpenInHub, onOpenContact, onOpenBusiness, catalogue }
+  const rowHandlers = { onOpenDeal, onOpenInHub, onOpenContact, onOpenBusiness, onOpenTab, catalogue }
 
   return (
     <section style={{

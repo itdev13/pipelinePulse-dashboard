@@ -372,6 +372,10 @@ function SignatureSection() {
       title="Your email signature"
       accent="plum"
       meta="Yours only, in this sub-account"
+      // Folds like the others, but starts OPEN — it is the one section a rep
+      // comes here to change.
+      collapsible
+      defaultOpen
       help="Added to the end of every email the AI drafts for you, where you can still edit or trim it before sending. Paste yours from Outlook or write one here. Working in more than one brand? Each has its own — set it there too."
     >
       <div style={{ padding: 'var(--space-4)', display: 'grid', gap: 'var(--space-3)' }}>

@@ -54,7 +54,7 @@ function ToolbarField({ label, children }) {
   )
 }
 
-export default function DealsTab({ onOpenDeal, onOpenContact, onOpenBusiness, initialEditDealId = null }) {
+export default function DealsTab({ onOpenDeal, onOpenContact, onOpenBusiness, onOpenTab, initialEditDealId = null }) {
   // Which view. Persisted because it is a working preference, not a
   // navigation step: a rep who works the board should not be handed the list
   // again every time they come back to this tab.
@@ -845,6 +845,7 @@ export default function DealsTab({ onOpenDeal, onOpenContact, onOpenBusiness, in
           onOpenInHub={onOpenDeal}
           onOpenContact={onOpenContact}
           onOpenBusiness={onOpenBusiness}
+          onOpenTab={onOpenTab}
         />
       )}
 

@@ -455,6 +455,8 @@ export default function DealHubShell() {
             // The grid card's View BUSINESS.
             onOpenBusiness={openBusiness}
             initialEditDealId={editDealId}
+            // The List view's "View" on a task or note opens Tasks / Notes.
+            onOpenTab={(tab) => navigate({ tab })}
           />
         )}
         {/* Deal links on a contact record jump into the Deal hub. */}

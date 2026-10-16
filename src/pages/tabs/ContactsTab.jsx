@@ -12,6 +12,7 @@ import { contactsAPI } from '../../api/contacts'
 import BusinessPickerModal from '../shared/BusinessPickerModal'
 import { usePagedList, useInfiniteScroll } from '../../hooks/usePagedList'
 import { useTabState } from '../../hooks/useTabState'
+import { viewNoteInTab, viewTaskInTab } from '../shared/viewInTab'
 import { useAuth } from '../../context/AuthContext'
 import { OwnerFilter, TagFilter } from '../shared/ListFilters'
 import ContactDetail from '../contacts/ContactDetail'
@@ -510,6 +511,10 @@ export default function ContactsTab({
               onOpen={openRecord}
               onOpenDeal={onOpenDeal}
               onOpenBusiness={onOpenBusiness}
+              // "View" on a task or note: Tasks / Notes, narrowed to this
+              // contact, with the item open — see shared/viewInTab.
+              onViewNote={onOpenTab ? (contactId, note) => viewNoteInTab(onOpenTab, { contactId }, note.id) : undefined}
+              onViewTask={onOpenTab ? (contactId, task) => viewTaskInTab(onOpenTab, { contactId }, task.id) : undefined}
               // Cells write straight to the CRM; the row is patched with the
               // result rather than refetched.
               onPatch={(id, p) => patchItem((x) => x.id === id, p)}

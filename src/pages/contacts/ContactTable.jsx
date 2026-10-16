@@ -1,9 +1,9 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { Truncate, formatDue, relativeTime } from '../shared/ListChrome'
+import React, { useEffect, useRef, useState } from 'react'
+import { Truncate, relativeTime, formatDate, RecordPill, DealPill } from '../shared/ListChrome'
 import BusinessPickerModal from '../shared/BusinessPickerModal'
 import { contactsAPI } from '../../api/contacts'
 import { TagsChip } from '../shared/MenuChip'
+import { ExpandGroup, ExpandItem, ExpandNote, MoreItem, SmallIcon } from '../shared/RowExpand'
 
 // The contacts list as a table — the October 2026 list design.
 //
@@ -70,6 +70,10 @@ const PILL_TONES = {
 export default function ContactTable({
   contacts = [], columns, tagList = [],
   onOpen, onOpenDeal, onOpenBusiness, onPatch,
+  // (contactId, note) — View on a note opens it in the Notes tab.
+  onViewNote,
+  // (contactId, task) — View on a task opens it in the Tasks tab.
+  onViewTask,
   // Selection, for bulk actions — owned by the tab so the cards and the list
   // share one selection.
   selected = new Set(), onToggleSelected, onToggleAll
@@ -124,6 +128,8 @@ export default function ContactTable({
               onOpen={onOpen}
               onOpenDeal={onOpenDeal}
               onOpenBusiness={onOpenBusiness}
+              onViewNote={onViewNote}
+              onViewTask={onViewTask}
               onPatch={onPatch}
               selected={selected.has(c.id)}
               onToggleSelected={() => onToggleSelected && onToggleSelected(c.id)}
@@ -136,7 +142,7 @@ export default function ContactTable({
 }
 
 function ContactRow({
-  c, show, tagList, onOpen, onOpenDeal, onOpenBusiness, onPatch, selected, onToggleSelected
+  c, show, tagList, onOpen, onOpenDeal, onOpenBusiness, onViewNote, onViewTask, onPatch, selected, onToggleSelected
 }) {
   const [picking, setPicking] = useState(false)
   const [error, setError] = useState(null)
@@ -145,6 +151,20 @@ function ContactRow({
   const deals = c.deals || []
   const tasks = c.openTaskCount || 0
   const notes = c.noteCount || 0
+  const hasTasks = tasks > 0 && Array.isArray(c.tasks) && c.tasks.length > 0
+  const hasNotes = notes > 0 && Array.isArray(c.notes) && c.notes.length > 0
+  // EMPTY PILLS EXPAND TOO (the design): "0 tasks ▾" opens a group saying
+  // "No open tasks" rather than jumping to the record. Only a count the list
+  // has no items for (an older server) still opens the record.
+  const expandTasks = tasks === 0 || hasTasks
+  const expandNotes = notes === 0 || hasNotes
+  // Which pills have their group open under the row. Several at once.
+  const [open, setOpen] = useState(() => new Set())
+  const toggle = (kind) => setOpen((cur) => {
+    const next = new Set(cur)
+    if (next.has(kind)) next.delete(kind); else next.add(kind)
+    return next
+  })
 
   // A write from a cell: run it, patch the row on success, say why on failure.
   const write = async (call, onDone) => {
@@ -209,26 +229,20 @@ function ContactRow({
           </td>
         )}
 
-        {/* BUSINESS — a menu when linked (open, change, unlink), the empty
-            prompt when not. Same picker the card and the detail page use. */}
+        {/* BUSINESS, TASKS, NOTES, DEALS — pills that EXPAND A SECTION UNDER
+            THE ROW, the October design. They were floating dropdowns: one at
+            a time, over the rows below. Now each pill toggles its own group
+            in the row's expansion, several can be open at once, and each
+            item carries a View pill to its record. */}
         {show('business') && (
           <td style={{ ...TD, maxWidth: 190 }}>
             {businessName && c.businessId ? (
-              <PillMenu
+              <ExpandPill
                 label={businessName}
                 icon="business"
                 tone={{ line: 'var(--accent-plum)', fg: 'var(--accent-plum-text)', fill: 'var(--tint-plum)' }}
-                items={[
-                  onOpenBusiness && { label: 'Open business', icon: 'open_in_new', onSelect: () => onOpenBusiness(c.businessId) },
-                  { label: 'Change business', icon: 'swap_horiz', onSelect: () => setPicking(true) },
-                  {
-                    label: 'Unlink', icon: 'link_off', danger: true,
-                    onSelect: () => write(
-                      () => contactsAPI.update(c.id, { businessId: null }),
-                      () => patch({ businessId: null, businessName: null })
-                    )
-                  }
-                ].filter(Boolean)}
+                open={open.has('business')}
+                onToggle={() => toggle('business')}
               />
             ) : (
               <EmptyEdit title="Link a business" onClick={() => setPicking(true)} />
@@ -266,30 +280,18 @@ function ContactRow({
           </td>
         )}
 
-        {/* TASKS and NOTES — a menu of the items when the list carries them
-            (the route sends the first five of each), the same PillMenu the
-            deals pill uses. A count-only pill, opening the record, remains
-            the fallback for an older server or a contact with none. */}
+        {/* The list carries the first five tasks and notes; a count-only pill,
+            opening the record, remains for an older server or a contact with
+            none. */}
         {show('tasks') && (
           <td style={{ ...TD, whiteSpace: 'nowrap' }}>
-            {tasks && Array.isArray(c.tasks) && c.tasks.length ? (
-              <PillMenu
+            {expandTasks ? (
+              <ExpandPill
                 label={`${tasks} task${tasks === 1 ? '' : 's'}`}
                 icon="task_alt"
-                tone={PILL_TONES.tasks}
-                items={[
-                  ...c.tasks.map((t) => ({
-                    label: t.title || '(untitled task)',
-                    hint: t.dueAt ? formatDue(t.dueAt) : null,
-                    icon: 'task_alt',
-                    onSelect: onOpen ? () => onOpen(c.id) : undefined
-                  })),
-                  ...(tasks > c.tasks.length ? [{
-                    label: `+${tasks - c.tasks.length} more — open the contact`,
-                    icon: 'open_in_new',
-                    onSelect: onOpen ? () => onOpen(c.id) : undefined
-                  }] : [])
-                ]}
+                tone={tasks ? { ...PILL_TONES.tasks, fill: 'var(--tint-clay)' } : PILL_TONES.tasksNone}
+                open={open.has('tasks')}
+                onToggle={() => toggle('tasks')}
               />
             ) : (
               <CountPill
@@ -304,24 +306,13 @@ function ContactRow({
 
         {show('notes') && (
           <td style={{ ...TD, whiteSpace: 'nowrap' }}>
-            {notes && Array.isArray(c.notes) && c.notes.length ? (
-              <PillMenu
-                label={`${notes} note${notes === 1 ? '' : 's'}`}
+            {expandNotes ? (
+              <ExpandPill
+                label={notes ? `${notes} note${notes === 1 ? '' : 's'}` : 'No notes'}
                 icon="sticky_note_2"
-                tone={PILL_TONES.notes}
-                items={[
-                  ...c.notes.map((n) => ({
-                    label: n.title || String(n.body || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || '(empty note)',
-                    hint: n.createdAt ? relativeTime(n.createdAt) : null,
-                    icon: 'sticky_note_2',
-                    onSelect: onOpen ? () => onOpen(c.id) : undefined
-                  })),
-                  ...(notes > c.notes.length ? [{
-                    label: `+${notes - c.notes.length} more — open the contact`,
-                    icon: 'open_in_new',
-                    onSelect: onOpen ? () => onOpen(c.id) : undefined
-                  }] : [])
-                ]}
+                tone={notes ? { ...PILL_TONES.notes, fill: 'var(--tint-brown)' } : PILL_TONES.none}
+                open={open.has('notes')}
+                onToggle={() => toggle('notes')}
               />
             ) : (
               <CountPill
@@ -334,28 +325,127 @@ function ContactRow({
           </td>
         )}
 
-        {/* DEALS — "2 · £15,550", opening a menu of the deals themselves. */}
+        {/* DEALS — "2 · £15,550". */}
         {show('deals') && (
           <td style={{ ...TD, whiteSpace: 'nowrap', borderRight: 'none' }}>
-            {deals.length ? (
-              <PillMenu
-                label={dealsLabel(deals)}
-                icon="sell"
-                tone={{ ...PILL_TONES.deals, fill: 'var(--tint-pine)' }}
-                items={deals.map((d) => ({
-                  label: d.name || 'Untitled deal',
-                  hint: [d.value != null && money(d.value), d.stage, d.primary && 'Primary']
-                    .filter(Boolean).join(' · '),
-                  icon: 'sell',
-                  onSelect: onOpenDeal ? () => onOpenDeal(d.id) : undefined
-                }))}
-              />
-            ) : (
-              <CountPill tone={{ ...PILL_TONES.none, icon: 'sell' }} label="No deals" />
-            )}
+            <ExpandPill
+              label={deals.length ? dealsLabel(deals) : 'No deals'}
+              icon="sell"
+              tone={deals.length ? { ...PILL_TONES.deals, fill: 'var(--tint-pine)' } : PILL_TONES.none}
+              open={open.has('deals')}
+              onToggle={() => toggle('deals')}
+            />
           </td>
         )}
       </tr>
+
+      {open.size > 0 && (
+        <tr>
+          <td colSpan={99} style={{ ...TD, borderRight: 'none', padding: 0, background: 'var(--gray-25)' }}>
+            {/* Fixed order whatever was clicked first, as the design has it:
+                who they work for, what is owed, what was written, the money. */}
+            {open.has('business') && businessName && c.businessId && (
+              <ExpandGroup>
+                <ExpandItem
+                  icon="business" iconColour="var(--accent-plum)"
+                  name={businessName}
+                  // City and the business's deal count are not on the
+                  // contact list's payload yet.
+                  a={<Faint>—</Faint>}
+                  b={<Faint>—</Faint>}
+                  view={(
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <RecordPill
+                        kind="BUSINESS"
+                        name={businessName}
+                        onClick={onOpenBusiness ? () => onOpenBusiness(c.businessId) : undefined}
+                      />
+                      <SmallIcon icon="swap_horiz" title="Change business" onClick={() => setPicking(true)} />
+                      <SmallIcon
+                        icon="link_off" title="Unlink this business" danger
+                        onClick={() => write(
+                          () => contactsAPI.update(c.id, { businessId: null }),
+                          () => { patch({ businessId: null, businessName: null }); toggle('business') }
+                        )}
+                      />
+                    </span>
+                  )}
+                />
+              </ExpandGroup>
+            )}
+            {open.has('tasks') && expandTasks && (
+              <ExpandGroup>
+                {!hasTasks && <ExpandNote>No open tasks</ExpandNote>}
+                {hasTasks && c.tasks.map((t, i) => {
+                  const overdue = t.dueAt && new Date(t.dueAt) < new Date()
+                  return (
+                    <ExpandItem
+                      key={t.id || i}
+                      icon="task_alt" iconColour="var(--accent-clay)"
+                      name={t.title || '(untitled task)'}
+                      a={t.dueAt
+                        ? <span style={{ color: overdue ? 'var(--status-stuck-text)' : undefined }}>{formatDate(t.dueAt, false)}</span>
+                        : <Faint>No due date</Faint>}
+                      view={<RecordPill kind="TASK" name={t.title} onClick={onViewTask ? () => onViewTask(c.id, t) : (onOpen ? () => onOpen(c.id) : undefined)} />}
+                    />
+                  )
+                })}
+                {hasTasks && tasks > c.tasks.length && (
+                  <MoreItem label={`+${tasks - c.tasks.length} more task${tasks - c.tasks.length === 1 ? '' : 's'} — open the contact`} onClick={onOpen ? () => onOpen(c.id) : undefined} />
+                )}
+              </ExpandGroup>
+            )}
+            {open.has('notes') && expandNotes && (
+              <ExpandGroup>
+                {!hasNotes && <ExpandNote>No notes yet</ExpandNote>}
+                {hasNotes && c.notes.map((n, i) => {
+                  const text = n.title || String(n.body || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || '(empty note)'
+                  return (
+                    <ExpandItem
+                      key={n.id || i}
+                      icon="sticky_note_2" iconColour="var(--accent-brown)"
+                      name={text}
+                      a={n.createdAt ? relativeTime(n.createdAt) : null}
+                      view={(
+                        <RecordPill
+                          kind="NOTE" name={text}
+                          // The Notes tab, filtered to this contact, with the
+                          // note open — not the contact record.
+                          onClick={onViewNote ? () => onViewNote(c.id, n) : (onOpen ? () => onOpen(c.id) : undefined)}
+                        />
+                      )}
+                    />
+                  )
+                })}
+                {hasNotes && notes > c.notes.length && (
+                  <MoreItem label={`+${notes - c.notes.length} more note${notes - c.notes.length === 1 ? '' : 's'} — open the contact`} onClick={onOpen ? () => onOpen(c.id) : undefined} />
+                )}
+              </ExpandGroup>
+            )}
+            {open.has('deals') && (
+              <ExpandGroup>
+                {deals.length === 0 && <ExpandNote>No deals yet</ExpandNote>}
+                {deals.map((d) => (
+                  <ExpandItem
+                    key={d.id}
+                    icon="sell" iconColour="var(--green-600)"
+                    name={d.name || 'Untitled deal'}
+                    a={d.value != null ? money(d.value) : <Faint>—</Faint>}
+                    b={[d.stage, d.primary && 'Primary'].filter(Boolean).join(' · ') || null}
+                    view={(
+                      <DealPill
+                        name={d.name}
+                        onClick={onOpenDeal ? () => onOpenDeal(d.id) : undefined}
+                        compact
+                      />
+                    )}
+                  />
+                ))}
+              </ExpandGroup>
+            )}
+          </td>
+        </tr>
+      )}
 
       {error && (
         <tr>
@@ -526,115 +616,30 @@ function CountPill({ tone, label, onClick, title, chevron = !!onClick }) {
   )
 }
 
-// A pill that opens a small menu — the business cell and the deals cell.
-//
-// The menu renders in a body portal: the table scrolls sideways inside an
-// overflow box, which would clip a menu positioned inside it. It closes on an
-// outside click, Escape, or any scroll, since a scroll would leave it
-// floating away from its pill.
-function PillMenu({ label, icon, tone, items }) {
-  const [open, setOpen] = useState(false)
-  const [pos, setPos] = useState(null)
-  const btn = useRef(null)
-  const menu = useRef(null)
-
-  useLayoutEffect(() => {
-    if (!open || !btn.current) return
-    const r = btn.current.getBoundingClientRect()
-    setPos({ top: r.bottom + 4, left: Math.min(r.left, window.innerWidth - 280) })
-  }, [open])
-
-  useEffect(() => {
-    if (!open) return
-    const close = (e) => {
-      if (e.type === 'keydown' && e.key !== 'Escape') return
-      if (e.type === 'mousedown' && (menu.current?.contains(e.target) || btn.current?.contains(e.target))) return
-      setOpen(false)
-    }
-    document.addEventListener('mousedown', close)
-    document.addEventListener('keydown', close)
-    window.addEventListener('scroll', close, true)
-    return () => {
-      document.removeEventListener('mousedown', close)
-      document.removeEventListener('keydown', close)
-      window.removeEventListener('scroll', close, true)
-    }
-  }, [open])
-
+// A pill that toggles its group in the row's expansion — tinted, chevron up,
+// while open.
+function ExpandPill({ label, icon, tone, open, onToggle }) {
   return (
-    <>
-      <button
-        ref={btn}
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        title={label}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 5, maxWidth: '100%',
-          height: 28, padding: '0 8px 0 10px',
-          border: `1px solid ${tone.line}`,
-          borderRadius: 'var(--radius-pill)',
-          background: tone.fill || 'var(--surface-card)',
-          color: tone.fg,
-          fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 600,
-          cursor: 'pointer', whiteSpace: 'nowrap'
-        }}
-      >
-        <span className="ms" style={{ fontSize: 15, flex: 'none' }}>{icon}</span>
-        <Truncate>{label}</Truncate>
-        <span className="ms" style={{ fontSize: 16, flex: 'none' }}>
-          {open ? 'expand_less' : 'expand_more'}
-        </span>
-      </button>
-
-      {open && pos && createPortal(
-        // .pp-portal — tokens and the icon font are scoped to [data-dealhub],
-        // which a portal escapes.
-        <div
-          ref={menu}
-          role="menu"
-          className="pp-portal"
-          style={{
-            position: 'fixed', top: pos.top, left: pos.left, zIndex: 1000,
-            minWidth: 200, maxWidth: 280, padding: 4,
-            background: 'var(--surface-card)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 'var(--radius-md)',
-            boxShadow: 'var(--shadow-overlay)'
-          }}
-        >
-          {items.map((it, i) => (
-            <button
-              key={i}
-              role="menuitem"
-              disabled={!it.onSelect}
-              onClick={() => { setOpen(false); it.onSelect && it.onSelect() }}
-              style={{
-                display: 'flex', alignItems: 'flex-start', gap: 8, width: '100%',
-                padding: '8px 10px',
-                border: 'none', borderRadius: 'var(--radius-sm)',
-                background: 'none', textAlign: 'left',
-                fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
-                color: it.danger ? 'var(--status-stuck-text)' : 'var(--text-body)',
-                cursor: it.onSelect ? 'pointer' : 'default'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--gray-50)' }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'none' }}
-            >
-              <span className="ms" style={{ fontSize: 16, flex: 'none', marginTop: 1 }}>{it.icon}</span>
-              <span style={{ minWidth: 0 }}>
-                <span style={{ display: 'block', fontWeight: 500 }}>{it.label}</span>
-                {it.hint && (
-                  <span style={{ display: 'block', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-                    {it.hint}
-                  </span>
-                )}
-              </span>
-            </button>
-          ))}
-        </div>,
-        document.body
-      )}
-    </>
+    <button
+      onClick={onToggle}
+      aria-expanded={open}
+      title={label}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5, maxWidth: '100%',
+        height: 28, padding: '0 8px 0 10px',
+        border: `1px solid ${tone.line}`,
+        borderRadius: 'var(--radius-pill)',
+        background: open ? (tone.fill || 'var(--gray-50)') : 'var(--surface-card)',
+        color: tone.fg,
+        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 600,
+        cursor: 'pointer', whiteSpace: 'nowrap'
+      }}
+    >
+      <span className="ms" style={{ fontSize: 15, flex: 'none' }}>{icon}</span>
+      <Truncate>{label}</Truncate>
+      <span className="ms" style={{ fontSize: 16, flex: 'none' }}>
+        {open ? 'expand_less' : 'expand_more'}
+      </span>
+    </button>
   )
 }

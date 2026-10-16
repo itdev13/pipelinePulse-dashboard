@@ -33,83 +33,45 @@ export default function DealEditPage({
 
   if (!deal) return null
 
+  // THE APP'S DETAIL-PAGE SHAPE (Oct 2026), the business page's: a dark
+  // "All deals" pill above, then the editor's own cards — each section a
+  // white card with a solid header band. It was a white header strip with an
+  // outlined Back button over one grey box of underlined headings, which read
+  // as the old style beside every redesigned tab.
   return (
-    <div style={{ display: 'grid', gap: 0, minHeight: 0 }}>
-      <header style={{
-        display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
-        padding: 'var(--space-3) var(--space-4)',
-        borderBottom: '1px solid var(--border-default)',
-        background: 'var(--surface-card)',
-        borderTopLeftRadius: 'var(--radius-lg)',
-        borderTopRightRadius: 'var(--radius-lg)'
-      }}>
+    <div style={{ display: 'grid', gap: 14, minHeight: 0 }}>
+      <div>
         <button
           onClick={onClose}
           style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5, flex: 'none',
-            height: 34, padding: '0 12px 0 9px',
-            border: '1px solid var(--border-strong)',
+            display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+            height: 32, padding: '0 var(--space-3)',
+            border: 'none',
             borderRadius: 'var(--radius-pill)',
-            background: 'var(--surface-card)',
-            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
-            fontWeight: 500, color: 'var(--text-body)', cursor: 'pointer'
+            background: 'var(--gray-800)',
+            fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)', fontWeight: 600,
+            color: '#fff'
           }}
         >
-          <span className="ms" style={{ fontSize: 18 }}>arrow_back</span>
-          Back to deals
+          <span className="ms" style={{ fontSize: 16 }}>arrow_back</span>
+          All deals
         </button>
-
-        <h1 style={{
-          margin: 0, flex: 1, minWidth: 0,
-          fontSize: 'var(--text-xl)', fontWeight: 600,
-          color: 'var(--text-heading)', letterSpacing: '-0.01em',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-        }}>
-          {deal.dealTag || deal.opportunityName || 'Untitled deal'}
-        </h1>
-
-        {/* The way ONWARD. This page edits the record's own fields; the hub is
-            where its timeline, tasks, notes and people live. */}
-        {onOpenInHub && (
-          <button
-            onClick={() => onOpenInHub(deal.id)}
-            title="See this deal's timeline, tasks and notes"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none',
-              height: 34, padding: '0 14px',
-              border: 'none', borderRadius: 'var(--radius-md)',
-              background: 'var(--brand-primary)', color: '#fff',
-              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-md)',
-              fontWeight: 600, cursor: 'pointer'
-            }}
-          >
-            <span className="ms" style={{ fontSize: 18 }}>space_dashboard</span>
-            Open in deal hub
-          </button>
-        )}
-      </header>
-
-      <div style={{
-        background: 'var(--surface-sunken)',
-        padding: 'var(--space-4)',
-        borderBottomLeftRadius: 'var(--radius-lg)',
-        borderBottomRightRadius: 'var(--radius-lg)'
-      }}>
-        <DealEditPanel
-          deal={deal}
-          pipelines={pipelines}
-          users={users}
-          refError={refError}
-          onSaved={onSaved}
-          onDeleted={onDeleted}
-          onClose={onClose}
-          // The full-page editor is the SAME panel as the inline one, so a
-          // contact must link from both. Wiring only the inline card would
-          // make the link appear and disappear depending on how the deal was
-          // opened, which is worse than it never working.
-          onOpenContact={onOpenContact}
-        />
       </div>
+
+      <DealEditPanel
+        deal={deal}
+        pipelines={pipelines}
+        users={users}
+        refError={refError}
+        onSaved={onSaved}
+        onDeleted={onDeleted}
+        onClose={onClose}
+        // The way ONWARD, in the first card's header band. This page edits
+        // the record's own fields; the hub is where its timeline, tasks,
+        // notes and people live.
+        onOpenInHub={onOpenInHub}
+        onOpenContact={onOpenContact}
+      />
     </div>
   )
 }

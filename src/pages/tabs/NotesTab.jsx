@@ -39,6 +39,10 @@ export default function NotesTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
 
   // The note open in the reader. Null = none.
   const [reading, setReading] = useState(null)
+  // A note to open on arrival — set by another tab before switching here
+  // (the Contacts list's "View note"), along with a filter that brings it
+  // into the first page. Cleared once used, so it opens once.
+  const [focusNoteId, setFocusNoteId] = useTabState('notes', 'focus', null)
 
   // Defaults to the signed-in rep's own notes, and REMEMBERS a change — the
   // same pattern as Tasks, Deals and Contacts. A rep opening Notes almost
@@ -74,6 +78,16 @@ export default function NotesTab({ onOpenDeal, onOpenContact, onOpenBusiness }) 
   const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore && !loadingMore })
 
   const notes = items || []
+
+  // Open the focused note once the first page has it. If the page has
+  // loaded without it (deleted, or past the first page), let it go rather
+  // than waiting forever — the list is still filtered to its contact.
+  useEffect(() => {
+    if (!focusNoteId || loading || !items) return
+    const hit = items.find((n) => n.id === focusNoteId)
+    if (hit) setReading(hit)
+    setFocusNoteId(null)
+  }, [focusNoteId, loading, items, setFocusNoteId])
 
   // null = closed. { note } = editing that one; { note: null } = creating.
   const [editor, setEditor] = useState(null)
