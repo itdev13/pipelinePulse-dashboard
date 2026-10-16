@@ -871,7 +871,9 @@ export default function Timeline({
         style={{
           position: 'relative',
           // Sticky day headers need a scroll container to stick within.
-          maxHeight: 620, overflowY: 'auto'
+          // Most of the viewport, not a fixed 620px: the timeline is the
+          // page's main read and a short box meant scrolling inside a scroll.
+          maxHeight: 'max(620px, calc(100vh - 260px))', overflowY: 'auto'
         }}
       >
         {/* `rows`, not `messages`: a multi-message email thread is one row

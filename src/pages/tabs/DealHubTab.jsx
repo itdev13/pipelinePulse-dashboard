@@ -963,7 +963,7 @@ export default function DealHubTab({
         <div
           style={{
             padding: 'var(--space-4) 20px 0',
-            maxWidth: 1660, margin: '0 auto', boxSizing: 'border-box'
+            maxWidth: 'none', margin: 0, boxSizing: 'border-box'
           }}
         >
           {/* ONE card around the header, the toolbar and whichever rail is
@@ -1437,7 +1437,7 @@ export default function DealHubTab({
         <div
           style={{
             padding: 'var(--space-4) 20px 0',
-            maxWidth: 1660, margin: '0 auto', boxSizing: 'border-box'
+            maxWidth: 'none', margin: 0, boxSizing: 'border-box'
           }}
         >
           {/* Same grid as the Timeline / Commitments row below (2fr · 1fr,
@@ -1605,7 +1605,7 @@ export default function DealHubTab({
       <div
         style={{
           padding: loading ? 0 : 'var(--space-4) 20px 28px',
-          maxWidth: 1660, margin: '0 auto', boxSizing: 'border-box'
+          maxWidth: 'none', margin: 0, boxSizing: 'border-box'
         }}
       >
         {error && (

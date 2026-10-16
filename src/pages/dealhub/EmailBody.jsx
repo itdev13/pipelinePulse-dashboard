@@ -32,7 +32,6 @@ export default function EmailBody({ m, thread, onOpenThread, onOpenAttachment })
   // these people did we actually email" is the question, and the row's sender
   // name does not answer it. Absent on older rows — the addresses come from
   // raw_message, which early syncs did not always store.
-  const hasAddresses = m.emailFrom || m.emailTo
 
   const threaded = thread && thread.length > 1
 
@@ -127,58 +126,69 @@ export default function EmailBody({ m, thread, onOpenThread, onOpenAttachment })
         />
       </div>
 
-      {open && (
-        <div className="pp-email-full">
-          {hasAddresses && (
-            <div className="pp-email-addr">
-              {m.emailFrom && (
-                <span><span className="pp-email-addr-k">From</span>{m.emailFrom}</span>
-              )}
-              {m.emailTo && (
-                <span><span className="pp-email-addr-k">To</span>{m.emailTo}</span>
-              )}
-            </div>
-          )}
-          {/* An email sent with only an attachment has an EMPTY body — GHL
-              sends `<div></div>`, which is truthy, so RichBody's own
-              `if (!html) return null` does not catch it and it rendered an
-              empty block above the attachment rule. `preview` is the body run
-              through htmlToText, so it is the honest test of "is there any
-              text here". */}
-          {preview ? (
-            <EmailFrame html={m.body} />
-          ) : atts.length === 0 ? (
-            // No text AND no files: say so rather than showing a blank card,
-            // which reads as a loading failure.
-            <p className="pp-email-nobody">This email has no message text.</p>
-          ) : null}
+      {open && <EmailFull m={m} onOpenAttachment={onOpenAttachment} />}
+    </div>
+  )
+}
 
-          {/* THE FILES THEMSELVES, once expanded.
-              Named and sized here rather than counted: at this width a rep can
-              see that "quote-v3.pdf" went out and not "quote-v2.pdf", which is
-              the actual question. Below the body because that is the reading
-              order of an email, and separated by a rule so a long body does
-              not run straight into them. */}
-          {atts.length > 0 && (
-            <div className={preview ? 'pp-email-atts' : 'pp-email-atts pp-email-atts-first'}>
-              <span className="pp-email-atts-h">
-                <span className="ms" style={{ fontSize: 14 }}>attach_file</span>
-                {atts.length} {atts.length === 1 ? 'attachment' : 'attachments'}
-              </span>
-              <div className="pp-email-atts-list">
-                {atts.map((att, i) => (
-                  <AttachmentChip
-                    key={`${att.name}-${i}`}
-                    att={att}
-                    channelAccent={m.channelAccent}
-                    // The whole list plus this index, so the viewer's arrows
-                    // can page through the email's other files.
-                    onClick={() => onOpenAttachment(atts, i)}
-                  />
-                ))}
-              </div>
-            </div>
+// The OPENED email — addresses, body, attachments — as one component, so a
+// single email in the timeline and an email opened inside a thread card
+// render identically. The thread card had its own body markup (RichBody,
+// no address block) and the two read as different kinds of email.
+export function EmailFull({ m, onOpenAttachment }) {
+  const preview = useMemo(() => htmlToText(m.body || ''), [m.body])
+  const hasAddresses = m.emailFrom || m.emailTo
+  const atts = Array.isArray(m.attachments) ? m.attachments : []
+  return (
+    <div className="pp-email-full">
+      {hasAddresses && (
+        <div className="pp-email-addr">
+          {m.emailFrom && (
+            <span><span className="pp-email-addr-k">From</span>{m.emailFrom}</span>
           )}
+          {m.emailTo && (
+            <span><span className="pp-email-addr-k">To</span>{m.emailTo}</span>
+          )}
+        </div>
+      )}
+      {/* An email sent with only an attachment has an EMPTY body — GHL
+          sends `<div></div>`, which is truthy, so RichBody's own
+          `if (!html) return null` does not catch it and it rendered an
+          empty block above the attachment rule. `preview` is the body run
+          through htmlToText, so it is the honest test of "is there any
+          text here". */}
+      {preview ? (
+        <EmailFrame html={m.body} />
+      ) : atts.length === 0 ? (
+        // No text AND no files: say so rather than showing a blank card,
+        // which reads as a loading failure.
+        <p className="pp-email-nobody">This email has no message text.</p>
+      ) : null}
+
+      {/* THE FILES THEMSELVES, once expanded.
+          Named and sized here rather than counted: at this width a rep can
+          see that "quote-v3.pdf" went out and not "quote-v2.pdf", which is
+          the actual question. Below the body because that is the reading
+          order of an email, and separated by a rule so a long body does
+          not run straight into them. */}
+      {atts.length > 0 && (
+        <div className={preview ? 'pp-email-atts' : 'pp-email-atts pp-email-atts-first'}>
+          <span className="pp-email-atts-h">
+            <span className="ms" style={{ fontSize: 14 }}>attach_file</span>
+            {atts.length} {atts.length === 1 ? 'attachment' : 'attachments'}
+          </span>
+          <div className="pp-email-atts-list">
+            {atts.map((att, i) => (
+              <AttachmentChip
+                key={`${att.name}-${i}`}
+                att={att}
+                channelAccent={m.channelAccent}
+                // The whole list plus this index, so the viewer's arrows
+                // can page through the email's other files.
+                onClick={() => onOpenAttachment(atts, i)}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>

@@ -3192,10 +3192,12 @@
 [data-dealhub] .pp-thread-tools { display: inline-flex; gap: 4px; flex: none; }
 [data-dealhub] .pp-thread-tool {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 26px; height: 26px; border: none; border-radius: var(--radius-sm);
-  background: transparent; color: var(--text-muted); cursor: pointer;
+  width: 28px; height: 28px; border: none; border-radius: var(--radius-sm);
+  /* The email accent, so expand and full-screen read as controls rather
+     than greyed-out chrome; a tint on hover, not a grey block. */
+  background: transparent; color: var(--accent-sky-text); cursor: pointer;
 }
-[data-dealhub] .pp-thread-tool:hover { background: var(--gray-200); }
+[data-dealhub] .pp-thread-tool:hover { background: var(--tint-sky); color: var(--accent-sky); }
 /* The "+ N messages earlier" pill, centred on a rule. */
 [data-dealhub] .pp-thread-pillrow {
   position: relative; height: 0; margin: 14px 0 12px;

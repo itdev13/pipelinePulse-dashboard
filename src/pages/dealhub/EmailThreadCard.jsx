@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useModal } from '../../hooks/useModal'
-import { RichBody } from '../shared/ListChrome'
 import { htmlToText } from '../../utils/sanitiseHtml'
-import AttachmentChip from './AttachmentChip'
+import { EmailFull } from './EmailBody'
 
 // One email THREAD as one card — the shape GHL's own conversation view uses,
 // and what the client asked the timeline to match.
@@ -213,7 +212,7 @@ function MailRow({ m, expanded, onToggle, onOpenAttachment, onReply, selected, o
         <span className="pp-mail-who">
           <span className="pp-mail-name">{name}</span>
           {expanded
-            ? <span className="pp-mail-to">From: {m.emailFrom || '—'} · To: {m.emailTo || '—'}</span>
+            ? <span className="pp-mail-to">{m.emailTo ? `To: ${m.emailTo}` : (m.emailFrom ? `From: ${m.emailFrom}` : '')}</span>
             : <span className="pp-mail-snippet">{preview || (atts.length ? `${atts.length} attachment${atts.length === 1 ? '' : 's'}` : '')}</span>}
         </span>
         <span className="pp-mail-time">{clock(m.ts)}</span>
@@ -227,20 +226,10 @@ function MailRow({ m, expanded, onToggle, onOpenAttachment, onReply, selected, o
 
       {expanded && (
         <div className="pp-mail-body">
-          {preview ? (
-            <RichBody html={m.body} color="var(--text-body)" size="var(--text-lg)"
-              leading="var(--leading-normal)" maxWidth={820} />
-          ) : atts.length === 0 ? (
-            <p className="pp-email-nobody">This email has no message text.</p>
-          ) : null}
-          {atts.length > 0 && (
-            <div className="pp-email-atts-list" style={{ marginTop: 10 }}>
-              {atts.map((att, i) => (
-                <AttachmentChip key={`${att.name}-${i}`} att={att}
-                  channelAccent={m.channelAccent} onClick={() => onOpenAttachment(atts, i)} />
-              ))}
-            </div>
-          )}
+          {/* The same opened-email markup a single email uses — see
+              EmailBody.EmailFull — so a reply inside a thread and an email
+              on its own look like the same thing. */}
+          <EmailFull m={m} onOpenAttachment={onOpenAttachment} />
           {onReply && (
             <div className="pp-mail-actions">
               <button type="button" className="pp-mail-reply" onClick={onReply}>
