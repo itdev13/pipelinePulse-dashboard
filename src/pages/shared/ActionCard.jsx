@@ -3,6 +3,7 @@ import { DatePicker } from 'antd'
 import dayjs from 'dayjs'
 import { aiAPI } from '../../api/ai'
 import SenderPicker from '../../components/SenderPicker'
+import RecipientsField from '../../components/RecipientsField'
 
 // Lazy, same reason as the note and task dialogs: TipTap is ~127 KB gzipped
 // and only needed when an EMAIL draft is on screen. A rep confirming an SMS
@@ -557,11 +558,28 @@ function ActionFields({ actionType, fields, setField }) {
 
   if (actionType === 'send_message') {
     const isEmail = fields.type === 'Email'
+    // Swapping the To changes which conversation the email files under, so
+    // the anchor contact on the payload moves with it.
+    const setRecipients = (next) => {
+      setField('recipients', next)
+      if (next?.to?.contactId) {
+        setField('contactId', next.to.contactId)
+        setField('contactName', next.to.name || fields.contactName)
+      }
+    }
     return (
       <>
-        <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-          To <strong>{fields.contactName || 'this contact'}</strong> · {fields.type}
-        </p>
+        {isEmail && fields.recipients ? (
+          <RecipientsField
+            value={fields.recipients}
+            onChange={setRecipients}
+            options={fields.recipientOptions || []}
+          />
+        ) : (
+          <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+            To <strong>{fields.contactName || 'this contact'}</strong> · {fields.type}
+          </p>
+        )}
         {/* Renders nothing when the channel has a single sender, which is the
             common case — see SenderPicker's own note on why it decides that
             itself rather than taking a prop. */}
