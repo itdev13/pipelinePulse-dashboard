@@ -5,8 +5,11 @@ import { initialsFor } from '../pages/shared/ListChrome'
 // RecipientsField — the To / CC / BCC rows of an email draft, drawn the way
 // GHL's own composer draws them.
 //
-// An email in GHL files under ONE contact's conversation, so To is a single
-// person; CC and BCC are lists. Clicking into any row opens a contact list
+// To, CC and BCC are all lists. The email files under the FIRST To
+// contact's conversation, and GHL's send takes one To address, so the
+// server sends the first To as the To and the rest as CC — the card shows
+// who the rep addressed, the wire carries what GHL allows (actionExecutor
+// explains). Clicking into any row opens a contact list
 // at once — no typing needed — with the deal's own people first (handed in
 // as `options`), then the sub-account's contacts; typing narrows it by
 // name or address through the server. Rows already on the email carry a
@@ -15,7 +18,7 @@ import { initialsFor } from '../pages/shared/ListChrome'
 // To, which has to be a contact.
 //
 // Value contract mirrors the server's payload:
-//   { to: {contactId, name, email}, cc: [{contactId?, name?, email}], bcc: [...] }
+//   { to: [{contactId, name, email}], cc: [{contactId?, name?, email}], bcc: [...] }
 
 const EMAIL_RE = /^[^\s@<>,;"]+@[^\s@<>,;"]+\.[^\s@<>,;"]+$/
 const DEBOUNCE_MS = 200
@@ -33,7 +36,12 @@ const key = (r) => String(r?.email || '').toLowerCase()
 // to email the wrong customer); 'all' adds the sub-account's contacts and
 // server search (Insights AI, where no deal is in scope).
 export default function RecipientsField({ value, onChange, options = [], scope = 'all', disabled = false }) {
-  const v = useMemo(() => value || { to: null, cc: [], bcc: [] }, [value])
+  // `to` was a single object before it became a list; read both.
+  const v = useMemo(() => {
+    const raw = value || {}
+    const to = Array.isArray(raw.to) ? raw.to : (raw.to ? [raw.to] : [])
+    return { to, cc: raw.cc || [], bcc: raw.bcc || [] }
+  }, [value])
   const [showBcc, setShowBcc] = useState((v.bcc || []).length > 0)
   const [openRow, setOpenRow] = useState(null) // 'to' | 'cc' | 'bcc' | null
 
@@ -50,11 +58,12 @@ export default function RecipientsField({ value, onChange, options = [], scope =
     return () => { alive = false }
   }, [openRow, initial, wide])
 
-  const set = (patch) => onChange({ to: v.to, cc: v.cc || [], bcc: v.bcc || [], ...patch })
+  const set = (patch) => onChange({ to: v.to, cc: v.cc, bcc: v.bcc, ...patch })
 
   const rows = [
-    { id: 'to', label: 'To', values: v.to ? [v.to] : [], single: true, contactsOnly: true,
-      add: (r) => set({ to: r }), remove: () => {} },
+    { id: 'to', label: 'To', values: v.to, contactsOnly: true,
+      add: (r) => set({ to: [...v.to, r] }),
+      remove: (k) => set({ to: v.to.filter((x) => key(x) !== k) }) },
     { id: 'cc', label: 'CC', values: v.cc || [],
       add: (r) => set({ cc: [...(v.cc || []), r] }),
       remove: (k) => set({ cc: (v.cc || []).filter((x) => key(x) !== k) }) },
@@ -105,7 +114,8 @@ function RecipientRow({
   row, last, open, onOpen, onClose, directory, directoryLoading, wide,
   dealEmails, primaryEmail, disabled, trailing
 }) {
-  const { values, single, contactsOnly } = row
+  const { values, contactsOnly } = row
+  const single = false
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
@@ -226,7 +236,7 @@ function RecipientRow({
             onChange={(e) => { setQuery(e.target.value); onOpen() }}
             onFocus={onOpen}
             onKeyDown={onKey}
-            placeholder={values.length ? '' : (single ? 'Choose a contact' : (wide ? 'Add people or an email' : 'Add someone on this deal, or an email'))}
+            placeholder={values.length ? '' : (contactsOnly ? 'Choose a contact' : (wide ? 'Add people or an email' : 'Add someone on this deal, or an email'))}
             style={{
               flex: '1 1 160px', minWidth: 140, height: 28, border: 0, outline: 'none',
               boxShadow: 'none', background: 'transparent', padding: 0,

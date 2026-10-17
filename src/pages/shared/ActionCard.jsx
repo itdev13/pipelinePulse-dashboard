@@ -562,20 +562,64 @@ function ActionFields({ actionType, fields, setField }) {
     // the anchor contact on the payload moves with it.
     const setRecipients = (next) => {
       setField('recipients', next)
-      if (next?.to?.contactId) {
-        setField('contactId', next.to.contactId)
-        setField('contactName', next.to.name || fields.contactName)
+      const first = Array.isArray(next?.to) ? next.to[0] : next?.to
+      if (first?.contactId) {
+        setField('contactId', first.contactId)
+        setField('contactName', first.name || fields.contactName)
       }
     }
     return (
       <>
         {isEmail && fields.recipients ? (
-          <RecipientsField
-            value={fields.recipients}
-            onChange={setRecipients}
-            options={fields.recipientOptions || []}
-            scope={fields.recipientScope || 'all'}
-          />
+          <>
+            <RecipientsField
+              value={fields.recipients}
+              onChange={setRecipients}
+              options={fields.recipientOptions || []}
+              scope={fields.recipientScope || 'all'}
+            />
+            {/* Several people in To can go out two ways — a copy addressed
+                to each, or one email the others are CC'd on — and which is
+                right depends on whether they should see each other. The
+                server picks a default (copies for a new email, one email
+                for a reply); this lets the rep flip it. */}
+            {(Array.isArray(fields.recipients.to) ? fields.recipients.to.length : 0) > 1 && (() => {
+              const mode = fields.recipientMode || (fields.replyMessageId ? 'together' : 'separate')
+              const opt = (val, title, hint) => {
+                const on = mode === val
+                return (
+                  <button
+                    type="button"
+                    key={val}
+                    onClick={() => setField('recipientMode', val)}
+                    aria-pressed={on}
+                    style={{
+                      flex: 1, minWidth: 0, textAlign: 'left', cursor: 'pointer',
+                      padding: '8px 12px', borderRadius: 'var(--radius-sm)',
+                      border: `1px solid ${on ? 'var(--accent-sky)' : 'var(--border-default)'}`,
+                      background: on ? 'var(--tint-sky)' : 'var(--surface-card)',
+                      fontFamily: 'var(--font-sans)'
+                    }}
+                  >
+                    <span style={{ display: 'block', fontSize: 'var(--text-base)', fontWeight: 600, color: on ? 'var(--accent-sky-text)' : 'var(--text-heading)' }}>
+                      {title}
+                    </span>
+                    <span style={{ display: 'block', marginTop: 2, fontSize: 'var(--text-sm)', lineHeight: 1.4, color: 'var(--text-muted)' }}>
+                      {hint}
+                    </span>
+                  </button>
+                )
+              }
+              return (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {opt('separate', 'A copy to each person',
+                    'Each gets the email addressed to them, in their own conversation. They do not see each other.')}
+                  {opt('together', 'One email to all',
+                    'The first person is the To, the others are CC\'d, and everyone sees who received it.')}
+                </div>
+              )
+            })()}
+          </>
         ) : (
           <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
             To <strong>{fields.contactName || 'this contact'}</strong> · {fields.type}
