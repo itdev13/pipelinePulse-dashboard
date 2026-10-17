@@ -2,83 +2,95 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { contactsAPI } from '../api/contacts'
 import { initialsFor } from '../pages/shared/ListChrome'
 
-// RecipientsField — the To / CC / BCC rows of an email draft, GHL-style.
+// RecipientsField — the To / CC / BCC rows of an email draft, drawn the way
+// GHL's own composer draws them.
 //
 // An email in GHL files under ONE contact's conversation, so To is a single
-// person; CC and BCC are lists. The rows mirror that: To is one chip that
-// can be swapped, CC and BCC take any number. Each row's picker offers the
-// deal's own people first (handed in as `options` by the server), then
-// searches every contact in the sub-account as the rep types, and accepts
-// a typed address that matches nobody — a solicitor, a builder's office —
-// on Enter or comma.
+// person; CC and BCC are lists. Clicking into any row opens a contact list
+// at once — no typing needed — with the deal's own people first (handed in
+// as `options`), then the sub-account's contacts; typing narrows it by
+// name or address through the server. Rows already on the email carry a
+// tick, and clicking a ticked row takes them off again. An address that
+// matches nobody can be typed and added on Enter or comma, anywhere but
+// To, which has to be a contact.
 //
 // Value contract mirrors the server's payload:
 //   { to: {contactId, name, email}, cc: [{contactId?, name?, email}], bcc: [...] }
 
 const EMAIL_RE = /^[^\s@<>,;"]+@[^\s@<>,;"]+\.[^\s@<>,;"]+$/
-const DEBOUNCE_MS = 250
+const DEBOUNCE_MS = 200
+const PAGE = 20
 
 const nameOf = (c) =>
   [c.firstName, c.lastName].filter(Boolean).join(' ').trim() || c.business || c.email || 'Contact'
 
 const fromContact = (c) => ({ contactId: c.id, name: nameOf(c), email: String(c.email || '').toLowerCase() })
 
-export default function RecipientsField({ value, onChange, options = [], disabled = false }) {
+const key = (r) => String(r?.email || '').toLowerCase()
+
+// `scope`: 'deal' offers the deal's people only (Deal AI — the rep asked to
+// message someone on this deal, and a sub-account-wide list there is a way
+// to email the wrong customer); 'all' adds the sub-account's contacts and
+// server search (Insights AI, where no deal is in scope).
+export default function RecipientsField({ value, onChange, options = [], scope = 'all', disabled = false }) {
   const v = useMemo(() => value || { to: null, cc: [], bcc: [] }, [value])
   const [showBcc, setShowBcc] = useState((v.bcc || []).length > 0)
-  const taken = useMemo(() => {
-    const s = new Set()
-    if (v.to?.email) s.add(v.to.email.toLowerCase())
-    for (const r of [...(v.cc || []), ...(v.bcc || [])]) if (r?.email) s.add(r.email.toLowerCase())
-    return s
-  }, [v])
+  const [openRow, setOpenRow] = useState(null) // 'to' | 'cc' | 'bcc' | null
+
+  // One directory for all three rows: the deal's people, then the first
+  // page of contacts, fetched once on first open. Typing searches instead.
+  const [initial, setInitial] = useState(null)
+  const wide = scope !== 'deal'
+  useEffect(() => {
+    if (!wide || !openRow || initial !== null) return undefined
+    let alive = true
+    contactsAPI.list({ limit: PAGE })
+      .then((res) => { if (alive) setInitial((res?.contacts || []).filter((c) => c.email).map(fromContact)) })
+      .catch(() => { if (alive) setInitial([]) })
+    return () => { alive = false }
+  }, [openRow, initial, wide])
 
   const set = (patch) => onChange({ to: v.to, cc: v.cc || [], bcc: v.bcc || [], ...patch })
+
+  const rows = [
+    { id: 'to', label: 'To', values: v.to ? [v.to] : [], single: true, contactsOnly: true,
+      add: (r) => set({ to: r }), remove: () => {} },
+    { id: 'cc', label: 'CC', values: v.cc || [],
+      add: (r) => set({ cc: [...(v.cc || []), r] }),
+      remove: (k) => set({ cc: (v.cc || []).filter((x) => key(x) !== k) }) },
+    ...(showBcc ? [{ id: 'bcc', label: 'BCC', values: v.bcc || [],
+      add: (r) => set({ bcc: [...(v.bcc || []), r] }),
+      remove: (k) => set({ bcc: (v.bcc || []).filter((x) => key(x) !== k) }) }] : [])
+  ]
+
+  const directory = useMemo(() => [...options, ...(initial || [])], [options, initial])
+  const dealEmails = useMemo(() => new Set(options.map(key)), [options])
+  const primaryEmail = options.find((o) => o.isPrimary)?.email?.toLowerCase() || null
 
   return (
     <div style={{
       border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)',
-      background: 'var(--surface-card)', overflow: 'visible'
+      background: 'var(--surface-card)'
     }}>
-      <Row label="To" last={false}>
-        <ChipInput
-          single
-          contactsOnly
-          values={v.to ? [v.to] : []}
-          onAdd={(r) => set({ to: r })}
-          onRemove={() => {}}
-          options={options}
-          taken={taken}
+      {rows.map((row, i) => (
+        <RecipientRow
+          key={row.id}
+          row={row}
+          last={i === rows.length - 1}
+          open={openRow === row.id}
+          onOpen={() => setOpenRow(row.id)}
+          onClose={() => setOpenRow((cur) => (cur === row.id ? null : cur))}
+          directory={directory}
+          directoryLoading={wide && openRow === row.id && initial === null}
+          wide={wide}
+          dealEmails={dealEmails}
+          primaryEmail={primaryEmail}
           disabled={disabled}
-          placeholder={v.to ? '' : 'Choose a contact'}
+          trailing={row.id === 'cc' && !showBcc ? (
+            <button type="button" onClick={() => setShowBcc(true)} style={linkBtn}>Bcc</button>
+          ) : null}
         />
-      </Row>
-      <Row label="CC" last={!showBcc} trailing={!showBcc && (
-        <button type="button" onClick={() => setShowBcc(true)} style={linkBtn}>Bcc</button>
-      )}>
-        <ChipInput
-          values={v.cc || []}
-          onAdd={(r) => set({ cc: [...(v.cc || []), r] })}
-          onRemove={(i) => set({ cc: (v.cc || []).filter((_, j) => j !== i) })}
-          options={options}
-          taken={taken}
-          disabled={disabled}
-          placeholder={(v.cc || []).length ? '' : 'Add people or an email'}
-        />
-      </Row>
-      {showBcc && (
-        <Row label="BCC" last>
-          <ChipInput
-            values={v.bcc || []}
-            onAdd={(r) => set({ bcc: [...(v.bcc || []), r] })}
-            onRemove={(i) => set({ bcc: (v.bcc || []).filter((_, j) => j !== i) })}
-            options={options}
-            taken={taken}
-            disabled={disabled}
-            placeholder={(v.bcc || []).length ? '' : 'Add people or an email'}
-          />
-        </Row>
-      )}
+      ))}
     </div>
   )
 }
@@ -89,190 +101,209 @@ const linkBtn = {
   color: 'var(--accent-sky-text)'
 }
 
-function Row({ label, children, last, trailing }) {
-  return (
-    <div style={{
-      display: 'grid', gridTemplateColumns: '44px minmax(0, 1fr) auto', alignItems: 'start',
-      gap: 8, padding: '6px 10px',
-      borderBottom: last ? 'none' : '1px solid var(--border-default)'
-    }}>
-      <span style={{
-        paddingTop: 5, fontSize: 'var(--text-sm)', fontWeight: 600,
-        color: 'var(--text-muted)', letterSpacing: 'var(--tracking-label)'
-      }}>
-        {label}
-      </span>
-      <div style={{ minWidth: 0 }}>{children}</div>
-      <span style={{ paddingTop: 3 }}>{trailing || null}</span>
-    </div>
-  )
-}
-
-// Chips plus a search box, with the suggestion list beneath.
-function ChipInput({ values, onAdd, onRemove, options, taken, disabled, placeholder, single = false, contactsOnly = false }) {
+function RecipientRow({
+  row, last, open, onOpen, onClose, directory, directoryLoading, wide,
+  dealEmails, primaryEmail, disabled, trailing
+}) {
+  const { values, single, contactsOnly } = row
   const [query, setQuery] = useState('')
-  const [open, setOpen] = useState(false)
   const [results, setResults] = useState([])
-  const [loading, setLoading] = useState(false)
+  const [searching, setSearching] = useState(false)
   const [active, setActive] = useState(0)
   const rootRef = useRef(null)
   const inputRef = useRef(null)
   const reqId = useRef(0)
 
-  // Server search as the rep types. The deal's people are already in
-  // `options`, so the request only matters once the query leaves them.
+  const q = query.trim().toLowerCase()
+
+  // Server search once there is a query. The directory already covers the
+  // empty case.
   useEffect(() => {
-    const q = query.trim()
-    if (!open || !q) { setResults([]); setLoading(false); return }
-    setLoading(true)
+    if (!wide || !open || !q) { setResults([]); setSearching(false); return undefined }
+    setSearching(true)
     const id = ++reqId.current
     const t = window.setTimeout(() => {
-      contactsAPI.list({ q, limit: 8 })
-        .then((res) => { if (id === reqId.current) setResults(res?.contacts || []) })
+      contactsAPI.list({ q, limit: PAGE })
+        .then((res) => { if (id === reqId.current) setResults((res?.contacts || []).filter((c) => c.email).map(fromContact)) })
         .catch(() => { if (id === reqId.current) setResults([]) })
-        .finally(() => { if (id === reqId.current) setLoading(false) })
+        .finally(() => { if (id === reqId.current) setSearching(false) })
     }, DEBOUNCE_MS)
     return () => window.clearTimeout(t)
-  }, [query, open])
+  }, [q, open, wide])
 
   useEffect(() => {
     if (!open) return undefined
-    const onDoc = (e) => { if (!rootRef.current?.contains(e.target)) setOpen(false) }
+    const onDoc = (e) => { if (!rootRef.current?.contains(e.target)) { onClose(); setQuery('') } }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
-  }, [open])
+  }, [open, onClose])
 
-  const q = query.trim().toLowerCase()
-  const suggestions = useMemo(() => {
+  const chosen = useMemo(() => new Set(values.map(key)), [values])
+
+  const list = useMemo(() => {
     const seen = new Set()
-    const rows = []
-    const push = (r, source) => {
-      const k = (r.email || '').toLowerCase()
-      if (!k || seen.has(k) || taken.has(k)) return
+    const out = []
+    const push = (r) => {
+      const k = key(r)
+      if (!k || seen.has(k)) return
       seen.add(k)
-      rows.push({ ...r, source })
+      out.push(r)
     }
-    for (const o of options) {
-      if (!q || `${o.name} ${o.email}`.toLowerCase().includes(q)) push(o, 'deal')
-    }
-    for (const c of results) if (c.email) push(fromContact(c), 'search')
-    // A typed address is only an option where a non-contact can go: the To
-    // is the conversation the email files under, so it has to be a contact.
-    if (!contactsOnly && q && EMAIL_RE.test(q) && !seen.has(q) && !taken.has(q)) rows.push({ email: q, name: null, source: 'typed' })
-    return rows
-  }, [options, results, q, taken, contactsOnly])
+    const pool = q
+      ? [...directory.filter((r) => `${r.name || ''} ${r.email}`.toLowerCase().includes(q)), ...results]
+      : directory
+    for (const r of pool) push(r)
+    if (!contactsOnly && q && EMAIL_RE.test(q) && !seen.has(q)) out.push({ email: q, name: null, typed: true })
+    return out
+  }, [directory, results, q, contactsOnly])
 
-  useEffect(() => { setActive(0) }, [suggestions.length, q])
+  useEffect(() => { setActive(0) }, [list.length, q])
 
-  const pick = (r) => {
+  const toggle = (r) => {
     if (!r) return
-    onAdd({ contactId: r.contactId || null, name: r.name || null, email: r.email })
+    const k = key(r)
+    if (single) {
+      row.add({ contactId: r.contactId || null, name: r.name || null, email: r.email })
+      setQuery('')
+      onClose()
+      return
+    }
+    if (chosen.has(k)) row.remove(k)
+    else row.add({ contactId: r.contactId || null, name: r.name || null, email: r.email })
     setQuery('')
-    if (single) setOpen(false)
-    else inputRef.current?.focus()
+    inputRef.current?.focus()
   }
 
   const onKey = (e) => {
-    if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActive((a) => Math.min(a + 1, suggestions.length - 1)) }
+    if (e.key === 'ArrowDown') { e.preventDefault(); onOpen(); setActive((a) => Math.min(a + 1, Math.max(list.length - 1, 0))) }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)) }
-    else if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') {
-      if (!open || !suggestions.length) {
-        if (!contactsOnly && q && EMAIL_RE.test(q)) { e.preventDefault(); pick({ email: q }) }
-        return
-      }
-      e.preventDefault()
-      pick(suggestions[active])
+    else if (e.key === 'Enter' || e.key === ',' || (e.key === 'Tab' && q)) {
+      if (list.length) { e.preventDefault(); toggle(list[active]) }
+      else if (!contactsOnly && q && EMAIL_RE.test(q)) { e.preventDefault(); toggle({ email: q }) }
     } else if (e.key === 'Backspace' && !query && values.length && !single) {
-      onRemove(values.length - 1)
-    } else if (e.key === 'Escape') setOpen(false)
+      row.remove(key(values[values.length - 1]))
+    } else if (e.key === 'Escape') { onClose(); setQuery('') }
   }
 
-  const showInput = !(single && values.length)
+  const focusInput = () => {
+    if (disabled) return
+    onOpen()
+    window.setTimeout(() => inputRef.current?.focus(), 0)
+  }
 
   return (
-    <div ref={rootRef} style={{ position: 'relative' }}>
+    <div
+      ref={rootRef}
+      style={{
+        position: 'relative',
+        display: 'grid', gridTemplateColumns: '48px minmax(0, 1fr) auto', alignItems: 'center',
+        gap: 8, padding: '7px 12px', minHeight: 44,
+        borderBottom: last ? 'none' : '1px solid var(--border-default)'
+      }}
+    >
+      <span style={{ fontSize: 'var(--text-base)', fontWeight: 500, color: 'var(--text-muted)' }}>
+        {row.label}
+      </span>
+
       <div
-        onClick={() => { if (!disabled) { setOpen(true); inputRef.current?.focus() } }}
-        style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, minHeight: 30, cursor: 'text' }}
+        onMouseDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); focusInput() } }}
+        style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, minWidth: 0, cursor: 'text' }}
       >
-        {values.map((r, i) => (
+        {values.map((r) => (
           <Chip
-            key={`${r.email}-${i}`}
+            key={key(r)}
             r={r}
-            onRemove={disabled || single ? null : () => onRemove(i)}
-            single={single}
-            onSwap={single && !disabled ? () => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 0) } : null}
+            onRemove={disabled || single ? null : () => row.remove(key(r))}
+            onClick={single && !disabled ? focusInput : null}
           />
         ))}
-        {(showInput || (single && open)) && (
+        {(!single || open || !values.length) && (
           <input
             ref={inputRef}
+            className="pp-focus-inherit"
             value={query}
             disabled={disabled}
-            onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
-            onFocus={() => setOpen(true)}
+            onChange={(e) => { setQuery(e.target.value); onOpen() }}
+            onFocus={onOpen}
             onKeyDown={onKey}
-            placeholder={placeholder}
+            placeholder={values.length ? '' : (single ? 'Choose a contact' : (wide ? 'Add people or an email' : 'Add someone on this deal, or an email'))}
             style={{
-              flex: '1 1 140px', minWidth: 120, height: 28, border: 0, outline: 'none',
-              background: 'transparent', fontFamily: 'var(--font-sans)',
-              fontSize: 'var(--text-base)', color: 'var(--text-heading)'
+              flex: '1 1 160px', minWidth: 140, height: 28, border: 0, outline: 'none',
+              boxShadow: 'none', background: 'transparent', padding: 0,
+              fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', color: 'var(--text-heading)'
             }}
           />
         )}
       </div>
-      {open && !disabled && (suggestions.length > 0 || loading || q) && (
+
+      <span>{trailing || null}</span>
+
+      {open && !disabled && (
         <div
           role="listbox"
           style={{
-            position: 'absolute', left: -54, right: -10, top: 'calc(100% + 6px)', zIndex: 20,
-            maxHeight: 280, overflowY: 'auto',
+            position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 30,
+            maxHeight: 320, overflowY: 'auto',
             background: 'var(--surface-raised, #fff)', border: '1px solid var(--border-default)',
             borderRadius: 'var(--radius-md)', boxShadow: '0 12px 32px rgba(16, 24, 40, 0.14)',
             padding: 4
           }}
         >
-          {suggestions.map((r, i) => (
-            <button
-              type="button"
-              key={`${r.email}-${r.source}`}
-              onMouseDown={(e) => { e.preventDefault(); pick(r) }}
-              onMouseEnter={() => setActive(i)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-                padding: '7px 10px', border: 0, textAlign: 'left', cursor: 'pointer',
-                borderRadius: 'var(--radius-sm)',
-                background: i === active ? 'var(--surface-hover)' : 'transparent',
-                fontFamily: 'var(--font-sans)'
-              }}
-            >
-              <Avatar r={r} />
-              <span style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-heading)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {r.source === 'typed' ? `Add "${r.email}"` : r.name}
+          {list.map((r, i) => {
+            const on = chosen.has(key(r))
+            const tag = r.typed ? null
+              : key(r) === primaryEmail ? 'Primary'
+                : dealEmails.has(key(r)) ? 'On deal'
+                  : null
+            return (
+              <button
+                type="button"
+                key={`${key(r)}-${r.typed ? 't' : 'c'}`}
+                onMouseDown={(e) => { e.preventDefault(); toggle(r) }}
+                onMouseEnter={() => setActive(i)}
+                aria-selected={on}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                  height: 40, padding: '0 10px', border: 0, textAlign: 'left', cursor: 'pointer',
+                  borderRadius: 'var(--radius-sm)',
+                  background: i === active ? 'var(--gray-50)' : 'transparent',
+                  fontFamily: 'var(--font-sans)'
+                }}
+              >
+                <Avatar r={r} size={26} />
+                <span style={{
+                  minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  fontSize: 'var(--text-base)', color: 'var(--text-heading)'
+                }}>
+                  {r.typed ? <>Add <strong>{r.email}</strong></> : (
+                    <>
+                      {r.name}
+                      <span style={{ color: 'var(--text-muted)' }}> &lt;{r.email}&gt;</span>
+                    </>
+                  )}
                 </span>
-                {r.source !== 'typed' && (
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {r.email}
+                {tag && (
+                  <span style={{
+                    flex: 'none', fontSize: 'var(--text-xs)', fontWeight: 600,
+                    color: 'var(--accent-pine-text)', background: 'var(--tint-pine)',
+                    borderRadius: 'var(--radius-pill)', padding: '2px 8px'
+                  }}>
+                    {tag}
                   </span>
                 )}
-              </span>
-              {r.source === 'deal' && (
-                <span style={{
-                  fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--accent-pine-text)',
-                  background: 'var(--tint-pine)', borderRadius: 'var(--radius-pill)', padding: '2px 8px'
-                }}>
-                  {r.isPrimary ? 'Primary' : 'On deal'}
-                </span>
-              )}
-            </button>
-          ))}
-          {loading && (
-            <div style={{ padding: '8px 10px', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Searching…</div>
+                {on && <span className="ms" style={{ flex: 'none', fontSize: 18, color: 'var(--accent-sky-text)' }}>check</span>}
+              </button>
+            )
+          })}
+          {(searching || directoryLoading) && (
+            <div style={{ padding: '10px 12px', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Loading contacts…</div>
           )}
-          {!loading && !suggestions.length && q && (
-            <div style={{ padding: '8px 10px', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-              No contact matches — type a full address to add it.
+          {!searching && !directoryLoading && !list.length && (
+            <div style={{ padding: '10px 12px', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+              {q
+                ? (contactsOnly ? (wide ? 'No contact matches.' : 'No one on this deal matches.')
+                  : (wide ? 'No contact matches — type a full address to add it.' : 'No one on this deal matches — type a full address to add them.'))
+                : (wide ? 'No contacts with an email address.' : 'No one else on this deal has an email address.')}
             </div>
           )}
         </div>
@@ -289,38 +320,33 @@ function Avatar({ r, size = 24 }) {
       width: size, height: size, flex: 'none', borderRadius: '50%',
       background: r.contactId ? 'var(--tint-sky)' : 'var(--gray-100)',
       color: r.contactId ? 'var(--accent-sky-text)' : 'var(--gray-600)',
-      fontSize: size <= 24 ? 10 : 'var(--text-xs)', fontWeight: 700, letterSpacing: 0.3
+      fontSize: size <= 22 ? 9 : 'var(--text-xs)', fontWeight: 700, letterSpacing: 0.3
     }}>
       {initialsFor(label)}
     </span>
   )
 }
 
-function Chip({ r, onRemove, single, onSwap }) {
-  const label = r.name && r.email ? `${r.name}` : (r.email || r.name || '')
+// GHL's chip: avatar, the address, and an × on the ones that can go.
+function Chip({ r, onRemove, onClick }) {
   return (
     <span
-      title={r.email || undefined}
-      onClick={onSwap || undefined}
+      title={r.name ? `${r.name} <${r.email}>` : r.email}
+      onClick={onClick || undefined}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6, height: 28,
-        padding: '0 6px 0 3px', borderRadius: 'var(--radius-pill)',
+        padding: '0 8px 0 4px', borderRadius: 'var(--radius-sm)',
         border: '1px solid var(--border-default)', background: 'var(--gray-50)',
-        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', fontWeight: 600,
-        color: 'var(--text-heading)', maxWidth: '100%', cursor: onSwap ? 'pointer' : 'default'
+        fontFamily: 'var(--font-sans)', fontSize: 'var(--text-base)', fontWeight: 500,
+        color: 'var(--text-heading)', maxWidth: '100%', cursor: onClick ? 'pointer' : 'default'
       }}
     >
-      <Avatar r={r} size={22} />
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-      {r.name && r.email && (
-        <span style={{ color: 'var(--text-muted)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {r.email}
-        </span>
-      )}
-      {onRemove && !single && (
+      <Avatar r={r} size={20} />
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.email}</span>
+      {onRemove && (
         <button
           type="button"
-          aria-label={`Remove ${label}`}
+          aria-label={`Remove ${r.email}`}
           onClick={(e) => { e.stopPropagation(); onRemove() }}
           style={{
             border: 0, background: 'none', padding: 0, marginLeft: 2, cursor: 'pointer',
@@ -329,9 +355,6 @@ function Chip({ r, onRemove, single, onSwap }) {
         >
           <span className="ms" style={{ fontSize: 15 }}>close</span>
         </button>
-      )}
-      {single && onSwap && (
-        <span className="ms" style={{ fontSize: 15, color: 'var(--text-muted)' }}>expand_more</span>
       )}
     </span>
   )

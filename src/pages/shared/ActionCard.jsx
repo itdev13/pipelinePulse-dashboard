@@ -574,6 +574,7 @@ function ActionFields({ actionType, fields, setField }) {
             value={fields.recipients}
             onChange={setRecipients}
             options={fields.recipientOptions || []}
+            scope={fields.recipientScope || 'all'}
           />
         ) : (
           <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
