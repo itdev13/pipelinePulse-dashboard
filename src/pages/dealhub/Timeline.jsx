@@ -109,7 +109,9 @@ function DayHeader({ iso }) {
       style={{
         // Sticks under the shell's nav, which wraps to two rows on a narrow
         // frame — so its height is measured (DealHubShell), not assumed.
-        position: 'sticky', top: 'var(--pp-nav-h, 0px)', zIndex: 1,
+        // Sticks to the top of the timeline's own scroll box, which is what
+        // the day markers scroll within.
+        position: 'sticky', top: 0, zIndex: 1,
         // A date marker, not a section heading. The full-height grey band
         // took 44px per day and read as a panel header; this is a small
         // pill sitting on a hairline, 28px tall, so the days punctuate the
@@ -885,13 +887,21 @@ export default function Timeline({
           ) : null}
         />
       ) : (
-      <div style={{ position: 'relative' }}>
-        {/* NO INNER SCROLL BOX. The thread grows with the page and the page's
-            own scrollbar moves everything. It used to be a box at least 860px
-            tall with its own overflow — inside GHL's iframe that was taller
-            than the visible area, so the wheel was always over it and a rep
-            had to scroll through every message before the page would move.
-            The day headers still stick, to the viewport under the shell nav. */}
+      <div
+        className="pp-timeline-scroll"
+        style={{
+          position: 'relative',
+          // 80% of the screen, with its own scrollbar — and NEVER taller than
+          // the screen. The old box was at least 860px, which inside GHL's
+          // iframe was taller than the visible area: the wheel was always
+          // over it, so a rep had to scroll through every message before the
+          // page itself would move. At 80vh the box always fits, the wheel
+          // reaches its end and hands over to the page, and the 20% of page
+          // around it scrolls the page directly. Day headers stick to the
+          // top of this box.
+          maxHeight: '80vh', overflowY: 'auto', overscrollBehavior: 'auto'
+        }}
+      >
         {/* `rows`, not `messages`: a multi-message email thread is one row
             here — its newest email — and the thread card draws the rest. */}
         {rows.map((m, i) => {
