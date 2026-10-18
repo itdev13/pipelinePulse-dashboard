@@ -34,6 +34,15 @@ export const dealsAPI = {
   //   message?, subject?, html?, emailCc?, emailBcc?, replyToMessageId? }
   sendMessage: (id, payload) =>
     apiClient.post(`/api/deals/${encodeURIComponent(id)}/messages`, payload),
+  // The composer's paperclip: upload to GHL first, then send the returned
+  // urls as `attachments`. multipart — see uploadCustomFieldFiles on why the
+  // Content-Type is left to axios.
+  uploadMessageAttachments: (id, contactId, files) => {
+    const form = new FormData()
+    form.append('contactId', contactId)
+    for (const f of files) form.append('files', f)
+    return apiClient.post(`/api/deals/${encodeURIComponent(id)}/messages/attachments`, form)
+  },
   stages: (id) => apiClient.get(`/api/deals/${encodeURIComponent(id)}/stages`),
   reassignmentTargets: (id) =>
     apiClient.get(`/api/deals/${encodeURIComponent(id)}/reassignment-targets`),

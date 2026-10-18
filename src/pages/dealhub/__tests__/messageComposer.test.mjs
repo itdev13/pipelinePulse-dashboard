@@ -39,7 +39,7 @@ test('who cannot be sent to is said before Send, not after', () => {
   assert.match(src, /channel === 'Email' && !person\.email\) return 'This contact has no email address'/)
   assert.match(src, /channel !== 'Email' && !person\.phone\) return 'This contact has no phone number'/)
   assert.match(src, /person\.dnd\?\.all \|\| person\.dnd\?\.channels\?\.\[DND_KEY\[channel\]\]/)
-  assert.match(src, /const canSend = !sending && !blocked && !bodyEmpty/)
+  assert.match(src, /const canSend = !sending && !uploading && !blocked && !bodyEmpty/)
 })
 
 test('an email needs a subject; CC and BCC go as address lists', () => {
@@ -78,6 +78,28 @@ test('the composer sits inside the timeline card, after the empty state', () => 
   const at = timeline.indexOf('{footer}')
   assert.ok(at > timeline.indexOf('rows.map((m, i) =>'), 'footer must follow the rows')
   assert.ok(at < timeline.indexOf('{viewing && ('), 'footer must sit inside the section')
+})
+
+test('channels wear GHL\'s icons and colours', () => {
+  assert.match(src, /if \(channel === 'WhatsApp'\) return 'whatsapp'/)
+  // iMessage is filed under SMS by GHL, so it is told apart by name.
+  assert.match(src, /if \(\/imessage\/i\.test\(label\)\) return 'imessage'/)
+  assert.match(src, /<svg className="pp-composer-ico pp-composer-ico-whatsapp"/)
+  const css = readFileSync(new URL('../composer.css', import.meta.url), 'utf8')
+  assert.match(css, /\.pp-composer-ico-whatsapp \{ color: #25d366; \}/)
+  assert.match(css, /\.pp-composer-ico-sms \{ color: #e8a317; \}/)
+})
+
+test('attachments upload on pick and go out as urls', () => {
+  assert.match(api, /uploadMessageAttachments: \(id, contactId, files\) =>/)
+  assert.match(src, /dealsAPI\.uploadMessageAttachments\(dealId, person\.id, list\)/)
+  assert.match(src, /attachments: ready\.map\(\(f\) => f\.url\)/)
+  // Send waits for an upload in flight; a photo alone is a valid SMS.
+  assert.match(src, /const canSend = !sending && !uploading/)
+  assert.match(src, /: !text\.trim\(\) && ready\.length === 0/)
+  // GHL's accepted types, and none on an internal comment.
+  assert.match(src, /const ATTACH_ACCEPT = '\.jpg,\.jpeg,\.png,\.mp4,\.mpeg,\.zip,\.rar,\.pdf,\.doc,\.docx,\.txt,\.mp3,\.wav'/)
+  assert.match(src, /const attachable = mode === 'message'/)
 })
 
 test('its styles are its own file — no shared rule changes', () => {

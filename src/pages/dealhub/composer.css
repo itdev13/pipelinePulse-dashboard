@@ -172,3 +172,40 @@
   font-size: var(--text-sm); color: var(--text-muted);
 }
 [data-dealhub] .pp-composer-status-err { color: var(--status-stuck); }
+
+/* Channel icons in GHL's colours: blue mail, green WhatsApp, blue iMessage,
+ * amber SMS, grey eye for an internal comment. */
+[data-dealhub] .pp-composer .pp-composer-ico { flex: none; }
+[data-dealhub] .pp-composer .pp-composer-ico-email { color: #2470c2; }
+[data-dealhub] .pp-composer .pp-composer-ico-whatsapp { color: #25d366; }
+[data-dealhub] .pp-composer .pp-composer-ico-imessage { color: #1a8cff; }
+[data-dealhub] .pp-composer .pp-composer-ico-sms { color: #e8a317; }
+[data-dealhub] .pp-composer .pp-composer-ico-comment { color: var(--text-muted); }
+[data-dealhub] .pp-composer-comment .pp-composer-tab-on .pp-composer-ico-comment { color: var(--accent-gold-text); }
+
+/* Attachments — chips under the body, as in GHL. */
+[data-dealhub] .pp-composer-files {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 6px 12px 8px;
+}
+[data-dealhub] .pp-composer-file {
+  display: inline-flex; align-items: center; gap: 6px;
+  max-width: 280px; height: 28px; padding: 0 4px 0 8px;
+  border: 1px solid var(--border-default); border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  font-size: var(--text-sm); color: var(--text-body);
+}
+[data-dealhub] .pp-composer-file > .ms { font-size: 15px; color: var(--text-muted); }
+[data-dealhub] .pp-composer-file-err { border-color: var(--status-stuck); }
+[data-dealhub] .pp-composer-file-err > .ms,
+[data-dealhub] .pp-composer-file-err .pp-composer-filesize { color: var(--status-stuck); }
+[data-dealhub] .pp-composer-filename { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-dealhub] .pp-composer-filesize { flex: none; color: var(--text-faint); }
+[data-dealhub] .pp-composer-fileremove {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; padding: 0;
+  border: none; border-radius: 50%; background: transparent; cursor: pointer;
+  color: var(--text-muted);
+}
+[data-dealhub] .pp-composer-fileremove .ms { font-size: 14px; }
+[data-dealhub] .pp-composer-fileremove:hover { background: var(--surface-hover); }

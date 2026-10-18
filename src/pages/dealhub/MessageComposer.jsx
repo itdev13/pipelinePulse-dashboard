@@ -35,8 +35,36 @@ import './composer.css'
 
 const COMMENT_TITLE = 'Internal comment'
 
-const CHANNEL_ICON = { Email: 'mail', SMS: 'sms', WhatsApp: 'chat' }
 const DND_KEY = { Email: 'email', SMS: 'sms', WhatsApp: 'whatsapp' }
+
+// Which icon a channel entry wears — GHL's: a blue envelope for Email, the
+// green WhatsApp mark for WhatsApp and "WhatsApp QR", a blue bubble for
+// iMessage, an amber SMS bubble for SMS and "SMS Android". By provider NAME
+// for iMessage, because GHL files it under the SMS channel.
+export function iconKind(channel, label = '') {
+  if (channel === 'Email') return 'email'
+  if (channel === 'WhatsApp') return 'whatsapp'
+  if (/imessage/i.test(label)) return 'imessage'
+  return 'sms'
+}
+
+const WHATSAPP_PATH = 'M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z'
+
+function ChannelIcon({ kind, size = 18 }) {
+  if (kind === 'whatsapp') {
+    return (
+      <svg className="pp-composer-ico pp-composer-ico-whatsapp" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="currentColor" d={WHATSAPP_PATH} />
+      </svg>
+    )
+  }
+  const glyph = { email: 'mail', imessage: 'chat_bubble', sms: 'sms', comment: 'visibility' }[kind] || 'mail'
+  return <span className={`ms pp-composer-ico pp-composer-ico-${kind}`} style={{ fontSize: size }} aria-hidden="true">{glyph}</span>
+}
+
+// GHL's accepted attachment types (POST /conversations/messages/upload).
+const ATTACH_ACCEPT = '.jpg,.jpeg,.png,.mp4,.mpeg,.zip,.rar,.pdf,.doc,.docx,.txt,.mp3,.wav'
+const fmtSize = (n) => (n == null ? '' : n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`)
 
 // Every way a message can leave, flattened the way GHL's dropdown lists them.
 //
@@ -52,7 +80,7 @@ export function channelOptions(channels = []) {
   const out = []
   const byName = Object.fromEntries((channels || []).map((c) => [c.channel, c]))
   if (byName.Email) {
-    out.push({ key: 'Email', channel: 'Email', providerId: null, label: 'Email', icon: CHANNEL_ICON.Email })
+    out.push({ key: 'Email', channel: 'Email', providerId: null, label: 'Email', kind: 'email' })
   }
   for (const channel of ['WhatsApp', 'SMS']) {
     const live = (byName[channel]?.providers || []).filter((p) => !p.isDeleted)
@@ -60,11 +88,11 @@ export function channelOptions(channels = []) {
     const nativeRow = live.some((p) => p.id !== null && p.isNative)
     if (nativeRow || custom.length === 0) {
       if (live.length) {
-        out.push({ key: `${channel}:native`, channel, providerId: null, label: channel, icon: CHANNEL_ICON[channel] })
+        out.push({ key: `${channel}:native`, channel, providerId: null, label: channel, kind: iconKind(channel, channel) })
       }
     }
     for (const p of custom) {
-      out.push({ key: `${channel}:${p.id}`, channel, providerId: p.id, label: p.name, icon: CHANNEL_ICON[channel] })
+      out.push({ key: `${channel}:${p.id}`, channel, providerId: p.id, label: p.name, kind: iconKind(channel, p.name) })
     }
   }
   return out
@@ -108,6 +136,11 @@ export default function MessageComposer({ dealId, people = [], primaryContactId 
   const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
   const [sent, setSent] = useState(null)
+  // Files on this message: { key, name, size, url?, uploading, error? }.
+  // Uploaded the moment they are picked — GHL wants the file before the send
+  // and takes its URL on the message — so Send waits only for the text.
+  const [files, setFiles] = useState([])
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
     let alive = true
@@ -169,14 +202,44 @@ export default function MessageComposer({ dealId, people = [], primaryContactId 
     return () => document.removeEventListener('mousedown', onDown)
   }, [menu])
 
-  const bodyEmpty = mode === 'comment' || !isEmail ? !text.trim() : isHtmlEmpty(html)
-  const canSend = !sending && !blocked && !bodyEmpty && (mode === 'comment' || !isEmail || subject.trim())
+  const ready = files.filter((f) => f.url)
+  const uploading = files.some((f) => f.uploading)
+  const attachable = mode === 'message'
+  // A photo alone is a real SMS/WhatsApp message; an email still needs words.
+  const bodyEmpty = mode === 'comment' ? !text.trim()
+    : isEmail ? isHtmlEmpty(html)
+      : !text.trim() && ready.length === 0
+  const canSend = !sending && !uploading && !blocked && !bodyEmpty
+    && (mode === 'comment' || !isEmail || subject.trim())
 
   const reset = () => {
     setHtml(''); setText(''); setCc(''); setBcc('')
     setShowCc(false); setShowBcc(false)
     setReply(null); setSubject('')
+    setFiles([])
     setError(null)
+  }
+
+  const attach = async (picked) => {
+    const list = [...(picked || [])]
+    if (!list.length || !person) return
+    const added = list.map((f, i) => ({ key: `${Date.now()}-${i}-${f.name}`, name: f.name, size: f.size, uploading: true }))
+    setFiles((cur) => [...cur, ...added])
+    try {
+      const r = await dealsAPI.uploadMessageAttachments(dealId, person.id, list)
+      const back = r?.files || []
+      setFiles((cur) => cur.map((f) => {
+        const i = added.findIndex((a) => a.key === f.key)
+        if (i < 0) return f
+        const got = back.find((b) => b.name === f.name) || back[i]
+        return got?.url ? { ...f, url: got.url, uploading: false } : { ...f, uploading: false, error: 'Did not upload' }
+      }))
+    } catch (e) {
+      // The whole batch failed: say why on each chip, so the rep removes
+      // them rather than sending without noticing.
+      setFiles((cur) => cur.map((f) => (added.some((a) => a.key === f.key)
+        ? { ...f, uploading: false, error: e?.message || 'Did not upload' } : f)))
+    }
   }
 
   const send = async () => {
@@ -198,6 +261,7 @@ export default function MessageComposer({ dealId, people = [], primaryContactId 
           type: channel,
           contactId: person.id,
           conversationProviderId: isEmail ? (from?.id ?? null) : option.providerId,
+          attachments: ready.map((f) => f.url),
           ...(isEmail
             ? {
                 subject: subject.trim(),
@@ -240,7 +304,7 @@ export default function MessageComposer({ dealId, people = [], primaryContactId 
       <div ref={rootRef} className="pp-composer pp-composer-collapsed">
         <button type="button" className="pp-composer-chan" title={`Send by ${option?.label || 'Email'}`}
           onClick={() => setExpanded(true)}>
-          <span className="ms">{option?.icon || 'mail'}</span>
+          <ChannelIcon kind={option?.kind || 'email'} />
           <span className="ms pp-composer-caret">expand_more</span>
         </button>
         <button type="button" className="pp-composer-placeholder" onClick={() => setExpanded(true)}>
@@ -263,7 +327,7 @@ export default function MessageComposer({ dealId, people = [], primaryContactId 
         <span className="pp-composer-menuwrap">
           <button type="button" className={`pp-composer-tab${!comment ? ' pp-composer-tab-on' : ''}`}
             onClick={() => (comment ? setMode('message') : setMenu(menu === 'channel' ? null : 'channel'))}>
-            <span className="ms">{option?.icon || 'mail'}</span>
+            <ChannelIcon kind={option?.kind || 'email'} />
             {option?.label || 'Email'}
             <span className="ms pp-composer-caret">expand_more</span>
           </button>
@@ -272,13 +336,13 @@ export default function MessageComposer({ dealId, people = [], primaryContactId 
               {options.map((o) => (
                 <button key={o.key} type="button" role="menuitem" className="pp-composer-menuitem"
                   onClick={() => pickChannel(o)}>
-                  <span className="ms">{o.icon}</span>
+                  <ChannelIcon kind={o.kind} />
                   <span className="pp-composer-menulabel">{o.label}</span>
                   {!comment && o.key === option?.key && <span className="ms pp-composer-check">check</span>}
                 </button>
               ))}
               <button type="button" role="menuitem" className="pp-composer-menuitem" onClick={() => pickChannel('comment')}>
-                <span className="ms">visibility</span>
+                <ChannelIcon kind="comment" size={16} />
                 <span className="pp-composer-menulabel">{COMMENT_TITLE}</span>
               </button>
             </div>
@@ -287,7 +351,7 @@ export default function MessageComposer({ dealId, people = [], primaryContactId 
         <span className="pp-composer-divider" />
         <button type="button" className={`pp-composer-tab${comment ? ' pp-composer-tab-on' : ''}`}
           onClick={() => setMode('comment')}>
-          <span className="ms">visibility</span>
+          <ChannelIcon kind="comment" size={16} />
           {COMMENT_TITLE}
         </button>
         <span style={{ flex: 1 }} />
@@ -411,7 +475,35 @@ export default function MessageComposer({ dealId, people = [], primaryContactId 
         )}
       </div>
 
+      {/* The files on this message, under the body as GHL shows them. */}
+      {attachable && files.length > 0 && (
+        <div className="pp-composer-files">
+          {files.map((f) => (
+            <span key={f.key} className={`pp-composer-file${f.error ? ' pp-composer-file-err' : ''}`}
+              title={f.error || f.name}>
+              <span className="ms">{f.uploading ? 'progress_activity' : f.error ? 'error' : 'attach_file'}</span>
+              <span className="pp-composer-filename">{f.name}</span>
+              <span className="pp-composer-filesize">{f.uploading ? 'Uploading…' : f.error ? f.error : fmtSize(f.size)}</span>
+              <button type="button" className="pp-composer-fileremove" title="Remove"
+                onClick={() => setFiles((cur) => cur.filter((x) => x.key !== f.key))}>
+                <span className="ms">close</span>
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="pp-composer-foot">
+        {attachable && (
+          <>
+            <button type="button" className="pp-composer-icon" title="Attach files" disabled={sending || !person}
+              onClick={() => fileInputRef.current?.click()}>
+              <span className="ms">attach_file</span>
+            </button>
+            <input ref={fileInputRef} type="file" multiple hidden accept={ATTACH_ACCEPT}
+              onChange={(e) => { attach(e.target.files); e.target.value = '' }} />
+          </>
+        )}
         <span className={`pp-composer-status${error || blocked ? ' pp-composer-status-err' : ''}`}>
           {error || blocked || sent || (comment
             ? `Saved as a note on ${nameOf(person)} for this deal`
