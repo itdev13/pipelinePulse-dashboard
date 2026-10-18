@@ -30,22 +30,24 @@ body {
 }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-track { background: #f1f5f9; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+::-webkit-scrollbar-track { background: #eef1f5; }
+::-webkit-scrollbar-thumb { background: #8a94a3; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #5b6472; }
 
 /* The PAGE scrollbar, wider and always shown. It is how a rep moves around a
-   long deal — the Timeline no longer scrolls on its own, so this one bar
-   carries the whole page and has to be easy to see and grab inside GHL's
-   iframe. Inner scrollers (dropdowns, modals) keep the slimmer bar above. */
-html { overflow-y: scroll; }
+   long deal inside GHL's iframe, so it has to be easy to see and grab.
+   The thumb is the app's teal (--accent-teal, 4.6:1 on the track) rather
+   than a grey: a grey thumb on a grey track read as part of the page edge
+   and a client asked whether the bar existed at all. Inner scrollers
+   (dropdowns, modals, the timeline box) keep the slimmer bar above. */
+html { overflow-y: scroll; scrollbar-color: #0f7f8b #e6ebf0; scrollbar-width: auto; }
 html::-webkit-scrollbar { width: 14px; }
-html::-webkit-scrollbar-track { background: #eef1f5; border-left: 1px solid #e2e6ec; }
+html::-webkit-scrollbar-track { background: #e6ebf0; border-left: 1px solid #d5dce4; }
 html::-webkit-scrollbar-thumb {
-  background: #b4bcc8; border-radius: 8px;
-  border: 3px solid #eef1f5; min-height: 48px;
+  background: #0f7f8b; border-radius: 8px;
+  border: 3px solid #e6ebf0; min-height: 48px;
 }
-html::-webkit-scrollbar-thumb:hover { background: #8a94a3; }
+html::-webkit-scrollbar-thumb:hover { background: #0b6671; }
 
 /* Recharts tooltip polish */
 .recharts-default-tooltip {
