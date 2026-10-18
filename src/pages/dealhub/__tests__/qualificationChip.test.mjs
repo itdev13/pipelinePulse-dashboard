@@ -40,18 +40,19 @@ test('it is only editable when a saver is wired', () => {
   // text cannot be selected or copied — and a rep with no write access still
   // needs to read the answer.
   assert.match(src, /readOnly=\{!canEdit\}/)
-  assert.match(src, /if \(!canEdit \|\| editing === q\.fieldKey\) return/)
+  assert.match(src, /if \(!canEdit \|\| active\) return/)
 })
 
 test('the edited row is the one that looks active', () => {
   // Ten identical boxes with no focus state gives no sign which one a save
   // would land on.
-  assert.match(src, /editing === q\.fieldKey\s*\n?\s*\? 'var\(--accent-gold-text\)'/)
+  assert.match(src, /const active = editing === q\.fieldKey/)
+  assert.match(src, /active \? 'var\(--accent-gold-text\)'/)
 })
 
 test('Save and Cancel show only on the row being edited', () => {
   // Ten permanent button pairs would be louder than the answers themselves.
-  assert.match(src, /\{editing === q\.fieldKey && \(/)
+  assert.match(src, /\{active && \(/)
 })
 
 test('the grid is TWO columns, never three', () => {
@@ -76,17 +77,19 @@ test('the grid is TWO columns, never three', () => {
   assert.match(rule, /\.pp-portal\s+\.pp-qual-grid/)
 })
 
-test('an odd heading count does not leave a grey hole', () => {
-  // The 1px gaps are the background showing through, so a half-empty final
-  // row shows the gap colour as a block.
-  assert.match(src, /qualification\.length % 2 === 1 && <div style=\{\{ background: '#fff' \}\} \/>/)
+test('the columns read down, 1-5 then 6-10', () => {
+  // Two explicit stacks rather than one row-major grid, so an odd count needs
+  // no filler cell and a narrow panel keeps the order.
+  assert.match(src, /const columns = \[qualification\.slice\(0, half\), qualification\.slice\(half\)\]/)
 })
 
 test('saving is per-heading, and blocks cancel too', () => {
   // A global "something is saving" flag greyed every row's buttons. And
   // abandoning the box mid-write leaves the rep looking at the old value with
   // a save still landing behind it.
-  assert.match(src, /const saving = savingField === q\.fieldKey/)
+  // By fieldId: saveDealField marks a custom field by its GHL id, so a
+  // fieldKey comparison never matched and "Saving…" never showed.
+  assert.match(src, /const saving = savingField === q\.fieldId/)
   // BOTH buttons take the guard — abandoning mid-write leaves the rep on the
   // old value with a save still landing behind it.
   assert.equal((src.match(/disabled=\{saving\}/g) || []).length, 2)
@@ -98,7 +101,29 @@ test('blurring a changed box saves it', () => {
   // silently, which is data loss on a click-through. commit() returns without
   // a request when nothing changed, so a stray click costs nothing.
   assert.match(src, /onBlur=\{\(\) => \{/)
-  assert.match(src, /if \(canEdit && editing === q\.fieldKey\) commit\(q\)/)
+  assert.match(src, /if \(canEdit && active\) commit\(q\)/)
+})
+
+test('a save landing late does not close the box being typed in', () => {
+  // Blur fires the save, and by the time it returns the rep has clicked into
+  // the next heading. Clearing `editing` unconditionally left that box focused
+  // but rendering the stored value, so typing and backspace did nothing.
+  const commit = src.slice(src.indexOf('const commit = async'), src.indexOf('const missing ='))
+  assert.match(commit, /setEditing\(\(cur\) => \(cur === q\.fieldKey \? null : cur\)\)/)
+  const afterSave = commit.slice(commit.indexOf('await onSave'))
+  assert.doesNotMatch(afterSave, /setEditing\(null\)/)
+  assert.doesNotMatch(afterSave, /setDraft\(''\)/)
+})
+
+test('typing into a focused but inactive box claims it', () => {
+  // The self-heal for any path that leaves focus in a closed box.
+  assert.match(src, /if \(!active\) setEditing\(q\.fieldKey\)\s*\n\s*setDraft\(e\.target\.value\)/)
+})
+
+test('Cmd/Ctrl+Enter saves through blur, not in place', () => {
+  // In place closed the editor with focus still in the box, and the blur that
+  // followed saved a second time.
+  assert.match(src, /e\.key === 'Enter' && \(e\.metaKey \|\| e\.ctrlKey\)\) e\.currentTarget\.blur\(\)/)
 })
 
 test('Escape does NOT save through that blur', () => {

@@ -107,7 +107,9 @@ function DayHeader({ iso }) {
   return (
     <div
       style={{
-        position: 'sticky', top: 0, zIndex: 1,
+        // Sticks under the shell's nav, which wraps to two rows on a narrow
+        // frame — so its height is measured (DealHubShell), not assumed.
+        position: 'sticky', top: 'var(--pp-nav-h, 0px)', zIndex: 1,
         // A date marker, not a section heading. The full-height grey band
         // took 44px per day and read as a panel header; this is a small
         // pill sitting on a hairline, 28px tall, so the days punctuate the
@@ -798,7 +800,9 @@ export default function Timeline({
         ['--panel-accent']: 'var(--accent-teal-text)',
         ['--panel-tint']: 'var(--tint-teal)',
         borderRadius: 'var(--radius-md)',
-        overflow: 'hidden',
+        // clip, not hidden: hidden makes this card a scroll container, and the
+        // day headers would stick to it — that is, never — instead of the page.
+        overflow: 'clip',
         background: '#fff',
       }}
     >
@@ -881,17 +885,13 @@ export default function Timeline({
           ) : null}
         />
       ) : (
-      <div
-        style={{
-          position: 'relative',
-          // Sticky day headers need a scroll container to stick within.
-          // Nearly the whole viewport: the timeline is the page's main read,
-          // and anything less meant scrolling inside a scroll. 60px is the
-          // shell nav above this box; the card header is allowed to scroll
-          // away with the page so the thread gets the room.
-          maxHeight: 'max(860px, calc(100vh - 60px))', overflowY: 'auto'
-        }}
-      >
+      <div style={{ position: 'relative' }}>
+        {/* NO INNER SCROLL BOX. The thread grows with the page and the page's
+            own scrollbar moves everything. It used to be a box at least 860px
+            tall with its own overflow — inside GHL's iframe that was taller
+            than the visible area, so the wheel was always over it and a rep
+            had to scroll through every message before the page would move.
+            The day headers still stick, to the viewport under the shell nav. */}
         {/* `rows`, not `messages`: a multi-message email thread is one row
             here — its newest email — and the thread card draws the rest. */}
         {rows.map((m, i) => {
