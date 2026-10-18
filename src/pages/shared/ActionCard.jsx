@@ -26,8 +26,28 @@ const RichEditor = React.lazy(() => import('./RichEditor'))
 // Fields are editable before confirming (like NoteEditor/TaskEditor's
 // create-mode draft pattern) — a rep fixing a typo'd phone number shouldn't
 // have to redo the whole exchange with the model.
+// A plain-text draft as the HTML the editor will hold: one <p> per
+// paragraph, line breaks kept. The model usually proposes an email as
+// `message` (text) with no `html`; the editor is an HTML control, so the
+// text is converted ONCE, here, and `html` is the single source from then on.
+const textToHtml = (text) => String(text || '')
+  .split(/\n{2,}/)
+  .map((para) => `<p>${para
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br>')}</p>`)
+  .join('')
+
 export default function ActionCard({ actionId, actionType, proposed, status = null, onResolved }) {
-  const [fields, setFields] = useState(() => ({ ...proposed }))
+  const [fields, setFields] = useState(() => {
+    const f = { ...proposed }
+    // An email's editor binds to `html` ONLY. It used to bind to
+    // `html || message`, which meant that the moment a rep cleared the
+    // content (select all, delete) the value fell back to the original
+    // `message` and the text snapped straight back — the draft could not
+    // be rewritten from scratch, and read as "I can't edit this email".
+    if (f.type === 'Email' && !f.html && f.message) f.html = textToHtml(f.message)
+    return f
+  })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   // Resolved LOCALLY this mount — a rep who just clicked Confirm.
@@ -682,7 +702,7 @@ function ActionFields({ actionType, fields, setField }) {
               }
             >
               <RichEditor
-                value={fields.html || fields.message || ''}
+                value={fields.html || ''}
                 onChange={(html) => setField('html', html)}
                 placeholder="Write the email…"
                 minHeight={120}
