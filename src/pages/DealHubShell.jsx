@@ -124,6 +124,20 @@ export default function DealHubShell() {
   // Matches what each tab actually shows (Deals 343 = every open opp, etc).
   const [counts, setCounts] = useState(null)
 
+  // The nav's live height, published as --pp-nav-h so the Timeline's sticky
+  // day headers sit just under it. It wraps to two rows on a narrow frame,
+  // so a fixed 60px would tuck the headers behind the second row.
+  const headerRef = useRef(null)
+  useEffect(() => {
+    const el = headerRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const publish = () => el.parentElement?.style.setProperty('--pp-nav-h', `${el.offsetHeight}px`)
+    publish()
+    const ro = new ResizeObserver(publish)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   useEffect(() => {
     let alive = true
     summaryAPI.counts()
@@ -327,6 +341,7 @@ export default function DealHubShell() {
           shouldn't scroll away on a long deal. zIndex clears the Timeline's
           sticky day headers, which would otherwise ride over this bar. */}
       <header
+        ref={headerRef}
         style={{
           position: 'sticky', top: 0, zIndex: 20,
           display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',

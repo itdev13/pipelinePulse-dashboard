@@ -34,6 +34,19 @@ body {
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
+/* The PAGE scrollbar, wider and always shown. It is how a rep moves around a
+   long deal — the Timeline no longer scrolls on its own, so this one bar
+   carries the whole page and has to be easy to see and grab inside GHL's
+   iframe. Inner scrollers (dropdowns, modals) keep the slimmer bar above. */
+html { overflow-y: scroll; }
+html::-webkit-scrollbar { width: 14px; }
+html::-webkit-scrollbar-track { background: #eef1f5; border-left: 1px solid #e2e6ec; }
+html::-webkit-scrollbar-thumb {
+  background: #b4bcc8; border-radius: 8px;
+  border: 3px solid #eef1f5; min-height: 48px;
+}
+html::-webkit-scrollbar-thumb:hover { background: #8a94a3; }
+
 /* Recharts tooltip polish */
 .recharts-default-tooltip {
   border-radius: 8px !important;

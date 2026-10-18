@@ -75,8 +75,13 @@ export default function QualificationSection({ qualification = [], onSave, savin
     // The same shape the deal card's own custom-field pickers use, so this
     // goes through one write path rather than inventing a second.
     await onSave('customField', { id: q.fieldId, value: next, dealKey: null })
-    setEditing(null)
-    setDraft('')
+    // Close THIS heading only. The save takes ~700ms, and blur is what fires
+    // it — so by the time it lands the rep has usually clicked into the next
+    // box and is typing there. Clearing unconditionally shut that box under
+    // them: still focused, but rendering the stored value, so every keystroke
+    // and backspace bounced off. The draft is left alone for the same reason;
+    // focus re-seeds it.
+    setEditing((cur) => (cur === q.fieldKey ? null : cur))
   }
 
 
@@ -180,7 +185,8 @@ export default function QualificationSection({ qualification = [], onSave, savin
             const om = /^\s*(\d+)\s*[.)]\s*(.+)$/.exec(q.name || '')
             const ordinal = om ? om[1] : String(n)
             const name = om ? om[2] : q.name
-            const saving = savingField === q.fieldKey
+            // The saver marks a custom field by its GHL id, not the key.
+            const saving = savingField === q.fieldId
             const active = editing === q.fieldKey
             return (
             <div
@@ -273,7 +279,13 @@ export default function QualificationSection({ qualification = [], onSave, savin
                     setEditing(q.fieldKey)
                     setDraft(q.value || '')
                   }}
-                  onChange={(e) => setDraft(e.target.value)}
+                  // Typing into a box that is focused but not the active one
+                  // claims it. Otherwise the controlled value stays pinned to
+                  // the stored answer and the keystroke is thrown away.
+                  onChange={(e) => {
+                    if (!active) setEditing(q.fieldKey)
+                    setDraft(e.target.value)
+                  }}
                   // COMMIT ON BLUR. Focus is what opens the editor now, so
                   // clicking from one box into another switches `editing` —
                   // and without this the first box's typing was discarded
@@ -294,7 +306,10 @@ export default function QualificationSection({ qualification = [], onSave, savin
                       setEditing(null); setDraft('')
                       e.currentTarget.blur()
                     }
-                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) commit(q)
+                    // Through blur, not commit() directly: committing in place
+                    // closed the editor while focus stayed in the box, and
+                    // the blur that followed saved a second time.
+                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) e.currentTarget.blur()
                   }}
                   rows={3}
                   style={{
