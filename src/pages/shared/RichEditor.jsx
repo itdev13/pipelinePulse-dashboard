@@ -51,7 +51,10 @@ export default function RichEditor({
   // toolbar is one more thing a rep has to read past to find Bold. A
   // signature is the one place where colour and an image ARE the content:
   // the thing being built is a small piece of branded layout, not prose.
-  rich = false
+  rich = false,
+  // Extra toolbar buttons from the caller (the composer's paperclip). Styled
+  // by the caller with the toolbar's own pp-tb-btn class.
+  toolbarExtra = null
 }) {
   // Character count, mirrored into React state — see onUpdate below.
   const [count, setCount] = useState(0)
@@ -191,7 +194,7 @@ export default function RichEditor({
         overflow: 'hidden'
       }}
     >
-      <Toolbar editor={editor} disabled={disabled} rich={rich} />
+      <Toolbar editor={editor} disabled={disabled} rich={rich} extra={toolbarExtra} />
 
       {/* minHeight goes on the EDITABLE surface via a CSS variable, not on
           this wrapper.
@@ -244,7 +247,7 @@ export default function RichEditor({
 // expose that our schema does not support (colour pickers, alignment) — a
 // button that cannot round-trip through our sanitiser would be a control that
 // silently loses its effect.
-function Toolbar({ editor, disabled, rich = false }) {
+function Toolbar({ editor, disabled, rich = false, extra = null }) {
   const btn = (label, icon, isActive, run, title) => (
     <button
       key={label}
@@ -343,6 +346,16 @@ function Toolbar({ editor, disabled, rich = false }) {
       {btn('Clear', 'format_clear', false,
         () => editor.chain().focus().unsetAllMarks().clearNodes().run(),
         'Remove formatting')}
+
+      {/* A caller's own controls, after the formatting ones — the timeline
+          composer puts its paperclip here, where GHL has it. Nothing renders
+          for an editor that passes none. */}
+      {extra && (
+        <>
+          <span className="pp-tb-sep" />
+          {extra}
+        </>
+      )}
 
       <span style={{ flex: 1 }} />
 

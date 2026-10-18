@@ -463,7 +463,15 @@ export default function MessageComposer({ dealId, people = [], primaryContactId 
 
       <div className="pp-composer-body">
         {!comment && isEmail ? (
-          <RichEditor value={html} onChange={setHtml} placeholder="Type a message" minHeight={large ? 320 : 120} />
+          <RichEditor value={html} onChange={setHtml} placeholder="Type a message" minHeight={large ? 320 : 120}
+            // On the formatting row with Bold and Link, as GHL has it.
+            toolbarExtra={
+              <button type="button" className="pp-tb-btn" title="Attach files" aria-label="Attach files"
+                disabled={sending || !person}
+                onMouseDown={(e) => { e.preventDefault(); fileInputRef.current?.click() }}>
+                <span className="ms" style={{ fontSize: 17 }}>attach_file</span>
+              </button>
+            } />
         ) : (
           <textarea
             className="pp-composer-textarea"
@@ -496,10 +504,14 @@ export default function MessageComposer({ dealId, people = [], primaryContactId 
       <div className="pp-composer-foot">
         {attachable && (
           <>
-            <button type="button" className="pp-composer-icon" title="Attach files" disabled={sending || !person}
-              onClick={() => fileInputRef.current?.click()}>
-              <span className="ms">attach_file</span>
-            </button>
+            {/* SMS and WhatsApp have no formatting row, so the paperclip
+                stays down here for them; an email's is in its toolbar. */}
+            {!isEmail && (
+              <button type="button" className="pp-composer-icon" title="Attach files" disabled={sending || !person}
+                onClick={() => fileInputRef.current?.click()}>
+                <span className="ms">attach_file</span>
+              </button>
+            )}
             <input ref={fileInputRef} type="file" multiple hidden accept={ATTACH_ACCEPT}
               onChange={(e) => { attach(e.target.files); e.target.value = '' }} />
           </>

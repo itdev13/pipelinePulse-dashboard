@@ -102,6 +102,15 @@ test('attachments upload on pick and go out as urls', () => {
   assert.match(src, /const attachable = mode === 'message'/)
 })
 
+test("an email's paperclip is on the formatting row; SMS keeps it in the foot", () => {
+  assert.match(src, /toolbarExtra=\{\s*\n\s*<button type="button" className="pp-tb-btn" title="Attach files"/)
+  assert.match(src, /\{!isEmail && \(\s*\n\s*<button type="button" className="pp-composer-icon" title="Attach files"/)
+  // The shared editor only grows a slot; nothing renders without it.
+  const editor = readFileSync(new URL('../../shared/RichEditor.jsx', import.meta.url), 'utf8')
+  assert.match(editor, /toolbarExtra = null/)
+  assert.match(editor, /\{extra && \(/)
+})
+
 test('its styles are its own file — no shared rule changes', () => {
   assert.match(src, /import '\.\/composer\.css'/)
   const css = readFileSync(new URL('../composer.css', import.meta.url), 'utf8')
