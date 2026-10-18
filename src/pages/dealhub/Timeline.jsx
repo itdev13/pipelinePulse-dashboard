@@ -897,15 +897,21 @@ export default function Timeline({
         {rows.map((m, i) => {
           const prev = i > 0 ? rows[i - 1] : null
           const newDay = !prev || !sameDay(prev.ts, m.ts)
-          const thread = m.channel === 'EMAIL' && m.threadId ? threads.get(m.threadId) : null
-          if (thread && thread.length > 1) {
+          // EVERY email draws as the thread card, a lone one included: the
+          // grey subject bar with its tools, then the sender row with avatar,
+          // snippet and time. A single email used to take a different shape
+          // (subject inline, no sender row), so two emails on one deal could
+          // look like two kinds of thing. One card, whatever the count.
+          if (m.channel === 'EMAIL') {
+            const found = m.threadId ? threads.get(m.threadId) : null
+            const thread = found && found.length ? found : [m]
             const ids = new Set(thread.filter((t) => t.included !== false).map((t) => t.id))
             return (
-              <React.Fragment key={`thread-${m.threadId}`}>
+              <React.Fragment key={`thread-${m.threadId || m.id}`}>
                 {newDay && m.ts && <DayHeader iso={m.ts} />}
                 <Row id={`tl-${m.id}`} highlighted={thread.some((t) => t.id === highlightedId)}>
                   <span />
-                  <RowIcon icon="mail" colour={accentTextVar('sky')} soft={tintVar('sky')} title="Email thread" />
+                  <RowIcon icon="mail" colour={accentTextVar('sky')} soft={tintVar('sky')} title={thread.length > 1 ? 'Email thread' : 'Email'} />
                   <div style={{ minWidth: 0 }}>
                     <EmailThreadCard
                       mails={thread}
