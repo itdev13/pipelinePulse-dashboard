@@ -717,6 +717,8 @@ export default function Timeline({
   // request for that email — the draft itself goes through the AI's reply
   // path (replyToMessageId), so it threads correctly.
   onReplyEmail = null,
+  // Rendered at the foot of the card — the Deal Hub passes its composer.
+  footer = null,
 }) {
   // The header counts each kind separately — tasks and notes now share the
   // stream, and folding them into "23 messages" would overstate the thread.
@@ -977,6 +979,12 @@ export default function Timeline({
         })}
       </div>
       )}
+
+      {/* Under the rows, inside the card — where GHL docks its composer.
+          Outside the scroll box so it stays in reach however long the
+          thread is, and after the empty state too: a deal with no history
+          is exactly where a rep sends the first message. */}
+      {footer}
 
       {viewing && (
         <AttachmentViewer

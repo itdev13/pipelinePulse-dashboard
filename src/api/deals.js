@@ -26,6 +26,14 @@ export const dealsAPI = {
   list: (params = {}) => apiClient.get('/api/deals', { params }),
   get: (id) => apiClient.get(`/api/deals/${encodeURIComponent(id)}`),
   timeline: (id) => apiClient.get(`/api/deals/${encodeURIComponent(id)}/timeline`),
+  // Send from the timeline composer. Goes to GHL; the message reaches the
+  // timeline by webhook a moment later, filed on THIS deal (the server parks
+  // the deal for that webhook). See POST /api/deals/:id/messages.
+  //
+  // { type: 'Email'|'SMS'|'WhatsApp', contactId, conversationProviderId?,
+  //   message?, subject?, html?, emailCc?, emailBcc?, replyToMessageId? }
+  sendMessage: (id, payload) =>
+    apiClient.post(`/api/deals/${encodeURIComponent(id)}/messages`, payload),
   stages: (id) => apiClient.get(`/api/deals/${encodeURIComponent(id)}/stages`),
   reassignmentTargets: (id) =>
     apiClient.get(`/api/deals/${encodeURIComponent(id)}/reassignment-targets`),
