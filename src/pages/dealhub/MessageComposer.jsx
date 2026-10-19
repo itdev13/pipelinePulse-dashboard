@@ -4,6 +4,7 @@ import { providersAPI } from '../../api/providers'
 import { controlAPI } from '../../api/control'
 import { notesAPI } from '../../api/notes'
 import RichEditor from '../shared/RichEditor'
+import RecipientsField from '../../components/RecipientsField'
 import { isHtmlEmpty } from '../../utils/sanitiseHtml'
 import './composer.css'
 
@@ -112,7 +113,8 @@ export function blockedReason(person, channel) {
 const nameOf = (p) => [p?.firstName, p?.lastName].filter(Boolean).join(' ') || p?.email || p?.phone || 'Contact'
 const escapeHtml = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 const textToHtml = (s) => String(s || '').split(/\n/).map((l) => `<p>${escapeHtml(l) || '<br>'}</p>`).join('')
-const splitAddresses = (s) => String(s || '').split(/[,;\s]+/).map((a) => a.trim()).filter(Boolean)
+// A deal person as an email recipient chip, in RecipientsField's shape.
+const asRecipient = (p) => ({ contactId: p.id, name: nameOf(p), email: String(p.email || '').toLowerCase() })
 
 // `inline` + `onClose`: the reply box a thread card opens under its emails —
 // open from the start, Email only, closed (not minimised) by its X and once
@@ -130,10 +132,11 @@ export default function MessageComposer({
   const [menu, setMenu] = useState(null)               // 'channel' | 'to' | 'from' | null
   const [contactId, setContactId] = useState(primaryContactId)
   const [fromId, setFromId] = useState(null)
-  const [showCc, setShowCc] = useState(false)
-  const [showBcc, setShowBcc] = useState(false)
-  const [cc, setCc] = useState('')
-  const [bcc, setBcc] = useState('')
+  // Email addresses, as GHL's composer has them: To, CC and BCC are chip
+  // lists with a contact dropdown. GHL's send takes ONE To — the first, which
+  // must be someone on this deal; any further To goes out as CC, the same
+  // rule the Co-Pilot send applies (server actionExecutor).
+  const [rcpt, setRcpt] = useState({ to: [], cc: [], bcc: [] })
   const [subject, setSubject] = useState('')
   const [html, setHtml] = useState('')
   const [text, setText] = useState('')
@@ -175,9 +178,28 @@ export default function MessageComposer({
 
   // The deal's primary is the default recipient, as it is in GHL; a new deal
   // (or a deal switch) resets to it.
-  useEffect(() => { setContactId(primaryContactId) }, [primaryContactId, dealId])
-  const person = people.find((p) => p.id === contactId) || people.find((p) => p.primary) || people[0] || null
-  const blocked = mode === 'message' ? blockedReason(person, channel) : (person ? null : 'Pick who this is about')
+  useEffect(() => {
+    setContactId(primaryContactId)
+    const primary = people.find((p) => p.id === primaryContactId) || people.find((p) => p.primary)
+    setRcpt({ to: primary?.email ? [asRecipient(primary)] : [], cc: [], bcc: [] })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [primaryContactId, dealId, people.length])
+  const dealPerson = people.find((p) => p.id === contactId) || people.find((p) => p.primary) || people[0] || null
+  // On an email the recipient is the FIRST To; elsewhere it is the To picker.
+  const firstTo = rcpt.to[0] || null
+  const emailing = mode === 'message' && isEmail
+  const person = emailing
+    ? (firstTo ? (people.find((p) => p.id === firstTo.contactId) || null) : null)
+    : dealPerson
+  const blocked = emailing
+    ? (!firstTo ? 'Add who to send this to'
+      : !person ? 'The first To must be someone on this deal — add other people after them'
+        : blockedReason(person, channel))
+    : mode === 'message' ? blockedReason(person, channel) : (person ? null : 'Pick who this is about')
+  const dealOptions = useMemo(
+    () => people.filter((p) => p.email).map((p) => ({ ...asRecipient(p), isPrimary: !!p.primary })),
+    [people]
+  )
 
   // Reply ↩ on a timeline email: open as an email to that sender, in that
   // thread. The nonce lets the same email be replied to twice.
@@ -185,8 +207,10 @@ export default function MessageComposer({
     if (!replyTarget) return
     setMode('message')
     setChannelKey('Email')
-    if (replyTarget.contactId && people.some((p) => p.id === replyTarget.contactId)) {
-      setContactId(replyTarget.contactId)
+    const who = people.find((p) => p.id === replyTarget.contactId)
+    if (who) {
+      setContactId(who.id)
+      if (who.email) setRcpt({ to: [asRecipient(who)], cc: [], bcc: [] })
     }
     const base = String(replyTarget.subject || '').replace(/^\s*re:\s*/i, '')
     setSubject(base ? `Re: ${base}` : '')
@@ -219,8 +243,9 @@ export default function MessageComposer({
     && (mode === 'comment' || !isEmail || subject.trim())
 
   const reset = () => {
-    setHtml(''); setText(''); setCc(''); setBcc('')
-    setShowCc(false); setShowBcc(false)
+    setHtml(''); setText('')
+    // The To stays for a follow-up; CC and BCC were for that one email.
+    setRcpt((r) => ({ to: r.to, cc: [], bcc: [] }))
     setReply(null); setSubject('')
     setFiles([])
     setError(null)
@@ -272,8 +297,9 @@ export default function MessageComposer({
             ? {
                 subject: subject.trim(),
                 html: bodyHtml,
-                emailCc: splitAddresses(cc),
-                emailBcc: splitAddresses(bcc),
+                emailTo: firstTo.email,
+                emailCc: [...rcpt.to.slice(1), ...rcpt.cc].map((r) => r.email),
+                emailBcc: rcpt.bcc.map((r) => r.email),
                 replyToMessageId: reply?.messageId || undefined
               }
             : { message: text.trim() })
@@ -427,53 +453,38 @@ export default function MessageComposer({
               </span>
             </div>
           )}
-          <div className="pp-composer-row">
-            <span className="pp-composer-k">To</span>
-            <span className="pp-composer-menuwrap">
-              <button type="button" className="pp-composer-chip" disabled={people.length < 2}
-                onClick={() => setMenu(menu === 'to' ? null : 'to')}>
-                <span className="pp-composer-avatar">{nameOf(person).slice(0, 2).toUpperCase()}</span>
-                {isEmail ? (person?.email || nameOf(person)) : (person?.phone || nameOf(person))}
-                {people.length > 1 && <span className="ms pp-composer-caret">expand_more</span>}
-              </button>
-              {menu === 'to' && (
-                <div className="pp-composer-menu" role="menu">
-                  {people.map((p) => {
-                    const why = blockedReason(p, channel)
-                    return (
-                      <button key={p.id} type="button" className="pp-composer-menuitem" title={why || undefined}
-                        onClick={() => { setContactId(p.id); setMenu(null) }}>
-                        <span className="pp-composer-menulabel">
-                          {nameOf(p)}
-                          <span className="pp-composer-sub">{why || (isEmail ? p.email : p.phone)}</span>
-                        </span>
-                        {p.id === person?.id && <span className="ms pp-composer-check">check</span>}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </span>
-            <span style={{ flex: 1 }} />
-            {isEmail && (
-              <>
-                {!showCc && <button type="button" className="pp-composer-link" onClick={() => setShowCc(true)}>CC</button>}
-                {!showBcc && <button type="button" className="pp-composer-link" onClick={() => setShowBcc(true)}>BCC</button>}
-              </>
-            )}
-          </div>
-          {isEmail && showCc && (
-            <div className="pp-composer-row">
-              <span className="pp-composer-k">CC</span>
-              <input className="pp-composer-input pp-focus-inherit" value={cc} onChange={(e) => setCc(e.target.value)}
-                placeholder="name@example.com, …" aria-label="CC addresses" />
+          {isEmail ? (
+            <div className="pp-composer-recipients">
+              <RecipientsField value={rcpt} onChange={setRcpt} options={dealOptions} scope="all" collapsibleCc />
             </div>
-          )}
-          {isEmail && showBcc && (
+          ) : (
             <div className="pp-composer-row">
-              <span className="pp-composer-k">BCC</span>
-              <input className="pp-composer-input pp-focus-inherit" value={bcc} onChange={(e) => setBcc(e.target.value)}
-                placeholder="name@example.com, …" aria-label="BCC addresses" />
+              <span className="pp-composer-k">To</span>
+              <span className="pp-composer-menuwrap">
+                <button type="button" className="pp-composer-chip" disabled={people.length < 2}
+                  onClick={() => setMenu(menu === 'to' ? null : 'to')}>
+                  <span className="pp-composer-avatar">{nameOf(person).slice(0, 2).toUpperCase()}</span>
+                  {isEmail ? (person?.email || nameOf(person)) : (person?.phone || nameOf(person))}
+                  {people.length > 1 && <span className="ms pp-composer-caret">expand_more</span>}
+                </button>
+                {menu === 'to' && (
+                  <div className="pp-composer-menu" role="menu">
+                    {people.map((p) => {
+                      const why = blockedReason(p, channel)
+                      return (
+                        <button key={p.id} type="button" className="pp-composer-menuitem" title={why || undefined}
+                          onClick={() => { setContactId(p.id); setMenu(null) }}>
+                          <span className="pp-composer-menulabel">
+                            {nameOf(p)}
+                            <span className="pp-composer-sub">{why || (isEmail ? p.email : p.phone)}</span>
+                          </span>
+                          {p.id === person?.id && <span className="ms pp-composer-check">check</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </span>
             </div>
           )}
           {isEmail && (

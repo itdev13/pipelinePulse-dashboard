@@ -42,10 +42,19 @@ test('who cannot be sent to is said before Send, not after', () => {
   assert.match(src, /const canSend = !sending && !uploading && !blocked && !bodyEmpty/)
 })
 
-test('an email needs a subject; CC and BCC go as address lists', () => {
+test('an email needs a subject; To/CC/BCC are chip lists with a contact dropdown', () => {
   assert.match(src, /\(mode === 'comment' \|\| !isEmail \|\| subject\.trim\(\)\)/)
-  assert.match(src, /emailCc: splitAddresses\(cc\)/)
-  assert.match(src, /emailBcc: splitAddresses\(bcc\)/)
+  // GHL's composer: chips + dropdown for To, CC and BCC, CC/BCC behind links.
+  assert.match(src, /<RecipientsField value=\{rcpt\} onChange=\{setRcpt\} options=\{dealOptions\} scope="all" collapsibleCc \/>/)
+  // GHL takes ONE To: the first goes as emailTo, the rest of To join CC.
+  assert.match(src, /emailTo: firstTo\.email/)
+  assert.match(src, /emailCc: \[\.\.\.rcpt\.to\.slice\(1\), \.\.\.rcpt\.cc\]\.map\(\(r\) => r\.email\)/)
+  assert.match(src, /emailBcc: rcpt\.bcc\.map\(\(r\) => r\.email\)/)
+  // The first To is the conversation's contact, so it must be on this deal.
+  assert.match(src, /The first To must be someone on this deal/)
+  const rf = readFileSync(new URL('../../../components/RecipientsField.jsx', import.meta.url), 'utf8')
+  assert.match(rf, /collapsibleCc = false/)
+  assert.match(rf, /useState\(!collapsibleCc \|\| \(v\.cc \|\| \[\]\)\.length > 0\)/)
 })
 
 test('a reply is sent into its thread', () => {
@@ -106,6 +115,10 @@ test('channels wear GHL\'s icons and colours', () => {
 
 test('attachments upload on pick and go out as urls', () => {
   assert.match(api, /uploadMessageAttachments: \(id, contactId, files\) =>/)
+  // apiClient defaults to JSON, which makes axios stringify the FormData and
+  // drop the files — the upload must name multipart.
+  const upload = api.slice(api.indexOf('uploadMessageAttachments:'))
+  assert.match(upload.slice(0, upload.indexOf('},')), /headers: \{ 'Content-Type': 'multipart\/form-data' \}/)
   assert.match(src, /dealsAPI\.uploadMessageAttachments\(dealId, person\.id, list\)/)
   assert.match(src, /attachments: ready\.map\(\(f\) => f\.url\)/)
   // Send waits for an upload in flight; a photo alone is a valid SMS.

@@ -35,13 +35,20 @@ export const dealsAPI = {
   sendMessage: (id, payload) =>
     apiClient.post(`/api/deals/${encodeURIComponent(id)}/messages`, payload),
   // The composer's paperclip: upload to GHL first, then send the returned
-  // urls as `attachments`. multipart — see uploadCustomFieldFiles on why the
-  // Content-Type is left to axios.
+  // urls as `attachments`.
+  //
+  // The multipart header is REQUIRED here. apiClient defaults every request
+  // to application/json, and axios 1.x answers FormData + a JSON content type
+  // by serialising the form to a JSON string — the files are dropped and the
+  // server receives no upload. Naming multipart keeps the FormData intact;
+  // the browser then supplies the boundary itself.
   uploadMessageAttachments: (id, contactId, files) => {
     const form = new FormData()
     form.append('contactId', contactId)
     for (const f of files) form.append('files', f)
-    return apiClient.post(`/api/deals/${encodeURIComponent(id)}/messages/attachments`, form)
+    return apiClient.post(`/api/deals/${encodeURIComponent(id)}/messages/attachments`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
   },
   stages: (id) => apiClient.get(`/api/deals/${encodeURIComponent(id)}/stages`),
   reassignmentTargets: (id) =>

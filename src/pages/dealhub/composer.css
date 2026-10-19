@@ -219,3 +219,8 @@
  * around the text itself — the fields carry pp-focus-inherit, and the email
  * editor's editable surface is opted out here. */
 [data-dealhub] .pp-composer .pp-editor-content:focus-visible { box-shadow: none; }
+
+/* Email To / CC / BCC (RecipientsField) as rows of the composer card: its own
+ * box border goes, so the rows read like From and Subject around them. */
+[data-dealhub] .pp-composer-recipients { border-bottom: 1px solid var(--border-default); }
+[data-dealhub] .pp-composer-recipients > div { border: none !important; border-radius: 0 !important; background: transparent !important; }
