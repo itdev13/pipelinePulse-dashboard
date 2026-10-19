@@ -209,3 +209,13 @@
 }
 [data-dealhub] .pp-composer-fileremove .ms { font-size: 14px; }
 [data-dealhub] .pp-composer-fileremove:hover { background: var(--surface-hover); }
+
+/* A reply box inside a thread card (EmailThreadCard), under its emails. */
+[data-dealhub] .pp-thread-reply .pp-composer { margin: 8px 12px 12px; }
+/* Send on the email formatting row: the row's own height, not the foot's. */
+[data-dealhub] .pp-composer .pp-toolbar .pp-composer-send { height: 28px; min-width: 36px; padding: 0 10px; }
+/* The card's border is the composer's focus signal (sky, or gold for an
+ * internal comment). The app-wide focus ring would draw a second, teal one
+ * around the text itself — the fields carry pp-focus-inherit, and the email
+ * editor's editable surface is opted out here. */
+[data-dealhub] .pp-composer .pp-editor-content:focus-visible { box-shadow: none; }

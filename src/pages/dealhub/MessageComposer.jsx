@@ -114,9 +114,15 @@ const escapeHtml = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '
 const textToHtml = (s) => String(s || '').split(/\n/).map((l) => `<p>${escapeHtml(l) || '<br>'}</p>`).join('')
 const splitAddresses = (s) => String(s || '').split(/[,;\s]+/).map((a) => a.trim()).filter(Boolean)
 
-export default function MessageComposer({ dealId, people = [], primaryContactId = null, replyTarget = null, onSent }) {
+// `inline` + `onClose`: the reply box a thread card opens under its emails —
+// open from the start, Email only, closed (not minimised) by its X and once
+// the reply has gone.
+export default function MessageComposer({
+  dealId, people = [], primaryContactId = null, replyTarget = null, onSent,
+  inline = false, onClose = null
+}) {
   const rootRef = useRef(null)
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(inline)
   const [large, setLarge] = useState(false)
   const [mode, setMode] = useState('message')          // 'message' | 'comment'
   const [channels, setChannels] = useState(null)
@@ -276,6 +282,8 @@ export default function MessageComposer({ dealId, people = [], primaryContactId 
       }
       reset()
       onSent?.(mode)
+      // An inline reply has done its job once it is sent.
+      onClose?.()
     } catch (e) {
       setError(e?.message || 'Could not send — nothing was sent. Try again.')
     } finally {
@@ -319,11 +327,36 @@ export default function MessageComposer({ dealId, people = [], primaryContactId 
   }
 
   const comment = mode === 'comment'
+  // An email's formatting row also carries Discard and Send.
+  const emailRow = !comment && isEmail
+  const status = error || blocked || sent || ''
+  const actions = (
+    <>
+      <button type="button" className="pp-composer-icon" title="Discard" disabled={sending}
+        onClick={() => { reset(); setSent(null) }}>
+        <span className="ms">delete</span>
+      </button>
+      <button type="button" className="pp-composer-send" disabled={!canSend} onClick={send}
+        title={blocked || (comment ? 'Save comment (Ctrl+Enter)'
+          : `Send (Ctrl+Enter)${isEmail && signature ? ' — your signature is added' : ''}`)}>
+        {sending ? <span className="pp-composer-sending">…</span> : <span className="ms">send</span>}
+      </button>
+    </>
+  )
   return (
     <div ref={rootRef} className={`pp-composer${comment ? ' pp-composer-comment' : ''}${large ? ' pp-composer-large' : ''}`}
       onKeyDown={onKeyDown}>
-      {/* Header: channel | Internal Comment, then minimise / enlarge. */}
+      {/* Header: channel | Internal Comment, then minimise / enlarge.
+          INLINE (a reply inside a thread card) there is nothing to switch:
+          it is an email in that thread, so the header just says so and the
+          minimise becomes a close, as GHL's inline reply box has it. */}
       <div className="pp-composer-head">
+        {inline ? (
+          <span className="pp-composer-tab pp-composer-tab-on">
+            <ChannelIcon kind="email" />
+            Reply
+          </span>
+        ) : (<>
         <span className="pp-composer-menuwrap">
           <button type="button" className={`pp-composer-tab${!comment ? ' pp-composer-tab-on' : ''}`}
             onClick={() => (comment ? setMode('message') : setMenu(menu === 'channel' ? null : 'channel'))}>
@@ -354,9 +387,11 @@ export default function MessageComposer({ dealId, people = [], primaryContactId 
           <ChannelIcon kind="comment" size={16} />
           {COMMENT_TITLE}
         </button>
+        </>)}
         <span style={{ flex: 1 }} />
-        <button type="button" className="pp-composer-icon" title="Minimise" onClick={() => setExpanded(false)}>
-          <span className="ms">remove</span>
+        <button type="button" className="pp-composer-icon" title={onClose ? 'Close' : 'Minimise'}
+          onClick={() => (onClose ? onClose() : setExpanded(false))}>
+          <span className="ms">{onClose ? 'close' : 'remove'}</span>
         </button>
         <button type="button" className="pp-composer-icon" title={large ? 'Smaller' : 'Larger'} onClick={() => setLarge((v) => !v)}>
           <span className="ms">{large ? 'close_fullscreen' : 'open_in_full'}</span>
@@ -430,25 +465,26 @@ export default function MessageComposer({ dealId, people = [], primaryContactId 
           {isEmail && showCc && (
             <div className="pp-composer-row">
               <span className="pp-composer-k">CC</span>
-              <input className="pp-composer-input" value={cc} onChange={(e) => setCc(e.target.value)}
+              <input className="pp-composer-input pp-focus-inherit" value={cc} onChange={(e) => setCc(e.target.value)}
                 placeholder="name@example.com, …" aria-label="CC addresses" />
             </div>
           )}
           {isEmail && showBcc && (
             <div className="pp-composer-row">
               <span className="pp-composer-k">BCC</span>
-              <input className="pp-composer-input" value={bcc} onChange={(e) => setBcc(e.target.value)}
+              <input className="pp-composer-input pp-focus-inherit" value={bcc} onChange={(e) => setBcc(e.target.value)}
                 placeholder="name@example.com, …" aria-label="BCC addresses" />
             </div>
           )}
           {isEmail && (
             <div className="pp-composer-row">
               <span className="pp-composer-k">Subject:</span>
-              <input className="pp-composer-input" value={subject} onChange={(e) => setSubject(e.target.value)}
+              <input className="pp-composer-input pp-focus-inherit" value={subject} onChange={(e) => setSubject(e.target.value)}
                 placeholder="Enter subject" aria-label="Subject" />
             </div>
           )}
-          {isEmail && reply && (
+          {/* Inline, the thread card above already says which thread. */}
+          {isEmail && reply && !inline && (
             <div className="pp-composer-reply">
               <span className="ms">reply</span>
               Replying in the thread “{reply.subject || '(no subject)'}”
@@ -471,10 +507,12 @@ export default function MessageComposer({ dealId, people = [], primaryContactId 
                 onMouseDown={(e) => { e.preventDefault(); fileInputRef.current?.click() }}>
                 <span className="ms" style={{ fontSize: 17 }}>attach_file</span>
               </button>
-            } />
+            }
+            // Discard and Send on the same row, at the right — GHL's layout.
+            toolbarEnd={<><span className="pp-tb-sep" />{actions}</>} />
         ) : (
           <textarea
-            className="pp-composer-textarea"
+            className="pp-composer-textarea pp-focus-inherit"
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={large ? 12 : 3}
@@ -501,35 +539,29 @@ export default function MessageComposer({ dealId, people = [], primaryContactId 
         </div>
       )}
 
-      <div className="pp-composer-foot">
-        {attachable && (
-          <>
-            {/* SMS and WhatsApp have no formatting row, so the paperclip
-                stays down here for them; an email's is in its toolbar. */}
-            {!isEmail && (
-              <button type="button" className="pp-composer-icon" title="Attach files" disabled={sending || !person}
-                onClick={() => fileInputRef.current?.click()}>
-                <span className="ms">attach_file</span>
-              </button>
-            )}
-            <input ref={fileInputRef} type="file" multiple hidden accept={ATTACH_ACCEPT}
-              onChange={(e) => { attach(e.target.files); e.target.value = '' }} />
-          </>
-        )}
-        <span className={`pp-composer-status${error || blocked ? ' pp-composer-status-err' : ''}`}>
-          {error || blocked || sent || (comment
-            ? `Saved as a note on ${nameOf(person)} for this deal`
-            : isEmail && signature ? 'Your signature is added when you send' : '')}
-        </span>
-        <button type="button" className="pp-composer-icon" title="Discard" disabled={sending}
-          onClick={() => { reset(); setSent(null) }}>
-          <span className="ms">delete</span>
-        </button>
-        <button type="button" className="pp-composer-send" disabled={!canSend} onClick={send}
-          title={blocked || (comment ? 'Save comment (Ctrl+Enter)' : 'Send (Ctrl+Enter)')}>
-          {sending ? <span className="pp-composer-sending">…</span> : <span className="ms">send</span>}
-        </button>
-      </div>
+      {attachable && (
+        <input ref={fileInputRef} type="file" multiple hidden accept={ATTACH_ACCEPT}
+          onChange={(e) => { attach(e.target.files); e.target.value = '' }} />
+      )}
+
+      {/* The foot. An email's actions are on its formatting row, so for an
+          email this only appears when there is something to say — an error,
+          why it cannot send, or that it went. SMS, WhatsApp and comments have
+          no formatting row, so their paperclip and actions live here. */}
+      {(!emailRow || status) && (
+        <div className="pp-composer-foot">
+          {attachable && !isEmail && (
+            <button type="button" className="pp-composer-icon" title="Attach files" disabled={sending || !person}
+              onClick={() => fileInputRef.current?.click()}>
+              <span className="ms">attach_file</span>
+            </button>
+          )}
+          <span className={`pp-composer-status${error || blocked ? ' pp-composer-status-err' : ''}`}>
+            {status || (comment ? `Saved as a note on ${nameOf(person)} for this deal` : '')}
+          </span>
+          {!emailRow && actions}
+        </div>
+      )}
     </div>
   )
 }

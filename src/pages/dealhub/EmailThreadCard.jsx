@@ -41,7 +41,10 @@ function clock(iso) {
 }
 
 export default function EmailThreadCard({
-  mails, onOpenAttachment, onReplyEmail, selectedIds, onToggleSelect
+  mails, onOpenAttachment, onReplyEmail, selectedIds, onToggleSelect,
+  // The open reply box for this thread, if Reply was clicked on one of its
+  // emails — rendered at the foot of the card.
+  inlineComposer = null
 }) {
   // FULL SCREEN, as GHL does it: the SAME card, lifted into a white
   // 90vw × 90vh container over a dimmed page, with the thread opened to its
@@ -152,6 +155,9 @@ export default function EmailThreadCard({
           last={i === rows.length - 1}
         />
       ))}
+
+      {/* The reply box, inside the thread it answers — where GHL opens it. */}
+      {inlineComposer && <div className="pp-thread-reply">{inlineComposer}</div>}
     </div>
   )
 

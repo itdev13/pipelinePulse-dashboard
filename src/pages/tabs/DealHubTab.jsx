@@ -96,11 +96,9 @@ export default function DealHubTab({
   const [deal, setDeal] = useState(null)
   const [stages, setStages] = useState(null)
   // A reply request for the Co-Pilot composer. The timeline's Reply now opens
-  // the timeline composer instead (replyTarget below), so nothing sets this
-  // today; AskDeal still accepts it until Co-Pilot sending is removed.
+  // a composer inside the thread instead, so nothing sets this today; AskDeal
+  // still accepts it until Co-Pilot sending is removed.
   const [askSeed] = useState(null)
-  // Reply ↩ on a timeline email — opens the timeline composer in that thread.
-  const [replyTarget, setReplyTarget] = useState(null)
 
   // Refetch the TIMELINE ONLY — not the deal, stages or siblings — and
   // re-apply the same toNames decoration the first load does. Used after a
@@ -125,6 +123,12 @@ export default function DealHubTab({
   // 2.5s; a slower provider lands by 6s. Two cheap GETs, no polling loop.
   const onActionConfirmed = useCallback((actionType) => {
     if (actionType !== 'send_message') return
+    window.setTimeout(refreshTimeline, 2500)
+    window.setTimeout(refreshTimeline, 6000)
+  }, [refreshTimeline])
+
+  // Same wait after a send from a timeline composer.
+  const refreshAfterSend = useCallback(() => {
     window.setTimeout(refreshTimeline, 2500)
     window.setTimeout(refreshTimeline, 6000)
   }, [refreshTimeline])
@@ -1658,31 +1662,37 @@ export default function DealHubTab({
               <Timeline
                 messages={filtered}
                 dealId={dealId}
-                // Reply on an email opens the timeline COMPOSER in that thread,
-                // as GHL's reply does — not the Co-Pilot. To is whoever the
-                // email was with: the sender of an inbound one, the recipient
-                // of one we sent. m.messageId is the GHL id the server's reply
-                // lookup keys on; m.id is only the timeline row's own id.
-                onReplyEmail={(m) => {
-                  setReplyTarget({
-                    messageId: m.messageId || m.id,
-                    subject: m.subject || '',
-                    contactId: m.direction === 'inbound' ? m.senderId : (m.toIds || [])[0] || null,
-                    nonce: Date.now()
-                  })
-                }}
+                // Reply on an email opens a composer INSIDE that thread's card,
+                // as GHL's reply does — not the Co-Pilot, and not the one at
+                // the foot of the timeline. To is whoever the email was with:
+                // the sender of an inbound one, the recipient of one we sent.
+                // m.messageId is the GHL id the server's reply lookup keys on;
+                // m.id is only the timeline row's own id, and serves as the
+                // nonce — stable while the box is open, so a re-render does
+                // not reset what the rep is typing.
+                replyComposer={(m, close) => (
+                  <MessageComposer
+                    inline
+                    onClose={close}
+                    dealId={dealId}
+                    people={deal?.people || []}
+                    primaryContactId={deal?.primaryContactId || null}
+                    replyTarget={{
+                      messageId: m.messageId || m.id,
+                      subject: m.subject || '',
+                      contactId: m.direction === 'inbound' ? m.senderId : (m.toIds || [])[0] || null,
+                      nonce: m.id
+                    }}
+                    onSent={refreshAfterSend}
+                  />
+                )}
+                // The composer for a NEW message, at the foot of the timeline.
                 footer={
                   <MessageComposer
                     dealId={dealId}
                     people={deal?.people || []}
                     primaryContactId={deal?.primaryContactId || null}
-                    replyTarget={replyTarget}
-                    // Same wait as a confirmed Co-Pilot send: the message
-                    // comes back by webhook a second or two after GHL takes it.
-                    onSent={() => {
-                      window.setTimeout(refreshTimeline, 2500)
-                      window.setTimeout(refreshTimeline, 6000)
-                    }}
+                    onSent={refreshAfterSend}
                   />
                 }
                 // Every deal on this contact, including won/lost — a manager

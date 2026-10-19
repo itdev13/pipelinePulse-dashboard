@@ -65,12 +65,26 @@ test('the signature is added once', () => {
   assert.match(src, /isEmail && signature && !bodyHtml\.includes\(signature\)/)
 })
 
-test('Reply on a timeline email opens the composer, not Co-Pilot', () => {
-  const reply = tab.slice(tab.indexOf('onReplyEmail={(m) => {'), tab.indexOf('footer={'))
-  assert.match(reply, /setReplyTarget\(\{/)
+test('Reply opens a composer INSIDE the thread card, not at the foot or in Co-Pilot', () => {
+  const reply = tab.slice(tab.indexOf('replyComposer={(m, close) => ('), tab.indexOf('footer={'))
+  assert.match(reply, /<MessageComposer\s*\n\s*inline\s*\n\s*onClose=\{close\}/)
   assert.doesNotMatch(reply, /setAskSeed/)
   // To is whoever the email was with.
   assert.match(reply, /m\.direction === 'inbound' \? m\.senderId : \(m\.toIds \|\| \[\]\)\[0\]/)
+  // A stable nonce, so a re-render does not reset what the rep is typing.
+  assert.match(reply, /nonce: m\.id/)
+  // The foot composer is for new messages only.
+  const foot = tab.slice(tab.indexOf('footer={'), tab.indexOf('dealTargets={siblingDeals}'))
+  assert.doesNotMatch(foot, /replyTarget/)
+  // Timeline opens it in the card whose thread holds the email.
+  assert.match(timeline, /onReplyEmail=\{replyComposer \? setReplyTo : onReplyEmail\}/)
+  assert.match(timeline, /thread\.some\(\(t\) => t\.id === replyTo\.id\)/)
+  const card = readFileSync(new URL('../EmailThreadCard.jsx', import.meta.url), 'utf8')
+  assert.match(card, /\{inlineComposer && <div className="pp-thread-reply">\{inlineComposer\}<\/div>\}/)
+  // Inline: Email only, closed by its X and after sending.
+  assert.match(src, /const \[expanded, setExpanded\] = useState\(inline\)/)
+  assert.match(src, /onClick=\{\(\) => \(onClose \? onClose\(\) : setExpanded\(false\)\)\}/)
+  assert.match(src, /onSent\?\.\(mode\)\s*\n\s*\/\/[^\n]*\n\s*onClose\?\.\(\)/)
 })
 
 test('the composer sits inside the timeline card, after the empty state', () => {
@@ -104,7 +118,11 @@ test('attachments upload on pick and go out as urls', () => {
 
 test("an email's paperclip is on the formatting row; SMS keeps it in the foot", () => {
   assert.match(src, /toolbarExtra=\{\s*\n\s*<button type="button" className="pp-tb-btn" title="Attach files"/)
-  assert.match(src, /\{!isEmail && \(\s*\n\s*<button type="button" className="pp-composer-icon" title="Attach files"/)
+  assert.match(src, /\{attachable && !isEmail && \(\s*\n\s*<button type="button" className="pp-composer-icon" title="Attach files"/)
+  // An email's Discard and Send share that row; its foot only shows a status.
+  assert.match(src, /toolbarEnd=\{<><span className="pp-tb-sep" \/>\{actions\}<\/>\}/)
+  assert.match(src, /\{\(!emailRow \|\| status\) && \(/)
+  assert.match(src, /\{!emailRow && actions\}/)
   // The shared editor only grows a slot; nothing renders without it.
   const editor = readFileSync(new URL('../../shared/RichEditor.jsx', import.meta.url), 'utf8')
   assert.match(editor, /toolbarExtra = null/)
@@ -117,4 +135,12 @@ test('its styles are its own file — no shared rule changes', () => {
   for (const sel of css.match(/^\[data-dealhub\][^{]+/gm)) {
     assert.match(sel, /\.pp-composer/, `selector outside the composer: ${sel.trim()}`)
   }
+})
+
+test('focus shows once, on the card border — gold for a comment', () => {
+  assert.match(src, /className="pp-composer-textarea pp-focus-inherit"/)
+  assert.doesNotMatch(src, /className="pp-composer-input"/)
+  const css = readFileSync(new URL('../composer.css', import.meta.url), 'utf8')
+  assert.match(css, /\.pp-composer \.pp-editor-content:focus-visible \{ box-shadow: none; \}/)
+  assert.match(css, /\.pp-composer-comment:focus-within \{ border-color: var\(--accent-gold-text\); \}/)
 })
