@@ -10,6 +10,7 @@ import MessageDealPill from './MessageDealPill'
 import { noteColourStyle } from '../../utils/noteColour'
 import { MentionText, commentHtmlToText } from '../../utils/mentions.jsx'
 import { useAuth } from '../../context/AuthContext'
+import { useModal } from '../../hooks/useModal'
 import { COMMENT_TITLE } from './MessageComposer'
 
 // One deal's merged message timeline.
@@ -516,7 +517,7 @@ function MessageRow({
                   whiteSpace: 'pre-line', overflowWrap: 'anywhere'
                 }}
               >
-                {isComment ? <MentionText text={m.body} meId={meId} /> : m.body}
+                {isComment ? <MentionText text={String(m.body).trim()} meId={meId} /> : String(m.body).trim()}
               </div>
             ) : null}
 
@@ -530,7 +531,7 @@ function MessageRow({
               (the reassignment control) further out. The old "Inbound /
               Outbound" word is gone — the side says it. */}
           <div style={{
-            display: 'flex', alignItems: 'center', gap: 8, marginTop: 4,
+            display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, lineHeight: 1,
             flexDirection: inbound ? 'row' : 'row-reverse'
           }}>
             <RowTime ts={m.ts} inline />
@@ -584,10 +585,10 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
                 fontSize: 'var(--text-lg)', lineHeight: 'var(--leading-normal)',
                 color: 'var(--text-heading)', whiteSpace: 'pre-line', overflowWrap: 'anywhere'
               }}>
-                <MentionText text={commentHtmlToText(m.body)} meId={meId} />
+                <MentionText text={commentHtmlToText(m.body).trim()} meId={meId} />
               </div>
             )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexDirection: 'row-reverse' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, lineHeight: 1, flexDirection: 'row-reverse' }}>
               <RowTime ts={m.ts} inline />
               {author && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>{author}</span>}
             </div>
@@ -857,6 +858,26 @@ export default function Timeline({
 }) {
   // The email whose thread has its reply box open — one at a time.
   const [replyTo, setReplyTo] = useState(null)
+
+  // FULL SCREEN for the whole timeline — the same treatment a thread card
+  // gets: the card lifted into a 90vw × 90vh dialog over a blurred page,
+  // the rows filling it, the composer docked at the bottom. ⤢ in the
+  // header enters; ⤡, Escape or the backdrop leave. A long deal is easier
+  // to read with the whole screen than inside an 80vh box on a busy page.
+  const [fullScreen, setFullScreen] = useState(false)
+  const modalRef = useModal({ active: fullScreen })
+  useEffect(() => {
+    if (!fullScreen) return undefined
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return
+      // A thread card's own full screen (or an attachment viewer) may be open
+      // on top; its Escape handler owns that press.
+      if (document.querySelectorAll('.pp-backdrop').length > 1) return
+      setFullScreen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [fullScreen])
   // The header counts each kind separately — tasks and notes now share the
   // stream, and folding them into "23 messages" would overstate the thread.
   const msgCount = messages.filter((m) => !m.kind && !m.event).length
@@ -1010,7 +1031,23 @@ export default function Timeline({
     `${peopleCount} ${peopleCount === 1 ? 'person' : 'people'}`
   ].filter(Boolean).join(' · ')
 
-  return (
+  const fullScreenButton = (
+    <button
+      type="button"
+      onClick={() => setFullScreen((v) => !v)}
+      title={fullScreen ? 'Exit full screen' : 'Open the timeline full screen'}
+      aria-label={fullScreen ? 'Exit full screen' : 'Open the timeline full screen'}
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 30, height: 30, border: 0, borderRadius: 'var(--radius-sm)',
+        background: 'rgba(255,255,255,0.18)', color: '#fff', cursor: 'pointer'
+      }}
+    >
+      <span className="ms" style={{ fontSize: 18 }}>{fullScreen ? 'close_fullscreen' : 'open_in_full'}</span>
+    </button>
+  )
+
+  const card = (
     <section
       style={{
         border: '1px solid var(--border-default)',
@@ -1022,9 +1059,15 @@ export default function Timeline({
         // day headers would stick to it — that is, never — instead of the page.
         overflow: 'clip',
         background: '#fff',
+        // Full screen: the card IS the dialog, so it fills it and its scroll
+        // box takes whatever height the header, bar and composer leave.
+        ...(fullScreen ? {
+          height: '100%', display: 'flex', flexDirection: 'column',
+          border: 'none', boxShadow: 'none', borderRadius: 0
+        } : {})
       }}
     >
-      <PanelHead icon="forum" title="Timeline" subtitle={summary} accent="teal" />
+      <PanelHead icon="forum" title="Timeline" subtitle={summary} accent="teal" action={fullScreenButton} />
 
       {/* A bar that says what the checkboxes are for. They were unlabelled, so
           nothing on screen explained that ticking one changes what the agent
@@ -1115,7 +1158,8 @@ export default function Timeline({
           // reaches its end and hands over to the page, and the 20% of page
           // around it scrolls the page directly. Day headers stick to the
           // top of this box.
-          maxHeight: '80vh', overflowY: 'auto', overscrollBehavior: 'auto'
+          overflowY: 'auto', overscrollBehavior: 'auto',
+          ...(fullScreen ? { flex: 1, minHeight: 0 } : { maxHeight: '80vh' })
         }}
         ref={scrollRef}
         // "At the bottom" within a row's height — the pin follows the rep:
@@ -1165,6 +1209,7 @@ export default function Timeline({
                       // With a reply composer, Reply opens it INSIDE this
                       // card; without one, the caller's handler runs.
                       onReplyEmail={replyComposer ? setReplyTo : onReplyEmail}
+                      replyInline={!!replyComposer}
                       inlineComposer={replyComposer && replyTo && thread.some((t) => t.id === replyTo.id)
                         ? replyComposer(replyTo, () => setReplyTo(null))
                         : null}
@@ -1243,5 +1288,38 @@ export default function Timeline({
         />
       )}
     </section>
+  )
+
+  if (!fullScreen) return card
+  return (
+    <>
+      {/* The card's slot keeps a little height while it is lifted out, so
+          the page does not collapse under the overlay. */}
+      <section style={{
+        border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)',
+        minHeight: 120, opacity: 0.35, overflow: 'clip', background: '#fff'
+      }}>
+        <PanelHead icon="forum" title="Timeline" subtitle={summary} accent="teal" />
+      </section>
+      <div
+        className="pp-backdrop pp-backdrop-blur"
+        style={{ zIndex: 55 }}
+        onMouseDown={(e) => { if (e.target === e.currentTarget) setFullScreen(false) }}
+      >
+        <div
+          ref={modalRef}
+          className="pp-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Timeline"
+          style={{
+            width: '94vw', height: '92vh', maxWidth: 'none', maxHeight: 'none',
+            padding: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden'
+          }}
+        >
+          {card}
+        </div>
+      </div>
+    </>
   )
 }

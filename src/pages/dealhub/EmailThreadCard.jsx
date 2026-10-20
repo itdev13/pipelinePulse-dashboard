@@ -42,6 +42,11 @@ function clock(iso) {
 
 export default function EmailThreadCard({
   mails, onOpenAttachment, onReplyEmail, selectedIds, onToggleSelect,
+  // True when Reply opens a box INSIDE this card (Timeline's replyComposer).
+  // Then full screen stays up and the box appears under the emails, where
+  // the rep is already reading; only the Co-Pilot-seeding path, whose
+  // composer is on the page beneath, has to drop out first.
+  replyInline = false,
   // The open reply box for this thread, if Reply was clicked on one of its
   // emails — rendered at the foot of the card.
   inlineComposer = null
@@ -149,7 +154,7 @@ export default function EmailThreadCard({
           // Reply drops out of full screen first: the composer it seeds is on
           // the page underneath, and leaving an overlay up over it would hide
           // the very thing the click opened.
-          onReply={onReplyEmail ? () => { setFullScreen(false); onReplyEmail(r) } : null}
+          onReply={onReplyEmail ? () => { if (!replyInline) setFullScreen(false); onReplyEmail(r) } : null}
           selected={selectedIds ? selectedIds.has(r.id) : null}
           onToggleSelect={onToggleSelect ? () => onToggleSelect(r) : null}
           last={i === rows.length - 1}
