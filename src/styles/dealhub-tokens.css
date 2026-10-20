@@ -3267,3 +3267,17 @@
   background: var(--brand-primary); color: #fff;
   font-family: var(--font-sans); font-size: var(--text-md); font-weight: 600; cursor: pointer;
 }
+
+/* @-mentions inside an internal comment (utils/mentions.js). The signed-in
+   user's own mention is the link blue, as GHL draws "this one is about you";
+   anyone else is the heading colour, bold. */
+[data-dealhub] .pp-mention,
+.pp-portal .pp-mention {
+  font-weight: 600;
+  color: var(--text-heading);
+  white-space: nowrap;
+}
+[data-dealhub] .pp-mention[data-me="1"],
+.pp-portal .pp-mention[data-me="1"] {
+  color: var(--text-link);
+}

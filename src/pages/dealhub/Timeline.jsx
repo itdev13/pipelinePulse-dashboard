@@ -8,6 +8,8 @@ import EmailBody from './EmailBody'
 import EmailThreadCard from './EmailThreadCard'
 import MessageDealPill from './MessageDealPill'
 import { noteColourStyle } from '../../utils/noteColour'
+import { MentionText, commentHtmlToText } from '../../utils/mentions.jsx'
+import { useAuth } from '../../context/AuthContext'
 import { COMMENT_TITLE } from './MessageComposer'
 
 // One deal's merged message timeline.
@@ -369,6 +371,8 @@ function MessageRow({
   // what to do once a message has been moved.
   dealId, dealTargets, onMessageMoved
 }) {
+  // The signed-in user: a comment that mentions THEM is drawn in blue.
+  const meId = useAuth()?.session?.user?.id || null
   const inbound = m.direction === 'inbound'
   const outbound = m.direction === 'outbound'
   const many = m.toIds && m.toIds.length > 1
@@ -484,7 +488,7 @@ function MessageRow({
               } : {})
             }}
           >
-            {m.body}
+            {m.channel === 'INTERNAL' ? <MentionText text={m.body} meId={meId} /> : m.body}
           </div>
         ) : null}
 
@@ -572,6 +576,7 @@ function MessageRow({
 // distinguishable from something the customer said.
 function EntryRow({ m, highlighted, selected, onToggleSelect }) {
   const isNote = m.kind === 'note'
+  const meId = useAuth()?.session?.user?.id || null
   // A comment a colleague left from our composer, saved as a note because
   // GHL's API has no way to create its own internal comments. Drawn as GHL
   // draws a comment — eye badge, gold bubble, no heading — rather than as a
@@ -671,24 +676,30 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
             of metadata, and text-body rather than muted: at 13px muted it was
             the smallest, faintest thing on screen while being the thing you
             actually came to read. */}
-        {m.body && (
-          <div style={isComment ? {
-            // GHL's yellow comment bubble.
+        {m.body && isComment && (
+          // GHL's yellow comment bubble. The body was saved as HTML by the
+          // composer (a <p> per line) — turned back into text here so the
+          // mentions in it can be drawn as mentions.
+          <div style={{
             marginTop: 4, display: 'inline-block', maxWidth: '100%',
             padding: '8px 14px', borderRadius: 'var(--radius-md)',
-            background: 'var(--tint-gold)', border: '1px solid var(--accent-gold)'
-          } : { marginTop: 2 }}>
+            background: 'var(--tint-gold)', border: '1px solid var(--accent-gold)',
+            fontSize: 'var(--text-lg)', lineHeight: 'var(--leading-normal)',
+            color: 'var(--text-heading)', whiteSpace: 'pre-line', overflowWrap: 'anywhere'
+          }}>
+            <MentionText text={commentHtmlToText(m.body)} meId={meId} />
+          </div>
+        )}
+        {m.body && !isComment && (
+          <div style={{ marginTop: 2 }}>
             {/* Snug leading: at 1.55 on 15px the kind label, title, body and
                 meta line sat far enough apart to read as four items. */}
             <RichBody
               html={m.body}
-              color={isComment ? 'var(--text-heading)' : 'var(--text-body)'}
+              color="var(--text-body)"
               size="var(--text-lg)"
               leading="var(--leading-snug)"
               maxWidth={720}
-              // A comment is a sentence or two in a bubble; a "Show plain
-              // text" link under it is a control for a document.
-              showPlainToggle={!isComment}
             />
           </div>
         )}

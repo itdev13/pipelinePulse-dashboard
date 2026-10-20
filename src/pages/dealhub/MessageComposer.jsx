@@ -6,6 +6,9 @@ import { notesAPI } from '../../api/notes'
 import { useAuth } from '../../context/AuthContext'
 import RichEditor from '../shared/RichEditor'
 import RecipientsField from '../../components/RecipientsField'
+import UserMentions from './UserMentions'
+import { findMentionQuery } from './SkillMentions'
+import { mentionMarkup } from '../../utils/mentions.jsx'
 import { isHtmlEmpty } from '../../utils/sanitiseHtml'
 import './composer.css'
 
@@ -155,6 +158,42 @@ export default function MessageComposer({
   const [files, setFiles] = useState([])
   const fileInputRef = useRef(null)
 
+  // ── @-mentions in a comment ───────────────────────────────────────────
+  // The textarea shows "@J srini" as the rep typed it; the GHL markup
+  // (@J srini<userId>…</userId>) is written only on save, from this map of
+  // the names that were picked from the menu — a name typed by hand with
+  // no pick is just text. Users are fetched on the first @, not on mount.
+  const taRef = useRef(null)
+  const [mention, setMention] = useState(null)        // { start, query } | null
+  const [users, setUsers] = useState(null)
+  const [usersLoading, setUsersLoading] = useState(false)
+  const [picked, setPicked] = useState({})            // name -> userId
+  useEffect(() => {
+    if (!mention || users !== null || usersLoading) return
+    setUsersLoading(true)
+    dealsAPI.users()
+      .then((r) => setUsers(r?.users || []))
+      .catch(() => setUsers([]))
+      .finally(() => setUsersLoading(false))
+  }, [mention, users, usersLoading])
+  const syncMention = (value, caret) => setMention(findMentionQuery(value, caret))
+  const pickUser = (u) => {
+    if (!mention) return
+    const ta = taRef.current
+    const caret = ta ? ta.selectionStart : text.length
+    const next = `${text.slice(0, mention.start)}@${u.name} ${text.slice(caret)}`
+    setText(next)
+    setPicked((m) => ({ ...m, [u.name]: u.id }))
+    setMention(null)
+    const pos = mention.start + u.name.length + 2
+    requestAnimationFrame(() => { ta?.focus(); ta?.setSelectionRange(pos, pos) })
+  }
+  // "@Name" → GHL's mention markup, for every name picked from the menu.
+  const withMentionMarkup = (value) => Object.entries(picked).reduce(
+    (acc, [name, id]) => acc.split(`@${name}`).join(mentionMarkup(name, id)),
+    value
+  )
+
   useEffect(() => {
     let alive = true
     providersAPI.list({ scope: 'composable' })
@@ -282,7 +321,7 @@ export default function MessageComposer({
     && (mode === 'comment' || !isEmail || subject.trim())
 
   const reset = () => {
-    setHtml(''); setText('')
+    setHtml(''); setText(''); setPicked({}); setMention(null)
     // The To stays for a follow-up; CC and BCC were for that one email.
     setRcpt((r) => ({ to: r.to, cc: [], bcc: [] }))
     setReply(null); setSubject('')
@@ -321,8 +360,9 @@ export default function MessageComposer({
           contactId: person.id,
           title: COMMENT_TITLE,
           // Trimmed: a trailing newline became an empty <p><br></p>, and the
-          // bubble drew a blank line under every one-line comment.
-          body: textToHtml(text.trim()),
+          // bubble drew a blank line under every one-line comment. Mentions
+          // picked from the @ menu are written in GHL's markup.
+          body: textToHtml(withMentionMarkup(text.trim())),
           opportunityId: dealId,
           // The author, so the timeline row names who wrote it.
           userId: session?.user?.id || undefined
@@ -565,13 +605,42 @@ export default function MessageComposer({
             // Discard and Send on the same row, at the right — GHL's layout.
             toolbarEnd={<><span className="pp-tb-sep" />{actions}</>} />
         ) : (
-          <textarea
-            className="pp-composer-textarea pp-focus-inherit"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows={large ? 12 : 3}
-            placeholder={comment ? 'Internal comment - visible only to your team.' : 'Type a message'}
-          />
+          <div style={{ position: 'relative' }}>
+            {comment && mention && (
+              <UserMentions
+                users={users || []}
+                loading={usersLoading}
+                query={mention.query}
+                onPick={pickUser}
+                onClose={() => setMention(null)}
+                anchorRef={rootRef}
+              />
+            )}
+            <textarea
+              ref={taRef}
+              className="pp-composer-textarea pp-focus-inherit"
+              value={text}
+              onChange={(e) => { setText(e.target.value); if (comment) syncMention(e.target.value, e.target.selectionStart) }}
+              onClick={(e) => { if (comment) syncMention(e.target.value, e.target.selectionStart) }}
+              onKeyUp={(e) => { if (comment && e.key.startsWith('Arrow') && !mention) syncMention(e.target.value, e.target.selectionStart) }}
+              onKeyDown={(e) => {
+                if (!comment || !mention) return
+                // The menu owns arrows, Enter and Escape while open; the
+                // caret stays in the textarea and the keys are relayed.
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                  e.preventDefault()
+                  window.dispatchEvent(new CustomEvent('pp-mention-key', { detail: e.key === 'ArrowDown' ? 'down' : 'up' }))
+                } else if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+                  e.preventDefault()
+                  window.dispatchEvent(new CustomEvent('pp-mention-key', { detail: 'pick' }))
+                } else if (e.key === 'Escape') {
+                  e.preventDefault(); setMention(null)
+                }
+              }}
+              rows={large ? 12 : 3}
+              placeholder={comment ? 'Internal comment - visible only to your team. Type @ to mention a colleague.' : 'Type a message'}
+            />
+          </div>
         )}
       </div>
 
