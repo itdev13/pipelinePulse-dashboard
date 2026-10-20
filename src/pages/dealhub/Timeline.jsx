@@ -441,8 +441,12 @@ function MessageRow({
         : { background: 'var(--tint-sky)' })
   }
 
-  return (
-    <Row id={`tl-${m.id}`} highlighted={highlighted}>
+  // The tick sits BESIDE the bubble, on its open side — right of an inbound
+  // bubble, left of an outbound one — rather than in a column at the far
+  // left of the row. With bubbles on two sides, a tick pinned to the left
+  // edge was a screen-width away from the message it belonged to.
+  const tick = (
+    <span style={{ flex: 'none', alignSelf: 'center' }}>
       <SelectBox
         selected={selected}
         onToggle={() => onToggleSelect && onToggleSelect(m)}
@@ -452,13 +456,18 @@ function MessageRow({
             : 'Not selected — the agent skips this message'
         }
       />
+    </span>
+  )
 
+  return (
+    <Row id={`tl-${m.id}`} highlighted={highlighted}>
       <div style={{
-        gridColumn: '2 / -1', minWidth: 0,
+        gridColumn: '1 / -1', minWidth: 0,
         display: 'flex', alignItems: 'flex-start', gap: 10,
         justifyContent: inbound ? 'flex-start' : 'flex-end'
       }}>
         {inbound && avatar}
+        {!inbound && tick}
 
         <div style={{
           display: 'flex', flexDirection: 'column', minWidth: 0,
@@ -546,6 +555,7 @@ function MessageRow({
           </div>
         </div>
 
+        {inbound && tick}
         {!inbound && avatar}
       </div>
     </Row>
@@ -570,12 +580,14 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
     const author = m.senderName && m.senderName !== 'Unknown' ? m.senderName : ''
     return (
       <Row id={`tl-${m.id}`} highlighted={highlighted} tone="internal">
-        <SelectBox
-          selected={selected}
-          onToggle={() => onToggleSelect && onToggleSelect(m)}
-          title={selected ? 'Selected — the agent reads this comment' : 'Not selected — the agent skips this comment'}
-        />
-        <div style={{ gridColumn: '2 / -1', minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 10, justifyContent: 'flex-end' }}>
+        <div style={{ gridColumn: '1 / -1', minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 10, justifyContent: 'flex-end' }}>
+          <span style={{ flex: 'none', alignSelf: 'center' }}>
+            <SelectBox
+              selected={selected}
+              onToggle={() => onToggleSelect && onToggleSelect(m)}
+              title={selected ? 'Selected — the agent reads this comment' : 'Not selected — the agent skips this comment'}
+            />
+          </span>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: 0, maxWidth: 'min(72%, 760px)' }}>
             {m.body && (
               <div style={{
