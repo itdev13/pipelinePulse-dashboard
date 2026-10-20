@@ -157,3 +157,14 @@ test('focus shows once, on the card border — gold for a comment', () => {
   assert.match(css, /\.pp-composer \.pp-editor-content:focus-visible \{ box-shadow: none; \}/)
   assert.match(css, /\.pp-composer-comment:focus-within \{ border-color: var\(--accent-gold-text\); \}/)
 })
+
+test('Reply scrolls the whole box into view once it has settled', () => {
+  // The box grows after mount (the editor, then the From row when the sender
+  // catalogue loads), so a scroll on the next frame stopped short.
+  assert.match(src, /editor\?\.focus\(\{ preventScroll: true \}\)/)
+  assert.match(src, /new ResizeObserver\(\(\) => \{ window\.clearTimeout\(quiet\); quiet = window\.setTimeout\(reveal, 150\) \}\)/)
+  assert.match(src, /cap = window\.setTimeout\(reveal, 1500\)/)
+  // Smooth, then an instant 'nearest' as the guarantee.
+  assert.match(src, /scrollIntoView\(\{ behavior: 'smooth', block: 'nearest' \}\)/)
+  assert.match(src, /scrollIntoView\(\{ behavior: 'auto', block: 'nearest' \}\), 700\)/)
+})

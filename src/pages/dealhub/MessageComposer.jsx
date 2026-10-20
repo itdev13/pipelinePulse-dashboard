@@ -217,10 +217,45 @@ export default function MessageComposer({
     setReply({ messageId: replyTarget.messageId, subject: replyTarget.subject || '' })
     setExpanded(true)
     setError(null); setSent(null)
-    window.requestAnimationFrame(() => {
+    // Bring the WHOLE box into view, Send included — and KEEP it there while
+    // it settles. Scrolling once was too early: the editor mounts a beat
+    // later, and the From row only appears when the sender catalogue loads,
+    // so the box kept growing after the scroll and its bottom ended below the
+    // timeline's fold. So: wait for the editor, focus it WITHOUT the
+    // browser's own instant jump, then scroll ONCE when the box has stopped
+    // changing size (150ms quiet, 1.5s at most). One smooth scroll to the
+    // final size — re-scrolling on every change restarted the animation and
+    // it never arrived. scrollIntoView moves the timeline's scroll box and
+    // the page as needed.
+    //
+    // Then, 700ms on, an INSTANT 'nearest' as a guarantee: a no-op if the
+    // smooth scroll arrived, and the fix if anything cut it short.
+    let tries = 0
+    let observer = null
+    let quiet = null
+    let cap = null
+    let ensure = null
+    const reveal = () => {
+      observer?.disconnect(); window.clearTimeout(quiet); window.clearTimeout(cap)
       rootRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-      rootRef.current?.querySelector('.ProseMirror')?.focus()
-    })
+      ensure = window.setTimeout(() => rootRef.current?.scrollIntoView({ behavior: 'auto', block: 'nearest' }), 700)
+    }
+    const settle = () => {
+      const root = rootRef.current
+      const editor = root?.querySelector('.ProseMirror')
+      if (!root) return
+      if (!editor && tries++ < 30) { window.requestAnimationFrame(settle); return }
+      editor?.focus({ preventScroll: true })
+      if (typeof ResizeObserver === 'undefined') { reveal(); return }
+      observer = new ResizeObserver(() => { window.clearTimeout(quiet); quiet = window.setTimeout(reveal, 150) })
+      observer.observe(root)
+      cap = window.setTimeout(reveal, 1500)
+    }
+    window.requestAnimationFrame(settle)
+    return () => {
+      observer?.disconnect()
+      window.clearTimeout(quiet); window.clearTimeout(cap); window.clearTimeout(ensure)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replyTarget?.nonce])
 
