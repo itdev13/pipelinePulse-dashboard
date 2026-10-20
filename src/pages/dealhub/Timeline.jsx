@@ -203,7 +203,15 @@ function Row({ id, children, highlighted, tone, dim }) {
 // `soft` is the kind's own tint (tintVar) — the design fills every square
 // with its channel's pastel. `tint` is still the note author's chosen colour
 // and wins when present.
-function RowIcon({ icon, colour, title, tint = null, soft = null }) {
+// `image` is a custom sender's own logo (conversation_providers.icon via the
+// timeline API). A message through WhatsApp QR or iMessage is typed SMS by
+// GHL, so the channel glyph alone drew a chat bubble over a WhatsApp
+// conversation; the provider's logo says what it actually was. The glyph
+// stays as the fallback — the logo is a URL on GHL's storage, and if it
+// does not load the row must still show a channel.
+function RowIcon({ icon, colour, title, tint = null, soft = null, image = null }) {
+  const [broken, setBroken] = useState(false)
+  const showImage = image && !broken
   return (
     <span
       title={title}
@@ -215,13 +223,23 @@ function RowIcon({ icon, colour, title, tint = null, soft = null }) {
         // — see the note on EntryRow. The neutral gray-50 default is what
         // keeps six SMS rows from reading as a wall of orange, so this stays
         // an exception rather than becoming the rule.
-        background: tint || soft || 'var(--gray-50)',
+        background: showImage ? '#fff' : (tint || soft || 'var(--gray-50)'),
+        border: showImage ? '1px solid var(--border-default)' : 'none',
         // On an author's pastel the channel accent loses contrast, so the
         // glyph goes dark. Only a normalised hex ever reaches here.
         color: tint ? 'var(--text-heading)' : colour
       }}
     >
-      <span className="ms" style={{ fontSize: 18 }}>{icon}</span>
+      {showImage ? (
+        <img
+          src={image}
+          alt=""
+          onError={() => setBroken(true)}
+          style={{ width: 22, height: 22, objectFit: 'contain', display: 'block' }}
+        />
+      ) : (
+        <span className="ms" style={{ fontSize: 18 }}>{icon}</span>
+      )}
     </span>
   )
 }
@@ -338,6 +356,9 @@ function MessageRow({
         icon={m.channelIcon}
         colour={accentTextVar(m.channelAccent)}
         soft={tintVar(m.channelAccent)}
+        // A custom sender's logo in place of the channel glyph; native
+        // senders have none and keep the glyph.
+        image={m.providerIsNative ? null : m.providerIcon}
         title={channelLabelOf(m)}
       />
 
