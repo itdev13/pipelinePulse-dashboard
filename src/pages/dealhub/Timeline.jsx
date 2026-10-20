@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import PanelHead from './PanelHead'
 import { RichBody, StateMessage, AttachmentCount, Truncate, formatDue, initialsFor } from '../shared/ListChrome'
-import AttachmentChip from './AttachmentChip'
+import MessageAttachments from './MessageAttachments'
 import AttachmentViewer from './AttachmentViewer'
 import EmailThreadModal from './EmailThreadModal'
 import EmailBody from './EmailBody'
@@ -218,20 +218,47 @@ function Row({ id, children, highlighted, tone, dim }) {
 // both as text; now the avatar is the header, so the facts live on hover.
 function SenderAvatar({ name, inbound, icon, colour, image, title, badgeTitle }) {
   const [broken, setBroken] = useState(false)
+  // Which tooltip is up: the circle's (who) or the badge's (which channel).
+  // Drawn as the app's own dark pill, not the browser's title bubble — the
+  // native one arrives late, in the OS font, and GHL's inbox uses a pill.
+  const [tip, setTip] = useState(null)
   const showImage = image && !broken
+  const pill = {
+    position: 'absolute', bottom: 'calc(100% + 8px)', zIndex: 5,
+    whiteSpace: 'nowrap', pointerEvents: 'none',
+    padding: '6px 11px', borderRadius: 'var(--radius-sm)',
+    background: 'var(--gray-800)', color: '#fff',
+    fontSize: 'var(--text-sm)', fontWeight: 500, lineHeight: 1.2,
+    boxShadow: 'var(--shadow-raised)'
+  }
   return (
-    <span className="pp-mail-avatar" data-inbound={inbound ? '1' : '0'} title={title} style={{ width: 36, height: 36 }}>
+    <span
+      className="pp-mail-avatar"
+      data-inbound={inbound ? '1' : '0'}
+      style={{ width: 36, height: 36 }}
+      onMouseEnter={() => setTip('me')}
+      onMouseLeave={() => setTip(null)}
+    >
       {initialsFor(name || '?')}
+      {tip === 'me' && title && (
+        <span role="tooltip" style={{ ...pill, left: '50%', transform: 'translateX(-50%)' }}>{title}</span>
+      )}
       <span
         className="pp-mail-avatar-badge"
-        title={badgeTitle || undefined}
-        style={{ width: 18, height: 18, color: colour, overflow: 'hidden' }}
+        style={{ width: 18, height: 18, color: colour, overflow: 'visible' }}
+        onMouseEnter={() => setTip('badge')}
+        onMouseLeave={() => setTip('me')}
       >
-        {showImage ? (
-          <img src={image} alt="" onError={() => setBroken(true)}
-            style={{ width: 14, height: 14, objectFit: 'contain', display: 'block' }} />
-        ) : (
-          <span className="ms" style={{ fontSize: 12 }}>{icon}</span>
+        <span style={{ display: 'inline-flex', width: 18, height: 18, borderRadius: '50%', overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+          {showImage ? (
+            <img src={image} alt="" onError={() => setBroken(true)}
+              style={{ width: 14, height: 14, objectFit: 'contain', display: 'block' }} />
+          ) : (
+            <span className="ms" style={{ fontSize: 12 }}>{icon}</span>
+          )}
+        </span>
+        {tip === 'badge' && badgeTitle && (
+          <span role="tooltip" style={{ ...pill, right: -6 }}>{badgeTitle}</span>
         )}
       </span>
     </span>
@@ -374,8 +401,44 @@ function MessageRow({
   // The signed-in user: a comment that mentions THEM is drawn in blue.
   const meId = useAuth()?.session?.user?.id || null
   const inbound = m.direction === 'inbound'
-  const outbound = m.direction === 'outbound'
   const many = m.toIds && m.toIds.length > 1
+
+  // CHAT LAYOUT, as GHL's inbox: what the customer sent sits on the left
+  // with their avatar beside it, what we sent sits on the right with ours,
+  // and the time hangs under the bubble on its own side. The old layout gave
+  // every message the full row width with the avatar always on the left, so
+  // a conversation read as a list rather than an exchange — which way a
+  // message went was a tooltip and a colour, not a glance.
+  const isComment = m.channel === 'INTERNAL'
+  const isEmail = m.channel === 'EMAIL'
+  const hasText = !!m.body || (m.isCall && !m.body)
+  const avatar = (
+    <SenderAvatar
+      name={m.senderName}
+      inbound={inbound}
+      icon={m.channelIcon}
+      colour={accentTextVar(m.channelAccent)}
+      // A custom sender's logo in the badge; native senders have none
+      // and show the channel glyph.
+      image={m.providerIsNative ? null : m.providerIcon}
+      title={`${m.senderName || 'Unknown'} · ${inbound ? 'received from the customer' : 'sent by us'}`}
+      badgeTitle={isComment ? 'Internal comment · only visible to your team' : channelLabelOf(m)}
+    />
+  )
+  // Inbound grey, outbound the pale blue, an internal comment gold with its
+  // border — GHL's three bubble colours. The corner nearest the avatar is
+  // squared off so the bubble points at who said it.
+  const bubble = isEmail ? {} : {
+    maxWidth: '100%', boxSizing: 'border-box',
+    padding: hasText ? '10px 14px' : 6,
+    borderRadius: 12,
+    ...(inbound ? { borderTopLeftRadius: 4 } : { borderTopRightRadius: 4 }),
+    ...(isComment
+      ? { background: 'var(--tint-gold)', border: '1px solid var(--accent-gold)' }
+      : inbound
+        ? { background: 'var(--gray-100)' }
+        : { background: 'var(--tint-sky)' })
+  }
 
   return (
     <Row id={`tl-${m.id}`} highlighted={highlighted}>
@@ -388,186 +451,102 @@ function MessageRow({
             : 'Not selected — the agent skips this message'
         }
       />
-      <SenderAvatar
-        name={m.senderName}
-        inbound={inbound}
-        icon={m.channelIcon}
-        colour={accentTextVar(m.channelAccent)}
-        // A custom sender's logo in the badge; native senders have none
-        // and show the channel glyph.
-        image={m.providerIsNative ? null : m.providerIcon}
-        title={`${m.senderName || 'Unknown'} · ${inbound ? 'received from the customer' : 'sent by us'}`}
-        badgeTitle={channelLabelOf(m)}
-      />
 
-      <div style={{ minWidth: 0 }}>
-        {/* NO HEADER LINE. The sender's name, the direction and the channel
-            used to sit here as text; the avatar on the left now carries all
-            three — initials and inbound/outbound colour on the circle, the
-            channel on its badge, the full words on hover. What remains are
-            the two flags that have no other home. */}
-        {(m.ambiguous || many) && (
-        <div
-          style={{
-            display: 'flex', alignItems: 'center', gap: 7,
-            flexWrap: 'wrap', marginBottom: 1
-          }}
-        >
-          {/* DIRECTION AS AN ARROW, on the left.
-              It was a coloured dot for the sender plus the word "In"/"Out"
-              wedged between the name and the channel — a two-letter
-              abbreviation in the middle of a sentence, easy to miss and easy
-              to misread ("Out" beside "Email" scans as a compound noun).
-              An arrow reads instantly at a glance and is the universal
-              convention for message direction; the sender's colour moves
-              onto it, so nothing is lost. */}
-          {m.ambiguous && (
-            <span
-              title="This contact has more than one open deal, so this message's filing is a guess"
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4,
-                fontSize: 'var(--text-sm)', fontWeight: 600,
-                color: 'var(--accent-gold-text)'
-              }}
-            >
-              <span className="ms" style={{ fontSize: 13 }}>help</span>
-              Which opportunity?
-            </span>
+      <div style={{
+        gridColumn: '2 / -1', minWidth: 0,
+        display: 'flex', alignItems: 'flex-start', gap: 10,
+        justifyContent: inbound ? 'flex-start' : 'flex-end'
+      }}>
+        {inbound && avatar}
+
+        <div style={{
+          display: 'flex', flexDirection: 'column', minWidth: 0,
+          alignItems: inbound ? 'flex-start' : 'flex-end',
+          // An email keeps the full width — it is a document, not a line of
+          // chat. Everything else wraps at roughly two thirds, as GHL does.
+          maxWidth: isEmail ? '100%' : 'min(72%, 760px)',
+          flex: isEmail ? 1 : '0 1 auto'
+        }}>
+          {/* The two flags that have no other home. */}
+          {(m.ambiguous || many) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 4 }}>
+              {m.ambiguous && (
+                <span
+                  title="This contact has more than one open deal, so this message's filing is a guess"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    fontSize: 'var(--text-sm)', fontWeight: 600,
+                    color: 'var(--accent-gold-text)'
+                  }}
+                >
+                  <span className="ms" style={{ fontSize: 13 }}>help</span>
+                  Which opportunity?
+                </span>
+              )}
+              {many && (
+                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
+                  to {m.toIds.length} people
+                </span>
+              )}
+            </div>
           )}
-          {many && (
-            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-faint)' }}>
-              to {m.toIds.length} people
-            </span>
-          )}
-        </div>
-        )}
 
-        {m.isCall && !m.body && (
-          <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
-            Call · {m.callDurationMin ? `${m.callDurationMin} min` : 'unknown length'}
-            {' · '}no transcript, so the agent cannot read it
-          </span>
-        )}
+          <div style={bubble}>
+            {m.isCall && !m.body && (
+              <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
+                Call · {m.callDurationMin ? `${m.callDurationMin} min` : 'unknown length'}
+                {' · '}no transcript, so the agent cannot read it
+              </span>
+            )}
 
-        {/* EMAIL gets its own treatment. An email is not a chat message:
-            it has a subject, addressed recipients, and a body that runs to
-            paragraphs. Rendered as a plain message it swamped the SMS and
-            call rows around it — a 400-word project update pushed everything
-            else off screen.
-            Collapsed to subject + one preview line, expanding on click. */}
-        {/* AN EMAIL ALWAYS GETS THE CARD, body or not.
-            This was `m.channel === 'EMAIL' && m.body`, so an email with an
-            empty body — GHL sends `<div></div>` when someone sends only an
-            attachment — fell through to the plain branch, which also requires
-            a body, and rendered NOTHING. The row showed a bare
-            "Us · Out · Email" header with no subject, no attachment and no
-            thread chip, while GHL displayed the image fine.
-            The subject, the addresses, the attachments and the thread link
-            are all worth showing on their own; the body is just one of them. */}
-        {m.channel === 'EMAIL' ? (
-          <EmailBody
-            m={m}
-            thread={thread}
-            onOpenThread={onOpenThread}
-            onOpenAttachment={onOpenAttachment}
-          />
-        ) : m.body ? (
-          <div
-            style={{
-              fontSize: 'var(--text-lg)', lineHeight: 'var(--leading-normal)',
-              color: 'var(--text-body)',
-              whiteSpace: 'pre-line', overflowWrap: 'anywhere',
-              // An internal comment is GHL's yellow bubble: a note a
-              // colleague left on the conversation that the customer never
-              // saw. Drawn as one so it is never mistaken for something sent.
-              ...(m.channel === 'INTERNAL' ? {
-                display: 'inline-block', maxWidth: '100%',
-                padding: '8px 14px', borderRadius: 'var(--radius-md)',
-                background: 'var(--tint-gold)', border: '1px solid var(--accent-gold)',
-                color: 'var(--text-heading)'
-              } : {})
-            }}
-          >
-            {m.channel === 'INTERNAL' ? <MentionText text={m.body} meId={meId} /> : m.body}
-          </div>
-        ) : null}
-
-        {/* NOT for email: EmailBody renders those inside the card, as a count
-            when collapsed and as chips when expanded. Rendering them here too
-            would show every file twice, and outside the card they would read
-            as belonging to the row rather than to the email. */}
-        {m.channel !== 'EMAIL' && m.attachments?.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 5 }}>
-            {m.attachments.map((att, i) => (
-              <AttachmentChip
-                key={`${att.name}-${i}`}
-                att={att}
-                channelAccent={m.channelAccent}
-                onClick={() => onOpenAttachment(m.attachments, i)}
+            {/* An email that still reaches this row (every email normally
+                draws as the thread card above) keeps its own card. */}
+            {isEmail ? (
+              <EmailBody
+                m={m}
+                thread={thread}
+                onOpenThread={onOpenThread}
+                onOpenAttachment={onOpenAttachment}
               />
-            ))}
+            ) : m.body ? (
+              <div
+                style={{
+                  fontSize: 'var(--text-lg)', lineHeight: 'var(--leading-normal)',
+                  color: 'var(--text-heading)',
+                  whiteSpace: 'pre-line', overflowWrap: 'anywhere'
+                }}
+              >
+                {isComment ? <MentionText text={m.body} meId={meId} /> : m.body}
+              </div>
+            ) : null}
+
+            {/* NOT for email: EmailBody renders those inside the card. */}
+            {!isEmail && m.attachments?.length > 0 && (
+              <MessageAttachments attachments={m.attachments} onOpen={onOpenAttachment} />
+            )}
           </div>
-        )}
+
+          {/* Under the bubble, on its side: the time, then the deal pill
+              (the reassignment control) further out. The old "Inbound /
+              Outbound" word is gone — the side says it. */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, marginTop: 4,
+            flexDirection: inbound ? 'row' : 'row-reverse'
+          }}>
+            <RowTime ts={m.ts} inline />
+            {dealId && m.messageId && (
+              <MessageDealPill
+                message={m}
+                dealId={dealId}
+                targets={dealTargets}
+                onMoved={onMessageMoved}
+              />
+            )}
+          </div>
+        </div>
+
+        {!inbound && avatar}
       </div>
-
-      {/* Direction spelled out, then the time — ONE line, not two.
-          Stacked, the label sat under the time and gave every row a second
-          line of chrome, which on a dense timeline read as more prominent
-          than the message itself. Inline it stays scannable down the column
-          while costing the row no extra height.
-
-          The label comes FIRST so the times still align on the right edge:
-          "Outbound" and "Inbound" are different widths, and putting the
-          variable-width element on the outside would leave the timestamps
-          ragged. */}
-      <span
-        style={{
-          // CENTER, not baseline.
-          //
-          // The deal pill is a bordered box; the label and time are bare
-          // text. Baseline alignment lines up the TEXT INSIDE the pill with
-          // its neighbours, which pushes the pill's box a couple of pixels
-          // proud — and beside a tall email card that reads as the pill
-          // having dropped onto its own line.
-          //
-          // nowrap as well: the pill plus "OUTBOUND 12:32" is wider than the
-          // auto column wants to be, and this group must stay one line.
-          display: 'flex', alignItems: 'center', gap: 6,
-          flex: 'none', whiteSpace: 'nowrap', flexWrap: 'nowrap',
-          // Aligned to the TOP of the row so it sits level with the first
-          // line of the message, not floating beside the middle of a tall
-          // email card.
-          alignSelf: 'start'
-        }}
-      >
-        {/* Attribution first, then direction, then the time.
-            Reading right to left the time is the fixed anchor, direction is
-            the fast scan, and the deal pill is the detail — so the pill goes
-            on the OUTSIDE where it has room to be a control, and the times
-            still align down the column. */}
-        {dealId && m.messageId && (
-          <MessageDealPill
-            message={m}
-            dealId={dealId}
-            targets={dealTargets}
-            onMoved={onMessageMoved}
-          />
-        )}
-        {(inbound || outbound) && (
-          <span
-            style={{
-              // A word, not a label: "Outbound" in sentence case at the
-              // metadata size, as the design sets it — the tiny uppercase
-              // version read as a tag rather than as a fact about the row.
-              fontSize: 'var(--text-base)', fontWeight: 500,
-              color: inbound ? 'var(--accent-pine-text)' : 'var(--text-muted)'
-            }}
-          >
-            {inbound ? 'Inbound' : 'Outbound'}
-          </span>
-        )}
-        <RowTime ts={m.ts} inline />
-      </span>
     </Row>
   )
 }
@@ -582,6 +561,49 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
   // draws a comment — eye badge, gold bubble, no heading — rather than as a
   // note titled "Internal comment".
   const isComment = isInternalCommentRow(m)
+
+  // A comment written from our composer is OURS, so it sits on the right
+  // like every outbound message — same bubble, same avatar-on-the-right,
+  // same time underneath — instead of the full-width note layout.
+  if (isComment) {
+    const author = m.senderName && m.senderName !== 'Unknown' ? m.senderName : ''
+    return (
+      <Row id={`tl-${m.id}`} highlighted={highlighted} tone="internal">
+        <SelectBox
+          selected={selected}
+          onToggle={() => onToggleSelect && onToggleSelect(m)}
+          title={selected ? 'Selected — the agent reads this comment' : 'Not selected — the agent skips this comment'}
+        />
+        <div style={{ gridColumn: '2 / -1', minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 10, justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: 0, maxWidth: 'min(72%, 760px)' }}>
+            {m.body && (
+              <div style={{
+                maxWidth: '100%', boxSizing: 'border-box', padding: '10px 14px',
+                borderRadius: 12, borderTopRightRadius: 4,
+                background: 'var(--tint-gold)', border: '1px solid var(--accent-gold)',
+                fontSize: 'var(--text-lg)', lineHeight: 'var(--leading-normal)',
+                color: 'var(--text-heading)', whiteSpace: 'pre-line', overflowWrap: 'anywhere'
+              }}>
+                <MentionText text={commentHtmlToText(m.body)} meId={meId} />
+              </div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexDirection: 'row-reverse' }}>
+              <RowTime ts={m.ts} inline />
+              {author && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>{author}</span>}
+            </div>
+          </div>
+          <SenderAvatar
+            name={author}
+            inbound={false}
+            icon="visibility"
+            colour={accentTextVar('gold')}
+            title={author || 'Unknown author'}
+            badgeTitle="Internal comment · only visible to your team"
+          />
+        </div>
+      </Row>
+    )
+  }
   // A note's own colour, when its author set one.
   //
   // ON THE ICON SQUARE ONLY, deliberately. The rail gives a coloured note a
@@ -615,7 +637,8 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
           inbound={false}
           icon="visibility"
           colour={accentTextVar('gold')}
-          title="Internal comment — seen by your team, never the customer"
+          title={m.senderName && m.senderName !== 'Unknown' ? m.senderName : 'Unknown author'}
+          badgeTitle="Internal comment · only visible to your team"
         />
       ) : (
         <RowIcon

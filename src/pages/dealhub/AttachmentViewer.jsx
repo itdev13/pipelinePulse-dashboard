@@ -32,8 +32,17 @@ import { Truncate } from '../shared/ListChrome'
 function kindOf(att) {
   const name = String(att?.name || att?.url || '')
   const ext = (name.split('?')[0].split('.').pop() || '').toLowerCase()
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'bmp', 'svg'].includes(ext)) return 'image'
+  const ct = String(att?.contentType || '').toLowerCase()
+  if (ct.startsWith('image/')) return 'image'
+  if (ct.startsWith('video/')) return 'video'
+  if (ct === 'application/pdf') return 'pdf'
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'bmp', 'svg', 'heic'].includes(ext)) return 'image'
+  if (['mp4', 'mov', 'webm', 'm4v', 'mpeg', 'mpg', '3gp'].includes(ext)) return 'video'
   if (ext === 'pdf') return 'pdf'
+  // No extension at all — GHL's storage URLs end in "attachment". The tile
+  // that opened this already showed it as a picture, so try it as one here
+  // too; a decode failure still lands on the card.
+  if (!ext || ext === 'attachment' || ext.includes('/')) return 'image'
   return 'file'
 }
 
@@ -144,6 +153,17 @@ export default function AttachmentViewer({
               className="pp-att-img"
               // The fallback path. An expired signed URL, a deleted file and a
               // wrong extension all land here.
+              onError={() => setFailed(true)}
+            />
+          )}
+
+          {kind === 'video' && (
+            <video
+              src={att.url}
+              className="pp-att-img"
+              controls
+              autoPlay
+              playsInline
               onError={() => setFailed(true)}
             />
           )}

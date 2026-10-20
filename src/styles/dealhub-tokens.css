@@ -3284,3 +3284,12 @@
   color: var(--accent-sky-text);
   font-weight: 600;
 }
+
+/* Attachment tiles (MessageAttachments.jsx): the download button and the
+   gentle zoom appear on hover, as in GHL's inbox. */
+[data-dealhub] .pp-att-tile .pp-att-dl,
+.pp-portal .pp-att-tile .pp-att-dl { opacity: 0; transition: opacity 150ms ease; }
+[data-dealhub] .pp-att-tile:hover .pp-att-dl,
+.pp-portal .pp-att-tile:hover .pp-att-dl { opacity: 1; }
+[data-dealhub] .pp-att-tile .pp-att-thumb { transition: transform 200ms ease; }
+[data-dealhub] .pp-att-tile:hover .pp-att-thumb { transform: scale(1.03); }
