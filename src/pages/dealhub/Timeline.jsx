@@ -441,11 +441,10 @@ function MessageRow({
         : { background: 'var(--tint-sky)' })
   }
 
-  // The tick sits next to the AVATAR, between it and the bubble, level with
-  // the avatar's centre — for an outbound row: bubble, tick, avatar; for an
-  // inbound one: avatar, tick, bubble. Beside the sender rather than the
-  // text, so it reads as "this person's message counts" and stays put while
-  // the bubble's height varies.
+  // The tick sits on the OUTSIDE of the avatar, level with its centre — an
+  // outbound row reads bubble, avatar, tick; an inbound one tick, avatar,
+  // bubble. At the row's edge it never crowds the bubble, and it stays put
+  // while the bubble's height varies.
   const tick = (
     <span style={{ flex: 'none', alignSelf: 'flex-start', marginTop: 8 }}>
       <SelectBox
@@ -467,8 +466,8 @@ function MessageRow({
         display: 'flex', alignItems: 'flex-start', gap: 10,
         justifyContent: inbound ? 'flex-start' : 'flex-end'
       }}>
-        {inbound && avatar}
         {inbound && tick}
+        {inbound && avatar}
 
         <div style={{
           display: 'flex', flexDirection: 'column', minWidth: 0,
@@ -556,8 +555,8 @@ function MessageRow({
           </div>
         </div>
 
-        {!inbound && tick}
         {!inbound && avatar}
+        {!inbound && tick}
       </div>
     </Row>
   )
@@ -599,13 +598,6 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
               {author && <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>{author}</span>}
             </div>
           </div>
-          <span style={{ flex: 'none', alignSelf: 'flex-start', marginTop: 8 }}>
-            <SelectBox
-              selected={selected}
-              onToggle={() => onToggleSelect && onToggleSelect(m)}
-              title={selected ? 'Selected — the agent reads this comment' : 'Not selected — the agent skips this comment'}
-            />
-          </span>
           <SenderAvatar
             name={author}
             inbound={false}
@@ -614,6 +606,13 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
             title={author || 'Unknown author'}
             badgeTitle="Internal comment · only visible to your team"
           />
+          <span style={{ flex: 'none', alignSelf: 'flex-start', marginTop: 8 }}>
+            <SelectBox
+              selected={selected}
+              onToggle={() => onToggleSelect && onToggleSelect(m)}
+              title={selected ? 'Selected — the agent reads this comment' : 'Not selected — the agent skips this comment'}
+            />
+          </span>
         </div>
       </Row>
     )
