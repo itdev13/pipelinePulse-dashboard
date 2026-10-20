@@ -35,6 +35,7 @@ function accentTextVar(accent) {
 const CH_LABEL = {
   EMAIL: 'Email', SMS: 'SMS', WHATSAPP: 'WhatsApp', IMESSAGE: 'iMessage',
   CALL: 'Call', NOTE: 'Note', ANALYSIS: 'Analysis', TASK: 'Task', SYSTEM: 'System',
+  INTERNAL: 'Internal comment',
 }
 
 // An email in the timeline: subject, one preview line, expand for the rest.
@@ -481,7 +482,16 @@ function MessageRow({
             style={{
               fontSize: 'var(--text-lg)', lineHeight: 'var(--leading-normal)',
               color: 'var(--text-body)',
-              whiteSpace: 'pre-line', overflowWrap: 'anywhere'
+              whiteSpace: 'pre-line', overflowWrap: 'anywhere',
+              // An internal comment is GHL's yellow bubble: a note a
+              // colleague left on the conversation that the customer never
+              // saw. Drawn as one so it is never mistaken for something sent.
+              ...(m.channel === 'INTERNAL' ? {
+                display: 'inline-block', maxWidth: '100%',
+                padding: '8px 14px', borderRadius: 'var(--radius-md)',
+                background: 'var(--tint-gold)', border: '1px solid var(--accent-gold)',
+                color: 'var(--text-heading)'
+              } : {})
             }}
           >
             {m.body}

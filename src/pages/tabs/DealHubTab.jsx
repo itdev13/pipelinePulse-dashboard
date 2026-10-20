@@ -38,6 +38,9 @@ const CHANNEL_CHIPS = [
   ['iMessage', 'IMESSAGE'],
   ['Call',     'CALL'],
   ['Note',     'NOTE'],
+  // A colleague's comment on the conversation in GHL's inbox — seen by the
+  // team, never by the customer. Beside Note because that is what it is.
+  ['Internal comment', 'INTERNAL'],
   ['Task',     'TASK'],
   // A CUSTOM message whose provider we could not resolve. Rare, but without a
   // chip those rows are unreachable: they'd count toward All and no filter
