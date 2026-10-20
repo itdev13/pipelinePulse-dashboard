@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import PanelHead from './PanelHead'
-import { RichBody, StateMessage, AttachmentCount, Truncate, formatDue } from '../shared/ListChrome'
+import { RichBody, StateMessage, AttachmentCount, Truncate, formatDue, initialsFor } from '../shared/ListChrome'
 import AttachmentChip, { accentVar } from './AttachmentChip'
 import AttachmentViewer from './AttachmentViewer'
 import EmailThreadModal from './EmailThreadModal'
@@ -37,6 +37,7 @@ function accentTextVar(accent) {
 const CH_LABEL = {
   EMAIL: 'Email', SMS: 'SMS', WHATSAPP: 'WhatsApp', IMESSAGE: 'iMessage',
   CALL: 'Call', NOTE: 'Note', ANALYSIS: 'Analysis', TASK: 'Task', SYSTEM: 'System',
+  INTERNAL: 'Internal comment',
 }
 
 // An email in the timeline: subject, one preview line, expand for the rest.
@@ -205,7 +206,42 @@ function Row({ id, children, highlighted, tone, dim }) {
 // `soft` is the kind's own tint (tintVar) — the design fills every square
 // with its channel's pastel. `tint` is still the note author's chosen colour
 // and wins when present.
-function RowIcon({ icon, colour, title, tint = null, soft = null }) {
+// The sender as GHL's own inbox draws it: initials in a circle, with a small
+// badge on the corner saying which channel carried the message — the custom
+// sender's logo (WhatsApp QR, iMessage) when there is one, the channel glyph
+// otherwise. Same shape as the thread card's email avatar (.pp-mail-avatar),
+// so an SMS row and an email row read as the same kind of thing. Inbound is
+// sky, outbound plum, matching the thread card.
+function SenderAvatar({ name, inbound, icon, colour, image, title }) {
+  const [broken, setBroken] = useState(false)
+  const showImage = image && !broken
+  return (
+    <span className="pp-mail-avatar" data-inbound={inbound ? '1' : '0'} title={title} style={{ width: 36, height: 36 }}>
+      {initialsFor(name || '?')}
+      <span
+        className="pp-mail-avatar-badge"
+        style={{ width: 18, height: 18, color: colour, overflow: 'hidden' }}
+      >
+        {showImage ? (
+          <img src={image} alt="" onError={() => setBroken(true)}
+            style={{ width: 14, height: 14, objectFit: 'contain', display: 'block' }} />
+        ) : (
+          <span className="ms" style={{ fontSize: 12 }}>{icon}</span>
+        )}
+      </span>
+    </span>
+  )
+}
+
+// `image` is a custom sender's own logo (conversation_providers.icon via the
+// timeline API). A message through WhatsApp QR or iMessage is typed SMS by
+// GHL, so the channel glyph alone drew a chat bubble over a WhatsApp
+// conversation; the provider's logo says what it actually was. The glyph
+// stays as the fallback — the logo is a URL on GHL's storage, and if it
+// does not load the row must still show a channel.
+function RowIcon({ icon, colour, title, tint = null, soft = null, image = null }) {
+  const [broken, setBroken] = useState(false)
+  const showImage = image && !broken
   return (
     <span
       title={title}
@@ -217,13 +253,23 @@ function RowIcon({ icon, colour, title, tint = null, soft = null }) {
         // — see the note on EntryRow. The neutral gray-50 default is what
         // keeps six SMS rows from reading as a wall of orange, so this stays
         // an exception rather than becoming the rule.
-        background: tint || soft || 'var(--gray-50)',
+        background: showImage ? '#fff' : (tint || soft || 'var(--gray-50)'),
+        border: showImage ? '1px solid var(--border-default)' : 'none',
         // On an author's pastel the channel accent loses contrast, so the
         // glyph goes dark. Only a normalised hex ever reaches here.
         color: tint ? 'var(--text-heading)' : colour
       }}
     >
-      <span className="ms" style={{ fontSize: 18 }}>{icon}</span>
+      {showImage ? (
+        <img
+          src={image}
+          alt=""
+          onError={() => setBroken(true)}
+          style={{ width: 22, height: 22, objectFit: 'contain', display: 'block' }}
+        />
+      ) : (
+        <span className="ms" style={{ fontSize: 18 }}>{icon}</span>
+      )}
     </span>
   )
 }
@@ -336,10 +382,14 @@ function MessageRow({
             : 'Not selected — the agent skips this message'
         }
       />
-      <RowIcon
+      <SenderAvatar
+        name={m.senderName}
+        inbound={inbound}
         icon={m.channelIcon}
         colour={accentTextVar(m.channelAccent)}
-        soft={tintVar(m.channelAccent)}
+        // A custom sender's logo in the badge; native senders have none
+        // and show the channel glyph.
+        image={m.providerIsNative ? null : m.providerIcon}
         title={channelLabelOf(m)}
       />
 
@@ -434,7 +484,16 @@ function MessageRow({
             style={{
               fontSize: 'var(--text-lg)', lineHeight: 'var(--leading-normal)',
               color: 'var(--text-body)',
-              whiteSpace: 'pre-line', overflowWrap: 'anywhere'
+              whiteSpace: 'pre-line', overflowWrap: 'anywhere',
+              // An internal comment is GHL's yellow bubble: a note a
+              // colleague left on the conversation that the customer never
+              // saw. Drawn as one so it is never mistaken for something sent.
+              ...(m.channel === 'INTERNAL' ? {
+                display: 'inline-block', maxWidth: '100%',
+                padding: '8px 14px', borderRadius: 'var(--radius-md)',
+                background: 'var(--tint-gold)', border: '1px solid var(--accent-gold)',
+                color: 'var(--text-heading)'
+              } : {})
             }}
           >
             {m.body}
@@ -525,6 +584,11 @@ function MessageRow({
 // distinguishable from something the customer said.
 function EntryRow({ m, highlighted, selected, onToggleSelect }) {
   const isNote = m.kind === 'note'
+  // A comment a colleague left from our composer, saved as a note because
+  // GHL's API has no way to create its own internal comments. Drawn as GHL
+  // draws a comment — eye badge, gold bubble, no heading — rather than as a
+  // note titled "Internal comment".
+  const isComment = isNote && m.isInternalComment
   // A note's own colour, when its author set one.
   //
   // ON THE ICON SQUARE ONLY, deliberately. The rail gives a coloured note a
@@ -555,9 +619,10 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
         soft={tintVar(m.channelAccent)}
         tint={noteCol.tint}
         title={
-          noteCol.name
-            ? `${noteCol.name} note`
-            : (isNote ? 'Note' : 'Task')
+          isComment ? 'Internal comment — seen by your team, never the customer'
+            : noteCol.name
+              ? `${noteCol.name} note`
+              : (isNote ? 'Note' : 'Task')
         }
       />
 
@@ -577,7 +642,7 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
               textTransform: 'uppercase', color: accentTextVar(m.channelAccent)
             }}
           >
-            {isNote ? 'Note' : 'Task'}
+            {isComment ? 'Internal comment' : isNote ? 'Note' : 'Task'}
           </span>
           {isNote && m.isAi && <Badge tone="sky" icon="auto_awesome">AI note</Badge>}
           {/* GHL omits attachments from note webhooks, so noteWriter fetches
@@ -589,14 +654,16 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
           )}
         </div>
 
-        <div
-          style={{
-            fontSize: 'var(--text-lg)', fontWeight: 600,
-            lineHeight: 'var(--leading-snug)', color: 'var(--text-heading)'
-          }}
-        >
-          {m.title || (isNote ? 'Note' : 'Task')}
-        </div>
+        {!isComment && (
+          <div
+            style={{
+              fontSize: 'var(--text-lg)', fontWeight: 600,
+              lineHeight: 'var(--leading-snug)', color: 'var(--text-heading)'
+            }}
+          >
+            {m.title || (isNote ? 'Note' : 'Task')}
+          </div>
+        )}
 
         {/* The most read-heavy text on the page — a customer's note runs to a
             paragraph or more. 14px on the body against 13px on the title's row
@@ -604,7 +671,12 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
             the smallest, faintest thing on screen while being the thing you
             actually came to read. */}
         {m.body && (
-          <div style={{ marginTop: 2 }}>
+          <div style={isComment ? {
+            // GHL's yellow comment bubble.
+            marginTop: 4, display: 'inline-block', maxWidth: '100%',
+            padding: '8px 14px', borderRadius: 'var(--radius-md)',
+            background: 'var(--tint-gold)', border: '1px solid var(--accent-gold)'
+          } : { marginTop: 2 }}>
             {/* Snug leading: at 1.55 on 15px the kind label, title, body and
                 meta line sat far enough apart to read as four items. */}
             <RichBody
@@ -681,7 +753,12 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
 // conversation, laid out like a WhatsApp or SMS row (author, a quiet label,
 // the text, the time), not a NOTE card. The gold eye is GHL's own mark for
 // "visible only to your team".
-const isComment = (m) => m.kind === 'note' && String(m.title || '').trim() === COMMENT_TITLE
+//
+// Two signals, either enough: the server flags it (isInternalComment — it
+// also clears the title, so the title test alone would miss it), and an older
+// server that does not flag it still sends the title.
+const isComment = (m) => m.kind === 'note'
+  && (m.isInternalComment === true || String(m.title || '').trim() === COMMENT_TITLE)
 
 // The comment's lines as typed. htmlToText is a one-line preview helper and
 // flattens every break, so each paragraph/line is converted on its own and
@@ -694,6 +771,7 @@ const commentText = (html) => String(html || '')
 
 function CommentRow({ m, highlighted, selected, onToggleSelect }) {
   const text = commentText(m.body)
+  const author = m.senderName && m.senderName !== 'Unknown' ? m.senderName : 'Team member'
   return (
     <Row id={`tl-${m.id}`} highlighted={highlighted}>
       <SelectBox
@@ -701,18 +779,32 @@ function CommentRow({ m, highlighted, selected, onToggleSelect }) {
         onToggle={() => onToggleSelect && onToggleSelect(m)}
         title={selected ? 'Selected — the agent reads this comment' : 'Not selected — the agent skips this comment'}
       />
-      <RowIcon icon="visibility" colour={accentTextVar('gold')} soft={tintVar('gold')} title="Internal comment — visible only to your team" />
+      {/* The same sender avatar a message row has, with the eye as its
+          badge — so a comment reads as part of the conversation. */}
+      <SenderAvatar
+        name={author}
+        inbound={false}
+        icon="visibility"
+        colour={accentTextVar('gold')}
+        title="Internal comment — visible only to your team"
+      />
       <div style={{ minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 1 }}>
           <Truncate style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)' }}>
-            {m.senderName && m.senderName !== 'Unknown' ? m.senderName : 'Team member'}
+            {author}
           </Truncate>
           <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>{COMMENT_TITLE}</span>
         </div>
         {text && (
+          // GHL's yellow comment bubble — the same one an INTERNAL message
+          // gets in MessageRow — so it is never mistaken for something sent.
           <div style={{
             fontSize: 'var(--text-lg)', lineHeight: 'var(--leading-normal)',
-            color: 'var(--text-body)', whiteSpace: 'pre-line', overflowWrap: 'anywhere'
+            whiteSpace: 'pre-line', overflowWrap: 'anywhere',
+            display: 'inline-block', maxWidth: '100%',
+            padding: '8px 14px', borderRadius: 'var(--radius-md)',
+            background: 'var(--tint-gold)', border: '1px solid var(--accent-gold)',
+            color: 'var(--text-heading)'
           }}>
             {text}
           </div>
