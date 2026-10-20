@@ -1,14 +1,13 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import PanelHead from './PanelHead'
 import { RichBody, StateMessage, AttachmentCount, Truncate, formatDue, initialsFor } from '../shared/ListChrome'
-import AttachmentChip, { accentVar } from './AttachmentChip'
+import AttachmentChip from './AttachmentChip'
 import AttachmentViewer from './AttachmentViewer'
 import EmailThreadModal from './EmailThreadModal'
 import EmailBody from './EmailBody'
 import EmailThreadCard from './EmailThreadCard'
 import MessageDealPill from './MessageDealPill'
 import { noteColourStyle } from '../../utils/noteColour'
-import { htmlToText } from '../../utils/sanitiseHtml'
 import { COMMENT_TITLE } from './MessageComposer'
 
 // One deal's merged message timeline.
@@ -212,7 +211,10 @@ function Row({ id, children, highlighted, tone, dim }) {
 // otherwise. Same shape as the thread card's email avatar (.pp-mail-avatar),
 // so an SMS row and an email row read as the same kind of thing. Inbound is
 // sky, outbound plum, matching the thread card.
-function SenderAvatar({ name, inbound, icon, colour, image, title }) {
+// Two tooltips: the circle names the person (and which way the message
+// went), the badge names the channel. The row's header line used to carry
+// both as text; now the avatar is the header, so the facts live on hover.
+function SenderAvatar({ name, inbound, icon, colour, image, title, badgeTitle }) {
   const [broken, setBroken] = useState(false)
   const showImage = image && !broken
   return (
@@ -220,6 +222,7 @@ function SenderAvatar({ name, inbound, icon, colour, image, title }) {
       {initialsFor(name || '?')}
       <span
         className="pp-mail-avatar-badge"
+        title={badgeTitle || undefined}
         style={{ width: 18, height: 18, color: colour, overflow: 'hidden' }}
       >
         {showImage ? (
@@ -366,7 +369,6 @@ function MessageRow({
   // what to do once a message has been moved.
   dealId, dealTargets, onMessageMoved
 }) {
-  const senderCol = accentVar(m.senderAccent)
   const inbound = m.direction === 'inbound'
   const outbound = m.direction === 'outbound'
   const many = m.toIds && m.toIds.length > 1
@@ -390,11 +392,17 @@ function MessageRow({
         // A custom sender's logo in the badge; native senders have none
         // and show the channel glyph.
         image={m.providerIsNative ? null : m.providerIcon}
-        title={channelLabelOf(m)}
+        title={`${m.senderName || 'Unknown'} · ${inbound ? 'received from the customer' : 'sent by us'}`}
+        badgeTitle={channelLabelOf(m)}
       />
 
       <div style={{ minWidth: 0 }}>
-        {/* One header line: who, which way, on what. */}
+        {/* NO HEADER LINE. The sender's name, the direction and the channel
+            used to sit here as text; the avatar on the left now carries all
+            three — initials and inbound/outbound colour on the circle, the
+            channel on its badge, the full words on hover. What remains are
+            the two flags that have no other home. */}
+        {(m.ambiguous || many) && (
         <div
           style={{
             display: 'flex', alignItems: 'center', gap: 7,
@@ -409,27 +417,6 @@ function MessageRow({
               An arrow reads instantly at a glance and is the universal
               convention for message direction; the sender's colour moves
               onto it, so nothing is lost. */}
-          <span
-            className="ms"
-            title={inbound ? 'Received from the customer' : 'Sent by us'}
-            style={{
-              flex: 'none', fontSize: 18,
-              // INBOUND keeps the sender's own accent — that colour is how a
-              // rep tells three customers apart down a long thread, and
-              // dropping it to a generic green would lose that. Outbound is
-              // always us, so it needs no per-person hue.
-              color: inbound ? senderCol : 'var(--text-faint)'
-            }}
-          >
-            {inbound ? 'south_west' : 'north_east'}
-          </span>
-          <Truncate style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)' }}>
-            {m.senderName}
-          </Truncate>
-          <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
-            {channelLabelOf(m)}
-          </span>
-
           {m.ambiguous && (
             <span
               title="This contact has more than one open deal, so this message's filing is a guess"
@@ -449,6 +436,7 @@ function MessageRow({
             </span>
           )}
         </div>
+        )}
 
         {m.isCall && !m.body && (
           <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
@@ -588,7 +576,7 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
   // GHL's API has no way to create its own internal comments. Drawn as GHL
   // draws a comment — eye badge, gold bubble, no heading — rather than as a
   // note titled "Internal comment".
-  const isComment = isNote && m.isInternalComment
+  const isComment = isInternalCommentRow(m)
   // A note's own colour, when its author set one.
   //
   // ON THE ICON SQUARE ONLY, deliberately. The rail gives a coloured note a
@@ -613,18 +601,26 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
             : `Not selected — the agent skips this ${isNote ? 'note' : 'task'}`
         }
       />
-      <RowIcon
-        icon={m.channelIcon}
-        colour={accentTextVar(m.channelAccent)}
-        soft={tintVar(m.channelAccent)}
-        tint={noteCol.tint}
-        title={
-          isComment ? 'Internal comment — seen by your team, never the customer'
-            : noteCol.name
-              ? `${noteCol.name} note`
-              : (isNote ? 'Note' : 'Task')
-        }
-      />
+      {isComment ? (
+        // The author's avatar with the eye badge, as GHL draws a comment —
+        // the same avatar an SMS or WhatsApp row uses, so a comment reads
+        // as something a person wrote, not a system square.
+        <SenderAvatar
+          name={m.senderName && m.senderName !== 'Unknown' ? m.senderName : ''}
+          inbound={false}
+          icon="visibility"
+          colour={accentTextVar('gold')}
+          title="Internal comment — seen by your team, never the customer"
+        />
+      ) : (
+        <RowIcon
+          icon={m.channelIcon}
+          colour={accentTextVar(m.channelAccent)}
+          soft={tintVar(m.channelAccent)}
+          tint={noteCol.tint}
+          title={noteCol.name ? `${noteCol.name} note` : (isNote ? 'Note' : 'Task')}
+        />
+      )}
 
       <div style={{ minWidth: 0 }}>
         <div
@@ -644,6 +640,11 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
           >
             {isComment ? 'Internal comment' : isNote ? 'Note' : 'Task'}
           </span>
+          {isComment && m.senderName && m.senderName !== 'Unknown' && (
+            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+              {m.senderName}
+            </span>
+          )}
           {isNote && m.isAi && <Badge tone="sky" icon="auto_awesome">AI note</Badge>}
           {/* GHL omits attachments from note webhooks, so noteWriter fetches
               GET /notes/:id and the server counts them out of raw_note. */}
@@ -692,6 +693,11 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
           </div>
         )}
 
+        {/* No meta line on a comment: the author is on the label, the time is
+            in the right-hand column, and "added manually" plus the contact
+            chip are facts about a NOTE's filing that a comment does not
+            need — GHL shows a comment as avatar, bubble, time. */}
+        {!isComment && (
         <div
           style={{
             display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
@@ -743,6 +749,7 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
             </span>
           )}
         </div>
+        )}
       </div>
 
       <RowTime ts={m.ts} />
@@ -750,76 +757,13 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
   )
 }
 
-// An internal comment from the timeline composer. GHL has no API for its own
-// internal comments, so the composer saves one as a note titled "Internal
-// comment" — and here it is drawn as what the rep wrote it as: a line in the
-// conversation, laid out like a WhatsApp or SMS row (author, a quiet label,
-// the text, the time), not a NOTE card. The gold eye is GHL's own mark for
-// "visible only to your team".
-//
-// Two signals, either enough: the server flags it (isInternalComment — it
-// also clears the title, so the title test alone would miss it), and an older
+// Is this note an internal comment from the timeline composer? EntryRow draws
+// those as GHL draws a comment (avatar with the eye, gold bubble). Two
+// signals, either enough: the server flags it (isInternalComment — it also
+// clears the title, so the title test alone would miss it), and an older
 // server that does not flag it still sends the title.
-const isComment = (m) => m.kind === 'note'
+const isInternalCommentRow = (m) => m.kind === 'note'
   && (m.isInternalComment === true || String(m.title || '').trim() === COMMENT_TITLE)
-
-// The comment's lines as typed. htmlToText is a one-line preview helper and
-// flattens every break, so each paragraph/line is converted on its own and
-// rejoined with newlines (the composer saves one <p> per line).
-const commentText = (html) => String(html || '')
-  .split(/<\/p>|<br\s*\/?>|<\/div>/i)
-  .map((part) => htmlToText(part))
-  .filter(Boolean)
-  .join('\n')
-
-function CommentRow({ m, highlighted, selected, onToggleSelect }) {
-  const text = commentText(m.body)
-  const author = m.senderName && m.senderName !== 'Unknown' ? m.senderName : 'Team member'
-  return (
-    <Row id={`tl-${m.id}`} highlighted={highlighted}>
-      <SelectBox
-        selected={selected}
-        onToggle={() => onToggleSelect && onToggleSelect(m)}
-        title={selected ? 'Selected — the agent reads this comment' : 'Not selected — the agent skips this comment'}
-      />
-      {/* The same sender avatar a message row has, with the eye as its
-          badge — so a comment reads as part of the conversation. */}
-      <SenderAvatar
-        name={author}
-        inbound={false}
-        icon="visibility"
-        colour={accentTextVar('gold')}
-        title="Internal comment — visible only to your team"
-      />
-      <div style={{ minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 1 }}>
-          <Truncate style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)' }}>
-            {author}
-          </Truncate>
-          <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>{COMMENT_TITLE}</span>
-        </div>
-        {text && (
-          // GHL's yellow comment bubble — the same one an INTERNAL message
-          // gets in MessageRow — so it is never mistaken for something sent.
-          <div style={{
-            fontSize: 'var(--text-lg)', lineHeight: 'var(--leading-normal)',
-            whiteSpace: 'pre-line', overflowWrap: 'anywhere',
-            display: 'inline-block', maxWidth: '100%',
-            padding: '8px 14px', borderRadius: 'var(--radius-md)',
-            background: 'var(--tint-gold)', border: '1px solid var(--accent-gold)',
-            color: 'var(--text-heading)'
-          }}>
-            {text}
-          </div>
-        )}
-      </div>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'start', whiteSpace: 'nowrap' }}>
-        <span style={{ fontSize: 'var(--text-base)', fontWeight: 500, color: 'var(--accent-gold-text)' }}>Team only</span>
-        <RowTime ts={m.ts} inline />
-      </span>
-    </Row>
-  )
-}
 
 function Badge({ children, tone, icon }) {
   return (
@@ -1207,14 +1151,7 @@ export default function Timeline({
           return (
             <React.Fragment key={m.id}>
               {newDay && m.ts && <DayHeader iso={m.ts} />}
-              {isComment(m) ? (
-                <CommentRow
-                  m={m}
-                  highlighted={highlightedId === m.id}
-                  selected={m.included !== false}
-                  onToggleSelect={onToggleSelect}
-                />
-              ) : m.kind === 'task' || m.kind === 'note' ? (
+              {m.kind === 'task' || m.kind === 'note' ? (
                 <EntryRow
                   m={m}
                   highlighted={highlightedId === m.id}

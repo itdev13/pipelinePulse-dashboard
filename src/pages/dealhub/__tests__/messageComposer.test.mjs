@@ -175,12 +175,13 @@ test('an internal comment is drawn as a conversation row, not a NOTE card', () =
   assert.match(timeline, /import \{ COMMENT_TITLE \} from '\.\/MessageComposer'/)
   // Either signal: the server's flag (it also clears the title) or the title.
   assert.match(timeline, /m\.isInternalComment === true \|\| String\(m\.title \|\| ''\)\.trim\(\) === COMMENT_TITLE/)
-  // Checked BEFORE the note branch, or every comment renders as a note.
-  assert.ok(timeline.indexOf('{isComment(m) ? (') < timeline.indexOf("m.kind === 'task' || m.kind === 'note' ? ("))
-  // The message rows' own avatar, with the eye as its badge, and the gold bubble.
-  const row = timeline.slice(timeline.indexOf('function CommentRow'))
+  // The note row draws it — one implementation, the team's: the message
+  // rows' avatar with the eye badge, and the gold bubble.
+  const row = timeline.slice(timeline.indexOf('function EntryRow'))
+  assert.match(row, /const isComment = isInternalCommentRow\(m\)/)
   assert.match(row, /<SenderAvatar[\s\S]*?icon="visibility"/)
   assert.match(row, /background: 'var\(--tint-gold\)', border: '1px solid var\(--accent-gold\)'/)
+  assert.doesNotMatch(timeline, /function CommentRow/)
   // It names its author: the composer passes the signed-in rep.
   assert.match(src, /userId: session\?\.user\?\.id \|\| undefined/)
   const notesApi = readFileSync(new URL('../../../api/notes.js', import.meta.url), 'utf8')

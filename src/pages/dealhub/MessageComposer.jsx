@@ -320,7 +320,9 @@ export default function MessageComposer({
         await notesAPI.create({
           contactId: person.id,
           title: COMMENT_TITLE,
-          body: textToHtml(text),
+          // Trimmed: a trailing newline became an empty <p><br></p>, and the
+          // bubble drew a blank line under every one-line comment.
+          body: textToHtml(text.trim()),
           opportunityId: dealId,
           // The author, so the timeline row names who wrote it.
           userId: session?.user?.id || undefined
