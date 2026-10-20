@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import PanelHead from './PanelHead'
 import { RichBody, StateMessage, AttachmentCount, Truncate, formatDue, initialsFor } from '../shared/ListChrome'
-import AttachmentChip, { accentVar } from './AttachmentChip'
+import AttachmentChip from './AttachmentChip'
 import AttachmentViewer from './AttachmentViewer'
 import EmailThreadModal from './EmailThreadModal'
 import EmailBody from './EmailBody'
@@ -210,7 +210,10 @@ function Row({ id, children, highlighted, tone, dim }) {
 // otherwise. Same shape as the thread card's email avatar (.pp-mail-avatar),
 // so an SMS row and an email row read as the same kind of thing. Inbound is
 // sky, outbound plum, matching the thread card.
-function SenderAvatar({ name, inbound, icon, colour, image, title }) {
+// Two tooltips: the circle names the person (and which way the message
+// went), the badge names the channel. The row's header line used to carry
+// both as text; now the avatar is the header, so the facts live on hover.
+function SenderAvatar({ name, inbound, icon, colour, image, title, badgeTitle }) {
   const [broken, setBroken] = useState(false)
   const showImage = image && !broken
   return (
@@ -218,6 +221,7 @@ function SenderAvatar({ name, inbound, icon, colour, image, title }) {
       {initialsFor(name || '?')}
       <span
         className="pp-mail-avatar-badge"
+        title={badgeTitle || undefined}
         style={{ width: 18, height: 18, color: colour, overflow: 'hidden' }}
       >
         {showImage ? (
@@ -364,7 +368,6 @@ function MessageRow({
   // what to do once a message has been moved.
   dealId, dealTargets, onMessageMoved
 }) {
-  const senderCol = accentVar(m.senderAccent)
   const inbound = m.direction === 'inbound'
   const outbound = m.direction === 'outbound'
   const many = m.toIds && m.toIds.length > 1
@@ -388,11 +391,17 @@ function MessageRow({
         // A custom sender's logo in the badge; native senders have none
         // and show the channel glyph.
         image={m.providerIsNative ? null : m.providerIcon}
-        title={channelLabelOf(m)}
+        title={`${m.senderName || 'Unknown'} · ${inbound ? 'received from the customer' : 'sent by us'}`}
+        badgeTitle={channelLabelOf(m)}
       />
 
       <div style={{ minWidth: 0 }}>
-        {/* One header line: who, which way, on what. */}
+        {/* NO HEADER LINE. The sender's name, the direction and the channel
+            used to sit here as text; the avatar on the left now carries all
+            three — initials and inbound/outbound colour on the circle, the
+            channel on its badge, the full words on hover. What remains are
+            the two flags that have no other home. */}
+        {(m.ambiguous || many) && (
         <div
           style={{
             display: 'flex', alignItems: 'center', gap: 7,
@@ -407,27 +416,6 @@ function MessageRow({
               An arrow reads instantly at a glance and is the universal
               convention for message direction; the sender's colour moves
               onto it, so nothing is lost. */}
-          <span
-            className="ms"
-            title={inbound ? 'Received from the customer' : 'Sent by us'}
-            style={{
-              flex: 'none', fontSize: 18,
-              // INBOUND keeps the sender's own accent — that colour is how a
-              // rep tells three customers apart down a long thread, and
-              // dropping it to a generic green would lose that. Outbound is
-              // always us, so it needs no per-person hue.
-              color: inbound ? senderCol : 'var(--text-faint)'
-            }}
-          >
-            {inbound ? 'south_west' : 'north_east'}
-          </span>
-          <Truncate style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)' }}>
-            {m.senderName}
-          </Truncate>
-          <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>
-            {channelLabelOf(m)}
-          </span>
-
           {m.ambiguous && (
             <span
               title="This contact has more than one open deal, so this message's filing is a guess"
@@ -447,6 +435,7 @@ function MessageRow({
             </span>
           )}
         </div>
+        )}
 
         {m.isCall && !m.body && (
           <span style={{ fontSize: 'var(--text-md)', color: 'var(--text-muted)' }}>
