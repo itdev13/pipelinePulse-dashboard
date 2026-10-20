@@ -35,7 +35,12 @@ const key = (r) => String(r?.email || '').toLowerCase()
 // message someone on this deal, and a sub-account-wide list there is a way
 // to email the wrong customer); 'all' adds the sub-account's contacts and
 // server search (Insights AI, where no deal is in scope).
-export default function RecipientsField({ value, onChange, options = [], scope = 'all', disabled = false }) {
+// `collapsibleCc`: CC and BCC start hidden behind "CC  BCC" links on the To
+// row, as GHL's composer has them (the Deal Hub timeline composer). Off, CC
+// is always shown and only BCC is behind a link.
+export default function RecipientsField({
+  value, onChange, options = [], scope = 'all', disabled = false, collapsibleCc = false
+}) {
   // `to` was a single object before it became a list; read both.
   const v = useMemo(() => {
     const raw = value || {}
@@ -43,6 +48,7 @@ export default function RecipientsField({ value, onChange, options = [], scope =
     return { to, cc: raw.cc || [], bcc: raw.bcc || [] }
   }, [value])
   const [showBcc, setShowBcc] = useState((v.bcc || []).length > 0)
+  const [showCc, setShowCc] = useState(!collapsibleCc || (v.cc || []).length > 0)
   const [openRow, setOpenRow] = useState(null) // 'to' | 'cc' | 'bcc' | null
 
   // One directory for all three rows: the deal's people, then the first
@@ -64,9 +70,9 @@ export default function RecipientsField({ value, onChange, options = [], scope =
     { id: 'to', label: 'To', values: v.to, contactsOnly: true,
       add: (r) => set({ to: [...v.to, r] }),
       remove: (k) => set({ to: v.to.filter((x) => key(x) !== k) }) },
-    { id: 'cc', label: 'CC', values: v.cc || [],
+    ...(showCc ? [{ id: 'cc', label: 'CC', values: v.cc || [],
       add: (r) => set({ cc: [...(v.cc || []), r] }),
-      remove: (k) => set({ cc: (v.cc || []).filter((x) => key(x) !== k) }) },
+      remove: (k) => set({ cc: (v.cc || []).filter((x) => key(x) !== k) }) }] : []),
     ...(showBcc ? [{ id: 'bcc', label: 'BCC', values: v.bcc || [],
       add: (r) => set({ bcc: [...(v.bcc || []), r] }),
       remove: (k) => set({ bcc: (v.bcc || []).filter((x) => key(x) !== k) }) }] : [])
@@ -95,9 +101,16 @@ export default function RecipientsField({ value, onChange, options = [], scope =
           dealEmails={dealEmails}
           primaryEmail={primaryEmail}
           disabled={disabled}
-          trailing={row.id === 'cc' && !showBcc ? (
-            <button type="button" onClick={() => setShowBcc(true)} style={linkBtn}>Bcc</button>
-          ) : null}
+          trailing={collapsibleCc
+            ? (row.id === 'to' && (!showCc || !showBcc) ? (
+              <span style={{ display: 'inline-flex', gap: 6 }}>
+                {!showCc && <button type="button" onClick={() => { setShowCc(true); setOpenRow('cc') }} style={linkBtn}>CC</button>}
+                {!showBcc && <button type="button" onClick={() => { setShowBcc(true); setOpenRow('bcc') }} style={linkBtn}>BCC</button>}
+              </span>
+            ) : null)
+            : (row.id === 'cc' && !showBcc ? (
+              <button type="button" onClick={() => setShowBcc(true)} style={linkBtn}>Bcc</button>
+            ) : null)}
         />
       ))}
     </div>

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import PanelHead, { PanelHeadButton } from '../dealhub/PanelHead'
 import { formatMoney } from '../../utils/money'
 import Timeline from '../dealhub/Timeline'
+import MessageComposer from '../dealhub/MessageComposer'
 import PeopleSection from '../dealhub/PeopleSection'
 import DealSection, { CardToolbar, StatusPill } from '../dealhub/DealSection'
 import MediaSection from '../dealhub/MediaSection'
@@ -94,8 +95,10 @@ export default function DealHubTab({
   // The one active deal
   const [deal, setDeal] = useState(null)
   const [stages, setStages] = useState(null)
-  // A reply request from the timeline, dropped into the Co-Pilot composer.
-  const [askSeed, setAskSeed] = useState(null)
+  // A reply request for the Co-Pilot composer. The timeline's Reply now opens
+  // a composer inside the thread instead, so nothing sets this today; AskDeal
+  // still accepts it until Co-Pilot sending is removed.
+  const [askSeed] = useState(null)
 
   // Refetch the TIMELINE ONLY — not the deal, stages or siblings — and
   // re-apply the same toNames decoration the first load does. Used after a
@@ -120,6 +123,12 @@ export default function DealHubTab({
   // 2.5s; a slower provider lands by 6s. Two cheap GETs, no polling loop.
   const onActionConfirmed = useCallback((actionType) => {
     if (actionType !== 'send_message') return
+    window.setTimeout(refreshTimeline, 2500)
+    window.setTimeout(refreshTimeline, 6000)
+  }, [refreshTimeline])
+
+  // Same wait after a send from a timeline composer.
+  const refreshAfterSend = useCallback(() => {
     window.setTimeout(refreshTimeline, 2500)
     window.setTimeout(refreshTimeline, 6000)
   }, [refreshTimeline])
@@ -1653,21 +1662,39 @@ export default function DealHubTab({
               <Timeline
                 messages={filtered}
                 dealId={dealId}
-                // Reply on an email thread: hand the Co-Pilot a reply request
-                // for that message. The AI drafts it through the reply path,
-                // so it threads onto the original rather than starting fresh.
-                onReplyEmail={(m) => {
-                  const when = m.ts ? new Date(m.ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''
-                  setAskSeed({
-                    // The box stays empty; the reply context is a row above it.
-                    text: '',
-                    // The exact message for the server, plus what the row shows.
-                    // m.messageId is the GHL message id the server's reply
-                    // lookup keys on; m.id is the timeline row's own id.
-                    replyTo: { messageId: m.messageId || m.id, subject: m.subject || '', senderName: m.senderName || '', when },
-                    nonce: Date.now()
-                  })
-                }}
+                // Reply on an email opens a composer INSIDE that thread's card,
+                // as GHL's reply does — not the Co-Pilot, and not the one at
+                // the foot of the timeline. To is whoever the email was with:
+                // the sender of an inbound one, the recipient of one we sent.
+                // m.messageId is the GHL id the server's reply lookup keys on;
+                // m.id is only the timeline row's own id, and serves as the
+                // nonce — stable while the box is open, so a re-render does
+                // not reset what the rep is typing.
+                replyComposer={(m, close) => (
+                  <MessageComposer
+                    inline
+                    onClose={close}
+                    dealId={dealId}
+                    people={deal?.people || []}
+                    primaryContactId={deal?.primaryContactId || null}
+                    replyTarget={{
+                      messageId: m.messageId || m.id,
+                      subject: m.subject || '',
+                      contactId: m.direction === 'inbound' ? m.senderId : (m.toIds || [])[0] || null,
+                      nonce: m.id
+                    }}
+                    onSent={refreshAfterSend}
+                  />
+                )}
+                // The composer for a NEW message, at the foot of the timeline.
+                footer={
+                  <MessageComposer
+                    dealId={dealId}
+                    people={deal?.people || []}
+                    primaryContactId={deal?.primaryContactId || null}
+                    onSent={refreshAfterSend}
+                  />
+                }
                 // Every deal on this contact, including won/lost — a manager
                 // may deliberately file a message against a closed deal.
                 dealTargets={siblingDeals}

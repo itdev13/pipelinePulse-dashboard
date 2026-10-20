@@ -738,7 +738,14 @@ export default function Timeline({
   // request for that email — the draft itself goes through the AI's reply
   // path (replyToMessageId), so it threads correctly.
   onReplyEmail = null,
+  // (message, close) => a reply box. When given, Reply on an email opens it
+  // inside that email's thread card, as GHL does, and onReplyEmail is unused.
+  replyComposer = null,
+  // Rendered at the foot of the card — the Deal Hub passes its composer.
+  footer = null,
 }) {
+  // The email whose thread has its reply box open — one at a time.
+  const [replyTo, setReplyTo] = useState(null)
   // The header counts each kind separately — tasks and notes now share the
   // stream, and folding them into "23 messages" would overstate the thread.
   const msgCount = messages.filter((m) => !m.kind && !m.event).length
@@ -947,7 +954,12 @@ export default function Timeline({
                     <EmailThreadCard
                       mails={thread}
                       onOpenAttachment={openAttachment}
-                      onReplyEmail={onReplyEmail}
+                      // With a reply composer, Reply opens it INSIDE this
+                      // card; without one, the caller's handler runs.
+                      onReplyEmail={replyComposer ? setReplyTo : onReplyEmail}
+                      inlineComposer={replyComposer && replyTo && thread.some((t) => t.id === replyTo.id)
+                        ? replyComposer(replyTo, () => setReplyTo(null))
+                        : null}
                       selectedIds={onToggleSelect ? ids : null}
                       onToggleSelect={onToggleSelect}
                     />
@@ -998,6 +1010,12 @@ export default function Timeline({
         })}
       </div>
       )}
+
+      {/* Under the rows, inside the card — where GHL docks its composer.
+          Outside the scroll box so it stays in reach however long the
+          thread is, and after the empty state too: a deal with no history
+          is exactly where a rep sends the first message. */}
+      {footer}
 
       {viewing && (
         <AttachmentViewer

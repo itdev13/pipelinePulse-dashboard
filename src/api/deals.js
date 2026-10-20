@@ -26,6 +26,30 @@ export const dealsAPI = {
   list: (params = {}) => apiClient.get('/api/deals', { params }),
   get: (id) => apiClient.get(`/api/deals/${encodeURIComponent(id)}`),
   timeline: (id) => apiClient.get(`/api/deals/${encodeURIComponent(id)}/timeline`),
+  // Send from the timeline composer. Goes to GHL; the message reaches the
+  // timeline by webhook a moment later, filed on THIS deal (the server parks
+  // the deal for that webhook). See POST /api/deals/:id/messages.
+  //
+  // { type: 'Email'|'SMS'|'WhatsApp', contactId, conversationProviderId?,
+  //   message?, subject?, html?, emailCc?, emailBcc?, replyToMessageId? }
+  sendMessage: (id, payload) =>
+    apiClient.post(`/api/deals/${encodeURIComponent(id)}/messages`, payload),
+  // The composer's paperclip: upload to GHL first, then send the returned
+  // urls as `attachments`.
+  //
+  // The multipart header is REQUIRED here. apiClient defaults every request
+  // to application/json, and axios 1.x answers FormData + a JSON content type
+  // by serialising the form to a JSON string — the files are dropped and the
+  // server receives no upload. Naming multipart keeps the FormData intact;
+  // the browser then supplies the boundary itself.
+  uploadMessageAttachments: (id, contactId, files) => {
+    const form = new FormData()
+    form.append('contactId', contactId)
+    for (const f of files) form.append('files', f)
+    return apiClient.post(`/api/deals/${encodeURIComponent(id)}/messages/attachments`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
   stages: (id) => apiClient.get(`/api/deals/${encodeURIComponent(id)}/stages`),
   reassignmentTargets: (id) =>
     apiClient.get(`/api/deals/${encodeURIComponent(id)}/reassignment-targets`),
