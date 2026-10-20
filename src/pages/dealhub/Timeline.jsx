@@ -582,6 +582,11 @@ function MessageRow({
 // distinguishable from something the customer said.
 function EntryRow({ m, highlighted, selected, onToggleSelect }) {
   const isNote = m.kind === 'note'
+  // A comment a colleague left from our composer, saved as a note because
+  // GHL's API has no way to create its own internal comments. Drawn as GHL
+  // draws a comment — eye badge, gold bubble, no heading — rather than as a
+  // note titled "Internal comment".
+  const isComment = isNote && m.isInternalComment
   // A note's own colour, when its author set one.
   //
   // ON THE ICON SQUARE ONLY, deliberately. The rail gives a coloured note a
@@ -612,9 +617,10 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
         soft={tintVar(m.channelAccent)}
         tint={noteCol.tint}
         title={
-          noteCol.name
-            ? `${noteCol.name} note`
-            : (isNote ? 'Note' : 'Task')
+          isComment ? 'Internal comment — seen by your team, never the customer'
+            : noteCol.name
+              ? `${noteCol.name} note`
+              : (isNote ? 'Note' : 'Task')
         }
       />
 
@@ -634,7 +640,7 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
               textTransform: 'uppercase', color: accentTextVar(m.channelAccent)
             }}
           >
-            {isNote ? 'Note' : 'Task'}
+            {isComment ? 'Internal comment' : isNote ? 'Note' : 'Task'}
           </span>
           {isNote && m.isAi && <Badge tone="sky" icon="auto_awesome">AI note</Badge>}
           {/* GHL omits attachments from note webhooks, so noteWriter fetches
@@ -646,14 +652,16 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
           )}
         </div>
 
-        <div
-          style={{
-            fontSize: 'var(--text-lg)', fontWeight: 600,
-            lineHeight: 'var(--leading-snug)', color: 'var(--text-heading)'
-          }}
-        >
-          {m.title || (isNote ? 'Note' : 'Task')}
-        </div>
+        {!isComment && (
+          <div
+            style={{
+              fontSize: 'var(--text-lg)', fontWeight: 600,
+              lineHeight: 'var(--leading-snug)', color: 'var(--text-heading)'
+            }}
+          >
+            {m.title || (isNote ? 'Note' : 'Task')}
+          </div>
+        )}
 
         {/* The most read-heavy text on the page — a customer's note runs to a
             paragraph or more. 14px on the body against 13px on the title's row
@@ -661,7 +669,12 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
             the smallest, faintest thing on screen while being the thing you
             actually came to read. */}
         {m.body && (
-          <div style={{ marginTop: 2 }}>
+          <div style={isComment ? {
+            // GHL's yellow comment bubble.
+            marginTop: 4, display: 'inline-block', maxWidth: '100%',
+            padding: '8px 14px', borderRadius: 'var(--radius-md)',
+            background: 'var(--tint-gold)', border: '1px solid var(--accent-gold)'
+          } : { marginTop: 2 }}>
             {/* Snug leading: at 1.55 on 15px the kind label, title, body and
                 meta line sat far enough apart to read as four items. */}
             <RichBody
