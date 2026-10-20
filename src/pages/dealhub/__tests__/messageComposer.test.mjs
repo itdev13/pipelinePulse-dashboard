@@ -168,3 +168,47 @@ test('Reply scrolls the whole box into view once it has settled', () => {
   assert.match(src, /scrollIntoView\(\{ behavior: 'smooth', block: 'nearest' \}\)/)
   assert.match(src, /scrollIntoView\(\{ behavior: 'auto', block: 'nearest' \}\), 700\)/)
 })
+
+test('an internal comment is drawn as a conversation row, not a NOTE card', () => {
+  // One constant decides both the title saved and the row recognised.
+  assert.match(src, /export const COMMENT_TITLE = 'Internal comment'/)
+  assert.match(timeline, /import \{ COMMENT_TITLE \} from '\.\/MessageComposer'/)
+  assert.match(timeline, /const isComment = \(m\) => m\.kind === 'note' && String\(m\.title \|\| ''\)\.trim\(\) === COMMENT_TITLE/)
+  // Checked BEFORE the note branch, or every comment renders as a note.
+  assert.ok(timeline.indexOf('{isComment(m) ? (') < timeline.indexOf("m.kind === 'task' || m.kind === 'note' ? ("))
+  assert.match(timeline, /<RowIcon icon="visibility" colour=\{accentTextVar\('gold'\)\}/)
+  // It names its author: the composer passes the signed-in rep.
+  assert.match(src, /userId: session\?\.user\?\.id \|\| undefined/)
+  const notesApi = readFileSync(new URL('../../../api/notes.js', import.meta.url), 'utf8')
+  assert.match(notesApi, /opportunityId, businessId, userId\s*\n?\s*\}\)/)
+})
+
+test('the timeline reads oldest-first and opens at the newest', () => {
+  // Newest at the bottom, under which the composer sits — a conversation.
+  assert.match(timeline, /return kept\.slice\(\)\.reverse\(\)\.sort\(\(a, b\) => t\(a\) - t\(b\)\)/)
+  // A thread keeps its place by its NEWEST email, so a reply moves it down.
+  assert.match(timeline, /arr\.reduce\(\(a, b\) => \(new Date\(b\.ts\) > new Date\(a\.ts\) \? b : a\)\)/)
+  // Opens pinned to the bottom, and stops following once the rep scrolls up.
+  assert.match(timeline, /if \(el\) el\.scrollTop = el\.scrollHeight/)
+  assert.match(timeline, /atBottom\.current = el\.scrollHeight - el\.scrollTop - el\.clientHeight < 80/)
+  // Threads are still built from the server's newest-first list — the
+  // thread card expects its mails newest-first.
+  assert.match(timeline, /const threads = useMemo\(\(\) => buildThreads\(messages\), \[messages\]\)/)
+})
+
+test('the timeline loads older pages as the rep scrolls up', () => {
+  const api = readFileSync(new URL('../../../api/deals.js', import.meta.url), 'utf8')
+  assert.match(api, /timeline: \(id, params\) =>/)
+  // The Deal Hub asks for the newest page first, then older ones by cursor.
+  assert.match(tab, /dealsAPI\.timeline\(dealId, \{ limit: TIMELINE_PAGE \}\)/)
+  assert.match(tab, /dealsAPI\.timeline\(dealId, \{ limit: TIMELINE_PAGE, before: cur\.before \}\)/)
+  assert.match(tab, /hasMore=\{olderState\.hasMore\}/)
+  assert.match(tab, /onLoadMore=\{loadOlder\}/)
+  // Select all covers the whole deal, not just the loaded pages.
+  assert.match(tab, /const extra = timelineMore\.current\.hasMore \? await loadAllOlder\(\)/)
+  // A sentinel at the oldest end, watched inside the scroll box.
+  assert.match(timeline, /<div ref=\{sentinelRef\} aria-hidden="true" style=\{\{ height: 1 \}\} \/>/)
+  assert.match(timeline, /\{ root, rootMargin: '300px 0px 0px 0px' \}/)
+  // The view holds still when older rows land above.
+  assert.match(timeline, /el\.scrollTop = anchor\.current\.top \+ \(el\.scrollHeight - anchor\.current\.height\)/)
+})

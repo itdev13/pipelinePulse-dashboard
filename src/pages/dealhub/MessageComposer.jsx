@@ -3,6 +3,7 @@ import { dealsAPI } from '../../api/deals'
 import { providersAPI } from '../../api/providers'
 import { controlAPI } from '../../api/control'
 import { notesAPI } from '../../api/notes'
+import { useAuth } from '../../context/AuthContext'
 import RichEditor from '../shared/RichEditor'
 import RecipientsField from '../../components/RecipientsField'
 import { isHtmlEmpty } from '../../utils/sanitiseHtml'
@@ -34,7 +35,9 @@ import './composer.css'
 // titled "Internal comment" — visible to the team in GHL's Notes and in this
 // timeline, never sent to the customer.
 
-const COMMENT_TITLE = 'Internal comment'
+// Also how the timeline recognises a comment among notes (Timeline's
+// CommentRow) — one constant, so the two cannot drift.
+export const COMMENT_TITLE = 'Internal comment'
 
 const DND_KEY = { Email: 'email', SMS: 'sms', WhatsApp: 'whatsapp' }
 
@@ -123,6 +126,7 @@ export default function MessageComposer({
   dealId, people = [], primaryContactId = null, replyTarget = null, onSent,
   inline = false, onClose = null
 }) {
+  const { session } = useAuth()
   const rootRef = useRef(null)
   const [expanded, setExpanded] = useState(inline)
   const [large, setLarge] = useState(false)
@@ -317,7 +321,9 @@ export default function MessageComposer({
           contactId: person.id,
           title: COMMENT_TITLE,
           body: textToHtml(text),
-          opportunityId: dealId
+          opportunityId: dealId,
+          // The author, so the timeline row names who wrote it.
+          userId: session?.user?.id || undefined
         })
         setSent('Comment saved — visible only to your team')
       } else {

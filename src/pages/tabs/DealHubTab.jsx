@@ -73,6 +73,25 @@ function chipsFor(counts) {
   return [...CHANNEL_CHIPS, ...providers]
 }
 
+// Timeline rows per page for infinite scroll. Most deals fit in one page, so
+// for them nothing changes; a long deal loads its history as the rep scrolls
+// up towards it.
+const TIMELINE_PAGE = 50
+
+const tsOf = (m) => { const v = new Date(m?.ts).getTime(); return Number.isNaN(v) ? 0 : v }
+
+// Names for a sent message's recipients, from the deal's people — the same
+// decoration every load applies.
+function decorateRows(list, people) {
+  const nameById = Object.fromEntries(
+    (people || []).map((p) => [p.id, p.firstName || p.lastName || 'Contact'])
+  )
+  return (list || []).map((m) => ({
+    ...m,
+    toNames: (m.toIds || []).map((cid) => nameById[cid]).filter(Boolean)
+  }))
+}
+
 export default function DealHubTab({
   dealId, onSwitchDeal, onOpenBusiness, onOpenContact, onOpenTab, onEditDealRecord,
   // Landing on the first deal because none was selected is not a move the rep
@@ -105,18 +124,74 @@ export default function DealHubTab({
   // confirmed send: GHL delivers the sent message back to us by webhook a
   // second or two later, and until this ran the rep had to reload the page
   // to see their own message in the thread.
+  //
+  // PAGED since infinite scroll: this refetches the NEWEST page and merges it
+  // over what is loaded. Rows inside that page's time range are replaced by
+  // the server's (a message moved off the deal drops out); older pages the
+  // rep has scrolled into are kept.
   const refreshTimeline = useCallback(async () => {
     if (!dealId) return
     try {
-      const t = await dealsAPI.timeline(dealId)
-      const nameById = Object.fromEntries(
-        (deal?.people || []).map((p) => [p.id, p.firstName || p.lastName || 'Contact'])
-      )
-      setMessages((t.messages || []).map((m) => ({
-        ...m,
-        toNames: (m.toIds || []).map((cid) => nameById[cid]).filter(Boolean)
-      })))
+      const t = await dealsAPI.timeline(dealId, { limit: TIMELINE_PAGE })
+      const fresh = decorateRows(t.messages, deal?.people)
+      const ids = new Set(fresh.map((m) => m.id))
+      const cutoff = t.hasMore && fresh.length ? tsOf(fresh[fresh.length - 1]) : -Infinity
+      // The older-page cursor is left alone: what was loaded stays loaded, so
+      // the next page is still the one before the oldest row on screen.
+      setMessages((prev) => [
+        ...fresh,
+        ...(prev || []).filter((m) => !ids.has(m.id) && tsOf(m) < cutoff)
+      ])
     } catch { /* the next interaction reloads; a missed refresh is not an error */ }
+  }, [dealId, deal?.people])
+
+  // INFINITE SCROLL — the cursor for the next (older) page. A ref mirrors the
+  // state so the callbacks below read the current value without re-binding.
+  const [olderState, setOlderState] = useState({ hasMore: false, before: null, loading: false })
+  const timelineMore = useRef({ hasMore: false, before: null, loading: false, loaded: false })
+  const setTimelinePaging = (t) => {
+    const next = { hasMore: !!t?.hasMore, before: t?.nextBefore || null, loading: false, loaded: false }
+    timelineMore.current = next
+    setOlderState(next)
+  }
+
+  // Fetch the page before the oldest loaded row and append it.
+  const loadOlder = useCallback(async () => {
+    const cur = timelineMore.current
+    if (!dealId || !cur.hasMore || cur.loading) return
+    timelineMore.current = { ...cur, loading: true }
+    setOlderState(timelineMore.current)
+    try {
+      const t = await dealsAPI.timeline(dealId, { limit: TIMELINE_PAGE, before: cur.before })
+      const older = decorateRows(t.messages, deal?.people)
+      setMessages((prev) => {
+        const have = new Set((prev || []).map((m) => m.id))
+        return [...(prev || []), ...older.filter((m) => !have.has(m.id))]
+      })
+      const next = { hasMore: !!t.hasMore, before: t.nextBefore || null, loading: false, loaded: !t.hasMore }
+      timelineMore.current = next
+      setOlderState(next)
+    } catch {
+      // Leave hasMore on, so scrolling up tries again.
+      timelineMore.current = { ...cur, loading: false }
+      setOlderState(timelineMore.current)
+    }
+  }, [dealId, deal?.people])
+
+  // Everything still unloaded, in one go — for Select all, which must cover
+  // the whole deal: unticking "all" while older pages sat unloaded would
+  // leave them ticked, and Co-Pilot would read rows the rep believed off.
+  const loadAllOlder = useCallback(async () => {
+    let cur = timelineMore.current
+    const extra = []
+    while (dealId && cur.hasMore) {
+      const t = await dealsAPI.timeline(dealId, { limit: 200, before: cur.before })
+      extra.push(...decorateRows(t.messages, deal?.people))
+      cur = { hasMore: !!t.hasMore, before: t.nextBefore || null, loading: false, loaded: !t.hasMore }
+    }
+    timelineMore.current = cur
+    setOlderState(cur)
+    return extra
   }, [dealId, deal?.people])
 
   // After a confirmed send, look for the webhook twice: most land inside
@@ -250,7 +325,8 @@ export default function DealHubTab({
     setSiblingDeals([])
     Promise.all([
       dealsAPI.get(dealId),
-      dealsAPI.timeline(dealId),
+      // The newest page only; older pages load as the rep scrolls up.
+      dealsAPI.timeline(dealId, { limit: TIMELINE_PAGE }),
       dealsAPI.stages(dealId),
       // Siblings are decoration on one column — a failure here must not
       // take the whole deal view down with it.
@@ -261,14 +337,8 @@ export default function DealHubTab({
         setDeal(d)
         setStages(s.stages || [])
         setSiblingDeals(r.targets || [])
-        const nameById = Object.fromEntries(
-          (d.people || []).map((p) => [p.id, p.firstName || p.lastName || 'Contact'])
-        )
-        const rows = (t.messages || []).map((m) => ({
-          ...m,
-          toNames: (m.toIds || []).map((cid) => nameById[cid]).filter(Boolean)
-        }))
-        setMessages(rows)
+        setMessages(decorateRows(t.messages, d.people))
+        setTimelinePaging(t)
         setLoading(false)
         // Reset filters when the deal changes.
         setChannelFilter([])
@@ -673,9 +743,15 @@ export default function DealHubTab({
 
   // Select or deselect every readable message at once. Same batching as a
   // single tick, so turning 200 messages off is one request.
-  const setAllIncluded = (next) => {
-    setMessages((prev) =>
-      prev.map((x) => {
+  //
+  // The WHOLE deal, not just the loaded pages: older rows are fetched first,
+  // so "untick all" cannot leave unloaded history ticked for Co-Pilot. If that
+  // fetch fails it falls back to what is loaded rather than doing nothing.
+  const setAllIncluded = async (next) => {
+    const extra = timelineMore.current.hasMore ? await loadAllOlder().catch(() => []) : []
+    setMessages((prev) => {
+      const have = new Set((prev || []).map((m) => m.id))
+      return [...(prev || []), ...extra.filter((m) => !have.has(m.id))].map((x) => {
         // Events have no content to read, so they aren't selectable. Notes and
         // tasks ARE — they were skipped here, so select-all silently left them
         // alone while appearing to cover everything.
@@ -687,7 +763,7 @@ export default function DealHubTab({
         )
         return { ...x, included: next }
       })
-    )
+    })
   }
 
   // Returns a promise so a caller can await it before asking — otherwise the
@@ -1702,6 +1778,10 @@ export default function DealHubTab({
                 highlightedId={highlightedId}
                 onToggleSelect={toggleIncluded}
                 onSelectAll={setAllIncluded}
+                // Infinite scroll: older pages load as the rep nears the top.
+                hasMore={olderState.hasMore}
+                loadingMore={olderState.loading}
+                onLoadMore={loadOlder}
                 // So the empty state can tell "this deal has no history" from
                 // "your chips hide all of it" — only this component knows the
                 // unfiltered count and which chips are on.

@@ -22,9 +22,11 @@ export const notesAPI = {
   // the note exists (the relations endpoint is keyed on the note id). A failure
   // to link comes back as `relationError` with the note still created — the
   // note is the thing that matters and the link is recoverable.
-  create: ({ contactId, body, title, color, pinned, opportunityId, businessId }) =>
+  // `userId` (optional): the GHL user to author it — the composer passes the
+  // signed-in rep, so an internal comment says who wrote it, not "Unknown".
+  create: ({ contactId, body, title, color, pinned, opportunityId, businessId, userId }) =>
     apiClient.post('/api/notes', {
-      contactId, body, title, color, pinned, opportunityId, businessId
+      contactId, body, title, color, pinned, opportunityId, businessId, userId
     }),
 
   // Send only what changed.

@@ -25,7 +25,11 @@ export const dealsAPI = {
   // rendering one screen should not mean holding all of them in memory.
   list: (params = {}) => apiClient.get('/api/deals', { params }),
   get: (id) => apiClient.get(`/api/deals/${encodeURIComponent(id)}`),
-  timeline: (id) => apiClient.get(`/api/deals/${encodeURIComponent(id)}/timeline`),
+  // `params` (optional): { limit, before } for infinite scroll — the newest
+  // `limit` rows, or the `limit` before a cursor. The response then carries
+  // `hasMore` and `nextBefore`. No params = the whole timeline, as before.
+  timeline: (id, params) =>
+    apiClient.get(`/api/deals/${encodeURIComponent(id)}/timeline`, params ? { params } : undefined),
   // Send from the timeline composer. Goes to GHL; the message reaches the
   // timeline by webhook a moment later, filed on THIS deal (the server parks
   // the deal for that webhook). See POST /api/deals/:id/messages.

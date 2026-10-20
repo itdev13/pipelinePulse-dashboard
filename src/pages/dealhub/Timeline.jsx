@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import PanelHead from './PanelHead'
 import { RichBody, StateMessage, AttachmentCount, Truncate, formatDue } from '../shared/ListChrome'
 import AttachmentChip, { accentVar } from './AttachmentChip'
@@ -8,6 +8,8 @@ import EmailBody from './EmailBody'
 import EmailThreadCard from './EmailThreadCard'
 import MessageDealPill from './MessageDealPill'
 import { noteColourStyle } from '../../utils/noteColour'
+import { htmlToText } from '../../utils/sanitiseHtml'
+import { COMMENT_TITLE } from './MessageComposer'
 
 // One deal's merged message timeline.
 //
@@ -673,6 +675,57 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
   )
 }
 
+// An internal comment from the timeline composer. GHL has no API for its own
+// internal comments, so the composer saves one as a note titled "Internal
+// comment" — and here it is drawn as what the rep wrote it as: a line in the
+// conversation, laid out like a WhatsApp or SMS row (author, a quiet label,
+// the text, the time), not a NOTE card. The gold eye is GHL's own mark for
+// "visible only to your team".
+const isComment = (m) => m.kind === 'note' && String(m.title || '').trim() === COMMENT_TITLE
+
+// The comment's lines as typed. htmlToText is a one-line preview helper and
+// flattens every break, so each paragraph/line is converted on its own and
+// rejoined with newlines (the composer saves one <p> per line).
+const commentText = (html) => String(html || '')
+  .split(/<\/p>|<br\s*\/?>|<\/div>/i)
+  .map((part) => htmlToText(part))
+  .filter(Boolean)
+  .join('\n')
+
+function CommentRow({ m, highlighted, selected, onToggleSelect }) {
+  const text = commentText(m.body)
+  return (
+    <Row id={`tl-${m.id}`} highlighted={highlighted}>
+      <SelectBox
+        selected={selected}
+        onToggle={() => onToggleSelect && onToggleSelect(m)}
+        title={selected ? 'Selected — the agent reads this comment' : 'Not selected — the agent skips this comment'}
+      />
+      <RowIcon icon="visibility" colour={accentTextVar('gold')} soft={tintVar('gold')} title="Internal comment — visible only to your team" />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginBottom: 1 }}>
+          <Truncate style={{ fontSize: 'var(--text-lg)', fontWeight: 600, color: 'var(--text-heading)' }}>
+            {m.senderName && m.senderName !== 'Unknown' ? m.senderName : 'Team member'}
+          </Truncate>
+          <span style={{ fontSize: 'var(--text-base)', color: 'var(--text-muted)' }}>{COMMENT_TITLE}</span>
+        </div>
+        {text && (
+          <div style={{
+            fontSize: 'var(--text-lg)', lineHeight: 'var(--leading-normal)',
+            color: 'var(--text-body)', whiteSpace: 'pre-line', overflowWrap: 'anywhere'
+          }}>
+            {text}
+          </div>
+        )}
+      </div>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'start', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 'var(--text-base)', fontWeight: 500, color: 'var(--accent-gold-text)' }}>Team only</span>
+        <RowTime ts={m.ts} inline />
+      </span>
+    </Row>
+  )
+}
+
 function Badge({ children, tone, icon }) {
   return (
     <span
@@ -722,6 +775,12 @@ export default function Timeline({
   replyComposer = null,
   // Rendered at the foot of the card — the Deal Hub passes its composer.
   footer = null,
+  // Infinite scroll. `hasMore` says older rows exist on the server;
+  // `onLoadMore` fetches the next older page (the caller appends it to
+  // `messages`); `loadingMore` is true while it is in flight.
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore = null,
 }) {
   // The email whose thread has its reply box open — one at a time.
   const [replyTo, setReplyTo] = useState(null)
@@ -741,14 +800,91 @@ export default function Timeline({
   // The rows actually drawn: each multi-message email thread collapses to ONE
   // entry — its newest reply, which carries the card — and its other replies
   // are dropped from the stream (the card shows them). Everything else passes
-  // through, so the list stays newest-first with day headers intact.
+  // through, and the result is put oldest-first (see below).
   const rows = useMemo(() => {
     const newest = new Map()
     for (const [id, arr] of threads) {
       newest.set(id, arr.reduce((a, b) => (new Date(b.ts) > new Date(a.ts) ? b : a)))
     }
-    return messages.filter((m) => !(m.threadId && newest.has(m.threadId)) || newest.get(m.threadId) === m)
+    const kept = messages.filter((m) => !(m.threadId && newest.has(m.threadId)) || newest.get(m.threadId) === m)
+    // OLDEST FIRST, newest at the bottom — a conversation, as GHL and every
+    // chat reads, with the composer under the latest message. The server
+    // sends newest-first, so reverse, then a stable sort by time settles any
+    // row the merge left out of place. A thread sits at its NEWEST email, so
+    // a reply to an email higher up moves the whole thread to the bottom —
+    // the inbox behaviour.
+    const t = (m) => { const v = new Date(m.ts).getTime(); return Number.isNaN(v) ? 0 : v }
+    return kept.slice().reverse().sort((a, b) => t(a) - t(b))
   }, [messages, threads])
+
+  // Open at the BOTTOM, where the newest message now is — and stay there as
+  // the thread grows (a sent message arriving by webhook), unless the rep has
+  // scrolled up to read. Emails render in iframes that size themselves a
+  // moment after mount, so for 2s after the rows change, content growth keeps
+  // it pinned too; after that a card the rep expands is left where it is.
+  const scrollRef = useRef(null)
+  const contentRef = useRef(null)
+  const atBottom = useRef(true)
+  const pinUntil = useRef(0)
+  const pinBottom = () => {
+    const el = scrollRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }
+  useEffect(() => { atBottom.current = true }, [dealId])
+
+  // INFINITE SCROLL. A sentinel at the TOP of the list — the oldest end —
+  // asks for the next older page as it comes within 300px of view. The
+  // scroll height before the request is remembered, so when the older rows
+  // land above, the view is moved down by exactly what was added and the row
+  // the rep was reading stays put instead of jumping.
+  const sentinelRef = useRef(null)
+  const anchor = useRef(null)
+  const requestMore = () => {
+    if (!hasMore || loadingMore || !onLoadMore) return
+    const el = scrollRef.current
+    anchor.current = el ? { height: el.scrollHeight, top: el.scrollTop } : null
+    onLoadMore()
+  }
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (!anchor.current || !el) return
+    el.scrollTop = anchor.current.top + (el.scrollHeight - anchor.current.height)
+    anchor.current = null
+  }, [rows])
+
+  useLayoutEffect(() => {
+    if (!atBottom.current) return
+    pinUntil.current = Date.now() + 2000
+    pinBottom()
+  }, [rows])
+  // Re-attached when the list first appears (the box is not rendered while
+  // the timeline is empty).
+  const hasRows = rows.length > 0
+  useEffect(() => {
+    const content = contentRef.current
+    if (!content || typeof ResizeObserver === 'undefined') return undefined
+    const ro = new ResizeObserver(() => {
+      if (atBottom.current && Date.now() < pinUntil.current) pinBottom()
+    })
+    ro.observe(content)
+    return () => ro.disconnect()
+  }, [hasRows])
+
+  // Re-created whenever loading settles, so a sentinel STILL in view after a
+  // page lands (a short page, or a filter showing few rows) asks again — an
+  // observer only reports changes, and "still visible" is not one.
+  useEffect(() => {
+    const target = sentinelRef.current
+    const root = scrollRef.current
+    if (!target || !root || !hasMore || loadingMore || typeof IntersectionObserver === 'undefined') return undefined
+    const io = new IntersectionObserver(
+      (entries) => { if (entries.some((e) => e.isIntersecting)) requestMore() },
+      { root, rootMargin: '300px 0px 0px 0px' }
+    )
+    io.observe(target)
+    return () => io.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasRows, hasMore, loadingMore])
 
   // The attachment being previewed: { attachments, index } or null.
   //
@@ -908,7 +1044,27 @@ export default function Timeline({
           // top of this box.
           maxHeight: '80vh', overflowY: 'auto', overscrollBehavior: 'auto'
         }}
+        ref={scrollRef}
+        // "At the bottom" within a row's height — the pin follows the rep:
+        // scroll up to read and new rows stop yanking the view down.
+        onScroll={(e) => {
+          const el = e.currentTarget
+          atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+        }}
       >
+        {/* A plain wrapper, so the pin can watch the content's height. */}
+        <div ref={contentRef}>
+        {/* The oldest end: the infinite-scroll sentinel, and a quiet line
+            while the next older page is on its way. */}
+        <div ref={sentinelRef} aria-hidden="true" style={{ height: 1 }} />
+        {hasMore && loadingMore && (
+          <div style={{
+            padding: '10px 0', textAlign: 'center',
+            fontSize: 'var(--text-sm)', color: 'var(--text-muted)'
+          }}>
+            Loading earlier messages…
+          </div>
+        )}
         {/* `rows`, not `messages`: a multi-message email thread is one row
             here — its newest email — and the thread card draws the rest. */}
         {rows.map((m, i) => {
@@ -956,7 +1112,14 @@ export default function Timeline({
           return (
             <React.Fragment key={m.id}>
               {newDay && m.ts && <DayHeader iso={m.ts} />}
-              {m.kind === 'task' || m.kind === 'note' ? (
+              {isComment(m) ? (
+                <CommentRow
+                  m={m}
+                  highlighted={highlightedId === m.id}
+                  selected={m.included !== false}
+                  onToggleSelect={onToggleSelect}
+                />
+              ) : m.kind === 'task' || m.kind === 'note' ? (
                 <EntryRow
                   m={m}
                   highlighted={highlightedId === m.id}
@@ -987,6 +1150,7 @@ export default function Timeline({
             </React.Fragment>
           )
         })}
+        </div>
       </div>
       )}
 
