@@ -611,18 +611,26 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
             : `Not selected — the agent skips this ${isNote ? 'note' : 'task'}`
         }
       />
-      <RowIcon
-        icon={m.channelIcon}
-        colour={accentTextVar(m.channelAccent)}
-        soft={tintVar(m.channelAccent)}
-        tint={noteCol.tint}
-        title={
-          isComment ? 'Internal comment — seen by your team, never the customer'
-            : noteCol.name
-              ? `${noteCol.name} note`
-              : (isNote ? 'Note' : 'Task')
-        }
-      />
+      {isComment ? (
+        // The author's avatar with the eye badge, as GHL draws a comment —
+        // the same avatar an SMS or WhatsApp row uses, so a comment reads
+        // as something a person wrote, not a system square.
+        <SenderAvatar
+          name={m.senderName && m.senderName !== 'Unknown' ? m.senderName : ''}
+          inbound={false}
+          icon="visibility"
+          colour={accentTextVar('gold')}
+          title="Internal comment — seen by your team, never the customer"
+        />
+      ) : (
+        <RowIcon
+          icon={m.channelIcon}
+          colour={accentTextVar(m.channelAccent)}
+          soft={tintVar(m.channelAccent)}
+          tint={noteCol.tint}
+          title={noteCol.name ? `${noteCol.name} note` : (isNote ? 'Note' : 'Task')}
+        />
+      )}
 
       <div style={{ minWidth: 0 }}>
         <div
@@ -642,6 +650,11 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
           >
             {isComment ? 'Internal comment' : isNote ? 'Note' : 'Task'}
           </span>
+          {isComment && m.senderName && m.senderName !== 'Unknown' && (
+            <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+              {m.senderName}
+            </span>
+          )}
           {isNote && m.isAi && <Badge tone="sky" icon="auto_awesome">AI note</Badge>}
           {/* GHL omits attachments from note webhooks, so noteWriter fetches
               GET /notes/:id and the server counts them out of raw_note. */}
@@ -690,6 +703,11 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
           </div>
         )}
 
+        {/* No meta line on a comment: the author is on the label, the time is
+            in the right-hand column, and "added manually" plus the contact
+            chip are facts about a NOTE's filing that a comment does not
+            need — GHL shows a comment as avatar, bubble, time. */}
+        {!isComment && (
         <div
           style={{
             display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
@@ -741,6 +759,7 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
             </span>
           )}
         </div>
+        )}
       </div>
 
       <RowTime ts={m.ts} />

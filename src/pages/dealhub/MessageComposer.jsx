@@ -316,7 +316,9 @@ export default function MessageComposer({
         await notesAPI.create({
           contactId: person.id,
           title: COMMENT_TITLE,
-          body: textToHtml(text),
+          // Trimmed: a trailing newline became an empty <p><br></p>, and the
+          // bubble drew a blank line under every one-line comment.
+          body: textToHtml(text.trim()),
           opportunityId: dealId
         })
         setSent('Comment saved — visible only to your team')
