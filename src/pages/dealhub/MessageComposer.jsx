@@ -127,7 +127,12 @@ const asRecipient = (p) => ({ contactId: p.id, name: nameOf(p), email: String(p.
 // the reply has gone.
 export default function MessageComposer({
   dealId, people = [], primaryContactId = null, replyTarget = null, onSent,
-  inline = false, onClose = null
+  inline = false, onClose = null,
+  // The channel the conversation last ran on — { channel, providerId } from
+  // the newest message in the timeline. Preselected, never forced: the rep
+  // can still pick anything from the dropdown, but a thread on WhatsApp QR
+  // should not open a composer pointed at Email by default.
+  lastChannel = null
 }) {
   const { session } = useAuth()
   const rootRef = useRef(null)
@@ -209,7 +214,26 @@ export default function MessageComposer({
   }, [])
 
   const options = useMemo(() => channelOptions(channels || []), [channels])
-  const option = options.find((o) => o.key === channelKey) || options[0] || null
+  // Default = the thread's last channel, matched by sender when it was a
+  // custom one (WhatsApp QR, SMS Android) and by channel otherwise. Only
+  // while the rep has not chosen; a chosen key always wins. First option
+  // as the last resort, as before.
+  const defaultKey = useMemo(() => {
+    if (!lastChannel || !options.length) return null
+    const ch = String(lastChannel.channel || '').toUpperCase()
+    const name = ch === 'EMAIL' ? 'Email' : ch === 'WHATSAPP' ? 'WhatsApp' : ch === 'SMS' || ch === 'CUSTOM' ? 'SMS' : null
+    if (lastChannel.providerId) {
+      const byProvider = options.find((o) => o.providerId === lastChannel.providerId)
+      if (byProvider) return byProvider.key
+    }
+    if (!name) return null
+    if (name === 'Email') return options.some((o) => o.key === 'Email') ? 'Email' : null
+    const native = options.find((o) => o.channel === name && o.providerId === null)
+    if (native) return native.key
+    const any = options.find((o) => o.channel === name)
+    return any ? any.key : null
+  }, [lastChannel, options])
+  const option = options.find((o) => o.key === (channelKey || defaultKey)) || options[0] || null
   const channel = option?.channel || 'Email'
   const isEmail = channel === 'Email'
 
@@ -351,6 +375,45 @@ export default function MessageComposer({
     }
   }
 
+  // PASTE AND DROP go through the same attach() as the paperclip, on every
+  // message channel and never on a comment (a comment is text; the paste
+  // falls through to the textarea). A pasted screenshot arrives from the
+  // clipboard as "image.png" every time, and attach() matches the upload
+  // response back to the chip by name — so clipboard files get a unique
+  // name before they go, or two screenshots would both resolve to the
+  // first one's URL.
+  const clipboardFiles = (dt) => {
+    const out = []
+    for (const item of dt?.items || []) {
+      if (item.kind === 'file') { const f = item.getAsFile(); if (f) out.push(f) }
+    }
+    if (!out.length) out.push(...(dt?.files || []))
+    return out
+  }
+  const uniquelyNamed = (list) => list.map((f, i) => {
+    const generic = !f.name || /^(image|pasted)\.(png|jpe?g|gif|webp)$/i.test(f.name)
+    if (!generic) return f
+    const ext = (f.type.split('/')[1] || 'png').replace('jpeg', 'jpg')
+    return new File([f], `pasted-${Date.now()}-${i + 1}.${ext}`, { type: f.type })
+  })
+  const onPasteCapture = (e) => {
+    if (!attachable) return
+    const list = clipboardFiles(e.clipboardData)
+    if (!list.length) return
+    e.preventDefault()
+    attach(uniquelyNamed(list))
+  }
+  const onDragOver = (e) => {
+    if (attachable && [...(e.dataTransfer?.types || [])].includes('Files')) e.preventDefault()
+  }
+  const onDrop = (e) => {
+    if (!attachable) return
+    const list = [...(e.dataTransfer?.files || [])]
+    if (!list.length) return
+    e.preventDefault()
+    attach(uniquelyNamed(list))
+  }
+
   const send = async () => {
     if (!canSend) return
     setSending(true); setError(null); setSent(null)
@@ -454,7 +517,12 @@ export default function MessageComposer({
   )
   return (
     <div ref={rootRef} className={`pp-composer${comment ? ' pp-composer-comment' : ''}${large ? ' pp-composer-large' : ''}`}
-      onKeyDown={onKeyDown}>
+      onKeyDown={onKeyDown}
+      // Capture phase, so a pasted image is taken as an attachment before the
+      // rich editor sees the paste and discards it (it refuses base64 images).
+      onPasteCapture={onPasteCapture}
+      onDragOver={onDragOver}
+      onDrop={onDrop}>
       {/* Header: channel | Internal Comment, then minimise / enlarge.
           INLINE (a reply inside a thread card) there is nothing to switch:
           it is an email in that thread, so the header just says so and the

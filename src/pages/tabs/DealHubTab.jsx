@@ -211,6 +211,16 @@ export default function DealHubTab({
     window.setTimeout(refreshTimeline, 6000)
   }, [refreshTimeline])
   const [messages, setMessages] = useState(null)
+  // The channel the conversation last ran on: the newest real message —
+  // not a note, task, event or internal comment — with its sender, so the
+  // composer opens on WhatsApp QR when that is what the thread is on.
+  const lastChannel = useMemo(() => {
+    const m = (messages || []).find((x) =>
+      !x.event && x.kind !== 'note' && x.kind !== 'task'
+      && x.channel && !['INTERNAL', 'NOTE', 'TASK', 'ACTIVITY', 'SYSTEM'].includes(x.channel))
+    if (!m) return null
+    return { channel: m.channel, providerId: m.providerIsNative ? null : (m.providerId || null) }
+  }, [messages])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -1772,6 +1782,7 @@ export default function DealHubTab({
                     people={deal?.people || []}
                     primaryContactId={deal?.primaryContactId || null}
                     onSent={refreshAfterSend}
+                    lastChannel={lastChannel}
                   />
                 }
                 // Every deal on this contact, including won/lost — a manager

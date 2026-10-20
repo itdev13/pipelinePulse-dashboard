@@ -3273,11 +3273,14 @@
    anyone else is the heading colour, bold. */
 [data-dealhub] .pp-mention,
 .pp-portal .pp-mention {
-  font-weight: 600;
-  color: var(--text-heading);
+  /* Someone else: plain text, as GHL draws it — the @ is the marker. */
+  font-weight: inherit;
+  color: inherit;
   white-space: nowrap;
 }
 [data-dealhub] .pp-mention[data-me="1"],
 .pp-portal .pp-mention[data-me="1"] {
-  color: var(--text-link);
+  /* You: GHL's blue, and only the colour changes. */
+  color: var(--accent-sky-text);
+  font-weight: 600;
 }
