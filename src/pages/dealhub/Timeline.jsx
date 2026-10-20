@@ -681,10 +681,13 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
                 meta line sat far enough apart to read as four items. */}
             <RichBody
               html={m.body}
-              color="var(--text-body)"
+              color={isComment ? 'var(--text-heading)' : 'var(--text-body)'}
               size="var(--text-lg)"
               leading="var(--leading-snug)"
               maxWidth={720}
+              // A comment is a sentence or two in a bubble; a "Show plain
+              // text" link under it is a control for a document.
+              showPlainToggle={!isComment}
             />
           </div>
         )}
