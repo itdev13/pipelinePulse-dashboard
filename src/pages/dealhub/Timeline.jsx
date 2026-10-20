@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import PanelHead from './PanelHead'
-import { RichBody, StateMessage, AttachmentCount, Truncate, formatDue } from '../shared/ListChrome'
+import { RichBody, StateMessage, AttachmentCount, Truncate, formatDue, initialsFor } from '../shared/ListChrome'
 import AttachmentChip, { accentVar } from './AttachmentChip'
 import AttachmentViewer from './AttachmentViewer'
 import EmailThreadModal from './EmailThreadModal'
@@ -203,6 +203,33 @@ function Row({ id, children, highlighted, tone, dim }) {
 // `soft` is the kind's own tint (tintVar) — the design fills every square
 // with its channel's pastel. `tint` is still the note author's chosen colour
 // and wins when present.
+// The sender as GHL's own inbox draws it: initials in a circle, with a small
+// badge on the corner saying which channel carried the message — the custom
+// sender's logo (WhatsApp QR, iMessage) when there is one, the channel glyph
+// otherwise. Same shape as the thread card's email avatar (.pp-mail-avatar),
+// so an SMS row and an email row read as the same kind of thing. Inbound is
+// sky, outbound plum, matching the thread card.
+function SenderAvatar({ name, inbound, icon, colour, image, title }) {
+  const [broken, setBroken] = useState(false)
+  const showImage = image && !broken
+  return (
+    <span className="pp-mail-avatar" data-inbound={inbound ? '1' : '0'} title={title} style={{ width: 36, height: 36 }}>
+      {initialsFor(name || '?')}
+      <span
+        className="pp-mail-avatar-badge"
+        style={{ width: 18, height: 18, color: colour, overflow: 'hidden' }}
+      >
+        {showImage ? (
+          <img src={image} alt="" onError={() => setBroken(true)}
+            style={{ width: 14, height: 14, objectFit: 'contain', display: 'block' }} />
+        ) : (
+          <span className="ms" style={{ fontSize: 12 }}>{icon}</span>
+        )}
+      </span>
+    </span>
+  )
+}
+
 // `image` is a custom sender's own logo (conversation_providers.icon via the
 // timeline API). A message through WhatsApp QR or iMessage is typed SMS by
 // GHL, so the channel glyph alone drew a chat bubble over a WhatsApp
@@ -352,12 +379,13 @@ function MessageRow({
             : 'Not selected — the agent skips this message'
         }
       />
-      <RowIcon
+      <SenderAvatar
+        name={m.senderName}
+        inbound={inbound}
         icon={m.channelIcon}
         colour={accentTextVar(m.channelAccent)}
-        soft={tintVar(m.channelAccent)}
-        // A custom sender's logo in place of the channel glyph; native
-        // senders have none and keep the glyph.
+        // A custom sender's logo in the badge; native senders have none
+        // and show the channel glyph.
         image={m.providerIsNative ? null : m.providerIcon}
         title={channelLabelOf(m)}
       />
