@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import PanelHead from './PanelHead'
-import { RichBody, StateMessage, AttachmentCount, Truncate, formatDue, initialsFor } from '../shared/ListChrome'
+import { RichBody, StateMessage, AttachmentCount, formatDue, initialsFor } from '../shared/ListChrome'
 import MessageAttachments from './MessageAttachments'
 import AttachmentViewer from './AttachmentViewer'
 import EmailThreadModal from './EmailThreadModal'
@@ -349,23 +349,56 @@ function RowTime({ ts, inline = false }) {
 // A system event. Same grid, but muted and single-line — it's background, not
 // something anyone said.
 function EventRow({ m }) {
+  // GHL's activity log line: a centred pill with the entity's icon, the
+  // action in bold ("Opportunity james.co.uk created"), the context after
+  // it in plain text ("in James - Initial contact made"), and the date on
+  // the right. It was a left-aligned grey line with a cog, which read as a
+  // system log entry rather than as a moment in the deal's story. GHL's
+  // "Details" link is left out — there is nothing of ours for it to open.
   const label = m.eventLabel || m.channel || 'Event'
-  const body = m.body || ''
+  const body = (m.body || '').trim()
   const text = body
     ? (body.toLowerCase().startsWith(label.toLowerCase()) ? body : `${label} · ${body}`)
     : label
 
+  // "<what> <verb>" bold, the rest plain: GHL's own bodies are
+  // "Opportunity X created in Pipeline - Stage", "Contact X updated", …
+  const m2 = text.match(/^(.+?\b(?:created|updated|deleted|moved|changed|added|removed|completed|booked|cancelled|paid|sent|received|submitted|assigned|won|lost)\b)(.*)$/i)
+  const bold = m2 ? m2[1] : text
+  const rest = m2 ? m2[2] : ''
+
+  const icon = {
+    Opportunity: 'account_tree', Contact: 'person', Invoice: 'receipt_long',
+    Appointment: 'event', Payment: 'payments', Form: 'description', Task: 'check_circle'
+  }[label] || m.channelIcon || 'info'
+
+  const d = m.ts ? new Date(m.ts) : null
+  const when = d && !Number.isNaN(d.getTime())
+    ? `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`
+    : ''
+
   return (
-    // Not dimmed. It is set in the muted colour, which is quiet enough;
-    // fading the whole row on top made system events look disabled.
     <Row id={`tl-${m.id}`}>
-      <span />
-      <RowIcon icon={m.channelIcon || 'info'} colour="var(--text-body)" title="Event" />
-      <Truncate style={{ marginTop: 7,
-          fontSize: 'var(--text-lg)', color: 'var(--text-muted)' }}>
-        {text}
-      </Truncate>
-      <RowTime ts={m.ts} />
+      <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'center', minWidth: 0 }}>
+        <div
+          title={text}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 10, maxWidth: '100%',
+            padding: '9px 16px', borderRadius: 999,
+            border: '1px solid var(--border-default)', background: 'var(--surface-card)',
+            fontSize: 'var(--text-md)', color: 'var(--text-body)', lineHeight: 1.3
+          }}
+        >
+          <span className="ms" style={{ fontSize: 18, flex: 'none', color: 'var(--text-heading)' }}>{icon}</span>
+          <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <strong style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{bold}</strong>
+            {rest}
+          </span>
+          {when && (
+            <span style={{ flex: 'none', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>{when}</span>
+          )}
+        </div>
+      </div>
     </Row>
   )
 }
