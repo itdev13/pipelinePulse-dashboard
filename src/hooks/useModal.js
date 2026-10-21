@@ -22,12 +22,21 @@ export function useModal({ active = true } = {}) {
   // ── Scroll lock ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!active) return
-    const el = document.body
+    // The ROOT element, not <body>. The page's scroll container is <html>
+    // (index.css: `html { overflow-y: scroll }`) and <body> is sized
+    // `height: 100%`. Hiding overflow on <body> therefore collapsed the
+    // document to one screen's height, the scroll position had nowhere to
+    // be, and the page snapped to the top the moment any dialog opened —
+    // an image, a full-screen thread, the reply box. Locking <html> keeps
+    // the position; it is also restored explicitly below in case a browser
+    // drops it anyway.
+    const el = document.documentElement
     const before = el.style.overflow;
+    const scrollY = window.scrollY;
 
     // Compensating for the scrollbar's width prevents the page behind from
     // jumping sideways as it disappears — the tell of a cheap modal.
-    const gap = window.innerWidth - document.documentElement.clientWidth;
+    const gap = window.innerWidth - el.clientWidth;
     const beforePad = el.style.paddingRight;
     el.style.overflow = 'hidden';
     if (gap > 0) el.style.paddingRight = `${gap}px`;
@@ -38,6 +47,7 @@ export function useModal({ active = true } = {}) {
       // the value would unlock the page while that one is still up.
       el.style.overflow = before;
       el.style.paddingRight = beforePad;
+      if (window.scrollY !== scrollY) window.scrollTo(0, scrollY);
     };
   }, [active]);
 
