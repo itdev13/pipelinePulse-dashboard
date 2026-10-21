@@ -151,6 +151,9 @@ export default function MessageComposer({
   // mounts a beat after the state change. Only once the rep has engaged
   // with it: a composer must not drag the page around on first render.
   const [engaged, setEngaged] = useState(false)
+  // Re-attached whenever `expanded` flips: the collapsed bar and the open
+  // composer are DIFFERENT root elements, so an observer bound to the bar
+  // would be watching a node that is no longer on the page.
   useEffect(() => {
     const el = rootRef.current
     if (!el || !engaged || typeof ResizeObserver === 'undefined') return undefined
@@ -162,7 +165,17 @@ export default function MessageComposer({
     })
     ro.observe(el)
     return () => ro.disconnect()
-  }, [engaged])
+  }, [engaged, expanded])
+  // Opening from the bar: bring the freshly mounted composer into view at
+  // once, and again shortly after for the lazily loaded email editor, which
+  // adds its height a moment later.
+  useEffect(() => {
+    if (!expanded || !engaged) return undefined
+    const into = () => rootRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    const a = requestAnimationFrame(into)
+    const b = window.setTimeout(into, 350)
+    return () => { cancelAnimationFrame(a); window.clearTimeout(b) }
+  }, [expanded, engaged])
   const [contactId, setContactId] = useState(primaryContactId)
   const [fromId, setFromId] = useState(null)
   // Email addresses, as GHL's composer has them: To, CC and BCC are chip
@@ -504,11 +517,11 @@ export default function MessageComposer({
     return (
       <div ref={rootRef} className="pp-composer pp-composer-collapsed">
         <button type="button" className="pp-composer-chan" title={`Send by ${option?.label || 'Email'}`}
-          onClick={() => setExpanded(true)}>
+          onClick={() => { setEngaged(true); setExpanded(true) }}>
           <ChannelIcon kind={option?.kind || 'email'} />
           <span className="ms pp-composer-caret">expand_more</span>
         </button>
-        <button type="button" className="pp-composer-placeholder" onClick={() => setExpanded(true)}>
+        <button type="button" className="pp-composer-placeholder" onClick={() => { setEngaged(true); setExpanded(true) }}>
           Type a message
         </button>
         <button type="button" className="pp-composer-send" disabled title="Write a message first">
