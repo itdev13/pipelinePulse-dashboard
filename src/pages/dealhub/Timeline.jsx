@@ -187,8 +187,11 @@ function Row({ id, children, highlighted, tone, dim }) {
         gridTemplateColumns: ROW_GRID,
         gap: 'var(--space-3)',
         alignItems: 'start',
-        padding: '16px',
-        borderBottom: '1px solid var(--border-default)',
+        // A chat, not a table: no rule between messages (GHL draws none —
+        // the bubbles and the day markers are the structure), and less
+        // vertical padding so an exchange reads as one conversation rather
+        // than a list of boxed entries.
+        padding: '8px 16px',
         // Every row on white. `tone="internal"` used to put notes and tasks
         // on gray-25 so an internal record read apart from the customer's
         // words; the design keeps one ground and lets the kind label and the
