@@ -499,7 +499,10 @@ function MessageRow({
     <Row id={`tl-${m.id}`} highlighted={highlighted}>
       <div style={{
         gridColumn: '1 / -1', minWidth: 0,
-        display: 'flex', alignItems: 'flex-start', gap: 10,
+        // The same 12px the row grid uses between its columns, so an inbound
+        // bubble's left edge (tick, gap, avatar, gap) lands exactly where a
+        // note's, a task's or an email card's content column starts.
+        display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)',
         justifyContent: inbound ? 'flex-start' : 'flex-end'
       }}>
         {inbound && tick}
@@ -616,7 +619,7 @@ function EntryRow({ m, highlighted, selected, onToggleSelect }) {
     const author = m.senderName && m.senderName !== 'Unknown' ? m.senderName : ''
     return (
       <Row id={`tl-${m.id}`} highlighted={highlighted} tone="internal">
-        <div style={{ gridColumn: '1 / -1', minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 10, justifyContent: 'flex-end' }}>
+        <div style={{ gridColumn: '1 / -1', minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)', justifyContent: 'flex-end' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: 0, maxWidth: 'min(72%, 760px)' }}>
             {m.body && (
               <div style={{
