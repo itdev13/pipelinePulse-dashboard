@@ -1246,12 +1246,28 @@ export default function Timeline({
           if (m.channel === 'EMAIL') {
             const found = m.threadId ? threads.get(m.threadId) : null
             const thread = found && found.length ? found : [m]
-            const ids = new Set(thread.filter((t) => t.included !== false).map((t) => t.id))
             return (
               <React.Fragment key={`thread-${m.threadId || m.id}`}>
                 {newDay && m.ts && <DayHeader iso={m.ts} />}
                 <Row id={`tl-${m.id}`} highlighted={thread.some((t) => t.id === highlightedId)}>
-                  <span />
+                  {/* ONE tick for the whole thread, in the row's tick column
+                      where a note's or a task's is — not one per email inside
+                      the card. Ticking it includes or excludes every email in
+                      the thread together. */}
+                  {onToggleSelect ? (
+                    <SelectBox
+                      selected={thread.every((t) => t.included !== false)}
+                      onToggle={() => {
+                        const allOn = thread.every((t) => t.included !== false)
+                        for (const t of thread) {
+                          if (allOn ? t.included !== false : t.included === false) onToggleSelect(t)
+                        }
+                      }}
+                      title={thread.every((t) => t.included !== false)
+                        ? 'Selected — the agent reads this email thread'
+                        : 'Not selected — the agent skips this email thread'}
+                    />
+                  ) : <span />}
                   <RowIcon icon="mail" colour={accentTextVar('sky')} soft={tintVar('sky')} title={thread.length > 1 ? 'Email thread' : 'Email'} />
                   <div style={{ minWidth: 0 }}>
                     <EmailThreadCard
@@ -1264,8 +1280,9 @@ export default function Timeline({
                       inlineComposer={replyComposer && replyTo && thread.some((t) => t.id === replyTo.id)
                         ? replyComposer(replyTo, () => setReplyTo(null))
                         : null}
-                      selectedIds={onToggleSelect ? ids : null}
-                      onToggleSelect={onToggleSelect}
+                      // No per-email ticks: the row's tick covers the thread.
+                      selectedIds={null}
+                      onToggleSelect={null}
                     />
                   </div>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'start', whiteSpace: 'nowrap' }}>

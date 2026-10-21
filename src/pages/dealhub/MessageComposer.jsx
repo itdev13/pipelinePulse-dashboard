@@ -142,6 +142,14 @@ export default function MessageComposer({
   const [channels, setChannels] = useState(null)
   const [channelKey, setChannelKey] = useState(null)
   const [menu, setMenu] = useState(null)               // 'channel' | 'to' | 'from' | null
+  // When the box changes height — enlarged, or switched to the email editor —
+  // keep all of it on screen; see onFocusCapture on the root for why.
+  const [grewAt, setGrewAt] = useState(0)
+  useEffect(() => {
+    if (!grewAt) return undefined
+    const t = window.setTimeout(() => rootRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 60)
+    return () => window.clearTimeout(t)
+  }, [grewAt])
   const [contactId, setContactId] = useState(primaryContactId)
   const [fromId, setFromId] = useState(null)
   // Email addresses, as GHL's composer has them: To, CC and BCC are chip
@@ -234,6 +242,7 @@ export default function MessageComposer({
     return any ? any.key : null
   }, [lastChannel, options])
   const option = options.find((o) => o.key === (channelKey || defaultKey)) || options[0] || null
+  useEffect(() => { if (channelKey) setGrewAt(Date.now()) }, [channelKey])
   const channel = option?.channel || 'Email'
   const isEmail = channel === 'Email'
 
@@ -518,6 +527,15 @@ export default function MessageComposer({
   return (
     <div ref={rootRef} className={`pp-composer${comment ? ' pp-composer-comment' : ''}${large ? ' pp-composer-large' : ''}`}
       onKeyDown={onKeyDown}
+      // Clicking into the composer brings the WHOLE of it on screen. It sits
+      // at the foot of the timeline card, so the bottom edge — the send
+      // button and the attachment row — was often just below the fold, and
+      // a rep typed into a box they could only half see. `nearest` scrolls
+      // the least distance that makes it fully visible, and nothing at all
+      // when it already is.
+      onFocusCapture={() => {
+        requestAnimationFrame(() => rootRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
+      }}
       // Capture phase, so a pasted image is taken as an attachment before the
       // rich editor sees the paste and discards it (it refuses base64 images).
       onPasteCapture={onPasteCapture}
@@ -570,7 +588,7 @@ export default function MessageComposer({
           onClick={() => (onClose ? onClose() : setExpanded(false))}>
           <span className="ms">{onClose ? 'close' : 'remove'}</span>
         </button>
-        <button type="button" className="pp-composer-icon" title={large ? 'Smaller' : 'Larger'} onClick={() => setLarge((v) => !v)}>
+        <button type="button" className="pp-composer-icon" title={large ? 'Smaller' : 'Larger'} onClick={() => { setLarge((v) => !v); setGrewAt(Date.now()) }}>
           <span className="ms">{large ? 'close_fullscreen' : 'open_in_full'}</span>
         </button>
       </div>
